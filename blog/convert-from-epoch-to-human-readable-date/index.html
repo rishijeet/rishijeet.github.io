@@ -9,13 +9,13 @@
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <title>PyCon India 2014 - Rishijeet Mishra</title>
+        <title>Convert from epoch to human readable date - Rishijeet Mishra</title>
         <meta name="author" content="Rishijeet Mishra">
         
-        <meta name="description" content="Thought of sharing something with the world">
+        <meta name="description" content="Rishijeet Mishra blog on photography, technology, travel and life">
         
         <meta name="viewport" content="width=device-width">
-        <link rel="canonical" href="http://rishijeet.github.io/blog/2014/09/15/pycon-india-2014">
+        <link rel="canonical" href="https://rishijeet.github.io/blog/convert-from-epoch-to-human-readable-date">
 
         <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
         <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
@@ -70,7 +70,7 @@
 <article class="article article--single">
     <header class="article__header">
     
-        <h1 class="article__title">PyCon India 2014</h1>
+        <h1 class="article__title">Convert from epoch to human readable date</h1>
     
 
     
@@ -82,7 +82,7 @@
 
 
 
-    <time class="article__date pull-left" datetime="2014-09-15T21:57:01+05:30" pubdate><i class="fa fa-calendar"></i> Sep 15th, 2014</time>
+    <time class="article__date pull-left" datetime="2014-09-12T23:50:56+05:30" pubdate><i class="fa fa-calendar"></i> Sep 12th, 2014</time>
 
 
 
@@ -97,8 +97,6 @@
             
                 <li><a class='category' href='/blog/categories/python/'>python</a></li>
             
-                <li><a class='category' href='/blog/categories/pycon/'>pycon</a></li>
-            
         
         </ul>
     </div>
@@ -112,21 +110,39 @@
 
 
 
-    <p><img src="/images/pycon.png" height="100" width="100" alt="Alt text" /> Yes, PyCon India 2014 is happening in Bangalore. <a href="http://in.pycon.org/2014/schedule.html#schedule_conference">Interesting topics</a> are on there for you on day 2.
-Workshops are also been conducted as a part of day 1 program. I have attended the one in year 2012 and some of the topics were really good to know and worth attending.
-The topics which focus on large data processing, performance, high scalable application in python, complex data structure would be worth to attend.</p>
+    <p>I was stuck with an issue of converting the epoch time to human readable format, in my case
+the epoch time was in milli sec, and I was getting all sort of <code>python ValueError: (22, 'Invalid argument')</code></p>
 
 <!-- more -->
 
 
-<p>So as I see the topics on the PyCon India Website, if not changed, my favorite topic would be,<br/>
-<a href="http://in.pycon.org/funnel/2014/108-python-spark-lightning-fast-cluster-computing">Python + Spark: Lightning Fast Cluster Computing</a><br/>
-<a href="http://in.pycon.org/funnel/2014/227-django-design-patterns">Django Design Patterns</a><br/>
-<a href="http://in.pycon.org/funnel/2014/150-new-scientific-plotting-in-python">New Scientific Plotting in Python</a><br/>
-<a href="http://in.pycon.org/funnel/2014/165-faster-data-processing-in-python">Faster data processing in Python</a></p>
+<p>The fix was simple, to convert the epoch in milli sec to exact <code>date +%s</code> format
+by slicing <code>[:3]</code></p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">time</span>
+</span><span class='line'><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%a, </span><span class="si">%d</span><span class="s"> %b %Y %H:%M:%S +0000&quot;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">localtime</span><span class="p">(</span><span class="n">epoch</span><span class="p">))</span>
+</span><span class='line'>
+</span><span class='line'><span class="c">#Replace time.localtime with time.gmtime for GMT time.</span>
+</span><span class='line'>
+</span></code></pre></td></tr></table></div></figure>
 
 
 
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+  (adsbygoogle = window.adsbygoogle || []).push({
+    google_ad_client: "ca-pub-3700945090248779",
+    enable_page_level_ads: true
+  });
+</script>
 </article>
 
 
@@ -178,8 +194,8 @@ The topics which focus on large data processing, performance, high scalable appl
     
         
         // var disqus_developer = 1;
-        var disqus_identifier = 'http://rishijeet.github.io/blog/2014/09/15/pycon-india-2014/';
-        var disqus_url = 'http://rishijeet.github.io/blog/2014/09/15/pycon-india-2014/';
+        var disqus_identifier = 'https://rishijeet.github.io/blog/convert-from-epoch-to-human-readable-date/';
+        var disqus_url = 'https://rishijeet.github.io/blog/convert-from-epoch-to-human-readable-date/';
         var disqus_script = 'embed.js';
     
     (function () {
