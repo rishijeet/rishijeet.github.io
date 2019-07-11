@@ -1,0 +1,452 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Memory Management in Python - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Thought of sharing something with the world">
+        
+        <meta name="viewport" content="width=device-width">
+        <link rel="canonical" href="http://rishijeet.github.io/blog/2015/04/22/memory-management-in-python">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.png" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/geekworks/">Geekworks</a></li>
+    <li><a href="/lenswork/">Lenswork</a></li>
+    <li><a href="/link/">Links</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Memory Management in Python</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2015-04-22T09:54:01+05:30" pubdate><i class="fa fa-calendar"></i> Apr 22nd, 2015</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/python/'>python</a></li>
+            
+                <li><a class='category' href='/blog/categories/memory/'>memory</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <p>I came across the interesting write up somewhere on website on memory management in Python. Here are some data facts
+which I liked,</p>
+
+<p>Python allocates memory transparently, manages objects using a reference count system, and frees memory when an object’s reference count falls to zero. In theory, it’s swell. In practice, you need to know a few things about Python memory management to get a memory-efficient program running. One of the things you should know, or at least get a good feel about, is the sizes of basic Python objects. Another thing is how Python manages its memory internally.</p>
+
+<p>So let us begin with the size of basic objects. In Python, there’s not a lot of primitive data types: there are ints, longs (an unlimited precision version of ints), floats (which are doubles), tuples, strings, lists, dictionaries, and classes.</p>
+
+<!-- more -->
+
+
+<p>What is the size of int? A programmer with a C or C++ background will probably guess that the size of a machine-specific int is something like 32 bits, maybe 64; and that therefore it occupies at most 8 bytes. But is that so in Python?</p>
+
+<p>Let us first write a function that shows the sizes of objects (recursively if necessary):</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">sys</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">show_sizeof</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">print</span> <span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span> <span class="o">*</span> <span class="n">level</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">__class__</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">x</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;__iter__&#39;</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;items&#39;</span><span class="p">):</span>
+</span><span class='line'>            <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span class='line'>                <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="p">:</span>
+</span><span class='line'>                <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We can now use the function to inspect the sizes of the different basic data types:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">102947298469128649161972364837164</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="c">#If you have a 32-bit 2.7x Python, you’ll see:</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">8</span> <span class="bp">None</span>
+</span><span class='line'><span class="mi">12</span> <span class="mi">3</span>
+</span><span class='line'><span class="mi">22</span> <span class="mi">9223372036854775808</span>
+</span><span class='line'><span class="mi">28</span> <span class="mi">102947298469128649161972364837164</span>
+</span><span class='line'><span class="mi">48</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="c">#and if you have a 64-bit 2.7x Python, you’ll see:</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">16</span> <span class="bp">None</span>
+</span><span class='line'><span class="mi">24</span> <span class="mi">3</span>
+</span><span class='line'><span class="mi">36</span> <span class="mi">9223372036854775808</span>
+</span><span class='line'><span class="mi">40</span> <span class="mi">102947298469128649161972364837164</span>
+</span><span class='line'><span class="mi">60</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let us focus on the 64-bit version (mainly because that’s what we need the most often in our case). None takes 16 bytes. int takes 24 bytes, three times as much memory as a C int64_t, despite being some kind of “machine-friendly” integer. Long integers (unbounded precision), used to represent integers larger than 263-1, have a minimum size of 36 bytes. Then it grows linearly in the logarithm of the integer represented.</p>
+
+<p>Python’s floats are implementation-specific but seem to be C doubles. However, they do not eat up only 8 bytes:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mf">3.14159265358979323846264338327950288</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Output</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">16</span> <span class="mf">3.14159265359</span>
+</span><span class='line'>
+</span><span class='line'><span class="c">#on a 32-bit platform and</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">24</span> <span class="mf">3.14159265359</span>
+</span><span class='line'><span class="c">#on a 64-bit platform.</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That’s again, three times the size a C programmer would expect. Now, what about strings?</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="s">&quot;My hovercraft is full of eels&quot;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>outputs, on a 32 bit platform:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">21</span>
+</span><span class='line'><span class="mi">50</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>and</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">37</span>
+</span><span class='line'><span class="mi">66</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>An empty string costs 37 bytes in a 64-bit environment! Memory used by string then linearly grows in the length of the (useful) string.</p>
+
+<p>Other structures commonly used, tuples, lists, and dictionaries are worthwhile to examine. Lists (which are implemented as array lists, not as linked lists, with everything it entails) are arrays of references to Python objects, allowing them to be heterogeneous. Let us look at our sizes:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">([])</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="s">&quot;toaster&quot;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">])</span>
+</span><span class='line'><span class="c">#outputs</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">32</span> <span class="p">[]</span>
+</span><span class='line'><span class="mi">44</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="s">&#39;toaster&#39;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">]</span>
+</span><span class='line'><span class="c">#on a 32-bit platform and</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">72</span> <span class="p">[]</span>
+</span><span class='line'><span class="mi">96</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="s">&#39;toaster&#39;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">]</span>
+</span><span class='line'><span class="c">#on a 64-bit platform. </span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>An empty list eats up 72 bytes. The size of an empty, 64-bit C++ std::list() is only 16 bytes,
+ 4-5 times less. What about tuples? (and dictionaries?):</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">({})</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">({</span><span class="s">&#39;a&#39;</span><span class="p">:</span><span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span><span class="mi">2131</span><span class="p">})</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>outputs, on a 32-bit box</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">136</span> <span class="p">{}</span>
+</span><span class='line'> <span class="mi">136</span> <span class="p">{</span><span class="s">&#39;a&#39;</span><span class="p">:</span> <span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2131</span><span class="p">}</span>
+</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">,</span> <span class="mi">213</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">22</span> <span class="n">a</span>
+</span><span class='line'>                <span class="mi">12</span> <span class="mi">213</span>
+</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2131</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">22</span> <span class="n">b</span>
+</span><span class='line'>                <span class="mi">12</span> <span class="mi">2131</span>
+</span><span class='line'><span class="ow">and</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">280</span> <span class="p">{}</span>
+</span><span class='line'> <span class="mi">280</span> <span class="p">{</span><span class="s">&#39;a&#39;</span><span class="p">:</span> <span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2131</span><span class="p">}</span>
+</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">,</span> <span class="mi">213</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">38</span> <span class="n">a</span>
+</span><span class='line'>                <span class="mi">24</span> <span class="mi">213</span>
+</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2131</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">38</span> <span class="n">b</span>
+</span><span class='line'>                <span class="mi">24</span> <span class="mi">2131</span>
+</span><span class='line'>
+</span><span class='line'>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>for a 64-bit box.</p>
+
+<p>This last example is particularly interesting because it “doesn’t add up.” If we look at individual key/value pairs, they take 72 bytes (while their components take 38+24=62 bytes, leaving 10 bytes for the pair itself), but the dictionary takes 280 bytes (rather than a strict minimum of 144=72×2 bytes). The dictionary is supposed to be an efficient data structure for search and the two likely implementations will use more space that strictly necessary. If it’s some kind of tree, then we should pay the cost of internal nodes that contain a key and two pointers to children nodes; if it’s a hash table, then we must have some room with free entries to ensure good performance.</p>
+
+<p>The (somewhat) equivalent <code>std::map</code> C++ structure takes 48 bytes when created (that is,
+empty). An empty C++ string takes 8 bytes (then allocated size grows linearly the size of the string). An integer takes 4 bytes (32 bits).</p>
+
+<p>Why does all this matter? It seems that whether an empty string takes 8 bytes or 37 doesn’t change anything much
+. That’s true. That’s true until you need to scale. Then, you need to be really careful about how many objects you
+create to limit the quantity of memory your program uses. It is a problem in real-life applications. However, to devise a really good strategy about memory management, we must not only consider the sizes of objects, but how many and in which order they are created. It turns out to be very important for Python programs. One key element to understand is how Python allocates its memory internally, which we will discuss next.</p>
+
+
+
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2019 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+<script src="/javascripts/md5.js"></script>
+<script defer src="/javascripts/octopress.js"></script>
+
+
+
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://rishijeet.github.io/blog/2015/04/22/memory-management-in-python/';
+        var disqus_url = 'http://rishijeet.github.io/blog/2015/04/22/memory-management-in-python/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script> 
+    </body>
+
+</html>

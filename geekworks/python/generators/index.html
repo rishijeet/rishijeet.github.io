@@ -1,0 +1,908 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>generators - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Thought of sharing something with the world">
+        
+        <meta name="viewport" content="width=device-width">
+        <link rel="canonical" href="http://rishijeet.github.io/geekworks/python/generators">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.png" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/geekworks/">Geekworks</a></li>
+    <li><a href="/lenswork/">Lenswork</a></li>
+    <li><a href="/link/">Links</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-sm-10 col-md-10 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet">
+<article class="page">
+
+    
+    <header>
+        <h1 class="page__title">
+            Generators
+        </h1>
+    </header>
+    <hr class="divider">
+    
+
+    <p>In computer science, a generator is a special routine that can be used to control the iteration behavior of a loop.</p>
+
+<p>A generator is very similar to a function that returns an array, in that a generator has parameters, can be called, and generates a sequence of values. However, instead of building an array containing all the values and returning them all at once, a generator yields the values one at a time, which requires less memory and allows the caller to get started processing the first few values immediately. In short, a generator looks like a function but behaves like an iterator.</p>
+
+<p>Python provides tools that produce results only when needed:</p>
+
+<p>Generator functions
+They are coded as normal def but use yield to return results one at a time, suspending and resuming.
+Generator expressions
+These are similar to the list comprehensions. But they return an object that produces results on demand instead of building a result list.
+Because neither of them constructs a result list all at once, they save memory space and allow computation time to be split by implementing the iteration protocol.</p>
+
+<h2 class="h3 title--indent">GENERATOR FUNCTIONS: YIELD VS. RETURN</h2>
+
+
+<p>We can write functions that send back a value and later be resumed by picking up where they left off. Such functions are called generator functions because they generate a sequence of values over time.</p>
+
+<p>Generator functions are not much different from normal functions and they use defs. When created, however, they are automatically made to implement the iteration protocol so that they can appear in iteration contexts.</p>
+
+<p>Normal functions return a value and then exit. But generator functions automatically suspend and resume their execution. Because of that, they are often a useful alternative to both computing an entire series of values up front and manually saving and restoring state in classes. Because the state that generator functions retain when they are suspended includes their local scope, their local variables retain information and make it available when the functions are resumed.</p>
+
+<p>The primary difference between generator and normal functions is that a generator yields a value, rather than returns a value. The yield suspends the function and sends a value back to the caller while retains enough state to enable the function immediately after the last yield run. This allows the generator function to produce a series of values over time rather than computing them all at once and sending them back in a list.</p>
+
+<p>Generators are closely bound up with the iteration protocol. Iterable objects define a <strong>next</strong>() method which either returns the next item in the iterator or raises the special StopIteration exception to end the iteration. An object&rsquo;s iterator is fetched with the iter built-in function.</p>
+
+<p>The for loops use this iteration protocol to step through a sequence or value generator if the protocol is suspended. Otherwise, iteration falls back on repeatedly indexing sequences.</p>
+
+<p>To support this protocol, functions with yield statement are compiled specially as generators. They return a generator object when they are called. The returned object supports the iteration interface with an automatically created <strong>next</strong>() method to resume execution. Generator functions may have a return simply terminates the generation of values by raising a StopIteration exceptions after any normal function exit.</p>
+
+<p>The net effect is that generator functions, coded as def statements containing yield statement, are automatically made to support the iteration protocol and thus may be used any iteration context to produce results over time and on demand.</p>
+
+<p>Let&rsquo;s look at the interactive example below:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">create_counter</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="s">&#39;create_counter()&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+</span><span class='line'>      <span class="k">yield</span> <span class="n">n</span>
+</span><span class='line'>      <span class="k">print</span><span class="p">(</span><span class="s">&#39;increment n&#39;</span><span class="p">)</span>
+</span><span class='line'>      <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">c</span> <span class="o">=</span> <span class="n">create_counter</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">c</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">generator</span> <span class="nb">object</span> <span class="n">create_counter</span> <span class="n">at</span> <span class="mh">0x03004B48</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</span><span class='line'><span class="n">create_counter</span><span class="p">()</span>
+</span><span class='line'><span class="mi">2</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</span><span class='line'><span class="n">increment</span> <span class="n">n</span>
+</span><span class='line'><span class="mi">3</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</span><span class='line'><span class="n">increment</span> <span class="n">n</span>
+</span><span class='line'><span class="mi">4</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Here are the things happening in the code:</p>
+
+<p>The presence of the yield keyword in create_counter() means that this is not a normal function. It is a special kind of function which generates values one at a time. We can think of it as a resumable function. Calling it will return a generator that can be used to generate successive values of n.
+To create an instance of the create_counter() generator, just call it like any other function. Note that this does not actually execute the function code. We can tell this because the first line of the create_counter() function calls print(), but nothing was printed from the line:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">c</span> <span class="o">=</span> <span class="n">create_counter</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The create_counter() function returns a generator object.
+The next() function takes a generator object and returns its next value. The first time we call next() with the counter generator, it executes the code in create_counter() up to the first yield statement, then returns the value that was yielded. In this case, that will be 2, because we originally created the generator by calling create_counter(2).
+Repeatedly calling next() with the same generator object resumes exactly where it left off and continues until it hits the next yield statement. All variables, local state, &amp;c. are saved on yield and restored on next(). The next line of code waiting to be executed calls print(), which prints increment n. After that, the statement n += 1. Then it loops through the while loop again, and the first thing it hits is the statement yield n, which saves the state of everything and returns the current value of n (now 3).
+The second time we call next&copy;, we do all the same things again, but this time n is now 4.
+Since create_counter() sets up an infinite loop, we could theoretically do this forever, and it would just keep incrementing n and spitting out values.</p>
+
+<p>The generator function in the following example generated the cubics of numbers over time:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">cubic_generator</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span class='line'>      <span class="k">yield</span> <span class="n">i</span> <span class="o">**</span> <span class="mi">3</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The function yields a value and so returns to its caller each time through the loop. When it is resumed, its prior state is restored and control picks up again after the yield statement. When it&rsquo;s used in a for loop, control returns to the function after its yield statement each time through the loop:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">cubic_generator</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="n">i</span><span class="p">,</span>  <span class="n">end</span><span class="o">=</span><span class="s">&#39; : &#39;</span><span class="p">)</span>  <span class="c"># Python 3.0</span>
+</span><span class='line'>        <span class="c">#print i,             # Python 2.x</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">0</span> <span class="p">:</span> <span class="mi">1</span> <span class="p">:</span> <span class="mi">8</span> <span class="p">:</span> <span class="mi">27</span> <span class="p">:</span> <span class="mi">64</span> <span class="p">:</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we use return instead of yield, the result is:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">cubic_generator</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span class='line'>      <span class="k">return</span> <span class="n">i</span> <span class="o">**</span> <span class="mi">3</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">cubic_generator</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="n">i</span><span class="p">,</span>  <span class="n">end</span><span class="o">=</span><span class="s">&#39; : &#39;</span><span class="p">)</span>  <span class="c">#Python 3.0</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+</span><span class='line'>  <span class="n">File</span> <span class="s">&quot;&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1</span><span class="p">,</span> <span class="ow">in</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">cubic_generator</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+</span><span class='line'><span class="ne">TypeError</span><span class="p">:</span> <span class="s">&#39;int&#39;</span> <span class="nb">object</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">iterable</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Here is an example of using generator and yield.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># Fibonacci version 1</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">fibonacci</span><span class="p">():</span>
+</span><span class='line'>  <span class="n">Limit</span> <span class="o">=</span> <span class="mi">10</span>
+</span><span class='line'>  <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span class='line'>  <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span>
+</span><span class='line'>  <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+</span><span class='line'>      <span class="k">yield</span> <span class="n">a</span>
+</span><span class='line'>      <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="o">+</span><span class="n">b</span>
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="n">Limit</span><span class="p">):</span>
+</span><span class='line'>          <span class="k">break</span>
+</span><span class='line'>      <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">fibonacci</span><span class="p">():</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s">&#39; &#39;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">0</span> <span class="mi">1</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">5</span> <span class="mi">8</span> <span class="mi">13</span> <span class="mi">21</span> <span class="mi">34</span> <span class="mi">55</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Because generators preserve their local state between invocations, they&rsquo;re particularly well-suited for complicated, stateful iterators, such as fibonacci numbers. The generator returning the Fibonacci numbers using Python&rsquo;s yield statement can be seen below.</p>
+
+<p>Here is another version of Fibonacci:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># Fibonacci version 2</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">fibonacci</span><span class="p">(</span><span class="nb">max</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span>            <span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">while</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="nb">max</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">yield</span> <span class="n">a</span>            <span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>    <span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Simple summary for this version:</p>
+
+<p>It starts with 0 and 1, goes up slowly at first, then more and more rapidly. To start the sequence, we need two variables: a starts at 0, and b starts at 1.
+a is the current number in the sequence, so yield it.
+b is the next number in the sequence, so assign that to a, but also calculate the next value a + b and assign that to b for later use. Note that this happens in parallel; if a is 3 and b is 5, then a, b = b, a + b will set a to 5 (the previous value of b) and b to 8 (the sum of the previous values of a and b).</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">fibonacci</span><span class="p">(</span><span class="mi">500</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s">&#39; &#39;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">0</span> <span class="mi">1</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">5</span> <span class="mi">8</span> <span class="mi">13</span> <span class="mi">21</span> <span class="mi">34</span> <span class="mi">55</span> <span class="mi">89</span> <span class="mi">144</span> <span class="mi">233</span> <span class="mi">377</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">list</span><span class="p">(</span><span class="n">fibonacci</span><span class="p">(</span><span class="mi">500</span><span class="p">))</span>
+</span><span class='line'><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">21</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">55</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">144</span><span class="p">,</span> <span class="mi">233</span><span class="p">,</span> <span class="mi">377</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As we can see from the output, we can use a generator like fibonacci() in a for loop directly. The for loop will automatically call the next() function to get values from the fibonacci() generator and assign them to the for loop index variable (n). Each time through the for loop, n gets a new value from the yield statement in fibonacci(), and all we have to do is print it out. Once fibonacci() runs out of numbers (a becomes bigger than max, which in this case is 500), then the for loop exits gracefully.</p>
+
+<p>This is a useful idiom: pass a generator to the list() function, and it will iterate through the entire generator (just like the for loop in the previous example) and return a list of all the values.</p>
+
+<p>To end the generation of values, functions use either a return with no value or simply allow control to fall off the end of the function body.</p>
+
+<p>To see what&rsquo;s happening inside the for, we can call the generator function directly:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">x</span> <span class="o">=</span> <span class="n">cubic_generator</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">x</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">generator</span> <span class="nb">object</span> <span class="n">cubic_generator</span> <span class="n">at</span> <span class="mh">0x000000000315F678</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="n">We</span> <span class="n">got</span> <span class="n">back</span> <span class="n">a</span> <span class="n">generator</span> <span class="nb">object</span> <span class="n">that</span> <span class="n">supports</span> <span class="n">the</span> <span class="n">iteration</span> <span class="n">protocol</span><span class="o">.</span> <span class="n">The</span> <span class="nb">next</span><span class="p">(</span><span class="n">iterator</span><span class="p">)</span> <span class="n">built</span><span class="o">-</span><span class="ow">in</span> <span class="n">calls</span> <span class="n">an</span> <span class="nb">object</span><span class="s">&#39;s __next__() method:</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span class='line'><span class="mi">0</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span class='line'><span class="mi">1</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span class='line'><span class="mi">8</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span class='line'><span class="mi">27</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span class='line'><span class="mi">64</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span class='line'><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+</span><span class='line'>  <span class="n">File</span> <span class="s">&quot;&lt;pyshell#20&gt;&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1</span><span class="p">,</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="n">module</span><span class="o">&gt;</span>
+</span><span class='line'>    <span class="nb">next</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span class='line'><span class="ne">StopIteration</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We could have built the list of yielded values all at once:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">cubic_builder</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span class='line'>  <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span class='line'>  <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span class='line'>      <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">result</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cubic_builder</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s">&#39; : &#39;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">0</span> <span class="p">:</span> <span class="mi">1</span> <span class="p">:</span> <span class="mi">8</span> <span class="p">:</span> <span class="mi">27</span> <span class="p">:</span> <span class="mi">64</span> <span class="p">:</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="n">Or</span><span class="p">:</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="n">n</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]:</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s">&#39; : &#39;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">0</span> <span class="p">:</span> <span class="mi">1</span> <span class="p">:</span> <span class="mi">8</span> <span class="p">:</span> <span class="mi">27</span> <span class="p">:</span> <span class="mi">64</span> <span class="p">:</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">map</span><span class="p">((</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span> <span class="o">**</span> <span class="mi">3</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)):</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s">&#39; : &#39;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">0</span> <span class="p">:</span> <span class="mi">1</span> <span class="p">:</span> <span class="mi">8</span> <span class="p">:</span> <span class="mi">27</span> <span class="p">:</span> <span class="mi">64</span> <span class="p">:</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As we&rsquo;ve seen, we could have had the same result using other approaches. However, generators can be better in terms of memory usage and the performance. They allow functions to avoid doing all the work up front. This is especially useful when the resulting lists are huge or when it consumes a lot of computation to produce each value. Generator distributes the time required to produce the series of values among loop iterations.</p>
+
+<p>As a more advanced usage example, generators can provide a simpler alternatives to manually saving the state between iterations in class objects. With generators, variables accessible in the function&rsquo;s scopes are saved and restored automatically.</p>
+
+<h2 class="h3 title--indent">GENERATOR EXPRESSIONS: ITERATORS WITH COMPREHENSIONS</h2>
+
+
+<p>The notions of iterators and list comprehensions have been combined in a new feature, generator expressions. Generator expressions are similar to list comprehensions, but they are enclosed in parentheses instead of square brackets:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># List comprehension makes a list</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
+</span><span class='line'><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># Generator expression makes an iterable</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">generator</span> <span class="nb">object</span> <span class="o">&lt;</span><span class="n">genexpr</span><span class="o">&gt;</span> <span class="n">at</span> <span class="mh">0x000000000315F678</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Actually, coding a list comprehension is essentially the same as wrapping a generator expression in a list built-in call to force it to produce all its results in a list at once:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">list</span><span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+</span><span class='line'><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>But in terms of operation, generator expressions are very different. Instead of building the result list in memory, they return a generator object. The returned object supports the iteration protocol to yield one piece of the result list at a time in any iteration context:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">Generator</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">Generator</span><span class="p">)</span>
+</span><span class='line'><span class="mi">0</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">Generator</span><span class="p">)</span>
+</span><span class='line'><span class="mi">1</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">Generator</span><span class="p">)</span>
+</span><span class='line'><span class="mi">8</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">Generator</span><span class="p">)</span>
+</span><span class='line'><span class="mi">27</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">Generator</span><span class="p">)</span>
+</span><span class='line'><span class="mi">64</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">Generator</span><span class="p">)</span>
+</span><span class='line'><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+</span><span class='line'>  <span class="n">File</span> <span class="s">&quot;&lt;pyshell#68&gt;&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1</span><span class="p">,</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="n">module</span><span class="o">&gt;</span>
+</span><span class='line'>    <span class="nb">next</span><span class="p">(</span><span class="n">Generator</span><span class="p">)</span>
+</span><span class='line'><span class="ne">StopIteration</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Typically, we don&rsquo;t see the next iterator machinery under the hood of a generator expression like this because of for loops trigger the next for us automatically:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)):</span>
+</span><span class='line'>  <span class="k">print</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span> <span class="o">*</span> <span class="n">n</span><span class="p">))</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+</span><span class='line'><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+</span><span class='line'><span class="mi">8</span><span class="p">,</span> <span class="mi">64</span>
+</span><span class='line'><span class="mi">27</span><span class="p">,</span> <span class="mi">729</span>
+</span><span class='line'><span class="mi">64</span><span class="p">,</span> <span class="mi">4096</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the above example, the parentheses were not required around the generator expression if they are the sole item enclosed in other parentheses. However, there are cases when extra parentheses are required as in the example below:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">sum</span> <span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+</span><span class='line'><span class="mi">100</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+</span><span class='line'><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)),</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</span><span class='line'><span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span> <span class="nn">math</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">list</span><span class="p">(</span> <span class="nb">map</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">3</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)))</span> <span class="p">)</span>
+</span><span class='line'><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.8284271247461903</span><span class="p">,</span> <span class="mf">5.196152422706632</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Generator expressions are a memory-space optimization. They do not require the entire result list to be constructed all at once while the square-bracketed list comprehension does. They may also run slightly slower in practice, so they are probably best used only for very large result sets.</p>
+
+<h2 class="h3 title--indent">GENERATOR: FUNCTIONS VS. EXPRESSIONS</h2>
+
+
+<p>The same iteration can be coded with either a generator function or a generator expression. Let&rsquo;s look at the following example which repeats each character in a string five times:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">G</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="mi">5</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">list</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="p">[</span><span class="s">&#39;PPPPP&#39;</span><span class="p">,</span> <span class="s">&#39;yyyyy&#39;</span><span class="p">,</span> <span class="s">&#39;ttttt&#39;</span><span class="p">,</span> <span class="s">&#39;hhhhh&#39;</span><span class="p">,</span> <span class="s">&#39;ooooo&#39;</span><span class="p">,</span> <span class="s">&#39;nnnnn&#39;</span><span class="p">]</span>
+</span><span class='line'><span class="n">The</span> <span class="n">equivalent</span> <span class="n">generator</span> <span class="n">function</span> <span class="n">requires</span> <span class="n">a</span> <span class="n">little</span> <span class="n">bit</span> <span class="n">more</span> <span class="n">code</span> <span class="n">but</span> <span class="k">as</span> <span class="n">a</span> <span class="n">multistatement</span> <span class="n">function</span><span class="p">,</span> <span class="n">it</span> <span class="n">will</span> <span class="n">be</span> <span class="n">able</span> <span class="n">to</span> <span class="n">code</span> <span class="n">more</span> <span class="n">logic</span> <span class="ow">and</span> <span class="n">use</span> <span class="n">more</span> <span class="n">state</span> <span class="n">information</span> <span class="k">if</span> <span class="n">needed</span><span class="p">:</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">repeat5times</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">x</span><span class="p">:</span>
+</span><span class='line'>      <span class="k">yield</span> <span class="n">c</span> <span class="o">*</span> <span class="mi">5</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">G</span> <span class="o">=</span> <span class="n">repeat5times</span><span class="p">(</span><span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">list</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="p">[</span><span class="s">&#39;PPPPP&#39;</span><span class="p">,</span> <span class="s">&#39;yyyyy&#39;</span><span class="p">,</span> <span class="s">&#39;ttttt&#39;</span><span class="p">,</span> <span class="s">&#39;hhhhh&#39;</span><span class="p">,</span> <span class="s">&#39;ooooo&#39;</span><span class="p">,</span> <span class="s">&#39;nnnnn&#39;</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Both expressions and functions support automatic and manual iteration. The list we&rsquo;ve got in the above example iterated automatically. The following iterate manually:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">G</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="mi">5</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;PPPPP&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;yyyyy&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">G</span> <span class="o">=</span> <span class="n">repeat5times</span><span class="p">(</span><span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;PPPPP&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;yyyyy&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that we make new generators here to iterator again. Generators are one-shot iterators.</p>
+
+<h2 class="h3 title--indent">GENERATOR: A SINGLE-ITERATOR OBJECT</h2>
+
+
+<p>Both generator functions and generator expressions are their own iterators. So, they support just one active iteration. We can&rsquo;t have multiple iterators. In the previous example for generator expression, a generator&rsquo;s iterator is the generator itself.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">G</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="mi">5</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># My iterator is myself: G has __next__() method</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span> <span class="ow">is</span> <span class="n">G</span>
+</span><span class='line'><span class="bp">True</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we iterate over the results stream manually with multiple iterators, they will all point to the same position:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">G</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="mi">5</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># Iterate manually</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I1</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;PPPPP&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;yyyyy&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I2</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I2</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;ttttt&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Once any iteration runs to completion, all are exhausted. We have to make a new generator to start again:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="c"># Collect the rest of I1&#39;s items</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">list</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="p">[</span><span class="s">&#39;hhhhh&#39;</span><span class="p">,</span> <span class="s">&#39;ooooo&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="c"># Other iterators exhausted too</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I2</span><span class="p">)</span>
+</span><span class='line'><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+</span><span class='line'>  <span class="n">File</span> <span class="s">&quot;&lt;pyshell#45&gt;&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1</span><span class="p">,</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="n">module</span><span class="o">&gt;</span>
+</span><span class='line'>    <span class="nb">next</span><span class="p">(</span><span class="n">I2</span><span class="p">)</span>
+</span><span class='line'><span class="ne">StopIteration</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Same for new iterators</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I3</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I3</span><span class="p">)</span>
+</span><span class='line'><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+</span><span class='line'>  <span class="n">File</span> <span class="s">&quot;&lt;pyshell#47&gt;&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1</span><span class="p">,</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="n">module</span><span class="o">&gt;</span>
+</span><span class='line'>    <span class="nb">next</span><span class="p">(</span><span class="n">I3</span><span class="p">)</span>
+</span><span class='line'><span class="ne">StopIteration</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># New generator to start over</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I3</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span> <span class="n">c</span> <span class="o">*</span> <span class="mi">5</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I3</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;PPPPP&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The same applies to generator functions:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span> <span class="nf">repeat5times</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span class='line'>  <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">x</span><span class="p">:</span>
+</span><span class='line'>      <span class="k">yield</span> <span class="n">c</span> <span class="o">*</span> <span class="mi">5</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># Generator functions work the same way</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">G</span> <span class="o">=</span> <span class="n">repeat5times</span><span class="p">(</span><span class="s">&#39;Python&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span> <span class="ow">is</span> <span class="n">G</span>
+</span><span class='line'><span class="bp">True</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I1</span><span class="p">,</span> <span class="n">I2</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">),</span> <span class="nb">iter</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;PPPPP&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;yyyyy&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># I2 at same position I1</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I2</span><span class="p">)</span>
+</span><span class='line'><span class="s">&#39;ttttt&#39;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is different from the behavior of some built-in types. Built-in types support multiple iterators and passes and reflect their in-place changes in active iterators:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">L</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">I1</span><span class="p">,</span> <span class="n">I2</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="nb">iter</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="mi">1</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="mi">2</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># Lists support multiple iterators</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I2</span><span class="p">)</span>
+</span><span class='line'><span class="mi">1</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="c"># Changes reflected in iterators</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="k">del</span> <span class="n">L</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+</span><span class='line'>  <span class="n">File</span> <span class="s">&quot;&lt;pyshell#21&gt;&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1</span><span class="p">,</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="n">module</span><span class="o">&gt;</span>
+</span><span class='line'>    <span class="nb">next</span><span class="p">(</span><span class="n">I1</span><span class="p">)</span>
+</span><span class='line'><span class="ne">StopIteration</span>
+</span><span class='line'><span class="o">&gt;&gt;&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+</article>
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2019 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+<script src="/javascripts/md5.js"></script>
+<script defer src="/javascripts/octopress.js"></script>
+
+
+
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://rishijeet.github.io/geekworks/python/generators/index.html';
+        var disqus_url = 'http://rishijeet.github.io/geekworks/python/generators/index.html';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script> 
+    </body>
+
+</html>

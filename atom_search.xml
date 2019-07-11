@@ -1,0 +1,683 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Rishijeet Mishra]]></title>
+  <link href="http://rishijeet.github.io/atom.xml" rel="self"/>
+  <link href="http://rishijeet.github.io/"/>
+  <updated>2019-07-11T15:03:13+05:30</updated>
+  <id>http://rishijeet.github.io/</id>
+  <author>
+    <name><![CDATA[Rishijeet Mishra]]></name>
+    <email><![CDATA[rishijeet@gmail.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Tuning Apache Kafka’s performance]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2019/07/11/tuning-apache-kafkas-performance/"/>
+    <updated>2019-07-11T11:42:32+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2019/07/11/tuning-apache-kafkas-performance</id>
+    <content type="html"><![CDATA[<p>Well, Apache Kafka is one of the best pub-sub messaging system used widely across several technology’s based industries. Originated at LinkedIn and was open sourced in early 2011.</p>
+
+<p>Ok, so what so special about <strong>Apache Kafka</strong> ? Here are the few things Kafka is meant to handle.</p>
+
+<ul>
+<li>High throughput to support large volume event feeds.</li>
+<li>Real time processing of enormous amount of data.</li>
+<li>Support large data backlogs to handle periodic ingestion from offline systems.</li>
+<li>Support low - latency delivery of the messages compared to other messaging systems</li>
+<li>High Availability, Fault Tolerance.</li>
+</ul>
+
+
+<p>So what else are you looking ?</p>
+
+<!--more-->
+
+
+<p>Now if you know about Apache Kafka a bit, here are few things we can fine tune to make it better in terms of performance. Let’s categories the system into the following aspects and see what could be done in each space.</p>
+
+<ul>
+<li>Producers</li>
+<li>Brokers</li>
+<li>Consumers</li>
+</ul>
+
+
+<h2>Producers</h2>
+
+<h3>Asynchronous</h3>
+
+<p>Now think, how long you want to wait for the ack on the message sent to the broker ? Answer to this question will change the speed of handling the messages in the Kafka.</p>
+
+<p>request.required.acks is the property of the producer.</p>
+
+<p>Possible values for this are:</p>
+
+<ul>
+<li><code>0</code> = producer never waits for the ack from the broker. This will give you “Least durability and least latency”.</li>
+<li><code>1</code> = producer gets ack from the master replica. This will give you “some durability and less latency”.</li>
+<li><code>-1</code> = producer gets ack from the all the replicas. This will give you “most durability and most latency”.</li>
+</ul>
+
+
+<h3>Batching</h3>
+
+<p>How about batching the messages ? Let’s use the asynchronous producers.</p>
+
+<p><code>producer.type=1</code> to make the producers run async.</p>
+
+<p>You can get the “callback” for the messages here to know their status. Now batch your messages to the brokers in different threads, this will improve the throughput. Some configuration to handle the messages in this scenario are:</p>
+
+<ul>
+<li><code>queue.buffer.max.ms</code> - Duration of the batch window.</li>
+<li><code>batch.num.messages</code> - Number of messages to be sent in a batch.</li>
+</ul>
+
+
+<h3>Compression</h3>
+
+<p>Use the compression property to reduces the I/O on the machine. We might also want to think of the CPU load when it decompresses the message object back. So, maintain a balance between the two. compression.codec - Values are none, gzip and snappy</p>
+
+<p>For presumably large messages say - 10G , you might want to pass the file location of the share drive in the maessage rather than the payload itself. This would be tremendously faster.</p>
+
+<h3>Timeout</h3>
+
+<p>Don’t wait for the message unnecessarily unless its is really really required. Have a “timeout”</p>
+
+<p><code>request.timeout.ms</code> - The time until the broker waits before sending error back to the client.
+Amount of time to block before dropping the messages when running in async mode ( default = indefinitely )</p>
+
+<h2>Brokers</h2>
+
+<h3>Partition</h3>
+
+<p>Plan to have as number of partitions = number of consumers. This will increase the concurrency, the more the partitions the more the concurrency. Remember, more the partitions more the latency too. Also, recommended to have one partition per physical disk to ensure I/O is not the bottleneck while writing the logs.</p>
+
+<p>Use “kafka-reassign-partitions.sh” to ensure partition is not overloaded.</p>
+
+<p>Some of the configurations worth mentioning here are:</p>
+
+<ul>
+<li><code>num.io.threads</code> - The number of I/O threads server uses to execute the requests.</li>
+<li><code>num.partitions</code> - Number of partitions per topic</li>
+<li><code>log.flush.interval,messages</code> - The number of messages written to the log partition before we force an fsync on the log.</li>
+</ul>
+
+
+<h2>Consumers</h2>
+
+<p>The max number of consumers for the topic is equal to number of partitions. Have enough partitions to handle all the consumers in your Kafka’s ecosystem.</p>
+
+<p>Consumer in the same consumer group split the partitions among themselves. Adding more consumers to a group can enhance performance.</p>
+
+<p>Performance is not affected by adding more consumer groups</p>
+
+<p><code>replica.high.watermark.checkpoint.interval.ms</code> can affect the throughput. When reading from partition, you can mark the last point where you read the information. If you set checkpoint watermark for every event, you will have high durability but hit on the performance. Rather, set it to check the offset for every x number of messages wherein you have margin of safety and will less impact your throughput.</p>
+
+<h3>Timeout</h3>
+
+<p>Choose the timeouts and onward pipeline properly. Also, refer to Apache Kafka doc for setting fetch size, time, auto-commit etc.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Blockchain - Really worth in elections ?]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2017/05/12/blockchain-really-worth-in-elections/"/>
+    <updated>2017-05-12T10:37:14+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2017/05/12/blockchain-really-worth-in-elections</id>
+    <content type="html"><![CDATA[<p>Issues with <strong>EVM ( Electronic Voting Machine )</strong> have been the talk of the town for quite a while in India nowadays. Political parties have been taking about going back to voting mechanism using ballot boxes, wherein there would be very less possibility of non-legitimate voting. EVMs are prone to hacking, untrusted votes, digital errors as explained by these political parties.</p>
+
+<p>I ask you political parties this, why ballot boxes or directly &ldquo;why papers&rdquo; ? Why cut trees to achieve your goal considering the fact that, we are living in the - digital era with brilliant minds across the country to make things possible using technology.</p>
+
+<p>The recent government (people too) has been keen towards its programme of Digital India.</p>
+
+<!--more-->
+
+
+<p>As the website says -</p>
+
+<p><em>The Digital India programme is a flagship programme of the Government of India with a vision to transform India into a digitally empowered society and knowledge economy.</em></p>
+
+<p>So why paper for casting votes ?</p>
+
+<p>The question is - Can the blockchain technology solve this problem ?</p>
+
+<p>The answer to the question is - Yes</p>
+
+<p>Adopting to the Blockchain technology will not only ensure, that the vote casted is trusted but will also eradicate the underlying issues of hacking, third party dependency, voting transactions, fraud &amp; other securities hacks.</p>
+
+<p>Importantly it will reduce the cost of elections drastically and the government could utilise its funds in other major projects. Note, the Loksabha election 2014 costed around <strong>3,500 crore</strong>.</p>
+
+<p><img src="http://rishijeet.github.io/images/myimages/voting_places.png" alt="Alt text" /></p>
+
+<p>Simple mechanism to understand this from blockchain perspective.</p>
+
+<ul>
+<li>Voting could be casted from any place on a particular day. This could be translated as <strong>NODES</strong> in blockchain.</li>
+<li>Voting done at nodes could be validated by a elected nodes or electoral offices. This translates to <strong>MINERS</strong> in blockchain.</li>
+<li>Elected nodes or electoral offices would update their transactions. This translates to <strong>SYNCHRONISATION</strong> ledger in blockchain.</li>
+<li>Transactions are up to date at any electoral offices and results could be declared instantly on the same day if required.</li>
+</ul>
+
+
+<p>Government should just ensure the infrastructure is developed for this and is prioritise.</p>
+
+<p>Let&rsquo;s all participate in making India a - <strong>Digital India</strong></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Fancybox2 to Fancybox3 for image gallery]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2017/05/12/fancybox2-to-fancybox3-for-image-gallery/"/>
+    <updated>2017-05-12T09:58:37+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2017/05/12/fancybox2-to-fancybox3-for-image-gallery</id>
+    <content type="html"><![CDATA[<p>I recently migrated my image gallery to Fancybox3 from Fancybox2. Fancybox3 has some of the advantages over its previous version.
+The important one I like is the fact that you have to code less.</p>
+
+<ul>
+<li>Import the javascript</li>
+<li>Wrap the images with class and the work is done.</li>
+<li>It supports the image security too. <i class="em em---1"></i>
+<!-- more --></li>
+</ul>
+
+
+<p>Personally, I like the masonry style more and working on moving towards its soon. Still exploring the feasibility.
+The details on the masonry grid could be found <a href="https://masonry.desandro.com/">here</a>.</p>
+
+<p>Did you notice the masonry grid used in <a href="http://iam.beyonce.com/tagged/my_work">Beyonce&rsquo;s Website</a> ? <i class="em em-blush"></i></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Distributed Computing - Quorum]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2016/09/04/distributed-computing/"/>
+    <updated>2016-09-04T18:40:02+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2016/09/04/distributed-computing</id>
+    <content type="html"><![CDATA[<p>In a distributed database system, a transaction could be executing its operations at multiple sites. Since atomicity requires every distributed transaction to be atomic, the transaction must have the same fate (commit or abort) at every site. In case of network partitioning, sites are partitioned and the partitions may not be able to communicate with each other. This is where a quorum-based technique comes in. The fundamental idea is that a transaction is executed if the majority of sites vote to execute it.</p>
+
+<h4>Quorum Consensus Protocol</h4>
+
+<p>This is one of the distributed lock manager based concurrency control protocol in distributed database systems. It works as follows;</p>
+
+<ul>
+<li>The protocol assigns each site that have a replica with a weight.</li>
+<li>For any data item, the protocol assigns a read quorum Qr and write quorum Qw. Here, Qr and Qw are two integers (sum of weights of some sites). And, these two integers are chosen according to the following conditions put together;</li>
+</ul>
+
+
+<p><code>Qr + Qw &gt; S - rule which avoids read-write conflict. (i.e, two transactions cannot read and write concurrently)</code></p>
+
+<p><code>2 * Qw &gt; S - rule which avoids write-write conflict. (i.e, two transactions cannot write concurrently)</code></p>
+
+<p>Here, S is the total weight of all sites in which the data item replicated.</p>
+
+<!-- more -->
+
+
+<h4>How do we perform read and write on replicas?</h4>
+
+<ul>
+<li>A transaction that needs a data item for reading purpose has to lock enough sites. ie, it has lock sites with the sum of their weight >= Qr. Read quorum must always intersect with write quorum.</li>
+<li>A transaction that needs a data item for writing purpose has to lock enough sites. ie, it has lock sites with the sum of their weight >= Qw.</li>
+</ul>
+
+
+<h4>How does it work?</h4>
+
+<p>Let us assume a fully replicated distributed database with four sites S1, S2, S3, and S4.</p>
+
+<ol>
+<li><p>According to the protocol, we need to assign a weight to every site. (This weight can be chosen on many factors like the availability of the site, latency etc.). For simplicity, let us assume the weight as 1 for all sites.</p></li>
+<li><p>Let us choose the values for Qr and Qw as 2 and 3. Our total weight S is 4. And according to the conditions, our Qr and Qw values are correct;
+<br>
+<code>Qr + Qw &gt; S =&gt; 2 + 3 &gt; 4               True</code>
+<br>
+<code>2 * Qw  &gt; S =&gt; 2 * 3 &gt; 4               True</code>
+<br></p></li>
+<li>Now, a transaction which needs a read lock on a data item has to lock 2 sites. A transaction which needs a write lock on data item has to lock 3 sites.</li>
+</ol>
+
+
+<h6>Case 1<code>&sup1;</code></h6>
+
+<p>Read Quorum Qr = 2, Write Quorum Qw = 3, Site’s weight = 1, Total weight of sites S = 4</p>
+
+<ul>
+<li>Read Lock
+
+<ol>
+<li>Read request has to lock at least two replicas (2 sites in our example)</li>
+<li>Any two sites can be locked</li>
+</ol>
+</li>
+<li>Write Lock
+
+<ol>
+<li>Write request has to lock at least three replicas (3 sites in our example)</li>
+</ol>
+</li>
+</ul>
+
+
+<h6>Case 2</h6>
+
+<p>Read Quorum Qr = 1, Write Quorum Qw = 4, Site’s weight = 1, Total weight of sites S = 4</p>
+
+<ul>
+<li>Read Lock
+
+<ol>
+<li>Read lock requires one site</li>
+</ol>
+</li>
+<li>Write Lock
+
+<ol>
+<li>Write lock requires 4 sites</li>
+</ol>
+</li>
+</ul>
+
+
+<p><em><code>&sup1;</code>Points and example taken from web.</em></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Is Microsoft biased towards Linux]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2016/03/11/is-microsoft-biased-towards-linux/"/>
+    <updated>2016-03-11T09:45:09+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2016/03/11/is-microsoft-biased-towards-linux</id>
+    <content type="html"><![CDATA[<p>I see news about Microsoft crafted a switch OS on Debian Linux platform,  announcing its SQL server of Linux and may be some more. Though this is a surprising news as Microsoft windows has released its best OS so far, which is more stable and fast compare to its ancestors, so what could be the reason to move towards Linux is a question. Is this related to the security aspect of the operating system or is it the open source nature of the platform and the community support it has or is it just the recent decision to move towards it ? Whatever it is, I see this as a strong move towards making its environment and platform more robust and performant.</p>
+
+<!-- more -->
+
+
+<p>According to the Microsoft&rsquo;s Blog</p>
+
+<p><i>
+These improvements, and many more, are all built into SQL Server and bring you not just a new database but a complete platform for data management, business analytics and intelligent apps – one that can be used in a consistent way across both on-premises and the cloud. In fact, over the last year we’ve been using the SQL Server 2016 code-base to run in production more than 1.4 million SQL Databases in the cloud using our Azure SQL Database as a Service offering, and this real-world experience has made SQL Server 2016 an incredibly robust and battle-hardened data platform.
+</i></p>
+
+
+<p>
+As the executive tells the New York Times, this is all about &#8220;market expansion.&#8221; Microsoft would rather corner the server software space, which has been shifting toward Linux, than insist on a Windows-only policy out of stubborn pride. It&#8217;s tough to know if the Linux server crowd will warm up to its longtime arch-rival, but those more open-minded firms are now free to integrate Microsoft without making a wholesale switch.
+</p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Memory Management in Python]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2015/04/22/memory-management-in-python/"/>
+    <updated>2015-04-22T09:54:01+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2015/04/22/memory-management-in-python</id>
+    <content type="html"><![CDATA[<p>I came across the interesting write up somewhere on website on memory management in Python. Here are some data facts
+which I liked,</p>
+
+<p>Python allocates memory transparently, manages objects using a reference count system, and frees memory when an object’s reference count falls to zero. In theory, it’s swell. In practice, you need to know a few things about Python memory management to get a memory-efficient program running. One of the things you should know, or at least get a good feel about, is the sizes of basic Python objects. Another thing is how Python manages its memory internally.</p>
+
+<p>So let us begin with the size of basic objects. In Python, there’s not a lot of primitive data types: there are ints, longs (an unlimited precision version of ints), floats (which are doubles), tuples, strings, lists, dictionaries, and classes.</p>
+
+<!-- more -->
+
+
+<p>What is the size of int? A programmer with a C or C++ background will probably guess that the size of a machine-specific int is something like 32 bits, maybe 64; and that therefore it occupies at most 8 bytes. But is that so in Python?</p>
+
+<p>Let us first write a function that shows the sizes of objects (recursively if necessary):</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">sys</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">show_sizeof</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">print</span> <span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span> <span class="o">*</span> <span class="n">level</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">__class__</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">x</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;__iter__&#39;</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;items&#39;</span><span class="p">):</span>
+</span><span class='line'>            <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span class='line'>                <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="p">:</span>
+</span><span class='line'>                <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We can now use the function to inspect the sizes of the different basic data types:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">102947298469128649161972364837164</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="c">#If you have a 32-bit 2.7x Python, you’ll see:</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">8</span> <span class="bp">None</span>
+</span><span class='line'><span class="mi">12</span> <span class="mi">3</span>
+</span><span class='line'><span class="mi">22</span> <span class="mi">9223372036854775808</span>
+</span><span class='line'><span class="mi">28</span> <span class="mi">102947298469128649161972364837164</span>
+</span><span class='line'><span class="mi">48</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="c">#and if you have a 64-bit 2.7x Python, you’ll see:</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">16</span> <span class="bp">None</span>
+</span><span class='line'><span class="mi">24</span> <span class="mi">3</span>
+</span><span class='line'><span class="mi">36</span> <span class="mi">9223372036854775808</span>
+</span><span class='line'><span class="mi">40</span> <span class="mi">102947298469128649161972364837164</span>
+</span><span class='line'><span class="mi">60</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let us focus on the 64-bit version (mainly because that’s what we need the most often in our case). None takes 16 bytes. int takes 24 bytes, three times as much memory as a C int64_t, despite being some kind of “machine-friendly” integer. Long integers (unbounded precision), used to represent integers larger than 263-1, have a minimum size of 36 bytes. Then it grows linearly in the logarithm of the integer represented.</p>
+
+<p>Python’s floats are implementation-specific but seem to be C doubles. However, they do not eat up only 8 bytes:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mf">3.14159265358979323846264338327950288</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Output</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">16</span> <span class="mf">3.14159265359</span>
+</span><span class='line'>
+</span><span class='line'><span class="c">#on a 32-bit platform and</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">24</span> <span class="mf">3.14159265359</span>
+</span><span class='line'><span class="c">#on a 64-bit platform.</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That’s again, three times the size a C programmer would expect. Now, what about strings?</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="s">&quot;My hovercraft is full of eels&quot;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>outputs, on a 32 bit platform:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">21</span>
+</span><span class='line'><span class="mi">50</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>and</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">37</span>
+</span><span class='line'><span class="mi">66</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>An empty string costs 37 bytes in a 64-bit environment! Memory used by string then linearly grows in the length of the (useful) string.</p>
+
+<p>Other structures commonly used, tuples, lists, and dictionaries are worthwhile to examine. Lists (which are implemented as array lists, not as linked lists, with everything it entails) are arrays of references to Python objects, allowing them to be heterogeneous. Let us look at our sizes:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">([])</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="s">&quot;toaster&quot;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">])</span>
+</span><span class='line'><span class="c">#outputs</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="mi">32</span> <span class="p">[]</span>
+</span><span class='line'><span class="mi">44</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="s">&#39;toaster&#39;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">]</span>
+</span><span class='line'><span class="c">#on a 32-bit platform and</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">72</span> <span class="p">[]</span>
+</span><span class='line'><span class="mi">96</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="s">&#39;toaster&#39;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">]</span>
+</span><span class='line'><span class="c">#on a 64-bit platform. </span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>An empty list eats up 72 bytes. The size of an empty, 64-bit C++ std::list() is only 16 bytes,
+ 4-5 times less. What about tuples? (and dictionaries?):</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">({})</span>
+</span><span class='line'><span class="n">show_sizeof</span><span class="p">({</span><span class="s">&#39;a&#39;</span><span class="p">:</span><span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span><span class="mi">2131</span><span class="p">})</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>outputs, on a 32-bit box</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">136</span> <span class="p">{}</span>
+</span><span class='line'> <span class="mi">136</span> <span class="p">{</span><span class="s">&#39;a&#39;</span><span class="p">:</span> <span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2131</span><span class="p">}</span>
+</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">,</span> <span class="mi">213</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">22</span> <span class="n">a</span>
+</span><span class='line'>                <span class="mi">12</span> <span class="mi">213</span>
+</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2131</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">22</span> <span class="n">b</span>
+</span><span class='line'>                <span class="mi">12</span> <span class="mi">2131</span>
+</span><span class='line'><span class="ow">and</span>
+</span><span class='line'>
+</span><span class='line'><span class="mi">280</span> <span class="p">{}</span>
+</span><span class='line'> <span class="mi">280</span> <span class="p">{</span><span class="s">&#39;a&#39;</span><span class="p">:</span> <span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2131</span><span class="p">}</span>
+</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">,</span> <span class="mi">213</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">38</span> <span class="n">a</span>
+</span><span class='line'>                <span class="mi">24</span> <span class="mi">213</span>
+</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2131</span><span class="p">)</span>
+</span><span class='line'>                <span class="mi">38</span> <span class="n">b</span>
+</span><span class='line'>                <span class="mi">24</span> <span class="mi">2131</span>
+</span><span class='line'>
+</span><span class='line'>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>for a 64-bit box.</p>
+
+<p>This last example is particularly interesting because it “doesn’t add up.” If we look at individual key/value pairs, they take 72 bytes (while their components take 38+24=62 bytes, leaving 10 bytes for the pair itself), but the dictionary takes 280 bytes (rather than a strict minimum of 144=72×2 bytes). The dictionary is supposed to be an efficient data structure for search and the two likely implementations will use more space that strictly necessary. If it’s some kind of tree, then we should pay the cost of internal nodes that contain a key and two pointers to children nodes; if it’s a hash table, then we must have some room with free entries to ensure good performance.</p>
+
+<p>The (somewhat) equivalent <code>std::map</code> C++ structure takes 48 bytes when created (that is,
+empty). An empty C++ string takes 8 bytes (then allocated size grows linearly the size of the string). An integer takes 4 bytes (32 bits).</p>
+
+<p>Why does all this matter? It seems that whether an empty string takes 8 bytes or 37 doesn’t change anything much
+. That’s true. That’s true until you need to scale. Then, you need to be really careful about how many objects you
+create to limit the quantity of memory your program uses. It is a problem in real-life applications. However, to devise a really good strategy about memory management, we must not only consider the sizes of objects, but how many and in which order they are created. It turns out to be very important for Python programs. One key element to understand is how Python allocates its memory internally, which we will discuss next.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[VMware Player and Hyper-V are not compatible]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2015/04/12/vmware-player-and-hyper-v-are-not-compatible/"/>
+    <updated>2015-04-12T11:28:34+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2015/04/12/vmware-player-and-hyper-v-are-not-compatible</id>
+    <content type="html"><![CDATA[<p>I run my VMs using vmware player for multiple operating system like Ubuntu, CentOS, Fedora, Suse,
+Mint Linux. One fine day I noticed this error &ldquo;VMware Player and Hyper-V are not compatible&rdquo; from the vmplayer while
+starting Ubuntu. This was bit surprising for me as I had run the same vm couple of times.</p>
+
+<p>I realized that disabling the hyper-V could fix this problem, but I was still curious,
+as of why could this start all of sudden?</p>
+
+<!-- more -->
+
+
+<p>The fix was simple as I said, to disable hyper-V</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='batch'><span class='line'>bcdedit <span class="n">/set</span> hypervisorlaunchtype <span class="k">off</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Rebooting the window&rsquo;s machine after running above command from command prompt with admin privilege fixes the problem.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Jekyll Simply So Simple]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2014/09/15/jekyll-simply-so-simple/"/>
+    <updated>2014-09-15T22:36:38+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2014/09/15/jekyll-simply-so-simple</id>
+    <content type="html"><![CDATA[<p><img src="http://rishijeet.github.io/images/jekyll.png" height="100" width="100" alt="Alt text" /></p>
+
+<p>Jekyll one of the fast and simple static html page generator is really easy to start of with. I am so addicted to it now. Still exploring it more, there are so many features available and installing it
+is as easy as it can be.</p>
+
+<!-- more -->
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">~</span> <span class="err">$</span> <span class="n">gem</span> <span class="n">install</span> <span class="n">jekyll</span>
+</span><span class='line'><span class="o">~</span> <span class="err">$</span> <span class="n">jekyll</span> <span class="kp">new</span> <span class="n">my</span><span class="o">-</span><span class="n">awesome</span><span class="o">-</span><span class="n">site</span>
+</span><span class='line'><span class="o">~</span> <span class="err">$</span> <span class="n">cd</span> <span class="n">my</span><span class="o">-</span><span class="n">awesome</span><span class="o">-</span><span class="n">site</span>
+</span><span class='line'><span class="o">~</span><span class="sr">/my-awesome-site $ jekyll serve</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[PyCon India 2014]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2014/09/15/pycon-india-2014/"/>
+    <updated>2014-09-15T21:57:01+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2014/09/15/pycon-india-2014</id>
+    <content type="html"><![CDATA[<p><img src="http://rishijeet.github.io/images/pycon.png" height="100" width="100" alt="Alt text" /> Yes, PyCon India 2014 is happening in Bangalore. <a href="http://in.pycon.org/2014/schedule.html#schedule_conference">Interesting topics</a> are on there for you on day 2.
+Workshops are also been conducted as a part of day 1 program. I have attended the one in year 2012 and some of the topics were really good to know and worth attending.
+The topics which focus on large data processing, performance, high scalable application in python, complex data structure would be worth to attend.</p>
+
+<!-- more -->
+
+
+<p>So as I see the topics on the PyCon India Website, if not changed, my favorite topic would be,<br/>
+<a href="http://in.pycon.org/funnel/2014/108-python-spark-lightning-fast-cluster-computing">Python + Spark: Lightning Fast Cluster Computing</a><br/>
+<a href="http://in.pycon.org/funnel/2014/227-django-design-patterns">Django Design Patterns</a><br/>
+<a href="http://in.pycon.org/funnel/2014/150-new-scientific-plotting-in-python">New Scientific Plotting in Python</a><br/>
+<a href="http://in.pycon.org/funnel/2014/165-faster-data-processing-in-python">Faster data processing in Python</a></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Convert from epoch to human readable date]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="http://rishijeet.github.io/blog/2014/09/12/convert-from-epoch-to-human-readable-date/"/>
+    <updated>2014-09-12T23:50:56+05:30</updated>
+    <id>http://rishijeet.github.io/blog/2014/09/12/convert-from-epoch-to-human-readable-date</id>
+    <content type="html"><![CDATA[<p>I was stuck with an issue of converting the epoch time to human readable format, in my case
+the epoch time was in milli sec, and I was getting all sort of <code>python ValueError: (22, 'Invalid argument')</code></p>
+
+<!-- more -->
+
+
+<p>The fix was simple, to convert the epoch in milli sec to exact <code>date +%s</code> format
+by slicing <code>[:3]</code></p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">time</span>
+</span><span class='line'><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%a, </span><span class="si">%d</span><span class="s"> %b %Y %H:%M:%S +0000&quot;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">localtime</span><span class="p">(</span><span class="n">epoch</span><span class="p">))</span>
+</span><span class='line'>
+</span><span class='line'><span class="c">#Replace time.localtime with time.gmtime for GMT time.</span>
+</span><span class='line'>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+]]></content>
+  </entry>
+  
+</feed>

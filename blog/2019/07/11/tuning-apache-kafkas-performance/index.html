@@ -1,0 +1,308 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Tuning Apache Kafka’s performance - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Thought of sharing something with the world">
+        
+        <meta name="viewport" content="width=device-width">
+        <link rel="canonical" href="http://rishijeet.github.io/blog/2019/07/11/tuning-apache-kafkas-performance">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.png" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/geekworks/">Geekworks</a></li>
+    <li><a href="/lenswork/">Lenswork</a></li>
+    <li><a href="/link/">Links</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Tuning Apache Kafka’s performance</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2019-07-11T11:42:32+05:30" pubdate><i class="fa fa-calendar"></i> Jul 11th, 2019</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/kafka/'>kafka</a></li>
+            
+                <li><a class='category' href='/blog/categories/messaging/'>messaging</a></li>
+            
+                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <p>Well, Apache Kafka is one of the best pub-sub messaging system used widely across several technology’s based industries. Originated at LinkedIn and was open sourced in early 2011.</p>
+
+<p>Ok, so what so special about <strong>Apache Kafka</strong> ? Here are the few things Kafka is meant to handle.</p>
+
+<ul>
+<li>High throughput to support large volume event feeds.</li>
+<li>Real time processing of enormous amount of data.</li>
+<li>Support large data backlogs to handle periodic ingestion from offline systems.</li>
+<li>Support low - latency delivery of the messages compared to other messaging systems</li>
+<li>High Availability, Fault Tolerance.</li>
+</ul>
+
+
+<p>So what else are you looking ?</p>
+
+<!--more-->
+
+
+<p>Now if you know about Apache Kafka a bit, here are few things we can fine tune to make it better in terms of performance. Let’s categories the system into the following aspects and see what could be done in each space.</p>
+
+<ul>
+<li>Producers</li>
+<li>Brokers</li>
+<li>Consumers</li>
+</ul>
+
+
+<h2>Producers</h2>
+
+<h3>Asynchronous</h3>
+
+<p>Now think, how long you want to wait for the ack on the message sent to the broker ? Answer to this question will change the speed of handling the messages in the Kafka.</p>
+
+<p>request.required.acks is the property of the producer.</p>
+
+<p>Possible values for this are:</p>
+
+<ul>
+<li><code>0</code> = producer never waits for the ack from the broker. This will give you “Least durability and least latency”.</li>
+<li><code>1</code> = producer gets ack from the master replica. This will give you “some durability and less latency”.</li>
+<li><code>-1</code> = producer gets ack from the all the replicas. This will give you “most durability and most latency”.</li>
+</ul>
+
+
+<h3>Batching</h3>
+
+<p>How about batching the messages ? Let’s use the asynchronous producers.</p>
+
+<p><code>producer.type=1</code> to make the producers run async.</p>
+
+<p>You can get the “callback” for the messages here to know their status. Now batch your messages to the brokers in different threads, this will improve the throughput. Some configuration to handle the messages in this scenario are:</p>
+
+<ul>
+<li><code>queue.buffer.max.ms</code> - Duration of the batch window.</li>
+<li><code>batch.num.messages</code> - Number of messages to be sent in a batch.</li>
+</ul>
+
+
+<h3>Compression</h3>
+
+<p>Use the compression property to reduces the I/O on the machine. We might also want to think of the CPU load when it decompresses the message object back. So, maintain a balance between the two. compression.codec - Values are none, gzip and snappy</p>
+
+<p>For presumably large messages say - 10G , you might want to pass the file location of the share drive in the maessage rather than the payload itself. This would be tremendously faster.</p>
+
+<h3>Timeout</h3>
+
+<p>Don’t wait for the message unnecessarily unless its is really really required. Have a “timeout”</p>
+
+<p><code>request.timeout.ms</code> - The time until the broker waits before sending error back to the client.
+Amount of time to block before dropping the messages when running in async mode ( default = indefinitely )</p>
+
+<h2>Brokers</h2>
+
+<h3>Partition</h3>
+
+<p>Plan to have as number of partitions = number of consumers. This will increase the concurrency, the more the partitions the more the concurrency. Remember, more the partitions more the latency too. Also, recommended to have one partition per physical disk to ensure I/O is not the bottleneck while writing the logs.</p>
+
+<p>Use “kafka-reassign-partitions.sh” to ensure partition is not overloaded.</p>
+
+<p>Some of the configurations worth mentioning here are:</p>
+
+<ul>
+<li><code>num.io.threads</code> - The number of I/O threads server uses to execute the requests.</li>
+<li><code>num.partitions</code> - Number of partitions per topic</li>
+<li><code>log.flush.interval,messages</code> - The number of messages written to the log partition before we force an fsync on the log.</li>
+</ul>
+
+
+<h2>Consumers</h2>
+
+<p>The max number of consumers for the topic is equal to number of partitions. Have enough partitions to handle all the consumers in your Kafka’s ecosystem.</p>
+
+<p>Consumer in the same consumer group split the partitions among themselves. Adding more consumers to a group can enhance performance.</p>
+
+<p>Performance is not affected by adding more consumer groups</p>
+
+<p><code>replica.high.watermark.checkpoint.interval.ms</code> can affect the throughput. When reading from partition, you can mark the last point where you read the information. If you set checkpoint watermark for every event, you will have high durability but hit on the performance. Rather, set it to check the offset for every x number of messages wherein you have margin of safety and will less impact your throughput.</p>
+
+<h3>Timeout</h3>
+
+<p>Choose the timeouts and onward pipeline properly. Also, refer to Apache Kafka doc for setting fetch size, time, auto-commit etc.</p>
+
+
+
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2019 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+<script src="/javascripts/md5.js"></script>
+<script defer src="/javascripts/octopress.js"></script>
+
+
+
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://rishijeet.github.io/blog/2019/07/11/tuning-apache-kafkas-performance/';
+        var disqus_url = 'http://rishijeet.github.io/blog/2019/07/11/tuning-apache-kafkas-performance/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script> 
+    </body>
+
+</html>
