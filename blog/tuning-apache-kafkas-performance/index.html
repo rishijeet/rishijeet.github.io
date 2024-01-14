@@ -12,7 +12,7 @@
         <title>Tuning Apache Kafka’s performance - Rishijeet Mishra</title>
         <meta name="author" content="Rishijeet Mishra">
         
-        <meta name="description" content="Rishijeet Mishra blog on photography, technology, travel and life">
+        <meta name="description" content="Rishijeet Mishra's Blog Site">
         
         <meta name="viewport" content="width=device-width">
         <link rel="canonical" href="https://rishijeet.github.io/blog/tuning-apache-kafkas-performance">
@@ -141,8 +141,10 @@
 </ul>
 
 
+<a name="Producers"></a>
 <h2>Producers</h2>
 
+<a name="Asynchronous"></a>
 <h3>Asynchronous</h3>
 
 <p>Now think, how long you want to wait for the ack on the message sent to the broker ? Answer to this question will change the speed of handling the messages in the Kafka.</p>
@@ -158,6 +160,7 @@
 </ul>
 
 
+<a name="Batching"></a>
 <h3>Batching</h3>
 
 <p>How about batching the messages ? Let’s use the asynchronous producers.</p>
@@ -172,12 +175,14 @@
 </ul>
 
 
+<a name="Compression"></a>
 <h3>Compression</h3>
 
 <p>Use the compression property to reduces the I/O on the machine. We might also want to think of the CPU load when it decompresses the message object back. So, maintain a balance between the two. compression.codec - Values are none, gzip and snappy</p>
 
 <p>For presumably large messages say - 10G , you might want to pass the file location of the share drive in the maessage rather than the payload itself. This would be tremendously faster.</p>
 
+<a name="Timeout"></a>
 <h3>Timeout</h3>
 
 <p>Don’t wait for the message unnecessarily unless its is really really required. Have a “timeout”</p>
@@ -185,8 +190,10 @@
 <p><code>request.timeout.ms</code> - The time until the broker waits before sending error back to the client.
 Amount of time to block before dropping the messages when running in async mode ( default = indefinitely )</p>
 
+<a name="Brokers"></a>
 <h2>Brokers</h2>
 
+<a name="Partition"></a>
 <h3>Partition</h3>
 
 <p>Plan to have as number of partitions = number of consumers. This will increase the concurrency, the more the partitions the more the concurrency. Remember, more the partitions more the latency too. Also, recommended to have one partition per physical disk to ensure I/O is not the bottleneck while writing the logs.</p>
@@ -202,6 +209,7 @@ Amount of time to block before dropping the messages when running in async mode 
 </ul>
 
 
+<a name="Consumers"></a>
 <h2>Consumers</h2>
 
 <p>The max number of consumers for the topic is equal to number of partitions. Have enough partitions to handle all the consumers in your Kafka’s ecosystem.</p>
@@ -212,6 +220,7 @@ Amount of time to block before dropping the messages when running in async mode 
 
 <p><code>replica.high.watermark.checkpoint.interval.ms</code> can affect the throughput. When reading from partition, you can mark the last point where you read the information. If you set checkpoint watermark for every event, you will have high durability but hit on the performance. Rather, set it to check the offset for every x number of messages wherein you have margin of safety and will less impact your throughput.</p>
 
+<a name="Timeout"></a>
 <h3>Timeout</h3>
 
 <p>Choose the timeouts and onward pipeline properly. Also, refer to Apache Kafka doc for setting fetch size, time, auto-commit etc.</p>
@@ -322,8 +331,8 @@ Amount of time to block before dropping the messages when running in async mode 
 
 <script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.js"></script>
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
 
 <script type="text/javascript">
 	$("[data-fancybox]").fancybox({
@@ -333,7 +342,7 @@ Amount of time to block before dropping the messages when running in async mode 
 				}
 	});
 </script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+<script id="MathJax-script" async src="/javascripts/tex-mml-chtml.js"></script> 
     </body>
 
 </html>
