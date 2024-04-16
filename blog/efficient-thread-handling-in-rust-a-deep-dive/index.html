@@ -1,0 +1,407 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Efficient Thread Handling in Rust: A Deep Dive - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Rishijeet Mishra's Blog Site">
+        
+        <meta name="viewport" content="width=device-width">
+        <link rel="canonical" href="https://rishijeet.github.io/blog/efficient-thread-handling-in-rust-a-deep-dive">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.png" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+    <li><a href="/lenswork/">Photography</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Efficient Thread Handling in Rust: A Deep Dive</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-04-16T19:43:17+05:30" pubdate><i class="fa fa-calendar"></i> Apr 16th, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/rust/'>rust</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <p>Concurrency is a fundamental aspect of modern software development, and Rust provides robust abstractions for managing concurrent tasks through its ownership and borrowing system. Threads, a primary mechanism for concurrent programming in Rust, can be efficiently handled using various features and best practices. In this article, we will explore the basics of thread handling in Rust, ownership, and thread safety, as well as practical examples to illustrate efficient concurrent programming.</p>
+
+<a name="Basics.of.Threads.in.Rust"></a>
+<h2>Basics of Threads in Rust</h2>
+
+<p>Rust&rsquo;s standard library provides the <code>std::thread</code> module for working with threads. To create a new thread, the <code>std::thread::spawn</code> function is used, taking a closure that represents the code to be executed in the new thread.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="o">||</span> <span class="p">{</span>
+</span><span class='line'>        <span class="c1">// Code to be executed in the new thread</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Do other work in the main thread</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Wait for the spawned thread to finish</span>
+</span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!-- more -->
+
+
+<a name="Ownership.and.Thread.Safety"></a>
+<h2>Ownership and Thread Safety</h2>
+
+<p>Rust&rsquo;s ownership system plays a pivotal role in ensuring thread safety. Data races are prevented, and shared mutable state is carefully managed through ownership and borrowing. Each thread has its stack, and data is not shared unless explicitly specified. The ownership and borrowing rules prevent data races and ensure that mutable data is accessed safely.</p>
+
+<p>However, when shared state is necessary, Rust provides synchronization primitives such as <code>Mutex</code>, <code>Arc</code> (atomic reference counting), and <code>RwLock</code> to manage shared mutable state safely. The following example uses a <code>Mutex</code> to protect a shared counter:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="p">{</span><span class="n">Mutex</span><span class="p">,</span> <span class="n">Arc</span><span class="p">};</span>
+</span><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">counter</span> <span class="o">=</span> <span class="n">Arc</span><span class="o">::</span><span class="n">new</span><span class="p">(</span><span class="n">Mutex</span><span class="o">::</span><span class="n">new</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="k">mut</span> <span class="n">handles</span> <span class="o">=</span> <span class="n">vec</span><span class="o">!</span><span class="p">[];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="k">in</span> <span class="mf">0.</span><span class="p">.</span><span class="mi">10</span> <span class="p">{</span>
+</span><span class='line'>        <span class="kd">let</span> <span class="n">counter</span> <span class="o">=</span> <span class="n">Arc</span><span class="o">::</span><span class="n">clone</span><span class="p">(</span><span class="o">&amp;</span><span class="n">counter</span><span class="p">);</span>
+</span><span class='line'>        <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="n">move</span> <span class="o">||</span> <span class="p">{</span>
+</span><span class='line'>            <span class="kd">let</span> <span class="k">mut</span> <span class="n">num</span> <span class="o">=</span> <span class="n">counter</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>            <span class="o">*</span><span class="n">num</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">});</span>
+</span><span class='line'>        <span class="n">handles</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">handle</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">handle</span> <span class="k">in</span> <span class="n">handles</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;Result: {}&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">counter</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">unwrap</span><span class="p">());</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Here, the <code>Mutex</code> ensures exclusive access to the shared counter, preventing multiple threads from updating it simultaneously.</p>
+
+<a name="Message.Passing"></a>
+<h2>Message Passing</h2>
+
+<p>Rust&rsquo;s channels provide a powerful mechanism for communication between threads. The <code>std::sync::mpsc</code> module offers multiple-producer, single-consumer channels. The following example demonstrates message passing using channels:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="n">mpsc</span><span class="p">;</span>
+</span><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="p">(</span><span class="n">sender</span><span class="p">,</span> <span class="n">receiver</span><span class="p">)</span> <span class="o">=</span> <span class="n">mpsc</span><span class="o">::</span><span class="n">channel</span><span class="p">();</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="n">move</span> <span class="o">||</span> <span class="p">{</span>
+</span><span class='line'>        <span class="kd">let</span> <span class="n">val</span> <span class="o">=</span> <span class="n">String</span><span class="o">::</span><span class="n">from</span><span class="p">(</span><span class="s">&quot;Hello from the spawned thread&quot;</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">sender</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">val</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Do work in the main thread</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">received</span> <span class="o">=</span> <span class="n">receiver</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;Received: {}&quot;</span><span class="p">,</span> <span class="n">received</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Here, the <code>sender</code> and <code>receiver</code> allow communication between the main thread and the spawned thread, and the <code>recv</code> method blocks until a message is received.</p>
+
+<a name="Thread.Pooling.for.Scalability"></a>
+<h2>Thread Pooling for Scalability</h2>
+
+<p>Creating a new thread for every concurrent task can lead to inefficiencies due to the associated overhead. Thread pooling, a technique where a fixed number of threads are reused to execute tasks, can enhance performance. The <code>rayon</code> crate provides an elegant interface for parallel programming in Rust:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">rayon</span><span class="o">::</span><span class="n">prelude</span><span class="o">::*</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">data</span> <span class="o">=</span> <span class="n">vec</span><span class="o">!</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">];</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">result</span><span class="o">:</span> <span class="n">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;</span> <span class="o">=</span> <span class="n">data</span><span class="p">.</span><span class="n">par_iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|&amp;</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">).</span><span class="n">collect</span><span class="p">();</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;{:?}&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>par_iter</code> method from <code>rayon</code> allows parallel iteration over the data, and the <code>map</code> function applies the closure to each element concurrently.</p>
+
+<p>Efficient thread handling in Rust involves leveraging the ownership and borrowing system, using synchronization primitives, embracing message passing, and considering thread pooling for scalability. Rust&rsquo;s focus on safety and performance makes it a compelling choice for concurrent programming, providing the tools necessary to write efficient and reliable concurrent code.</p>
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2024 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+<!--Adding the Mathjax support -->
+<script id="MathJax-script" async src="/javascripts/tex-mml-chtml.js"></script>
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/efficient-thread-handling-in-rust-a-deep-dive/';
+        var disqus_url = 'https://rishijeet.github.io/blog/efficient-thread-handling-in-rust-a-deep-dive/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

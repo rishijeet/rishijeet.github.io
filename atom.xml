@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-01-14T23:40:10+05:30</updated>
+    <updated>2024-04-16T19:50:20+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,182 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Efficient Thread Handling in Rust: A Deep Dive]]></title>
+        <link href="https://rishijeet.github.io/blog/efficient-thread-handling-in-rust-a-deep-dive/"/>
+        <updated>2024-04-16T19:43:17+05:30</updated>
+        <id>https://rishijeet.github.io/blog/efficient-thread-handling-in-rust-a-deep-dive</id>
+        <content type="html"><![CDATA[<p>Concurrency is a fundamental aspect of modern software development, and Rust provides robust abstractions for managing concurrent tasks through its ownership and borrowing system. Threads, a primary mechanism for concurrent programming in Rust, can be efficiently handled using various features and best practices. In this article, we will explore the basics of thread handling in Rust, ownership, and thread safety, as well as practical examples to illustrate efficient concurrent programming.</p>
+
+<a name="Basics.of.Threads.in.Rust"></a>
+<h2>Basics of Threads in Rust</h2>
+
+<p>Rust&rsquo;s standard library provides the <code>std::thread</code> module for working with threads. To create a new thread, the <code>std::thread::spawn</code> function is used, taking a closure that represents the code to be executed in the new thread.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="o">||</span> <span class="p">{</span>
+</span><span class='line'>        <span class="c1">// Code to be executed in the new thread</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Do other work in the main thread</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Wait for the spawned thread to finish</span>
+</span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!-- more -->
+
+
+<a name="Ownership.and.Thread.Safety"></a>
+<h2>Ownership and Thread Safety</h2>
+
+<p>Rust&rsquo;s ownership system plays a pivotal role in ensuring thread safety. Data races are prevented, and shared mutable state is carefully managed through ownership and borrowing. Each thread has its stack, and data is not shared unless explicitly specified. The ownership and borrowing rules prevent data races and ensure that mutable data is accessed safely.</p>
+
+<p>However, when shared state is necessary, Rust provides synchronization primitives such as <code>Mutex</code>, <code>Arc</code> (atomic reference counting), and <code>RwLock</code> to manage shared mutable state safely. The following example uses a <code>Mutex</code> to protect a shared counter:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="p">{</span><span class="n">Mutex</span><span class="p">,</span> <span class="n">Arc</span><span class="p">};</span>
+</span><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">counter</span> <span class="o">=</span> <span class="n">Arc</span><span class="o">::</span><span class="n">new</span><span class="p">(</span><span class="n">Mutex</span><span class="o">::</span><span class="n">new</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="k">mut</span> <span class="n">handles</span> <span class="o">=</span> <span class="n">vec</span><span class="o">!</span><span class="p">[];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="k">in</span> <span class="mf">0.</span><span class="p">.</span><span class="mi">10</span> <span class="p">{</span>
+</span><span class='line'>        <span class="kd">let</span> <span class="n">counter</span> <span class="o">=</span> <span class="n">Arc</span><span class="o">::</span><span class="n">clone</span><span class="p">(</span><span class="o">&amp;</span><span class="n">counter</span><span class="p">);</span>
+</span><span class='line'>        <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="n">move</span> <span class="o">||</span> <span class="p">{</span>
+</span><span class='line'>            <span class="kd">let</span> <span class="k">mut</span> <span class="n">num</span> <span class="o">=</span> <span class="n">counter</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>            <span class="o">*</span><span class="n">num</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">});</span>
+</span><span class='line'>        <span class="n">handles</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">handle</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">handle</span> <span class="k">in</span> <span class="n">handles</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;Result: {}&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">counter</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">unwrap</span><span class="p">());</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Here, the <code>Mutex</code> ensures exclusive access to the shared counter, preventing multiple threads from updating it simultaneously.</p>
+
+<a name="Message.Passing"></a>
+<h2>Message Passing</h2>
+
+<p>Rust&rsquo;s channels provide a powerful mechanism for communication between threads. The <code>std::sync::mpsc</code> module offers multiple-producer, single-consumer channels. The following example demonstrates message passing using channels:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="n">mpsc</span><span class="p">;</span>
+</span><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="p">(</span><span class="n">sender</span><span class="p">,</span> <span class="n">receiver</span><span class="p">)</span> <span class="o">=</span> <span class="n">mpsc</span><span class="o">::</span><span class="n">channel</span><span class="p">();</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="n">move</span> <span class="o">||</span> <span class="p">{</span>
+</span><span class='line'>        <span class="kd">let</span> <span class="n">val</span> <span class="o">=</span> <span class="n">String</span><span class="o">::</span><span class="n">from</span><span class="p">(</span><span class="s">&quot;Hello from the spawned thread&quot;</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">sender</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">val</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Do work in the main thread</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">received</span> <span class="o">=</span> <span class="n">receiver</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;Received: {}&quot;</span><span class="p">,</span> <span class="n">received</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Here, the <code>sender</code> and <code>receiver</code> allow communication between the main thread and the spawned thread, and the <code>recv</code> method blocks until a message is received.</p>
+
+<a name="Thread.Pooling.for.Scalability"></a>
+<h2>Thread Pooling for Scalability</h2>
+
+<p>Creating a new thread for every concurrent task can lead to inefficiencies due to the associated overhead. Thread pooling, a technique where a fixed number of threads are reused to execute tasks, can enhance performance. The <code>rayon</code> crate provides an elegant interface for parallel programming in Rust:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">rayon</span><span class="o">::</span><span class="n">prelude</span><span class="o">::*</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">data</span> <span class="o">=</span> <span class="n">vec</span><span class="o">!</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">];</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">result</span><span class="o">:</span> <span class="n">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;</span> <span class="o">=</span> <span class="n">data</span><span class="p">.</span><span class="n">par_iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|&amp;</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">).</span><span class="n">collect</span><span class="p">();</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;{:?}&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>par_iter</code> method from <code>rayon</code> allows parallel iteration over the data, and the <code>map</code> function applies the closure to each element concurrently.</p>
+
+<p>Efficient thread handling in Rust involves leveraging the ownership and borrowing system, using synchronization primitives, embracing message passing, and considering thread pooling for scalability. Rust&rsquo;s focus on safety and performance makes it a compelling choice for concurrent programming, providing the tools necessary to write efficient and reliable concurrent code.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Enhancing Natural Language Processing with Retrieval-Augmented Generation]]></title>
@@ -1546,261 +1722,6 @@ These improvements, and many more, are all built into SQL Server and bring you n
 As the executive tells the New York Times, this is all about &#8220;market expansion.&#8221; Microsoft would rather corner the server software space, which has been shifting toward Linux, than insist on a Windows-only policy out of stubborn pride. It&#8217;s tough to know if the Linux server crowd will warm up to its longtime arch-rival, but those more open-minded firms are now free to integrate Microsoft without making a wholesale switch.
 </p>
 
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Memory Management in Python]]></title>
-        <link href="https://rishijeet.github.io/blog/memory-management-in-python/"/>
-        <updated>2015-04-22T09:54:01+05:30</updated>
-        <id>https://rishijeet.github.io/blog/memory-management-in-python</id>
-        <content type="html"><![CDATA[<p>I came across the interesting write up somewhere on website on memory management in Python. Here are some data facts
-which I liked,</p>
-
-<p>Python allocates memory transparently, manages objects using a reference count system, and frees memory when an object’s reference count falls to zero. In theory, it’s swell. In practice, you need to know a few things about Python memory management to get a memory-efficient program running. One of the things you should know, or at least get a good feel about, is the sizes of basic Python objects. Another thing is how Python manages its memory internally.</p>
-
-<p>So let us begin with the size of basic objects. In Python, there’s not a lot of primitive data types: there are ints, longs (an unlimited precision version of ints), floats (which are doubles), tuples, strings, lists, dictionaries, and classes.</p>
-
-<!-- more -->
-
-
-<p>What is the size of int? A programmer with a C or C++ background will probably guess that the size of a machine-specific int is something like 32 bits, maybe 64; and that therefore it occupies at most 8 bytes. But is that so in Python?</p>
-
-<p>Let us first write a function that shows the sizes of objects (recursively if necessary):</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">sys</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">show_sizeof</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">print</span> <span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span> <span class="o">*</span> <span class="n">level</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">__class__</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">x</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;__iter__&#39;</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;items&#39;</span><span class="p">):</span>
-</span><span class='line'>            <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span class='line'>                <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-</span><span class='line'>        <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>We can now use the function to inspect the sizes of the different basic data types:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">102947298469128649161972364837164</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="c">#If you have a 32-bit 2.7x Python, you’ll see:</span>
-</span><span class='line'>
-</span><span class='line'><span class="mi">8</span> <span class="bp">None</span>
-</span><span class='line'><span class="mi">12</span> <span class="mi">3</span>
-</span><span class='line'><span class="mi">22</span> <span class="mi">9223372036854775808</span>
-</span><span class='line'><span class="mi">28</span> <span class="mi">102947298469128649161972364837164</span>
-</span><span class='line'><span class="mi">48</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="c">#and if you have a 64-bit 2.7x Python, you’ll see:</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="mi">16</span> <span class="bp">None</span>
-</span><span class='line'><span class="mi">24</span> <span class="mi">3</span>
-</span><span class='line'><span class="mi">36</span> <span class="mi">9223372036854775808</span>
-</span><span class='line'><span class="mi">40</span> <span class="mi">102947298469128649161972364837164</span>
-</span><span class='line'><span class="mi">60</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Let us focus on the 64-bit version (mainly because that’s what we need the most often in our case). None takes 16 bytes. int takes 24 bytes, three times as much memory as a C int64_t, despite being some kind of “machine-friendly” integer. Long integers (unbounded precision), used to represent integers larger than 263-1, have a minimum size of 36 bytes. Then it grows linearly in the logarithm of the integer represented.</p>
-
-<p>Python’s floats are implementation-specific but seem to be C doubles. However, they do not eat up only 8 bytes:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mf">3.14159265358979323846264338327950288</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Output</span>
-</span><span class='line'>
-</span><span class='line'><span class="mi">16</span> <span class="mf">3.14159265359</span>
-</span><span class='line'>
-</span><span class='line'><span class="c">#on a 32-bit platform and</span>
-</span><span class='line'>
-</span><span class='line'><span class="mi">24</span> <span class="mf">3.14159265359</span>
-</span><span class='line'><span class="c">#on a 64-bit platform.</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>That’s again, three times the size a C programmer would expect. Now, what about strings?</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="s">&quot;My hovercraft is full of eels&quot;</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>outputs, on a 32 bit platform:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">21</span>
-</span><span class='line'><span class="mi">50</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>and</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">37</span>
-</span><span class='line'><span class="mi">66</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>An empty string costs 37 bytes in a 64-bit environment! Memory used by string then linearly grows in the length of the (useful) string.</p>
-
-<p>Other structures commonly used, tuples, lists, and dictionaries are worthwhile to examine. Lists (which are implemented as array lists, not as linked lists, with everything it entails) are arrays of references to Python objects, allowing them to be heterogeneous. Let us look at our sizes:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">([])</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="s">&quot;toaster&quot;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">])</span>
-</span><span class='line'><span class="c">#outputs</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="mi">32</span> <span class="p">[]</span>
-</span><span class='line'><span class="mi">44</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="s">&#39;toaster&#39;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">]</span>
-</span><span class='line'><span class="c">#on a 32-bit platform and</span>
-</span><span class='line'>
-</span><span class='line'><span class="mi">72</span> <span class="p">[]</span>
-</span><span class='line'><span class="mi">96</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="s">&#39;toaster&#39;</span><span class="p">,</span> <span class="mf">230.1</span><span class="p">]</span>
-</span><span class='line'><span class="c">#on a 64-bit platform. </span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>An empty list eats up 72 bytes. The size of an empty, 64-bit C++ std::list() is only 16 bytes,
- 4-5 times less. What about tuples? (and dictionaries?):</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">show_sizeof</span><span class="p">({})</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">({</span><span class="s">&#39;a&#39;</span><span class="p">:</span><span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span><span class="mi">2131</span><span class="p">})</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>outputs, on a 32-bit box</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="mi">136</span> <span class="p">{}</span>
-</span><span class='line'> <span class="mi">136</span> <span class="p">{</span><span class="s">&#39;a&#39;</span><span class="p">:</span> <span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2131</span><span class="p">}</span>
-</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">,</span> <span class="mi">213</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">22</span> <span class="n">a</span>
-</span><span class='line'>                <span class="mi">12</span> <span class="mi">213</span>
-</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2131</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">22</span> <span class="n">b</span>
-</span><span class='line'>                <span class="mi">12</span> <span class="mi">2131</span>
-</span><span class='line'><span class="ow">and</span>
-</span><span class='line'>
-</span><span class='line'><span class="mi">280</span> <span class="p">{}</span>
-</span><span class='line'> <span class="mi">280</span> <span class="p">{</span><span class="s">&#39;a&#39;</span><span class="p">:</span> <span class="mi">213</span><span class="p">,</span> <span class="s">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2131</span><span class="p">}</span>
-</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">,</span> <span class="mi">213</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">38</span> <span class="n">a</span>
-</span><span class='line'>                <span class="mi">24</span> <span class="mi">213</span>
-</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2131</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">38</span> <span class="n">b</span>
-</span><span class='line'>                <span class="mi">24</span> <span class="mi">2131</span>
-</span><span class='line'>
-</span><span class='line'>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>for a 64-bit box.</p>
-
-<p>This last example is particularly interesting because it “doesn’t add up.” If we look at individual key/value pairs, they take 72 bytes (while their components take 38+24=62 bytes, leaving 10 bytes for the pair itself), but the dictionary takes 280 bytes (rather than a strict minimum of 144=72×2 bytes). The dictionary is supposed to be an efficient data structure for search and the two likely implementations will use more space that strictly necessary. If it’s some kind of tree, then we should pay the cost of internal nodes that contain a key and two pointers to children nodes; if it’s a hash table, then we must have some room with free entries to ensure good performance.</p>
-
-<p>The (somewhat) equivalent <code>std::map</code> C++ structure takes 48 bytes when created (that is,
-empty). An empty C++ string takes 8 bytes (then allocated size grows linearly the size of the string). An integer takes 4 bytes (32 bits).</p>
-
-<p>Why does all this matter? It seems that whether an empty string takes 8 bytes or 37 doesn’t change anything much
-. That’s true. That’s true until you need to scale. Then, you need to be really careful about how many objects you
-create to limit the quantity of memory your program uses. It is a problem in real-life applications. However, to devise a really good strategy about memory management, we must not only consider the sizes of objects, but how many and in which order they are created. It turns out to be very important for Python programs. One key element to understand is how Python allocates its memory internally, which we will discuss next.</p>
 ]]></content>
     </entry>
     

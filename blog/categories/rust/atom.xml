@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: rust | Rishijeet Mishra]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/rust/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2024-04-16T19:50:20+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[Efficient Thread Handling in Rust: A Deep Dive]]></title>
+        <link href="https://rishijeet.github.io/blog/efficient-thread-handling-in-rust-a-deep-dive/"/>
+        <updated>2024-04-16T19:43:17+05:30</updated>
+        <id>https://rishijeet.github.io/blog/efficient-thread-handling-in-rust-a-deep-dive</id>
+        <content type="html"><![CDATA[<p>Concurrency is a fundamental aspect of modern software development, and Rust provides robust abstractions for managing concurrent tasks through its ownership and borrowing system. Threads, a primary mechanism for concurrent programming in Rust, can be efficiently handled using various features and best practices. In this article, we will explore the basics of thread handling in Rust, ownership, and thread safety, as well as practical examples to illustrate efficient concurrent programming.</p>
+
+<a name="Basics.of.Threads.in.Rust"></a>
+<h2>Basics of Threads in Rust</h2>
+
+<p>Rust&rsquo;s standard library provides the <code>std::thread</code> module for working with threads. To create a new thread, the <code>std::thread::spawn</code> function is used, taking a closure that represents the code to be executed in the new thread.</p>
+
+<pre><code class="rust">use std::thread;
+
+fn main() {
+    let handle = thread::spawn(|| {
+        // Code to be executed in the new thread
+    });
+
+    // Do other work in the main thread
+
+    // Wait for the spawned thread to finish
+    handle.join().unwrap();
+}
+</code></pre>
+
+<!-- more -->
+
+
+<a name="Ownership.and.Thread.Safety"></a>
+<h2>Ownership and Thread Safety</h2>
+
+<p>Rust&rsquo;s ownership system plays a pivotal role in ensuring thread safety. Data races are prevented, and shared mutable state is carefully managed through ownership and borrowing. Each thread has its stack, and data is not shared unless explicitly specified. The ownership and borrowing rules prevent data races and ensure that mutable data is accessed safely.</p>
+
+<p>However, when shared state is necessary, Rust provides synchronization primitives such as <code>Mutex</code>, <code>Arc</code> (atomic reference counting), and <code>RwLock</code> to manage shared mutable state safely. The following example uses a <code>Mutex</code> to protect a shared counter:</p>
+
+<pre><code class="rust">use std::sync::{Mutex, Arc};
+use std::thread;
+
+fn main() {
+    let counter = Arc::new(Mutex::new(0));
+    let mut handles = vec![];
+
+    for _ in 0..10 {
+        let counter = Arc::clone(&amp;counter);
+        let handle = thread::spawn(move || {
+            let mut num = counter.lock().unwrap();
+            *num += 1;
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    println!("Result: {}", *counter.lock().unwrap());
+}
+</code></pre>
+
+<p>Here, the <code>Mutex</code> ensures exclusive access to the shared counter, preventing multiple threads from updating it simultaneously.</p>
+
+<a name="Message.Passing"></a>
+<h2>Message Passing</h2>
+
+<p>Rust&rsquo;s channels provide a powerful mechanism for communication between threads. The <code>std::sync::mpsc</code> module offers multiple-producer, single-consumer channels. The following example demonstrates message passing using channels:</p>
+
+<pre><code class="rust">use std::sync::mpsc;
+use std::thread;
+
+fn main() {
+    let (sender, receiver) = mpsc::channel();
+
+    let handle = thread::spawn(move || {
+        let val = String::from("Hello from the spawned thread");
+        sender.send(val).unwrap();
+    });
+
+    // Do work in the main thread
+
+    let received = receiver.recv().unwrap();
+    println!("Received: {}", received);
+
+    handle.join().unwrap();
+}
+</code></pre>
+
+<p>Here, the <code>sender</code> and <code>receiver</code> allow communication between the main thread and the spawned thread, and the <code>recv</code> method blocks until a message is received.</p>
+
+<a name="Thread.Pooling.for.Scalability"></a>
+<h2>Thread Pooling for Scalability</h2>
+
+<p>Creating a new thread for every concurrent task can lead to inefficiencies due to the associated overhead. Thread pooling, a technique where a fixed number of threads are reused to execute tasks, can enhance performance. The <code>rayon</code> crate provides an elegant interface for parallel programming in Rust:</p>
+
+<pre><code class="rust">use rayon::prelude::*;
+
+fn main() {
+    let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let result: Vec&lt;_&gt; = data.par_iter().map(|&amp;x| x * x).collect();
+
+    println!("{:?}", result);
+}
+</code></pre>
+
+<p>The <code>par_iter</code> method from <code>rayon</code> allows parallel iteration over the data, and the <code>map</code> function applies the closure to each element concurrently.</p>
+
+<p>Efficient thread handling in Rust involves leveraging the ownership and borrowing system, using synchronization primitives, embracing message passing, and considering thread pooling for scalability. Rust&rsquo;s focus on safety and performance makes it a compelling choice for concurrent programming, providing the tools necessary to write efficient and reliable concurrent code.</p>
+]]></content>
+    </entry>
+    
+</feed>

@@ -84,6 +84,96 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/efficient-thread-handling-in-rust-a-deep-dive/">Efficient Thread Handling in Rust: A Deep Dive</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-04-16T19:43:17+05:30" pubdate><i class="fa fa-calendar"></i> Apr 16th, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/rust/'>rust</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <p>Concurrency is a fundamental aspect of modern software development, and Rust provides robust abstractions for managing concurrent tasks through its ownership and borrowing system. Threads, a primary mechanism for concurrent programming in Rust, can be efficiently handled using various features and best practices. In this article, we will explore the basics of thread handling in Rust, ownership, and thread safety, as well as practical examples to illustrate efficient concurrent programming.</p>
+
+<a name="Basics.of.Threads.in.Rust"></a>
+<h2>Basics of Threads in Rust</h2>
+
+<p>Rust&rsquo;s standard library provides the <code>std::thread</code> module for working with threads. To create a new thread, the <code>std::thread::spawn</code> function is used, taking a closure that represents the code to be executed in the new thread.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="o">||</span> <span class="p">{</span>
+</span><span class='line'>        <span class="c1">// Code to be executed in the new thread</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Do other work in the main thread</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Wait for the spawned thread to finish</span>
+</span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+
+        <a class="btn pull-right" href="/blog/efficient-thread-handling-in-rust-a-deep-dive/">Read on &rarr;</a>
+    </div>
+
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/enhancing-natural-language-processing-with-retrieval-augmented-generation/">Enhancing Natural Language Processing with Retrieval-Augmented Generation</a>
         </h1>
     
@@ -381,98 +471,6 @@
 
 
         <a class="btn pull-right" href="/blog/building-innovative-genai-applications-with-the-genai-stack-unleashing-the-power-of-docker/">Read on &rarr;</a>
-    </div>
-
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/webhook-vs-websocket-choosing-the-right-communication-mechanism-for-your-application/">Webhook vs. WebSocket: Choosing the Right Communication Mechanism for Your Application</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2023-11-04T20:56:03+05:30" pubdate><i class="fa fa-calendar"></i> Nov 4th, 2023</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/api/'>api</a></li>
-            
-                <li><a class='category' href='/blog/categories/webhook/'>webhook</a></li>
-            
-                <li><a class='category' href='/blog/categories/websocket/'>websocket</a></li>
-            
-                <li><a class='category' href='/blog/categories/security/'>security</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <p>In today&rsquo;s digital age, communication between applications is crucial, and it&rsquo;s the APIs (Application Programming Interfaces) that act as the mediators. APIs provide a standardized way for software modules, applications, and devices to exchange data and instructions. However, not all communication needs can be met by APIs alone. In this article, we&rsquo;ll explore three different communication mechanisms: API, WebHook, and WebSocket, and help you understand when to use each one.</p>
-
-<a name="Understanding.API.Interfaces"></a>
-<h2>Understanding API Interfaces</h2>
-
-<p>APIs are the backbone of modern application development. They guide machines, devices, and applications on how to interact with each other, just like human language allows us to express our thoughts. APIs define the rules and methods for data exchange between the client-side application and the server-side infrastructure.</p>
-
-<p>There are three primary types of APIs:</p>
-
-<ol>
-<li><strong>Private API:</strong> Restricted to authorized personnel within an organization.</li>
-<li><strong>Public API:</strong> Accessible to anyone without restrictions.</li>
-<li><strong>Partner API:</strong> Used to enable business partnerships and third-party integrations.</li>
-</ol>
-
-
-<p>APIs are essential for ensuring secure and efficient communication between various components of an application. Poor API security can lead to data corruption and pose a significant risk to the entire application.</p>
-
-<a name="WebHook:.Reverse.API.for.Event-Driven.Communication"></a>
-<h2>WebHook: Reverse API for Event-Driven Communication</h2>
-
-<p>WebHooks can be thought of as reverse APIs since they operate in the opposite direction. While APIs allow clients to request data from the server, WebHooks enable servers to push information to other servers or applications. They are often referred to as server-to-server push notifications.</p>
-
-<p>WebHooks are highly versatile and are ideal for handling integrations between different solutions or applications. They are typically used to notify an application or web app about specific events, such as receiving a message, processing a payment, or any other update.</p>
-
-<a name="WebSocket:.Real-Time..Bidirectional.Communication"></a>
-<h2>WebSocket: Real-Time, Bidirectional Communication</h2>
-
-<p>WebSocket is a communication protocol that enables full-duplex, bidirectional communication over a single TCP connection. Unlike HTTP-based APIs, WebSocket maintains a continuous, open connection, making it suitable for real-time applications. It is considered a stateful protocol because the communication remains active until one of the parties terminates it, and it employs a 3-way handshake for connection establishment.</p>
-
-<p>WebSocket is perfect for applications that demand real-time communication, as it allows information exchange at any time and from anywhere. It is particularly useful for collaborative tools, data visualization applications, and chat applications, where immediate and bidirectional communication is essential.</p>
-
-
-        <a class="btn pull-right" href="/blog/webhook-vs-websocket-choosing-the-right-communication-mechanism-for-your-application/">Read on &rarr;</a>
     </div>
 
 
