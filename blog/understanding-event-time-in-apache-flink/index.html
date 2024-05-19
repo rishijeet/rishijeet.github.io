@@ -1,0 +1,384 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Understanding Event Time in Apache Flink - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Rishijeet Mishra's Blog Site">
+        
+        <meta name="viewport" content="width=device-width">
+        <link rel="canonical" href="https://rishijeet.github.io/blog/understanding-event-time-in-apache-flink">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.png" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+    <li><a href="/lenswork/">Photography</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Understanding Event Time in Apache Flink</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-05-19T20:22:47+05:30" pubdate><i class="fa fa-calendar"></i> May 19th, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/apache-flink/'>apache-flink</a></li>
+            
+                <li><a class='category' href='/blog/categories/streaming-data/'>streaming-data</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <a name="What.is.Event.Time."></a>
+<h3>What is Event Time?</h3>
+
+<p>Event Time is one of the three time semantics in Apache Flink, along with Ingestion Time and Processing Time. Event Time refers to the time at which each individual event actually occurred, typically extracted from the event itself. This contrasts with Processing Time, which refers to the time at which events are processed by the Flink system, and Ingestion Time, which is the time at which events enter the Flink pipeline.</p>
+
+<p><img src="/images/event_processing_time.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
+
+<a name="Key.Features.of.Event.Time:"></a>
+<h3>Key Features of Event Time:</h3>
+
+<p><strong>Timestamp Extraction</strong>: In Event Time, each event must have a timestamp that indicates when the event occurred. This timestamp is extracted from the event data itself.</p>
+
+<p><strong>Watermarks</strong>: Watermarks are a mechanism used to track progress in Event Time. They are special timestamps that indicate that no events with a timestamp older than the watermark should be expected. Watermarks allow Flink to handle late-arriving data and trigger computations when it is safe to assume all relevant data has been processed. For more detailed information, you can refer to the <a href="/blog/understanding-watermarks-in-apache-flink">Understanding Watermarks in Apache Flink</a></p>
+
+<p><strong>Windowing</strong>: Event Time is crucial for windowed operations. Windows (e.g., tumbling, sliding, session windows) in Flink can be defined based on Event Time, ensuring that events are grouped according to when they actually occurred.</p>
+
+<!-- more -->
+
+
+<a name="Benefits.of.Using.Event.Time"></a>
+<h2>Benefits of Using Event Time</h2>
+
+<p><strong>Accuracy in Time-Based Operations</strong>:</p>
+
+<ul>
+<li> Using Event Time allows for more accurate and reliable time-based operations, such as windowed aggregations, joins, and pattern detections. This is because the operations are based on the actual occurrence time of events, rather than the time they are processed.</li>
+</ul>
+
+
+<p><strong>Handling Out-of-Order Events</strong>:</p>
+
+<ul>
+<li> Real-world data streams often have events that arrive out of order. With Event Time and watermarks, Flink can manage out-of-order events effectively. Watermarks help to delay processing just enough to account for late events without significant delays, ensuring completeness and correctness in the results.</li>
+</ul>
+
+
+<p><strong>Consistency Across Distributed Systems</strong>:</p>
+
+<ul>
+<li> In distributed systems, processing time can vary significantly across different nodes due to network latency, load balancing, and other factors. Event Time provides a consistent temporal reference across all nodes, ensuring that operations like windowing produce consistent results regardless of where or when events are processed.</li>
+</ul>
+
+
+<p><strong>Improved Late Data Handling</strong>:</p>
+
+<ul>
+<li> By leveraging watermarks, Flink can handle late-arriving data more gracefully. You can define how much lateness to tolerate and what actions to take for late data, allowing for flexible and robust processing pipelines that can deal with real-world stream data issues.</li>
+</ul>
+
+
+<a name="Extracting.Timestamps.and.Generating.Watermarks"></a>
+<h3>Extracting Timestamps and Generating Watermarks</h3>
+
+<p>To use Event Time in Flink, you typically need to:</p>
+
+<p><strong>Assign Timestamps</strong>: Extract the event timestamps from the incoming data.</p>
+
+<p><strong>Generate Watermarks</strong>: Define a strategy for generating watermarks that dictate the event-time progress.</p>
+
+<p>Here’s an example in Java:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">MyEventSource</span><span class="o">());</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">stream</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">assignTimestampsAndWatermarks</span><span class="o">(</span><span class="k">new</span> <span class="n">AssignerWithPunctuatedWatermarks</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="nd">@Override</span>
+</span><span class='line'>        <span class="kd">public</span> <span class="kt">long</span> <span class="nf">extractTimestamp</span><span class="o">(</span><span class="n">MyEvent</span> <span class="n">element</span><span class="o">,</span> <span class="kt">long</span> <span class="n">previousElementTimestamp</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">return</span> <span class="n">element</span><span class="o">.</span><span class="na">getTimestamp</span><span class="o">();</span> <span class="c1">// Extract timestamp from event</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="nd">@Override</span>
+</span><span class='line'>        <span class="kd">public</span> <span class="n">Watermark</span> <span class="nf">checkAndGetNextWatermark</span><span class="o">(</span><span class="n">MyEvent</span> <span class="n">lastElement</span><span class="o">,</span> <span class="kt">long</span> <span class="n">extractedTimestamp</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">return</span> <span class="k">new</span> <span class="nf">Watermark</span><span class="o">(</span><span class="n">extractedTimestamp</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span> <span class="c1">// Generate watermark</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">})</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">TumblingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">)))</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">apply</span><span class="o">(</span><span class="k">new</span> <span class="n">WindowFunction</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">,</span> <span class="n">ResultType</span><span class="o">,</span> <span class="n">KeyType</span><span class="o">,</span> <span class="n">TimeWindow</span><span class="o">&gt;()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="nd">@Override</span>
+</span><span class='line'>        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">apply</span><span class="o">(</span><span class="n">KeyType</span> <span class="n">key</span><span class="o">,</span> <span class="n">TimeWindow</span> <span class="n">window</span><span class="o">,</span> <span class="n">Iterable</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;</span> <span class="n">input</span><span class="o">,</span> <span class="n">Collector</span><span class="o">&lt;</span><span class="n">ResultType</span><span class="o">&gt;</span> <span class="n">out</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="c1">// Process windowed events</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Using.Event.Time.Windows"></a>
+<h3>Using Event Time Windows</h3>
+
+<p>Flink supports various types of windows based on Event Time:</p>
+
+<ul>
+<li><strong>Tumbling Windows</strong>: Fixed-size, non-overlapping windows.</li>
+<li><strong>Sliding Windows</strong>: Fixed-size windows that can overlap.</li>
+<li><strong>Session Windows</strong>: Variable-sized windows that group events based on session gaps.</li>
+</ul>
+
+
+<p>Example of a tumbling window in Event Time:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span> <span class="c1">// Your event stream</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">stream</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">TumblingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">)))</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">sum</span><span class="o">(</span><span class="s">&quot;value&quot;</span><span class="o">);</span> <span class="c1">// Aggregation function</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>Event Time in Apache Flink is essential for accurately processing and analyzing time-based event streams. By utilizing timestamps extracted from the events and managing time progress through watermarks, Flink ensures precise and consistent stream processing even in the presence of out-of-order and late-arriving events. This makes Event Time invaluable for real-world applications where timing accuracy is critical.</p>
+
+<p>For more detailed information, you can refer to the <a href="https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/concepts/time/">Apache Flink Documentation on Event Time</a>.</p>
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2024 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+<!--Adding the Mathjax support -->
+<script id="MathJax-script" async src="/javascripts/tex-mml-chtml.js"></script>
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/understanding-event-time-in-apache-flink/';
+        var disqus_url = 'https://rishijeet.github.io/blog/understanding-event-time-in-apache-flink/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>
