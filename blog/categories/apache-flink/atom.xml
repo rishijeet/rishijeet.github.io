@@ -4,7 +4,7 @@
     <title><![CDATA[Category: apache-flink | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/apache-flink/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-05-19T21:12:10+05:30</updated>
+    <updated>2024-05-19T21:36:48+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,82 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Advantages of Enable Checkpointing in Apache Flink]]></title>
+        <link href="https://rishijeet.github.io/blog/advantages-of-enable-checkpointing-in-apache-flink/"/>
+        <updated>2024-05-19T21:32:50+05:30</updated>
+        <id>https://rishijeet.github.io/blog/advantages-of-enable-checkpointing-in-apache-flink</id>
+        <content type="html"><![CDATA[<p>Enabling checkpointing in Apache Flink provides significant advantages for ensuring the reliability, consistency, and fault-tolerance of stream processing applications. Below, I detail the benefits and provide a code example.</p>
+
+<a name="Advantages.of.Checkpointing"></a>
+<h2>Advantages of Checkpointing</h2>
+
+<ul>
+<li><p><strong>Fault Tolerance</strong> Checkpointing ensures that the state of your Flink application can be recovered in case of a failure. Flink periodically saves snapshots of the entire distributed data stream and state to a persistent storage. If a failure occurs, Flink can restart the application and restore the state from the latest checkpoint, minimizing data loss and downtime.</p></li>
+<li><p><strong>Exactly-Once Processing Semantics</strong> With checkpointing, Flink guarantees exactly-once processing semantics. This means that each event in the stream is processed exactly once, even in the face of failures. This is crucial for applications where accuracy is paramount, such as financial transaction processing or data analytics.</p></li>
+<li><p><strong>Consistent State Management</strong> Checkpointing provides consistent snapshots of the application state. This consistency ensures that all parts of the state are in sync and correspond to the same point in the input stream, avoiding issues like partial updates or inconsistent results.</p></li>
+<li><p><strong>Efficient State Recovery</strong> Checkpointing allows efficient recovery of the application state. Instead of reprocessing the entire data stream from the beginning, Flink can resume processing from the last checkpoint, saving computational resources and reducing recovery time.</p></li>
+<li><p><strong>Backpressure Handling</strong> Flink’s checkpointing mechanism can help manage backpressure in the system by ensuring that the system processes data at a rate that matches the checkpointing intervals, preventing data overloads.</p></li>
+<li><p><strong>State Evolution</strong> Checkpointing supports state evolution, allowing updates to the state schema without losing data. This is useful for applications that need to update their state representation over time while maintaining historical consistency.</p></li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Code.Example"></a>
+<h2>Code Example</h2>
+
+<p>Here’s a basic example of enabling checkpointing in a Flink job:</p>
+
+<pre><code class="java">import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.CheckpointingMode;
+
+public class CheckpointingExample {
+
+    public static void main(String[] args) throws Exception {
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        // Enable checkpointing every 10 seconds
+        env.enableCheckpointing(10000); // 10 seconds
+
+        // Set checkpointing mode to exactly-once (default)
+        env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+
+        // Ensure 500 ms of progress happen between checkpoints
+        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(500);
+
+        // Checkpoints have to complete within one minute, or are discarded
+        env.getCheckpointConfig().setCheckpointTimeout(60000);
+
+        // Allow only one checkpoint to be in progress at the same time
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
+
+        // Retain the checkpoints on cancellation
+        env.getCheckpointConfig().enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+
+        // Set a restart strategy
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(
+            3, // number of restart attempts
+            10000 // delay between attempts
+        ));
+
+        // Define your data source, transformations, and sinks
+        // ...
+
+        env.execute("Flink Checkpointing Example");
+    }
+}
+</code></pre>
+
+<p>By setting up checkpointing, you ensure your Flink application is resilient and can recover from failures efficiently, maintaining data integrity and consistency.</p>
+
+<p>For more detailed information, you can refer to the <a href="https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/dev/datastream/fault-tolerance/checkpointing/">Apache Flink Documentation on Checkpointing</a>.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Understanding Windowing in Apache Flink]]></title>
