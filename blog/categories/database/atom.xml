@@ -4,7 +4,7 @@
     <title><![CDATA[Category: database | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/database/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-05-22T22:31:10+05:30</updated>
+    <updated>2024-05-22T23:56:07+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,338 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Types of Databases: An In-Depth Exploration]]></title>
+        <link href="https://rishijeet.github.io/blog/types-of-databases-an-in-depth-exploration/"/>
+        <updated>2024-05-22T23:48:44+05:30</updated>
+        <id>https://rishijeet.github.io/blog/types-of-databases-an-in-depth-exploration</id>
+        <content type="html"><![CDATA[<p>Databases are fundamental to modern computing, serving as the backbone for storing, retrieving, and managing data. Different types of databases are designed to handle varying data structures and use cases.</p>
+
+<a name="Relational-Databases"></a>
+<h2>Relational Databases</h2>
+
+<a name="Overview"></a>
+<h3>Overview</h3>
+
+<p>Relational databases (RDBMS) use structured query language (SQL) to define and manipulate data. They are based on a table format where data is organized into rows and columns, making them ideal for structured data.</p>
+
+<a name="Common-Use-Cases"></a>
+<h3>Common Use Cases</h3>
+
+<ul>
+<li>Financial transactions</li>
+<li>Customer relationship management (CRM)</li>
+<li>Inventory management</li>
+</ul>
+
+
+<a name="Examples"></a>
+<h3>Examples</h3>
+
+<ul>
+<li>MySQL</li>
+<li>PostgreSQL</li>
+<li>Oracle Database</li>
+</ul>
+
+
+<!--more-->
+
+
+<p>Here’s a simple example code using PostgreSQL:</p>
+
+<pre><code class="sql">-- Create a table
+CREATE TABLE employees (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    position VARCHAR(100),
+    salary NUMERIC
+);
+
+-- Insert data
+INSERT INTO employees (name, position, salary) VALUES 
+('John Doe', 'Software Engineer', 70000),
+('Jane Smith', 'Product Manager', 90000);
+
+-- Query data
+SELECT * FROM employees;
+</code></pre>
+
+<a name="NoSQL-Databases"></a>
+<h2>NoSQL Databases</h2>
+
+<a name="Overview"></a>
+<h3>Overview</h3>
+
+<p>NoSQL databases are designed for unstructured or semi-structured data and do not require a fixed schema. They are highly scalable and can handle large volumes of diverse data types.</p>
+
+<a name="Types-of-NoSQL-Databases"></a>
+<h3>Types of NoSQL Databases</h3>
+
+<ul>
+<li><strong>Document Databases</strong>: Store data as JSON or BSON documents (e.g., MongoDB).</li>
+<li><strong>Key-Value Stores</strong>: Use a simple key-value pair mechanism (e.g., Redis).</li>
+<li><strong>Column-Family Stores</strong>: Organize data into columns rather than rows (e.g., Apache Cassandra).</li>
+<li><strong>Graph Databases</strong>: Use graph structures with nodes, edges, and properties to represent data (e.g., Neo4j).</li>
+</ul>
+
+
+<a name="Common-Use-Cases"></a>
+<h3>Common Use Cases</h3>
+
+<ul>
+<li>Real-time web applications</li>
+<li>Big data analytics</li>
+<li>Social networks</li>
+</ul>
+
+
+<a name="Example-Code"></a>
+<h3>Example Code</h3>
+
+<a name="MongoDB--28-Document-Database-29-"></a>
+<h4>MongoDB (Document Database)</h4>
+
+<pre><code class="javascript">// Insert a document
+db.users.insertOne({
+    name: "Alice",
+    age: 28,
+    address: {
+        city: "New York",
+        state: "NY"
+    }
+});
+
+// Query documents
+db.users.find({ age: { $gt: 25 } });
+</code></pre>
+
+<a name="Redis--28-Key-2d-Value-Store-29-"></a>
+<h4>Redis (Key-Value Store)</h4>
+
+<pre><code class="bash"># Set a key-value pair
+SET user:1000 "John Doe"
+
+# Get the value by key
+GET user:1000
+</code></pre>
+
+<a name="Apache-Cassandra--28-Column-2d-Family-Store-29-"></a>
+<h4>Apache Cassandra (Column-Family Store)</h4>
+
+<pre><code class="sql">-- Create a keyspace
+CREATE KEYSPACE mykeyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+
+-- Create a table
+CREATE TABLE mykeyspace.users (
+    id UUID PRIMARY KEY,
+    name TEXT,
+    email TEXT
+);
+
+-- Insert data
+INSERT INTO mykeyspace.users (id, name, email) VALUES (uuid(), 'Alice', 'alice@example.com');
+
+-- Query data
+SELECT * FROM mykeyspace.users;
+</code></pre>
+
+<a name="Neo4j--28-Graph-Database-29-"></a>
+<h4>Neo4j (Graph Database)</h4>
+
+<pre><code class="cypher">// Create nodes and relationships
+CREATE (alice:Person {name: 'Alice', age: 30})
+CREATE (bob:Person {name: 'Bob', age: 25})
+CREATE (alice)-[:FRIENDS_WITH]-&gt;(bob);
+
+// Query nodes
+MATCH (p:Person) RETURN p;
+</code></pre>
+
+<a name="In-2d-Memory-Databases"></a>
+<h2>In-Memory Databases</h2>
+
+<a name="Overview"></a>
+<h3>Overview</h3>
+
+<p>In-memory databases store data in the system&rsquo;s main memory (RAM) rather than on disk, providing extremely fast data retrieval and processing speeds.</p>
+
+<a name="Common-Use-Cases"></a>
+<h3>Common Use Cases</h3>
+
+<ul>
+<li>Real-time analytics</li>
+<li>Caching</li>
+<li>Session management</li>
+</ul>
+
+
+<a name="Examples"></a>
+<h3>Examples</h3>
+
+<ul>
+<li>Redis</li>
+<li>Memcached</li>
+</ul>
+
+
+<a name="Example-Code"></a>
+<h3>Example Code</h3>
+
+<a name="Redis"></a>
+<h4>Redis</h4>
+
+<pre><code class="bash"># Set a key-value pair in Redis
+SET session:12345 "user data"
+
+# Retrieve the key-value pair
+GET session:12345
+</code></pre>
+
+<a name="NewSQL-Databases"></a>
+<h2>NewSQL Databases</h2>
+
+<a name="Overview"></a>
+<h3>Overview</h3>
+
+<p>NewSQL databases combine the benefits of traditional relational databases (ACID properties) with the scalability of NoSQL databases. They are designed to handle high-transaction volumes while maintaining data integrity.</p>
+
+<a name="Common-Use-Cases"></a>
+<h3>Common Use Cases</h3>
+
+<ul>
+<li>E-commerce platforms</li>
+<li>Financial services</li>
+<li>Large-scale applications requiring transactional consistency</li>
+</ul>
+
+
+<a name="Examples"></a>
+<h3>Examples</h3>
+
+<ul>
+<li>Google Spanner</li>
+<li>CockroachDB</li>
+<li>VoltDB</li>
+</ul>
+
+
+<a name="Example-Code"></a>
+<h3>Example Code</h3>
+
+<a name="CockroachDB"></a>
+<h4>CockroachDB</h4>
+
+<pre><code class="sql">-- Create a table
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name STRING,
+    price DECIMAL
+);
+
+-- Insert data
+INSERT INTO products (name, price) VALUES ('Laptop', 1200.00);
+
+-- Query data
+SELECT * FROM products;
+</code></pre>
+
+<a name="Time-2d-Series-Databases"></a>
+<h2>Time-Series Databases</h2>
+
+<a name="Overview"></a>
+<h3>Overview</h3>
+
+<p>Time-series databases are optimized for storing and querying time-stamped data, making them ideal for applications that involve tracking changes over time.</p>
+
+<a name="Common-Use-Cases"></a>
+<h3>Common Use Cases</h3>
+
+<ul>
+<li>Monitoring and observability</li>
+<li>Financial data analysis</li>
+<li>IoT data</li>
+</ul>
+
+
+<a name="Examples"></a>
+<h3>Examples</h3>
+
+<ul>
+<li>InfluxDB</li>
+<li>TimescaleDB</li>
+<li>OpenTSDB</li>
+</ul>
+
+
+<a name="Example-Code"></a>
+<h3>Example Code</h3>
+
+<a name="InfluxDB"></a>
+<h4>InfluxDB</h4>
+
+<pre><code class="sql">-- Insert a time-series data point
+INSERT temperature,location=office value=23.5
+
+-- Query time-series data
+SELECT * FROM temperature WHERE location='office'
+</code></pre>
+
+<a name="Object-2d-Oriented-Databases"></a>
+<h2>Object-Oriented Databases</h2>
+
+<a name="Overview"></a>
+<h3>Overview</h3>
+
+<p>Object-oriented databases store data in the form of objects, as used in object-oriented programming. They support complex data representations and relationships directly within the database.</p>
+
+<a name="Common-Use-Cases"></a>
+<h3>Common Use Cases</h3>
+
+<ul>
+<li>Engineering applications</li>
+<li>Multimedia applications</li>
+<li>Complex data models</li>
+</ul>
+
+
+<a name="Examples"></a>
+<h3>Examples</h3>
+
+<ul>
+<li>db4o</li>
+<li>ObjectDB</li>
+</ul>
+
+
+<a name="Example-Code"></a>
+<h3>Example Code</h3>
+
+<a name="ObjectDB--28-Java-29-"></a>
+<h4>ObjectDB (Java)</h4>
+
+<pre><code class="java">// Create an EntityManager
+EntityManagerFactory emf = Persistence.createEntityManagerFactory("objectdb:mydb.odb");
+EntityManager em = emf.createEntityManager();
+
+// Persist an object
+em.getTransaction().begin();
+Person person = new Person("Alice", 30);
+em.persist(person);
+em.getTransaction().commit();
+
+// Query objects
+TypedQuery&lt;Person&gt; query = em.createQuery("SELECT p FROM Person p", Person.class);
+List&lt;Person&gt; results = query.getResultList();
+</code></pre>
+
+<a name="My-2-cents"></a>
+<h2>My 2 cents</h2>
+
+<p>Each type of database is designed to handle specific types of data and use cases. Understanding the strengths and applications of each can help you choose the right database for your needs. Whether you are dealing with structured data, unstructured data, real-time analytics, or complex data relationships, there is a database solution tailored to your requirements. I will be writing further blogs on different types of databases some of which are quite trending and popular. Stay tuned !</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Vector Database: Transforming Data Storage and Retrieval in the AI Era]]></title>
