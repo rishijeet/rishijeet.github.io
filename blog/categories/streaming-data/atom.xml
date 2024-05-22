@@ -4,7 +4,7 @@
     <title><![CDATA[Category: streaming-data | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/streaming-data/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-05-19T21:36:48+05:30</updated>
+    <updated>2024-05-22T22:31:10+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -20,7 +20,7 @@
         <id>https://rishijeet.github.io/blog/advantages-of-enable-checkpointing-in-apache-flink</id>
         <content type="html"><![CDATA[<p>Enabling checkpointing in Apache Flink provides significant advantages for ensuring the reliability, consistency, and fault-tolerance of stream processing applications. Below, I detail the benefits and provide a code example.</p>
 
-<a name="Advantages.of.Checkpointing"></a>
+<a name="Advantages-of-Checkpointing"></a>
 <h2>Advantages of Checkpointing</h2>
 
 <ul>
@@ -36,7 +36,7 @@
 <!--more-->
 
 
-<a name="Code.Example"></a>
+<a name="Code-Example"></a>
 <h2>Code Example</h2>
 
 <p>Here’s a basic example of enabling checkpointing in a Flink job:</p>
@@ -98,10 +98,10 @@ public class CheckpointingExample {
 
 <p><img src="/images/windows.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
 
-<a name="Types.of.Windows.in.Flink"></a>
+<a name="Types-of-Windows-in-Flink"></a>
 <h2>Types of Windows in Flink</h2>
 
-<a name="Tumbling.Windows"></a>
+<a name="Tumbling-Windows"></a>
 <h3>Tumbling Windows</h3>
 
 <p>Tumbling windows are fixed-size, non-overlapping windows. Each event belongs to exactly one window.</p>
@@ -118,7 +118,7 @@ DataStream&lt;WindowedEvent&gt; windowedStream = stream
     });
 </code></pre>
 
-<a name="Sliding.Windows"></a>
+<a name="Sliding-Windows"></a>
 <h3>Sliding Windows</h3>
 
 <p>Sliding windows are also fixed-size but can overlap. Each event can belong to multiple windows depending on the slide interval.</p>
@@ -135,10 +135,12 @@ DataStream&lt;WindowedEvent&gt; windowedStream = stream
     });
 </code></pre>
 
+
+
 <!--more-->
 
 
-<a name="Session.Windows"></a>
+<a name="Session-Windows"></a>
 <h3>Session Windows</h3>
 
 <p>Session windows group events that arrive close to each other, with a session gap defining the threshold for grouping.</p>
@@ -155,7 +157,7 @@ DataStream&lt;WindowedEvent&gt; windowedStream = stream
     });
 </code></pre>
 
-<a name="Global.Windows"></a>
+<a name="Global-Windows"></a>
 <h3>Global Windows</h3>
 
 <p>Global windows group all elements with the same key into a single window. These windows require custom triggers to define when to produce results.</p>
@@ -173,7 +175,7 @@ DataStream&lt;WindowedEvent&gt; windowedStream = stream
     });
 </code></pre>
 
-<a name="Assigning.Timestamps.and.Generating.Watermarks"></a>
+<a name="Assigning-Timestamps-and-Generating-Watermarks"></a>
 <h2>Assigning Timestamps and Generating Watermarks</h2>
 
 <p>For event-time windowing, it&rsquo;s crucial to assign timestamps to events and generate watermarks.</p>
@@ -191,7 +193,7 @@ WatermarkStrategy&lt;Event&gt; watermarkStrategy = WatermarkStrategy
 DataStream&lt;Event&gt; timestampedStream = stream.assignTimestampsAndWatermarks(watermarkStrategy);
 </code></pre>
 
-<a name="Example:.Tumbling.Window.with.Event.Time"></a>
+<a name="Example:-Tumbling-Window-with-Event-Time"></a>
 <h2>Example: Tumbling Window with Event Time</h2>
 
 <pre><code class="java">import org.apache.flink.api.common.eventtime.SerializableTimestampAssigner;
@@ -237,7 +239,7 @@ public class TumblingWindowExample {
 }
 </code></pre>
 
-<a name="Benefits.of.Windowing"></a>
+<a name="Benefits-of-Windowing"></a>
 <h2>Benefits of Windowing</h2>
 
 <p><strong>Temporal Aggregation</strong>: Windows allow you to perform aggregations and computations over specific time intervals, essential for real-time analytics and monitoring.</p>
@@ -262,7 +264,7 @@ public class TumblingWindowExample {
         <link href="https://rishijeet.github.io/blog/understanding-watermarks-in-apache-flink/"/>
         <updated>2024-05-19T20:35:48+05:30</updated>
         <id>https://rishijeet.github.io/blog/understanding-watermarks-in-apache-flink</id>
-        <content type="html"><![CDATA[<a name="What.are.Watermarks."></a>
+        <content type="html"><![CDATA[<a name="What-are-Watermarks-3f-"></a>
 <h2>What are Watermarks?</h2>
 
 <p>Watermarks in Apache Flink are a mechanism to handle event time and out-of-order events in stream processing. They represent a point in time in the data stream and indicate that no events with timestamps earlier than the watermark should be expected. Essentially, watermarks help Flink understand the progress of event time in the stream and trigger computations like window operations based on this understanding.</p>
@@ -290,7 +292,7 @@ public class TumblingWindowExample {
 <!--more-->
 
 
-<a name="Generating.Watermarks"></a>
+<a name="Generating-Watermarks"></a>
 <h2>Generating Watermarks</h2>
 
 <p>Watermarks can be generated in two main ways:</p>
@@ -299,7 +301,7 @@ public class TumblingWindowExample {
 
 <p><strong>Periodic Watermarks</strong>: These are emitted at regular intervals.</p>
 
-<a name="Example.of.Watermark.Generation"></a>
+<a name="Example-of-Watermark-Generation"></a>
 <h3>Example of Watermark Generation</h3>
 
 <p>Here’s a code example demonstrating how to assign timestamps and generate watermarks using periodic watermarks:</p>
@@ -342,7 +344,7 @@ public class WatermarkExample {
 }
 </code></pre>
 
-<a name="Example.Source.Function"></a>
+<a name="Example-Source-Function"></a>
 <h3>Example Source Function</h3>
 
 <p>Here’s a simple source function generating events with timestamps:</p>
@@ -367,14 +369,14 @@ public class WatermarkExample {
 }
 </code></pre>
 
-<a name="Handling.Parallel.Streams"></a>
+<a name="Handling-Parallel-Streams"></a>
 <h2>Handling Parallel Streams</h2>
 
 <p>In a distributed environment, Flink processes streams in parallel. Each parallel sub-task can emit its own watermarks. Flink uses the minimum watermark of all parallel sub-tasks to ensure that no events are missed.</p>
 
 <p><img src="/images/parallel_streams_watermarks.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
 
-<a name="Example.of.Parallel.Watermark.Handling"></a>
+<a name="Example-of-Parallel-Watermark-Handling"></a>
 <h3>Example of Parallel Watermark Handling</h3>
 
 <p>When using parallel streams, each sub-task generates its watermarks, and Flink computes the minimum watermark across all sub-tasks. This is crucial to correctly handle late events and ensure accurate window computations.</p>
@@ -399,7 +401,7 @@ watermarkedStream
     .print();
 </code></pre>
 
-<a name="Watermark.Strategy.for.Parallel.Sources"></a>
+<a name="Watermark-Strategy-for-Parallel-Sources"></a>
 <h3>Watermark Strategy for Parallel Sources</h3>
 
 <p>Here&rsquo;s an example of a parallel source function generating events and watermarks:</p>
@@ -424,7 +426,7 @@ watermarkedStream
 }
 </code></pre>
 
-<a name="Benefits.of.Watermarks"></a>
+<a name="Benefits-of-Watermarks"></a>
 <h2>Benefits of Watermarks</h2>
 
 <p> <strong>Handling Late Data</strong>: Watermarks allow the system to process late events and include them in the correct windows, ensuring completeness and accuracy.</p>
@@ -447,14 +449,14 @@ watermarkedStream
         <link href="https://rishijeet.github.io/blog/understanding-event-time-in-apache-flink/"/>
         <updated>2024-05-19T20:22:47+05:30</updated>
         <id>https://rishijeet.github.io/blog/understanding-event-time-in-apache-flink</id>
-        <content type="html"><![CDATA[<a name="What.is.Event.Time."></a>
+        <content type="html"><![CDATA[<a name="What-is-Event-Time-3f-"></a>
 <h3>What is Event Time?</h3>
 
 <p>Event Time is one of the three time semantics in Apache Flink, along with Ingestion Time and Processing Time. Event Time refers to the time at which each individual event actually occurred, typically extracted from the event itself. This contrasts with Processing Time, which refers to the time at which events are processed by the Flink system, and Ingestion Time, which is the time at which events enter the Flink pipeline.</p>
 
 <p><img src="/images/event_processing_time.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
 
-<a name="Key.Features.of.Event.Time:"></a>
+<a name="Key-Features-of-Event-Time:"></a>
 <h3>Key Features of Event Time:</h3>
 
 <p><strong>Timestamp Extraction</strong>: In Event Time, each event must have a timestamp that indicates when the event occurred. This timestamp is extracted from the event data itself.</p>
@@ -466,7 +468,7 @@ watermarkedStream
 <!-- more -->
 
 
-<a name="Benefits.of.Using.Event.Time"></a>
+<a name="Benefits-of-Using-Event-Time"></a>
 <h2>Benefits of Using Event Time</h2>
 
 <p><strong>Accuracy in Time-Based Operations</strong>:</p>
@@ -497,7 +499,7 @@ watermarkedStream
 </ul>
 
 
-<a name="Extracting.Timestamps.and.Generating.Watermarks"></a>
+<a name="Extracting-Timestamps-and-Generating-Watermarks"></a>
 <h3>Extracting Timestamps and Generating Watermarks</h3>
 
 <p>To use Event Time in Flink, you typically need to:</p>
@@ -532,7 +534,7 @@ stream
     });
 </code></pre>
 
-<a name="Using.Event.Time.Windows"></a>
+<a name="Using-Event-Time-Windows"></a>
 <h3>Using Event Time Windows</h3>
 
 <p>Flink supports various types of windows based on Event Time:</p>
@@ -570,7 +572,7 @@ stream
         <id>https://rishijeet.github.io/blog/using-broadcast-state-pattern-in-flink-for-fraud-detection</id>
         <content type="html"><![CDATA[<p>The Broadcast State Pattern in Apache Flink is a powerful feature for real-time stream processing, particularly useful for scenarios like fraud detection. This pattern allows you to maintain a shared state that can be updated and accessed by multiple parallel instances of a stream processing operator. Here&rsquo;s how it can be applied to fraud detection:</p>
 
-<a name="Key.Concepts.of.the.Broadcast.State.Pattern"></a>
+<a name="Key-Concepts-of-the-Broadcast-State-Pattern"></a>
 <h2>Key Concepts of the Broadcast State Pattern</h2>
 
 <p><strong>Broadcast State</strong>: This is a state that is shared across all parallel instances of an operator. It is used to store information that needs to be accessible to all instances, such as configuration data or rules for fraud detection.</p>
@@ -579,7 +581,7 @@ stream
 
 <p><strong>Broadcast Streams</strong>: These streams carry the state updates, such as new fraud detection rules or updates to existing rules.</p>
 
-<a name="Steps.to.Implement.Fraud.Detection.Using.Broadcast.State.Pattern"></a>
+<a name="Steps-to-Implement-Fraud-Detection-Using-Broadcast-State-Pattern"></a>
 <h2>Steps to Implement Fraud Detection Using Broadcast State Pattern</h2>
 
 <p><strong>Define the Broadcast State</strong>:</p>
@@ -617,7 +619,7 @@ stream
 </ul>
 
 
-<a name="Example.Implementation"></a>
+<a name="Example-Implementation"></a>
 <h2>Example Implementation</h2>
 
 <p>Here&rsquo;s a simplified example (I have used Java as an example but works with other programming languages too ) of how you might implement this in Flink:</p>
@@ -696,7 +698,7 @@ stream
 </span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">FraudDetectionRule</span><span class="o">&gt;</span> <span class="n">ruleStream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">RuleSource</span><span class="o">());&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Define the broadcast state descriptor</span>
-</span><span class='line'><span class="n">MapStateDescriptor</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">String</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">&gt;</span> <span class="n">ruleStateDescriptor</span> <span class="o">=</span>
+</span><span class='line'><span class="n">MapStateDescriptor</span><span class="o">&lt;</span><span class="n">String</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">&gt;</span> <span class="n">ruleStateDescriptor</span> <span class="o">=</span>
 </span><span class='line'>    <span class="k">new</span> <span class="n">MapStateDescriptor</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;&gt;(&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">FraudRules</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;,</span> <span class="n">String</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">.</span><span class="na">class</span><span class="o">);&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Broadcast the rule stream</span>
@@ -705,7 +707,7 @@ stream
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Process the streams with a BroadcastProcessFunction</span>
 </span><span class='line'><span class="n">transactionStream</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">connect</span><span class="o">(</span><span class="n">broadcastRuleStream</span><span class="o">)</span>
-</span><span class='line'>    <span class="o">.</span><span class="na">process</span><span class="o">(</span><span class="k">new</span> <span class="n">BroadcastProcessFunction</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">Transaction</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">,</span> <span class="n">Alert</span><span class="o">&gt;()</span> <span class="o">{&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">process</span><span class="o">(</span><span class="k">new</span> <span class="n">BroadcastProcessFunction</span><span class="o">&lt;</span><span class="n">Transaction</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">,</span> <span class="n">Alert</span><span class="o">&gt;()</span> <span class="o">{&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span>    <span class="kd">private</span> <span class="n">MapState</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">String</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">rulesState</span><span class="o">;</span>
 </span><span class='line'>
@@ -740,7 +742,7 @@ stream
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
 </span></code></pre></td></tr></table></div></figure></p>
 
-<a name="Benefits.of.Using.Broadcast.State.Pattern"></a>
+<a name="Benefits-of-Using-Broadcast-State-Pattern"></a>
 <h2>Benefits of Using Broadcast State Pattern</h2>
 
 <p> <strong>Consistency:</strong>Ensures all instances have a consistent view of the rules.</p>

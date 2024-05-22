@@ -4,7 +4,7 @@
     <title><![CDATA[Category: ai | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/ai/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-05-19T21:36:48+05:30</updated>
+    <updated>2024-05-22T22:31:10+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -20,53 +20,53 @@
         <id>https://rishijeet.github.io/blog/enhancing-natural-language-processing-with-retrieval-augmented-generation</id>
         <content type="html"><![CDATA[<p>Natural Language Processing (NLP) has witnessed remarkable advancements in recent years, with the advent of sophisticated language models like GPT-3 (Generative Pre-trained Transformer 3). However, one of the challenges that still persists in NLP is the generation of coherent and contextually relevant content. Retrieval-Augmented Generation (RAG) emerges as a powerful solution to address this issue, combining the strengths of both retrieval-based and generation-based approaches.</p>
 
-<a name="Understanding.Retrieval-Augmented.Generation"></a>
+<a name="Understanding-Retrieval-2d-Augmented-Generation"></a>
 <h1>Understanding Retrieval-Augmented Generation</h1>
 
 <p>Retrieval-Augmented Generation is a hybrid approach that integrates the benefits of information retrieval systems with generative models. Let&rsquo;s delve into the mathematical formulations of the key components of RAG.</p>
 
-<p><img src="/images/rag_new.png" height="300" width="900" alt="Alt text" /> Figure: Overview of our approach. We combine a pre-trained retriever <em>(Query Encoder + Document Index)</em> with a pre-trained seq2seq model <em>(Generator)</em> and fine-tune end-to-end. For query \(x\), we use Maximum Inner Product Search (MIPS) to find the top-\(K\) documents \(z_i\). For the final prediction \(y\), we treat \(z\) as a latent variable and marginalize over seq2seq predictions given different documents. <em><a href="https://arxiv.org/pdf/2005.11401.pdf">Source: arxiv.org</a></em></p>
+<p><img src="/images/rag_new.png" height="300" width="900" alt="Alt text" /> Figure: Overview of our approach. We combine a pre-trained retriever <em>(Query Encoder + Document Index)</em> with a pre-trained seq2seq model <em>(Generator)</em> and fine-tune end-to-end. For query (x), we use Maximum Inner Product Search (MIPS) to find the top-(K) documents (z_i). For the final prediction (y), we treat (z) as a latent variable and marginalize over seq2seq predictions given different documents. <em><a href="https://arxiv.org/pdf/2005.11401.pdf">Source: arxiv.org</a></em></p>
 
 <!-- more -->
 
 
-<a name="L1..Generative.Model"></a>
+<a name="L1.-Generative-Model"></a>
 <h2>1. Generative Model</h2>
 
 <p>The generative model in RAG is often based on a pre-trained transformer architecture, such as GPT-3. The core functionality involves generating text given a context. Mathematically, the generative model can be represented as:</p>
 
-<p>\[ P_{\text{gen}}(Y|X) \]</p>
+<p>[ P_{\text{gen}}(Y|X) ]</p>
 
-<p>where \( Y \) is the generated text and \( X \) is the input context. This probability distribution captures the likelihood of generating \( Y \) given \( X \).</p>
+<p>where ( Y ) is the generated text and ( X ) is the input context. This probability distribution captures the likelihood of generating ( Y ) given ( X ).</p>
 
-<a name="L2..Retrieval.Model"></a>
+<a name="L2.-Retrieval-Model"></a>
 <h2>2. Retrieval Model</h2>
 
 <p>The retrieval model is responsible for fetching relevant information from a knowledge base. This can be achieved through techniques like dense retrieval using embeddings. The retrieval model computes the similarity between the input query and the documents in the knowledge base. Mathematically, this can be expressed as:</p>
 
-<p>\[ \text{argmax}_{d \in \text{KnowledgeBase}} \text{similarity}(Q, \text{Embed}(d)) \]</p>
+<p>[ \text{argmax}_{d \in \text{KnowledgeBase}} \text{similarity}(Q, \text{Embed}(d)) ]</p>
 
-<p>where \( Q \) is the query, \( \text{KnowledgeBase} \) is the set of documents, \( d \) represents a document, \( \text{Embed}(\cdot) \) denotes the embedding function, and \( \text{similarity}(\cdot) \) measures the similarity between the query and document embeddings.</p>
+<p>where ( Q ) is the query, ( \text{KnowledgeBase} ) is the set of documents, ( d ) represents a document, ( \text{Embed}(\cdot) ) denotes the embedding function, and ( \text{similarity}(\cdot) ) measures the similarity between the query and document embeddings.</p>
 
-<a name="L3..Indexing.Mechanism"></a>
+<a name="L3.-Indexing-Mechanism"></a>
 <h2>3. Indexing Mechanism</h2>
 
 <p>Indexing mechanisms play a crucial role in efficiently retrieving information. Commonly, techniques like approximate nearest neighbors are employed. Mathematically, indexing involves mapping documents to a space such that retrieval operations are expedited. This can be represented as:</p>
 
-<p>\[ \text{Index}(d) \rightarrow \text{Embed}(d) \]</p>
+<p>[ \text{Index}(d) \rightarrow \text{Embed}(d) ]</p>
 
-<p>where \( \text{Index}(\cdot) \) denotes the indexing function mapping documents to their embeddings.</p>
+<p>where ( \text{Index}(\cdot) ) denotes the indexing function mapping documents to their embeddings.</p>
 
-<a name="L4..Context-Aware.Integration"></a>
+<a name="L4.-Context-2d-Aware-Integration"></a>
 <h2>4. Context-Aware Integration</h2>
 
 <p>To integrate retrieved information into the generative process while maintaining context, the retrieval model output needs to be combined with the generative model&rsquo;s output. A simple formulation for context-aware integration can be:</p>
 
-<p>\[ P_{\text{final}}(Y|X, Q) = \alpha \cdot P_{\text{gen}}(Y|X) + (1-\alpha) \cdot P_{\text{ret}}(Y|Q) \]</p>
+<p>[ P<em>{\text{final}}(Y|X, Q) = \alpha \cdot P</em>{\text{gen}}(Y|X) + (1-\alpha) \cdot P_{\text{ret}}(Y|Q) ]</p>
 
-<p>where \( P_{\text{final}}(Y|X, Q) \) is the final probability distribution of generating \( Y \) given \( X \) and \( Q \), \( \alpha \) is a hyperparameter controlling the balance between generative and retrieval components, and \( P_{\text{ret}}(Y|Q) \) is the probability distribution of generating \( Y \) given the retrieved information \( Q \).</p>
+<p>where ( P<em>{\text{final}}(Y|X, Q) ) is the final probability distribution of generating ( Y ) given ( X ) and ( Q ), ( \alpha ) is a hyperparameter controlling the balance between generative and retrieval components, and ( P</em>{\text{ret}}(Y|Q) ) is the probability distribution of generating ( Y ) given the retrieved information ( Q ).</p>
 
-<a name="Advantages.of.Retrieval-Augmented.Generation"></a>
+<a name="Advantages-of-Retrieval-2d-Augmented-Generation"></a>
 <h1>Advantages of Retrieval-Augmented Generation</h1>
 
 <ol>
@@ -81,7 +81,7 @@ Integrating retrieval mechanisms helps in disambiguating the meaning of ambiguou
 </ol>
 
 
-<a name="Applications.of.Retrieval-Augmented.Generation"></a>
+<a name="Applications-of-Retrieval-2d-Augmented-Generation"></a>
 <h1>Applications of Retrieval-Augmented Generation</h1>
 
 <ol>
@@ -94,7 +94,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 </ol>
 
 
-<a name="Challenges.and.Future.Directions"></a>
+<a name="Challenges-and-Future-Directions"></a>
 <h1>Challenges and Future Directions</h1>
 
 <p>While Retrieval-Augmented Generation shows great promise, it is not without its challenges. Fine-tuning the balance between the generative and retrieval components, handling diverse knowledge bases, and addressing potential biases in retrieved information are areas that require further research. Additionally, exploring ways to dynamically update the knowledge base during the generative process could open new possibilities for real-time applications.</p>
@@ -113,7 +113,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>Artificial Intelligence (AI) has witnessed remarkable advancements in recent years, with various tech giants investing heavily in developing large language models (LLMs) to enhance natural language understanding and generation. This article delves into the technical details of Google&rsquo;s Gemini, Meta&rsquo;s Llama2, Amazon&rsquo;s Olympus, Microsoft&rsquo;s Orca 2, and Apple&rsquo;s Ajax.</p>
 
-<a name="Google.Gemini"></a>
+<a name="Google-Gemini"></a>
 <h2>Google Gemini</h2>
 
 <p>Google&rsquo;s Gemini, introduced by Demis Hassabis, CEO and Co-Founder of Google DeepMind, represents a significant leap in AI capabilities. Gemini is a multimodal AI model designed to seamlessly understand and operate across different types of information, including text, code, audio, image, and video.</p>
@@ -133,7 +133,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>Gemini reflects Google&rsquo;s commitment to responsibility and safety, incorporating comprehensive safety evaluations, including bias and toxicity assessments. The model&rsquo;s availability spans various Google products and platforms, with plans for further integration and expansion.</p>
 
-<a name="Meta.Llama2"></a>
+<a name="Meta-Llama2"></a>
 <h2>Meta Llama2</h2>
 
 <p>Meta&rsquo;s Llama2 is an open-source large language model (LLM) designed as a response to models like GPT from OpenAI and Google&rsquo;s AI models. Noteworthy for its open availability for research and commercial purposes, Llama2 is poised to make a significant impact in the AI space.</p>
@@ -147,7 +147,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>What sets Llama2 apart is its open nature, allowing users to access the research paper detailing its creation, download the model, and run it on various platforms. By providing transparency and openness, Meta aims to empower other companies to develop AI applications with more control.</p>
 
-<a name="Amazon.Olympus"></a>
+<a name="Amazon-Olympus"></a>
 <h2>Amazon Olympus</h2>
 
 <p>Amazon, in its pursuit of AI excellence, is working on an ambitious large language model (LLM) codenamed &ldquo;Olympus.&rdquo; With a staggering 2 trillion parameters, Olympus aims to rival leading models from OpenAI and Alphabet. Led by Rohit Prasad, former head of Alexa, the team behind Olympus brings together expertise from Alexa AI and Amazon&rsquo;s science team.</p>
@@ -156,7 +156,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>Large language models (LLMs) are crucial for AI tools that learn from extensive datasets to generate human-like responses. Despite the increased costs associated with training larger models, Amazon is committed to investing in LLMs and generative AI.</p>
 
-<a name="Apple.Ajax"></a>
+<a name="Apple-Ajax"></a>
 <h2>Apple Ajax</h2>
 
 <p>Apple&rsquo;s investment in artificial intelligence is evident through its Foundational Models unit, focusing on conversational AI. Headed by John Giannandrea, Apple&rsquo;s head of AI, this unit is dedicated to improving Siri and developing AI models across multiple teams.</p>
@@ -167,7 +167,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>Apple&rsquo;s commitment to AI innovation is reflected in its pursuit of powerful models and diverse AI applications, ensuring advancements in Siri and other AI-powered features.</p>
 
-<a name="Microsoft.s.Orca.2"></a>
+<a name="Microsoft-27-s-Orca-2"></a>
 <h2>Microsoft&rsquo;s Orca 2</h2>
 
 <p>Microsoft&rsquo;s Orca 2 employs a teacher-student training scheme, where a larger LLM acts as a teacher for a smaller one, aiming to improve the performance of the student model. The training involves teaching the student various reasoning techniques and selecting the most effective strategy for specific tasks.</p>
@@ -190,14 +190,14 @@ Conversational agents can benefit from RAG by providing more informative and con
         <id>https://rishijeet.github.io/blog/vector-database-transforming-data-storage-and-retrieval-in-the-ai-era</id>
         <content type="html"><![CDATA[<p>The AI revolution has ushered in a new era of innovation, promising breakthroughs across various industries. However, with these advancements come unique challenges, particularly in handling and processing data efficiently. One of the key data types that have gained prominence in AI applications is vector embeddings. Vector databases play a pivotal role in managing and optimizing the retrieval of these embeddings. In this article, we will explore the architecture of vector databases and their crucial role in AI applications.</p>
 
-<a name="What.is.a.Vector.Database."></a>
+<a name="What-is-a-Vector-Database-3f-"></a>
 <h2>What is a Vector Database?</h2>
 
 <p>A vector database is a specialized database designed to index and store vector embeddings for efficient retrieval and similarity search. These databases offer not only CRUD (Create, Read, Update, Delete) operations but also advanced capabilities like metadata filtering and horizontal scaling. They are essential for AI applications that rely on vector embeddings to understand patterns, relationships, and underlying structures in data.</p>
 
 <p><img src="/images/vector_db2.png" height="300" width="900" alt="Alt text" /><em>Source: Elastic</em></p>
 
-<a name="Vector.Embeddings"></a>
+<a name="Vector-Embeddings"></a>
 <h3>Vector Embeddings</h3>
 
 <p>Vector embeddings are data representations generated by AI models, such as large language models. They encapsulate semantic information critical for AI to understand and perform complex tasks effectively. These embeddings have multiple attributes or features, making their management a unique challenge.</p>
@@ -207,14 +207,14 @@ Conversational agents can benefit from RAG by providing more informative and con
 <!-- more -->
 
 
-<a name="Vector.Database.Architecture"></a>
+<a name="Vector-Database-Architecture"></a>
 <h2>Vector Database Architecture</h2>
 
 <p>Traditional databases store scalar data in rows and columns, whereas vector databases operate on vectors. They differ in the way data is optimized and queried.</p>
 
 <p>In traditional databases, queries typically seek exact matches between query values and database records. In vector databases, similarity metrics are applied to find vectors that are most similar to the query. Vector databases employ a combination of algorithms to enable Approximate Nearest Neighbor (ANN) searches, which optimize retrieval speed.</p>
 
-<a name="Vector.Database.Pipeline"></a>
+<a name="Vector-Database-Pipeline"></a>
 <h3>Vector Database Pipeline</h3>
 
 <p>A typical vector database pipeline consists of the following stages:</p>
@@ -228,12 +228,12 @@ Conversational agents can benefit from RAG by providing more informative and con
 </ol>
 
 
-<a name="Algorithms.for.Vector.Indexing"></a>
+<a name="Algorithms-for-Vector-Indexing"></a>
 <h3>Algorithms for Vector Indexing</h3>
 
 <p>Vector databases rely on various algorithms to create efficient indexes for high-dimensional vector embeddings. These algorithms are designed to transform the original vector data into a compressed form, optimizing the query process for faster retrieval.</p>
 
-<a name="Random.Projection"></a>
+<a name="Random-Projection"></a>
 <h4>Random Projection</h4>
 
 <p>Random projection is a technique that aims to project high-dimensional vectors into a lower-dimensional space using a random projection matrix. Here&rsquo;s how it works:</p>
@@ -247,7 +247,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 <p>It&rsquo;s essential to note that random projection is an approximate method, and the quality of the projection depends on the properties of the projection matrix. Generating a truly random projection matrix can be computationally expensive, especially for large datasets.
 <img src="/images/vector_rp.png" height="300" width="900" alt="Alt text" /><em>Source: Pinecone</em></p>
 
-<a name="Product.Quantization"></a>
+<a name="Product-Quantization"></a>
 <h4>Product Quantization</h4>
 
 <p>Product quantization (PQ) is a lossy compression technique tailored for high-dimensional vectors, such as vector embeddings. The process involves splitting, training, encoding, and querying:</p>
@@ -263,7 +263,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 <p>The number of representative vectors in the codebook involves a trade-off between representation accuracy and computational cost. A larger codebook improves accuracy but increases computational expenses.
 <img src="/images/vector_pq.png" height="300" width="900" alt="Alt text" /><em>Source: Towards Data Science</em></p>
 
-<a name="Locality-Sensitive.Hashing..LSH."></a>
+<a name="Locality-2d-Sensitive-Hashing--28-LSH-29-"></a>
 <h4>Locality-Sensitive Hashing (LSH)</h4>
 
 <p>Locality-sensitive hashing (LSH) is optimized for approximate nearest-neighbor search. LSH maps similar vectors into &ldquo;buckets&rdquo; using a set of hashing functions:</p>
@@ -277,7 +277,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 <p>LSH is an approximate method, and the quality of the approximation depends on the properties of the hash functions. Using more hash functions improves approximation quality but can be computationally expensive, especially for large datasets.
 <img src="/images/vector_lsh.png" height="300" width="900" alt="Alt text" /><em>Source: Pinecone</em></p>
 
-<a name="Hierarchical.Navigable.Small.World..HNSW."></a>
+<a name="Hierarchical-Navigable-Small-World--28-HNSW-29-"></a>
 <h4>Hierarchical Navigable Small World (HNSW)</h4>
 
 <p>HNSW creates a hierarchical, tree-like structure where each node represents a set of vectors, and edges indicate similarity between vectors. The algorithm follows these steps:</p>
@@ -291,7 +291,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p><img src="/images/vector_hnsw.png" height="300" width="900" alt="Alt text" /><em>Source: Pinecone</em></p>
 
-<a name="Similarity.Measures"></a>
+<a name="Similarity-Measures"></a>
 <h3>Similarity Measures</h3>
 
 <p>The choice of similarity measure plays a crucial role in vector database performance. Common similarity measures include:</p>
@@ -320,7 +320,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>Optimizing the filtering process involves techniques like advanced indexing for metadata and parallel processing to balance performance and accuracy.</p>
 
-<a name="Vector.Database.vs..Vector.Index"></a>
+<a name="Vector-Database-vs.-Vector-Index"></a>
 <h3>Vector Database vs. Vector Index</h3>
 
 <p>While standalone vector indices like FAISS (Facebook AI Similarity Search) can enhance the search and retrieval of vector embeddings, they lack essential database features. Vector databases offer several advantages over standalone vector indices, including:</p>
@@ -352,7 +352,7 @@ Conversational agents can benefit from RAG by providing more informative and con
         <id>https://rishijeet.github.io/blog/building-innovative-genai-applications-with-the-genai-stack-unleashing-the-power-of-docker</id>
         <content type="html"><![CDATA[<p>In the fast-evolving landscape of artificial intelligence, Generative AI (GenAI) is at the forefront, opening up exciting opportunities for developers and businesses. One of the most significant challenges in GenAI development is creating a robust, efficient, and scalable infrastructure that harnesses the power of AI models. To address this challenge, the GenAI Stack has emerged as a game-changer, combining cutting-edge technologies like Docker, LangChain, Neo4j, and Ollama. In this article, we will delve into the intricacies of these technologies and explore how they work together to build innovative GenAI applications.</p>
 
-<a name="Understanding.the.GenAI.Stack"></a>
+<a name="Understanding-the-GenAI-Stack"></a>
 <h2>Understanding the GenAI Stack</h2>
 
 <p>Before we dive into the technical details, let&rsquo;s establish a clear understanding of what the GenAI Stack is and what it aims to achieve.</p>
@@ -370,7 +370,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 <!-- more -->
 
 
-<a name="Docker:.The.Containerization.Revolution"></a>
+<a name="Docker:-The-Containerization-Revolution"></a>
 <h2>Docker: The Containerization Revolution</h2>
 
 <p>Docker has revolutionized application deployment and management. It introduces the concept of containerization, allowing developers to bundle their applications and dependencies into containers. These containers are isolated and share the host operating system&rsquo;s kernel, making them lightweight and efficient. Docker&rsquo;s advantages include:</p>
@@ -386,7 +386,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>In the GenAI Stack, Docker is the foundation that ensures all components work seamlessly together, providing a consistent and controlled environment for GenAI applications.</p>
 
-<a name="LangChain:.Orchestrating.GenAI.Applications"></a>
+<a name="LangChain:-Orchestrating-GenAI-Applications"></a>
 <h2>LangChain: Orchestrating GenAI Applications</h2>
 
 <p>LangChain is the orchestrator of GenAI applications within the GenAI Stack. It is designed to simplify the process of building, managing, and deploying GenAI applications. Key features of LangChain include:</p>
@@ -403,7 +403,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>LangChain is the bridge that connects various components of the GenAI Stack, ensuring that they work together cohesively to bring GenAI applications to life.</p>
 
-<a name="Neo4j:.Powering.Knowledge.Graph-Based.Applications"></a>
+<a name="Neo4j:-Powering-Knowledge-Graph-2d-Based-Applications"></a>
 <h2>Neo4j: Powering Knowledge Graph-Based Applications</h2>
 
 <p>Knowledge graphs have become a pivotal component in GenAI applications. Neo4j, a graph database, plays a crucial role in managing the intricate relationships and data structures that underpin these applications. Key attributes of Neo4j include:</p>
@@ -419,7 +419,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p>In GenAI applications, Neo4j serves as the foundation for creating knowledge graph-based applications. It allows developers to model and query complex relationships, ultimately enhancing the accuracy and relevance of GenAI responses.</p>
 
-<a name="Ollama:.The.Power.of.Local.LLMs"></a>
+<a name="Ollama:-The-Power-of-Local-LLMs"></a>
 <h2>Ollama: The Power of Local LLMs</h2>
 
 <p>Large Language Models (LLMs) are at the heart of GenAI applications. Ollama, an integral part of the GenAI Stack, brings LLMs to the local environment, offering more control and flexibility. Key advantages of Ollama include:</p>
@@ -455,12 +455,12 @@ Conversational agents can benefit from RAG by providing more informative and con
         <id>https://rishijeet.github.io/blog/revolutionizing-ai-inference-lightmatters-envise-chip</id>
         <content type="html"><![CDATA[<p>Artificial Intelligence (AI) is rapidly transforming various industries, from autonomous driving and robotics to healthcare and customer service. As the demand for AI applications grows, so does the need for more powerful and energy-efficient processors. In this context, Lightmatter, a company at the forefront of photonic processors, has developed the Envise chip—an innovative solution that promises unprecedented performance and energy efficiency in AI inference.</p>
 
-<a name="Unleashing.Unprecedented.Power.and.Efficiency"></a>
+<a name="Unleashing-Unprecedented-Power-and-Efficiency"></a>
 <h5>Unleashing Unprecedented Power and Efficiency</h5>
 
 <p>The Envise chip is a game-changer in the world of AI inference. It features 16 Envise Chips in a 4-U server configuration, consuming only 3kW of power. This remarkable power efficiency enables the chip to run the largest neural networks developed to date with exceptional performance. In fact, Lightmatter claims that the Envise chip delivers three times higher instructions per second (IPS) than the Nvidia DGX-A100, while achieving eight times the IPS per watt on BERT-Base SQuAD. These numbers are staggering and highlight the potential of the Envise chip to redefine AI inference capabilities.<sup id="fnref:1"><a href="#fn:1" rel="footnote">1</a></sup></p>
 
-<a name="Unmatched.Specifications"></a>
+<a name="Unmatched-Specifications"></a>
 <h5>Unmatched Specifications</h5>
 
 <p>The Envise chip boasts several cutting-edge features that contribute to its remarkable performance. Its on-chip activation and weight storage eliminate the need to transfer data to external memory, enabling state-of-the-art neural network execution within the processor itself. Additionally, the chip utilizes a standards-based host and interconnect interface, offering seamless integration into existing systems. The inclusion of RISC cores per Envise processor provides generic off-load capabilities, enhancing the chip&rsquo;s versatility. Its ultra-high-performance out-of-order super-scalar processing architecture further optimizes computation efficiency.</p>
@@ -470,17 +470,17 @@ Conversational agents can benefit from RAG by providing more informative and con
 
 <p><img src="/images/Photonics.jpg" height="400" width="900" alt="Alt text" /><em>Source: Lightmatter</em></p>
 
-<a name="Applications.Across.Industries"></a>
+<a name="Applications-Across-Industries"></a>
 <h5>Applications Across Industries</h5>
 
 <p>The applications of the Envise chip are vast and span various industries. In the automotive sector, it can power autonomous driving systems, improving safety and efficiency on the road. In robotics, the chip enables advanced vision and control capabilities, empowering robots to perform complex tasks with precision. In e-commerce and advertising, it facilitates accurate product recommendations, enhancing customer experiences. The chip finds utility in healthcare for pharmaceutical research, pathology analysis, and cancer detection. Moreover, it enhances customer service through digital assistants and chatbots. Its potential also extends to signal processing and natural language processing, enabling tasks such as digital signal analysis, text-to-speech, and language translation.</p>
 
-<a name="A.Sustainable.and.Economical.Solution"></a>
+<a name="A-Sustainable-and-Economical-Solution"></a>
 <h5>A Sustainable and Economical Solution</h5>
 
 <p>Lightmatter&rsquo;s Envise chip not only delivers superior performance but also addresses the pressing concern of power consumption in data centers. With ICT energy consumption projected to increase significantly in the coming years, solutions that offer high compute capabilities with reduced energy consumption are crucial for sustainable and cost-effective data centers. The Envise chip&rsquo;s photonic architecture leverages silicon photonics, consuming significantly less energy than traditional CMOS solutions. By reducing power demands, the chip helps mitigate the environmental impact and supports the growth of energy-efficient data centers.</p>
 
-<a name="Looking.Ahead"></a>
+<a name="Looking-Ahead"></a>
 <h5>Looking Ahead</h5>
 
 <p>The Envise chip represents a significant milestone in the advancement of AI inference technology. With its impressive performance, energy efficiency, and versatile applications, it has the potential to reshape industries and accelerate AI adoption. Lightmatter&rsquo;s dedication to bringing its product to market, as demonstrated by its recent funding and strategic board appointments, underscores its commitment to revolutionizing the AI landscape.</p>
@@ -492,7 +492,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 <hr/>
 <ol>
 <li id="fn:1">
-<p><em>Source Lightmatter</em><a href="#fnref:1" rev="footnote">&#8617;</a></p></li>
+<em>Source Lightmatter</em><a href="#fnref:1" rev="footnote">&#8617;</a></li>
 </ol>
 </div>
 

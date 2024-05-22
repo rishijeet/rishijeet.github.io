@@ -117,53 +117,53 @@
 
     <p>Natural Language Processing (NLP) has witnessed remarkable advancements in recent years, with the advent of sophisticated language models like GPT-3 (Generative Pre-trained Transformer 3). However, one of the challenges that still persists in NLP is the generation of coherent and contextually relevant content. Retrieval-Augmented Generation (RAG) emerges as a powerful solution to address this issue, combining the strengths of both retrieval-based and generation-based approaches.</p>
 
-<a name="Understanding.Retrieval-Augmented.Generation"></a>
+<a name="Understanding-Retrieval-2d-Augmented-Generation"></a>
 <h1>Understanding Retrieval-Augmented Generation</h1>
 
 <p>Retrieval-Augmented Generation is a hybrid approach that integrates the benefits of information retrieval systems with generative models. Let&rsquo;s delve into the mathematical formulations of the key components of RAG.</p>
 
-<p><img src="/images/rag_new.png" height="300" width="900" alt="Alt text" /> Figure: Overview of our approach. We combine a pre-trained retriever <em>(Query Encoder + Document Index)</em> with a pre-trained seq2seq model <em>(Generator)</em> and fine-tune end-to-end. For query \(x\), we use Maximum Inner Product Search (MIPS) to find the top-\(K\) documents \(z_i\). For the final prediction \(y\), we treat \(z\) as a latent variable and marginalize over seq2seq predictions given different documents. <em><a href="https://arxiv.org/pdf/2005.11401.pdf">Source: arxiv.org</a></em></p>
+<p><img src="/images/rag_new.png" height="300" width="900" alt="Alt text" /> Figure: Overview of our approach. We combine a pre-trained retriever <em>(Query Encoder + Document Index)</em> with a pre-trained seq2seq model <em>(Generator)</em> and fine-tune end-to-end. For query (x), we use Maximum Inner Product Search (MIPS) to find the top-(K) documents (z_i). For the final prediction (y), we treat (z) as a latent variable and marginalize over seq2seq predictions given different documents. <em><a href="https://arxiv.org/pdf/2005.11401.pdf">Source: arxiv.org</a></em></p>
 
 <!-- more -->
 
 
-<a name="L1..Generative.Model"></a>
+<a name="L1.-Generative-Model"></a>
 <h2>1. Generative Model</h2>
 
 <p>The generative model in RAG is often based on a pre-trained transformer architecture, such as GPT-3. The core functionality involves generating text given a context. Mathematically, the generative model can be represented as:</p>
 
-<p>\[ P_{\text{gen}}(Y|X) \]</p>
+<p>[ P_{\text{gen}}(Y|X) ]</p>
 
-<p>where \( Y \) is the generated text and \( X \) is the input context. This probability distribution captures the likelihood of generating \( Y \) given \( X \).</p>
+<p>where ( Y ) is the generated text and ( X ) is the input context. This probability distribution captures the likelihood of generating ( Y ) given ( X ).</p>
 
-<a name="L2..Retrieval.Model"></a>
+<a name="L2.-Retrieval-Model"></a>
 <h2>2. Retrieval Model</h2>
 
 <p>The retrieval model is responsible for fetching relevant information from a knowledge base. This can be achieved through techniques like dense retrieval using embeddings. The retrieval model computes the similarity between the input query and the documents in the knowledge base. Mathematically, this can be expressed as:</p>
 
-<p>\[ \text{argmax}_{d \in \text{KnowledgeBase}} \text{similarity}(Q, \text{Embed}(d)) \]</p>
+<p>[ \text{argmax}_{d \in \text{KnowledgeBase}} \text{similarity}(Q, \text{Embed}(d)) ]</p>
 
-<p>where \( Q \) is the query, \( \text{KnowledgeBase} \) is the set of documents, \( d \) represents a document, \( \text{Embed}(\cdot) \) denotes the embedding function, and \( \text{similarity}(\cdot) \) measures the similarity between the query and document embeddings.</p>
+<p>where ( Q ) is the query, ( \text{KnowledgeBase} ) is the set of documents, ( d ) represents a document, ( \text{Embed}(\cdot) ) denotes the embedding function, and ( \text{similarity}(\cdot) ) measures the similarity between the query and document embeddings.</p>
 
-<a name="L3..Indexing.Mechanism"></a>
+<a name="L3.-Indexing-Mechanism"></a>
 <h2>3. Indexing Mechanism</h2>
 
 <p>Indexing mechanisms play a crucial role in efficiently retrieving information. Commonly, techniques like approximate nearest neighbors are employed. Mathematically, indexing involves mapping documents to a space such that retrieval operations are expedited. This can be represented as:</p>
 
-<p>\[ \text{Index}(d) \rightarrow \text{Embed}(d) \]</p>
+<p>[ \text{Index}(d) \rightarrow \text{Embed}(d) ]</p>
 
-<p>where \( \text{Index}(\cdot) \) denotes the indexing function mapping documents to their embeddings.</p>
+<p>where ( \text{Index}(\cdot) ) denotes the indexing function mapping documents to their embeddings.</p>
 
-<a name="L4..Context-Aware.Integration"></a>
+<a name="L4.-Context-2d-Aware-Integration"></a>
 <h2>4. Context-Aware Integration</h2>
 
 <p>To integrate retrieved information into the generative process while maintaining context, the retrieval model output needs to be combined with the generative model&rsquo;s output. A simple formulation for context-aware integration can be:</p>
 
-<p>\[ P_{\text{final}}(Y|X, Q) = \alpha \cdot P_{\text{gen}}(Y|X) + (1-\alpha) \cdot P_{\text{ret}}(Y|Q) \]</p>
+<p>[ P<em>{\text{final}}(Y|X, Q) = \alpha \cdot P</em>{\text{gen}}(Y|X) + (1-\alpha) \cdot P_{\text{ret}}(Y|Q) ]</p>
 
-<p>where \( P_{\text{final}}(Y|X, Q) \) is the final probability distribution of generating \( Y \) given \( X \) and \( Q \), \( \alpha \) is a hyperparameter controlling the balance between generative and retrieval components, and \( P_{\text{ret}}(Y|Q) \) is the probability distribution of generating \( Y \) given the retrieved information \( Q \).</p>
+<p>where ( P<em>{\text{final}}(Y|X, Q) ) is the final probability distribution of generating ( Y ) given ( X ) and ( Q ), ( \alpha ) is a hyperparameter controlling the balance between generative and retrieval components, and ( P</em>{\text{ret}}(Y|Q) ) is the probability distribution of generating ( Y ) given the retrieved information ( Q ).</p>
 
-<a name="Advantages.of.Retrieval-Augmented.Generation"></a>
+<a name="Advantages-of-Retrieval-2d-Augmented-Generation"></a>
 <h1>Advantages of Retrieval-Augmented Generation</h1>
 
 <ol>
@@ -178,7 +178,7 @@ Integrating retrieval mechanisms helps in disambiguating the meaning of ambiguou
 </ol>
 
 
-<a name="Applications.of.Retrieval-Augmented.Generation"></a>
+<a name="Applications-of-Retrieval-2d-Augmented-Generation"></a>
 <h1>Applications of Retrieval-Augmented Generation</h1>
 
 <ol>
@@ -191,7 +191,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 </ol>
 
 
-<a name="Challenges.and.Future.Directions"></a>
+<a name="Challenges-and-Future-Directions"></a>
 <h1>Challenges and Future Directions</h1>
 
 <p>While Retrieval-Augmented Generation shows great promise, it is not without its challenges. Fine-tuning the balance between the generative and retrieval components, handling diverse knowledge bases, and addressing potential biases in retrieved information are areas that require further research. Additionally, exploring ways to dynamically update the knowledge base during the generative process could open new possibilities for real-time applications.</p>
