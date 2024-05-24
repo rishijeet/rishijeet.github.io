@@ -4,7 +4,7 @@
     <title><![CDATA[Category: database | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/database/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-05-22T23:56:07+05:30</updated>
+    <updated>2024-05-24T23:39:29+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -14,334 +14,260 @@
 
     
     <entry>
-        <title type="html"><![CDATA[Types of Databases: An In-Depth Exploration]]></title>
-        <link href="https://rishijeet.github.io/blog/types-of-databases-an-in-depth-exploration/"/>
+        <title type="html"><![CDATA[Cassandra - Under the hood]]></title>
+        <link href="https://rishijeet.github.io/blog/cassandra-under-the-hood/"/>
         <updated>2024-05-22T23:48:44+05:30</updated>
-        <id>https://rishijeet.github.io/blog/types-of-databases-an-in-depth-exploration</id>
-        <content type="html"><![CDATA[<p>Databases are fundamental to modern computing, serving as the backbone for storing, retrieving, and managing data. Different types of databases are designed to handle varying data structures and use cases.</p>
+        <id>https://rishijeet.github.io/blog/cassandra-under-the-hood</id>
+        <content type="html"><![CDATA[<p>Apache Cassandra is designed to handle large amounts of data across many commodity servers without any single point of failure. This architecture allows it to provide high availability and fault tolerance, making it an excellent choice for large-scale, mission-critical applications. Below, we&rsquo;ll delve into the key components and architecture of Cassandra.</p>
 
-<a name="Relational-Databases"></a>
-<h2>Relational Databases</h2>
-
-<a name="Overview"></a>
-<h3>Overview</h3>
-
-<p>Relational databases (RDBMS) use structured query language (SQL) to define and manipulate data. They are based on a table format where data is organized into rows and columns, making them ideal for structured data.</p>
-
-<a name="Common-Use-Cases"></a>
-<h3>Common Use Cases</h3>
+<a name="Key-Components"></a>
+<h3>Key Components</h3>
 
 <ul>
-<li>Financial transactions</li>
-<li>Customer relationship management (CRM)</li>
-<li>Inventory management</li>
+<li><strong>Nodes</strong>: Individual machines running Cassandra.</li>
+<li><strong>Clusters</strong>: A collection of nodes that work together.</li>
+<li><strong>Data Centers</strong>: Groupings of nodes within a cluster, typically corresponding to physical or logical locations.</li>
+<li><strong>Keyspace</strong>: A namespace for tables, analogous to a database in SQL.</li>
+<li><strong>Tables</strong>: Collections of rows, each row containing columns, similar to tables in an RDBMS.</li>
+<li><strong>Commit Log</strong>: A log of all write operations, used for crash recovery.</li>
+<li><strong>Memtable</strong>: An in-memory structure where data is first written.</li>
+<li><strong>SSTable</strong>: Immutable on-disk storage files created from flushed Memtables.</li>
+<li><strong>Bloom Filters</strong>: Probabilistic data structures that help determine whether an SSTable might contain a requested row.</li>
 </ul>
 
 
-<a name="Examples"></a>
-<h3>Examples</h3>
+<a name="Architecture-Overview"></a>
+<h3>Architecture Overview</h3>
+
+<a name="Cluster-Management"></a>
+<h4>Cluster Management</h4>
+
+<p>Cassandra&rsquo;s cluster architecture ensures high availability and fault tolerance. The cluster is a set of nodes, and data is distributed among these nodes using consistent hashing. Key features include:</p>
 
 <ul>
-<li>MySQL</li>
-<li>PostgreSQL</li>
-<li>Oracle Database</li>
+<li><strong>Gossip Protocol</strong>: Nodes communicate with each other using a peer-to-peer gossip protocol to share state information.</li>
+<li><strong>Snitches</strong>: Determine the relative distance between nodes to route requests efficiently.</li>
+<li><strong>Replication</strong>: Data is replicated across multiple nodes. The replication strategy and factor determine how and where data is replicated.</li>
 </ul>
 
 
 <!--more-->
 
 
-<p>Here’s a simple example code using PostgreSQL:</p>
+<a name="Data-Distribution"></a>
+<h4>Data Distribution</h4>
 
-<pre><code class="sql">-- Create a table
-CREATE TABLE employees (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    position VARCHAR(100),
-    salary NUMERIC
-);
-
--- Insert data
-INSERT INTO employees (name, position, salary) VALUES 
-('John Doe', 'Software Engineer', 70000),
-('Jane Smith', 'Product Manager', 90000);
-
--- Query data
-SELECT * FROM employees;
-</code></pre>
-
-<a name="NoSQL-Databases"></a>
-<h2>NoSQL Databases</h2>
-
-<a name="Overview"></a>
-<h3>Overview</h3>
-
-<p>NoSQL databases are designed for unstructured or semi-structured data and do not require a fixed schema. They are highly scalable and can handle large volumes of diverse data types.</p>
-
-<a name="Types-of-NoSQL-Databases"></a>
-<h3>Types of NoSQL Databases</h3>
+<p>Cassandra uses a consistent hashing algorithm to distribute data across nodes. Key features include:</p>
 
 <ul>
-<li><strong>Document Databases</strong>: Store data as JSON or BSON documents (e.g., MongoDB).</li>
-<li><strong>Key-Value Stores</strong>: Use a simple key-value pair mechanism (e.g., Redis).</li>
-<li><strong>Column-Family Stores</strong>: Organize data into columns rather than rows (e.g., Apache Cassandra).</li>
-<li><strong>Graph Databases</strong>: Use graph structures with nodes, edges, and properties to represent data (e.g., Neo4j).</li>
+<li><strong>Partitioners</strong>: Determine the node placement of data based on the primary key.</li>
+<li><strong>Token Ring</strong>: Each node in the cluster is assigned a range of tokens. Data is distributed based on these tokens.</li>
+<li><strong>Replication Factor</strong>: The number of copies of data stored in the cluster.</li>
 </ul>
 
 
-<a name="Common-Use-Cases"></a>
-<h3>Common Use Cases</h3>
+<a name="Write-Path"></a>
+<h4>Write Path</h4>
+
+<p>The write path in Cassandra ensures durability and high availability:</p>
 
 <ul>
-<li>Real-time web applications</li>
-<li>Big data analytics</li>
-<li>Social networks</li>
+<li><strong>Commit Log</strong>: Each write operation is recorded in the commit log for durability.</li>
+<li><strong>Memtable</strong>: The data is written to an in-memory structure called the Memtable.</li>
+<li><strong>SSTable</strong>: Once the Memtable is full, data is flushed to disk into an SSTable.</li>
+<li><strong>Compaction</strong>: Over time, SSTables are compacted to merge and purge deleted data.</li>
 </ul>
 
 
-<a name="Example-Code"></a>
-<h3>Example Code</h3>
+<a name="Read-Path"></a>
+<h4>Read Path</h4>
 
-<a name="MongoDB--28-Document-Database-29-"></a>
-<h4>MongoDB (Document Database)</h4>
+<p>The read path in Cassandra is optimized for speed:</p>
 
-<pre><code class="javascript">// Insert a document
-db.users.insertOne({
-    name: "Alice",
-    age: 28,
-    address: {
-        city: "New York",
-        state: "NY"
-    }
-});
+<ul>
+<li><strong>Read Request</strong>: A read request is routed to the appropriate nodes.</li>
+<li><strong>Bloom Filter</strong>: Checks if the SSTable might contain the requested row.</li>
+<li><strong>Key Cache</strong>: Quickly locates the row key in the SSTable.</li>
+<li><strong>Row Cache</strong>: Caches the entire row to speed up frequent queries.</li>
+<li><strong>Memtable and SSTable</strong>: Data is read from Memtables and SSTables, and results are merged.</li>
+</ul>
 
-// Query documents
-db.users.find({ age: { $gt: 25 } });
+
+<a name="Fault-Tolerance"></a>
+<h4>Fault Tolerance</h4>
+
+<p>Cassandra is designed to be highly fault-tolerant:</p>
+
+<ul>
+<li><strong>Data Replication</strong>: Multiple copies of data are stored across different nodes.</li>
+<li><strong>Hinted Handoff</strong>: If a node is down, writes are stored temporarily on another node and delivered when the target node is available.</li>
+<li><strong>Read Repair</strong>: During reads, inconsistencies are repaired by comparing data across replicas.</li>
+<li><strong>Anti-Entropy Repair</strong>: Regularly scheduled repairs ensure all replicas are consistent.</li>
+</ul>
+
+
+<a name="Diagram"></a>
+<h3>Diagram</h3>
+
+<p>Here’s a simplified diagram of Cassandra’s architecture:</p>
+
+<pre><code>                        +-----------------------------+
+                        |         Cassandra Cluster   |
+                        +-----------------------------+
+                                      |
+      +-------------------------------+-------------------------------+
+      |                               |                               |
++------------+                 +------------+                 +------------+
+| Data Center 1 |               | Data Center 2 |               | Data Center 3 |
++------------+                 +------------+                 +------------+
+      |                               |                               |
++------+--------+          +------+--------+          +------+--------+
+| Node 1       |          | Node 1       |          | Node 1       |
++--------------+          +--------------+          +--------------+
+| Commit Log   |          | Commit Log   |          | Commit Log   |
+| Memtable     |          | Memtable     |          | Memtable     |
+| SSTable      |          | SSTable      |          | SSTable      |
++--------------+          +--------------+          +--------------+
 </code></pre>
 
-<a name="Redis--28-Key-2d-Value-Store-29-"></a>
-<h4>Redis (Key-Value Store)</h4>
+<p>To illustrate, let&rsquo;s consider setting up a Cassandra cluster and creating a keyspace</p>
 
-<pre><code class="bash"># Set a key-value pair
-SET user:1000 "John Doe"
+<a name="Configuration"></a>
+<h4>Configuration</h4>
 
-# Get the value by key
-GET user:1000
+<p><strong>cassandra.yaml</strong>: The primary configuration file for Cassandra.</p>
+
+<pre><code class="yaml">cluster_name: 'MyCluster'
+num_tokens: 256
+seed_provider:
+  - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+    parameters:
+      - seeds: "127.0.0.1"
+
+storage_port: 7000
+listen_address: localhost
+
+rpc_port: 9042
+rpc_address: localhost
+
+endpoint_snitch: SimpleSnitch
 </code></pre>
 
-<a name="Apache-Cassandra--28-Column-2d-Family-Store-29-"></a>
-<h4>Apache Cassandra (Column-Family Store)</h4>
+<a name="Keyspace-and-Table-Creation"></a>
+<h4>Keyspace and Table Creation</h4>
 
 <pre><code class="sql">-- Create a keyspace
-CREATE KEYSPACE mykeyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+CREATE KEYSPACE mykeyspace WITH replication = {
+  'class': 'SimpleStrategy',
+  'replication_factor': 3
+};
+
+-- Use the keyspace
+USE mykeyspace;
 
 -- Create a table
-CREATE TABLE mykeyspace.users (
-    id UUID PRIMARY KEY,
-    name TEXT,
-    email TEXT
+CREATE TABLE users (
+  user_id UUID PRIMARY KEY,
+  name TEXT,
+  email TEXT,
+  age INT
 );
-
--- Insert data
-INSERT INTO mykeyspace.users (id, name, email) VALUES (uuid(), 'Alice', 'alice@example.com');
-
--- Query data
-SELECT * FROM mykeyspace.users;
 </code></pre>
 
-<a name="Neo4j--28-Graph-Database-29-"></a>
-<h4>Neo4j (Graph Database)</h4>
+<a name="Why-is-Cassandra-fast-in-writes-3f-"></a>
+<h2>Why is Cassandra fast in writes?</h2>
 
-<pre><code class="cypher">// Create nodes and relationships
-CREATE (alice:Person {name: 'Alice', age: 30})
-CREATE (bob:Person {name: 'Bob', age: 25})
-CREATE (alice)-[:FRIENDS_WITH]-&gt;(bob);
+<a name="Log-2d-Structured-Storage"></a>
+<h3>Log-Structured Storage</h3>
 
-// Query nodes
-MATCH (p:Person) RETURN p;
+<ul>
+<li>Cassandra appends write operations to a commit log on disk for durability.</li>
+<li>This sequential write pattern minimizes disk seeks and maximizes disk throughput, leading to fast write operations.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra using CQL (Cassandra Query Language)
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)");
 </code></pre>
 
-<a name="In-2d-Memory-Databases"></a>
-<h2>In-Memory Databases</h2>
-
-<a name="Overview"></a>
-<h3>Overview</h3>
-
-<p>In-memory databases store data in the system&rsquo;s main memory (RAM) rather than on disk, providing extremely fast data retrieval and processing speeds.</p>
-
-<a name="Common-Use-Cases"></a>
-<h3>Common Use Cases</h3>
+<a name="In-2d-Memory-Write-Path"></a>
+<h3>In-Memory Write Path</h3>
 
 <ul>
-<li>Real-time analytics</li>
-<li>Caching</li>
-<li>Session management</li>
+<li>Write operations are stored in an in-memory structure called the Memtable.</li>
+<li>Memtables are flushed to disk periodically or when they reach a certain size threshold.</li>
+<li>Buffering writes in memory before flushing them to disk speeds up write operations.</li>
 </ul>
 
 
-<a name="Examples"></a>
-<h3>Examples</h3>
-
-<ul>
-<li>Redis</li>
-<li>Memcached</li>
-</ul>
-
-
-<a name="Example-Code"></a>
-<h3>Example Code</h3>
-
-<a name="Redis"></a>
-<h4>Redis</h4>
-
-<pre><code class="bash"># Set a key-value pair in Redis
-SET session:12345 "user data"
-
-# Retrieve the key-value pair
-GET session:12345
+<pre><code class="java">// Insert data into Cassandra using CQL
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)");
 </code></pre>
 
-<a name="NewSQL-Databases"></a>
-<h2>NewSQL Databases</h2>
-
-<a name="Overview"></a>
-<h3>Overview</h3>
-
-<p>NewSQL databases combine the benefits of traditional relational databases (ACID properties) with the scalability of NoSQL databases. They are designed to handle high-transaction volumes while maintaining data integrity.</p>
-
-<a name="Common-Use-Cases"></a>
-<h3>Common Use Cases</h3>
+<a name="Multi-2d-Threaded-Architecture"></a>
+<h3>Multi-Threaded Architecture</h3>
 
 <ul>
-<li>E-commerce platforms</li>
-<li>Financial services</li>
-<li>Large-scale applications requiring transactional consistency</li>
+<li>Cassandra&rsquo;s architecture allows for parallel processing of writes across multiple threads and cores.</li>
+<li>Each node in the Cassandra cluster can handle multiple concurrent writes, maximizing hardware resources utilization.</li>
 </ul>
 
 
-<a name="Examples"></a>
-<h3>Examples</h3>
-
-<ul>
-<li>Google Spanner</li>
-<li>CockroachDB</li>
-<li>VoltDB</li>
-</ul>
-
-
-<a name="Example-Code"></a>
-<h3>Example Code</h3>
-
-<a name="CockroachDB"></a>
-<h4>CockroachDB</h4>
-
-<pre><code class="sql">-- Create a table
-CREATE TABLE products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name STRING,
-    price DECIMAL
-);
-
--- Insert data
-INSERT INTO products (name, price) VALUES ('Laptop', 1200.00);
-
--- Query data
-SELECT * FROM products;
+<pre><code class="java">// Insert data into Cassandra using multiple threads
+ExecutorService executor = Executors.newFixedThreadPool(10);
+for (int i = 0; i &lt; 1000; i++) {
+    executor.submit(() -&gt; session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)"));
+}
+executor.shutdown();
 </code></pre>
 
-<a name="Time-2d-Series-Databases"></a>
-<h2>Time-Series Databases</h2>
-
-<a name="Overview"></a>
-<h3>Overview</h3>
-
-<p>Time-series databases are optimized for storing and querying time-stamped data, making them ideal for applications that involve tracking changes over time.</p>
-
-<a name="Common-Use-Cases"></a>
-<h3>Common Use Cases</h3>
+<a name="Distributed-Writes"></a>
+<h3>Distributed Writes</h3>
 
 <ul>
-<li>Monitoring and observability</li>
-<li>Financial data analysis</li>
-<li>IoT data</li>
+<li>Cassandra distributes data across multiple nodes using consistent hashing.</li>
+<li>Write operations are replicated to multiple nodes based on the configured replication factor.</li>
+<li>This distributed nature allows Cassandra to scale horizontally, handling write-heavy workloads with ease.</li>
 </ul>
 
 
-<a name="Examples"></a>
-<h3>Examples</h3>
-
-<ul>
-<li>InfluxDB</li>
-<li>TimescaleDB</li>
-<li>OpenTSDB</li>
-</ul>
-
-
-<a name="Example-Code"></a>
-<h3>Example Code</h3>
-
-<a name="InfluxDB"></a>
-<h4>InfluxDB</h4>
-
-<pre><code class="sql">-- Insert a time-series data point
-INSERT temperature,location=office value=23.5
-
--- Query time-series data
-SELECT * FROM temperature WHERE location='office'
+<pre><code class="java">// Insert data into Cassandra with replication factor
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)")
+        .setConsistencyLevel(DefaultConsistencyLevel.ALL);
 </code></pre>
 
-<a name="Object-2d-Oriented-Databases"></a>
-<h2>Object-Oriented Databases</h2>
-
-<a name="Overview"></a>
-<h3>Overview</h3>
-
-<p>Object-oriented databases store data in the form of objects, as used in object-oriented programming. They support complex data representations and relationships directly within the database.</p>
-
-<a name="Common-Use-Cases"></a>
-<h3>Common Use Cases</h3>
+<a name="Tunable-Consistency"></a>
+<h3>Tunable Consistency</h3>
 
 <ul>
-<li>Engineering applications</li>
-<li>Multimedia applications</li>
-<li>Complex data models</li>
+<li>Cassandra allows for tunable consistency levels for write operations.</li>
+<li>Clients can choose the level of consistency required for each write operation, balancing consistency and latency.</li>
 </ul>
 
 
-<a name="Examples"></a>
-<h3>Examples</h3>
-
-<ul>
-<li>db4o</li>
-<li>ObjectDB</li>
-</ul>
-
-
-<a name="Example-Code"></a>
-<h3>Example Code</h3>
-
-<a name="ObjectDB--28-Java-29-"></a>
-<h4>ObjectDB (Java)</h4>
-
-<pre><code class="java">// Create an EntityManager
-EntityManagerFactory emf = Persistence.createEntityManagerFactory("objectdb:mydb.odb");
-EntityManager em = emf.createEntityManager();
-
-// Persist an object
-em.getTransaction().begin();
-Person person = new Person("Alice", 30);
-em.persist(person);
-em.getTransaction().commit();
-
-// Query objects
-TypedQuery&lt;Person&gt; query = em.createQuery("SELECT p FROM Person p", Person.class);
-List&lt;Person&gt; results = query.getResultList();
+<pre><code class="java">// Insert data into Cassandra with tunable consistency level
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)")
+        .setConsistencyLevel(DefaultConsistencyLevel.QUORUM);
 </code></pre>
 
-<a name="My-2-cents"></a>
-<h2>My 2 cents</h2>
+<a name="No-Single-Point-of-Bottleneck"></a>
+<h3>No Single Point of Bottleneck</h3>
 
-<p>Each type of database is designed to handle specific types of data and use cases. Understanding the strengths and applications of each can help you choose the right database for your needs. Whether you are dealing with structured data, unstructured data, real-time analytics, or complex data relationships, there is a database solution tailored to your requirements. I will be writing further blogs on different types of databases some of which are quite trending and popular. Stay tuned !</p>
+<ul>
+<li>Cassandra&rsquo;s decentralized architecture ensures no single point of bottleneck for writes.</li>
+<li>Each node in the cluster can independently process write operations, leading to linear scalability.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra on multiple nodes in the cluster
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)")
+        .setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM);
+</code></pre>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Cassandra&rsquo;s fast write performance is achieved through a combination of log-structured storage, in-memory write buffering, multi-threaded architecture, distributed writes, tunable consistency, and decentralized design. By leveraging these design principles and using appropriate configuration options, Cassandra can handle high-throughput write workloads efficiently, making it an ideal choice for applications that require fast ingestion of large volumes of data.</p>
 ]]></content>
     </entry>
     

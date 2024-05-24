@@ -25,6 +25,7 @@
         <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
         <link href="/stylesheets/style.css" rel="stylesheet">
         <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+        
     </head>
 
 
@@ -132,36 +133,47 @@
 
 <p>The generative model in RAG is often based on a pre-trained transformer architecture, such as GPT-3. The core functionality involves generating text given a context. Mathematically, the generative model can be represented as:</p>
 
-<p>[ P_{\text{gen}}(Y|X) ]</p>
-
-<p>where ( Y ) is the generated text and ( X ) is the input context. This probability distribution captures the likelihood of generating ( Y ) given ( X ).</p>
+<p><div>
+<span>
+\[ P_{\text{gen}}(Y|X) \]
+</span>
+where \( Y \) is the generated text and \( X \) is the input context. This probability distribution captures the likelihood of generating \( Y \) given \( X \).
+<div></p>
 
 <a name="L2.-Retrieval-Model"></a>
 <h2>2. Retrieval Model</h2>
 
-<p>The retrieval model is responsible for fetching relevant information from a knowledge base. This can be achieved through techniques like dense retrieval using embeddings. The retrieval model computes the similarity between the input query and the documents in the knowledge base. Mathematically, this can be expressed as:</p>
+<p>The retrieval model is responsible for fetching relevant information from a knowledge base. This can be achieved through techniques like dense retrieval using embeddings. The retrieval model computes the similarity between the input query and the documents in the knowledge base. Mathematically, this can be expressed as:
+<div>
+\[ \text{argmax}_{d \in \text{KnowledgeBase}} \text{similarity}(Q, \text{Embed}(d)) \]</p>
 
-<p>[ \text{argmax}_{d \in \text{KnowledgeBase}} \text{similarity}(Q, \text{Embed}(d)) ]</p>
-
-<p>where ( Q ) is the query, ( \text{KnowledgeBase} ) is the set of documents, ( d ) represents a document, ( \text{Embed}(\cdot) ) denotes the embedding function, and ( \text{similarity}(\cdot) ) measures the similarity between the query and document embeddings.</p>
+<p>where \( Q \) is the query, \( \text{KnowledgeBase} \) is the set of documents, \( d \) represents a document, \( \text{Embed}(\cdot) \) denotes the embedding function, and \( \text{similarity}(\cdot) \) measures the similarity between the query and document embeddings.
+</div></p>
 
 <a name="L3.-Indexing-Mechanism"></a>
 <h2>3. Indexing Mechanism</h2>
 
 <p>Indexing mechanisms play a crucial role in efficiently retrieving information. Commonly, techniques like approximate nearest neighbors are employed. Mathematically, indexing involves mapping documents to a space such that retrieval operations are expedited. This can be represented as:</p>
 
-<p>[ \text{Index}(d) \rightarrow \text{Embed}(d) ]</p>
+<div>
+&#92;[ \text{Index}(d) \rightarrow \text{Embed}(d) &#92;]
 
-<p>where ( \text{Index}(\cdot) ) denotes the indexing function mapping documents to their embeddings.</p>
+where &#92;( \text{Index}(\cdot) &#92;) denotes the indexing function mapping documents to their embeddings.
+</div>
+
 
 <a name="L4.-Context-2d-Aware-Integration"></a>
 <h2>4. Context-Aware Integration</h2>
 
 <p>To integrate retrieved information into the generative process while maintaining context, the retrieval model output needs to be combined with the generative model&rsquo;s output. A simple formulation for context-aware integration can be:</p>
 
-<p>[ P<em>{\text{final}}(Y|X, Q) = \alpha \cdot P</em>{\text{gen}}(Y|X) + (1-\alpha) \cdot P_{\text{ret}}(Y|Q) ]</p>
+<div>
+<span>
+&#92;[ P_{\text{final}}(Y|X, Q) = \alpha \cdot P_{\text{gen}}(Y|X) + (1-\alpha) \cdot P_{\text{ret}}(Y|Q) &#92;]
+</span>
+where &#92;( P_{\text{final}}(Y|X, Q) &#92;) is the final probability distribution of generating &#92;( Y &#92;) given &#92;( X &#92;) and &#92;( Q &#92;), \( \alpha \) is a hyperparameter controlling the balance between generative and retrieval components, and \( P_{\text{ret}}(Y|Q) \) is the probability distribution of generating \( Y \) given the retrieved information \( Q \).
+</div>
 
-<p>where ( P<em>{\text{final}}(Y|X, Q) ) is the final probability distribution of generating ( Y ) given ( X ) and ( Q ), ( \alpha ) is a hyperparameter controlling the balance between generative and retrieval components, and ( P</em>{\text{ret}}(Y|Q) ) is the probability distribution of generating ( Y ) given the retrieved information ( Q ).</p>
 
 <a name="Advantages-of-Retrieval-2d-Augmented-Generation"></a>
 <h1>Advantages of Retrieval-Augmented Generation</h1>
@@ -241,7 +253,12 @@ Conversational agents can benefit from RAG by providing more informative and con
 </footer>
 
 
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+        
+<!--Adding the Mathjax support -->
+<script id="MathJax-script" async src="/javascripts/tex-mml-chtml.js"></script>
+
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 
 <script src="/javascripts/md5.js"></script>
 
@@ -252,8 +269,6 @@ Conversational agents can benefit from RAG by providing more informative and con
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
      crossorigin="anonymous"></script>
 
-<!--Adding the Mathjax support -->
-<script id="MathJax-script" async src="/javascripts/tex-mml-chtml.js"></script>
 
 <!--Some analytics -->
 
@@ -317,11 +332,11 @@ Conversational agents can benefit from RAG by providing more informative and con
 	});
 </script>
 <!--Adding some more restriction on photos-->
-  <script type="text/javascript">
+  <!-- <script type="text/javascript">
       document.addEventListener("contextmenu", (event) => {
          event.preventDefault();
       });
-  </script> 
+  </script> &#8211;> 
     </body>
 
 </html>

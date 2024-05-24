@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: nosql | Rishijeet Mishra]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/nosql/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2024-05-24T23:39:29+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[Cassandra - Under the hood]]></title>
+        <link href="https://rishijeet.github.io/blog/cassandra-under-the-hood/"/>
+        <updated>2024-05-22T23:48:44+05:30</updated>
+        <id>https://rishijeet.github.io/blog/cassandra-under-the-hood</id>
+        <content type="html"><![CDATA[<p>Apache Cassandra is designed to handle large amounts of data across many commodity servers without any single point of failure. This architecture allows it to provide high availability and fault tolerance, making it an excellent choice for large-scale, mission-critical applications. Below, we&rsquo;ll delve into the key components and architecture of Cassandra.</p>
+
+<a name="Key-Components"></a>
+<h3>Key Components</h3>
+
+<ul>
+<li><strong>Nodes</strong>: Individual machines running Cassandra.</li>
+<li><strong>Clusters</strong>: A collection of nodes that work together.</li>
+<li><strong>Data Centers</strong>: Groupings of nodes within a cluster, typically corresponding to physical or logical locations.</li>
+<li><strong>Keyspace</strong>: A namespace for tables, analogous to a database in SQL.</li>
+<li><strong>Tables</strong>: Collections of rows, each row containing columns, similar to tables in an RDBMS.</li>
+<li><strong>Commit Log</strong>: A log of all write operations, used for crash recovery.</li>
+<li><strong>Memtable</strong>: An in-memory structure where data is first written.</li>
+<li><strong>SSTable</strong>: Immutable on-disk storage files created from flushed Memtables.</li>
+<li><strong>Bloom Filters</strong>: Probabilistic data structures that help determine whether an SSTable might contain a requested row.</li>
+</ul>
+
+
+<a name="Architecture-Overview"></a>
+<h3>Architecture Overview</h3>
+
+<a name="Cluster-Management"></a>
+<h4>Cluster Management</h4>
+
+<p>Cassandra&rsquo;s cluster architecture ensures high availability and fault tolerance. The cluster is a set of nodes, and data is distributed among these nodes using consistent hashing. Key features include:</p>
+
+<ul>
+<li><strong>Gossip Protocol</strong>: Nodes communicate with each other using a peer-to-peer gossip protocol to share state information.</li>
+<li><strong>Snitches</strong>: Determine the relative distance between nodes to route requests efficiently.</li>
+<li><strong>Replication</strong>: Data is replicated across multiple nodes. The replication strategy and factor determine how and where data is replicated.</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Data-Distribution"></a>
+<h4>Data Distribution</h4>
+
+<p>Cassandra uses a consistent hashing algorithm to distribute data across nodes. Key features include:</p>
+
+<ul>
+<li><strong>Partitioners</strong>: Determine the node placement of data based on the primary key.</li>
+<li><strong>Token Ring</strong>: Each node in the cluster is assigned a range of tokens. Data is distributed based on these tokens.</li>
+<li><strong>Replication Factor</strong>: The number of copies of data stored in the cluster.</li>
+</ul>
+
+
+<a name="Write-Path"></a>
+<h4>Write Path</h4>
+
+<p>The write path in Cassandra ensures durability and high availability:</p>
+
+<ul>
+<li><strong>Commit Log</strong>: Each write operation is recorded in the commit log for durability.</li>
+<li><strong>Memtable</strong>: The data is written to an in-memory structure called the Memtable.</li>
+<li><strong>SSTable</strong>: Once the Memtable is full, data is flushed to disk into an SSTable.</li>
+<li><strong>Compaction</strong>: Over time, SSTables are compacted to merge and purge deleted data.</li>
+</ul>
+
+
+<a name="Read-Path"></a>
+<h4>Read Path</h4>
+
+<p>The read path in Cassandra is optimized for speed:</p>
+
+<ul>
+<li><strong>Read Request</strong>: A read request is routed to the appropriate nodes.</li>
+<li><strong>Bloom Filter</strong>: Checks if the SSTable might contain the requested row.</li>
+<li><strong>Key Cache</strong>: Quickly locates the row key in the SSTable.</li>
+<li><strong>Row Cache</strong>: Caches the entire row to speed up frequent queries.</li>
+<li><strong>Memtable and SSTable</strong>: Data is read from Memtables and SSTables, and results are merged.</li>
+</ul>
+
+
+<a name="Fault-Tolerance"></a>
+<h4>Fault Tolerance</h4>
+
+<p>Cassandra is designed to be highly fault-tolerant:</p>
+
+<ul>
+<li><strong>Data Replication</strong>: Multiple copies of data are stored across different nodes.</li>
+<li><strong>Hinted Handoff</strong>: If a node is down, writes are stored temporarily on another node and delivered when the target node is available.</li>
+<li><strong>Read Repair</strong>: During reads, inconsistencies are repaired by comparing data across replicas.</li>
+<li><strong>Anti-Entropy Repair</strong>: Regularly scheduled repairs ensure all replicas are consistent.</li>
+</ul>
+
+
+<a name="Diagram"></a>
+<h3>Diagram</h3>
+
+<p>Here’s a simplified diagram of Cassandra’s architecture:</p>
+
+<pre><code>                        +-----------------------------+
+                        |         Cassandra Cluster   |
+                        +-----------------------------+
+                                      |
+      +-------------------------------+-------------------------------+
+      |                               |                               |
++------------+                 +------------+                 +------------+
+| Data Center 1 |               | Data Center 2 |               | Data Center 3 |
++------------+                 +------------+                 +------------+
+      |                               |                               |
++------+--------+          +------+--------+          +------+--------+
+| Node 1       |          | Node 1       |          | Node 1       |
++--------------+          +--------------+          +--------------+
+| Commit Log   |          | Commit Log   |          | Commit Log   |
+| Memtable     |          | Memtable     |          | Memtable     |
+| SSTable      |          | SSTable      |          | SSTable      |
++--------------+          +--------------+          +--------------+
+</code></pre>
+
+<p>To illustrate, let&rsquo;s consider setting up a Cassandra cluster and creating a keyspace</p>
+
+<a name="Configuration"></a>
+<h4>Configuration</h4>
+
+<p><strong>cassandra.yaml</strong>: The primary configuration file for Cassandra.</p>
+
+<pre><code class="yaml">cluster_name: 'MyCluster'
+num_tokens: 256
+seed_provider:
+  - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+    parameters:
+      - seeds: "127.0.0.1"
+
+storage_port: 7000
+listen_address: localhost
+
+rpc_port: 9042
+rpc_address: localhost
+
+endpoint_snitch: SimpleSnitch
+</code></pre>
+
+<a name="Keyspace-and-Table-Creation"></a>
+<h4>Keyspace and Table Creation</h4>
+
+<pre><code class="sql">-- Create a keyspace
+CREATE KEYSPACE mykeyspace WITH replication = {
+  'class': 'SimpleStrategy',
+  'replication_factor': 3
+};
+
+-- Use the keyspace
+USE mykeyspace;
+
+-- Create a table
+CREATE TABLE users (
+  user_id UUID PRIMARY KEY,
+  name TEXT,
+  email TEXT,
+  age INT
+);
+</code></pre>
+
+<a name="Why-is-Cassandra-fast-in-writes-3f-"></a>
+<h2>Why is Cassandra fast in writes?</h2>
+
+<a name="Log-2d-Structured-Storage"></a>
+<h3>Log-Structured Storage</h3>
+
+<ul>
+<li>Cassandra appends write operations to a commit log on disk for durability.</li>
+<li>This sequential write pattern minimizes disk seeks and maximizes disk throughput, leading to fast write operations.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra using CQL (Cassandra Query Language)
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)");
+</code></pre>
+
+<a name="In-2d-Memory-Write-Path"></a>
+<h3>In-Memory Write Path</h3>
+
+<ul>
+<li>Write operations are stored in an in-memory structure called the Memtable.</li>
+<li>Memtables are flushed to disk periodically or when they reach a certain size threshold.</li>
+<li>Buffering writes in memory before flushing them to disk speeds up write operations.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra using CQL
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)");
+</code></pre>
+
+<a name="Multi-2d-Threaded-Architecture"></a>
+<h3>Multi-Threaded Architecture</h3>
+
+<ul>
+<li>Cassandra&rsquo;s architecture allows for parallel processing of writes across multiple threads and cores.</li>
+<li>Each node in the Cassandra cluster can handle multiple concurrent writes, maximizing hardware resources utilization.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra using multiple threads
+ExecutorService executor = Executors.newFixedThreadPool(10);
+for (int i = 0; i &lt; 1000; i++) {
+    executor.submit(() -&gt; session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)"));
+}
+executor.shutdown();
+</code></pre>
+
+<a name="Distributed-Writes"></a>
+<h3>Distributed Writes</h3>
+
+<ul>
+<li>Cassandra distributes data across multiple nodes using consistent hashing.</li>
+<li>Write operations are replicated to multiple nodes based on the configured replication factor.</li>
+<li>This distributed nature allows Cassandra to scale horizontally, handling write-heavy workloads with ease.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra with replication factor
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)")
+        .setConsistencyLevel(DefaultConsistencyLevel.ALL);
+</code></pre>
+
+<a name="Tunable-Consistency"></a>
+<h3>Tunable Consistency</h3>
+
+<ul>
+<li>Cassandra allows for tunable consistency levels for write operations.</li>
+<li>Clients can choose the level of consistency required for each write operation, balancing consistency and latency.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra with tunable consistency level
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)")
+        .setConsistencyLevel(DefaultConsistencyLevel.QUORUM);
+</code></pre>
+
+<a name="No-Single-Point-of-Bottleneck"></a>
+<h3>No Single Point of Bottleneck</h3>
+
+<ul>
+<li>Cassandra&rsquo;s decentralized architecture ensures no single point of bottleneck for writes.</li>
+<li>Each node in the cluster can independently process write operations, leading to linear scalability.</li>
+</ul>
+
+
+<pre><code class="java">// Insert data into Cassandra on multiple nodes in the cluster
+session.execute("INSERT INTO users (user_id, name, email, age) VALUES (uuid(), 'Alice', 'alice@example.com', 30)")
+        .setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM);
+</code></pre>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Cassandra&rsquo;s fast write performance is achieved through a combination of log-structured storage, in-memory write buffering, multi-threaded architecture, distributed writes, tunable consistency, and decentralized design. By leveraging these design principles and using appropriate configuration options, Cassandra can handle high-throughput write workloads efficiently, making it an ideal choice for applications that require fast ingestion of large volumes of data.</p>
+]]></content>
+    </entry>
+    
+</feed>

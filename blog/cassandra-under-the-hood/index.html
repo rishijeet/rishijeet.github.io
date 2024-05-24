@@ -1,0 +1,571 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Cassandra - Under the hood - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Rishijeet Mishra's Blog Site">
+        
+        <meta name="viewport" content="width=device-width">
+        <link rel="canonical" href="https://rishijeet.github.io/blog/cassandra-under-the-hood">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.png" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+        
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+    <li><a href="/lenswork/">Photography</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Cassandra - Under the hood</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-05-22T23:48:44+05:30" pubdate><i class="fa fa-calendar"></i> May 22nd, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/database/'>database</a></li>
+            
+                <li><a class='category' href='/blog/categories/cassandra/'>cassandra</a></li>
+            
+                <li><a class='category' href='/blog/categories/nosql/'>nosql</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <p>Apache Cassandra is designed to handle large amounts of data across many commodity servers without any single point of failure. This architecture allows it to provide high availability and fault tolerance, making it an excellent choice for large-scale, mission-critical applications. Below, we&rsquo;ll delve into the key components and architecture of Cassandra.</p>
+
+<a name="Key-Components"></a>
+<h3>Key Components</h3>
+
+<ul>
+<li><strong>Nodes</strong>: Individual machines running Cassandra.</li>
+<li><strong>Clusters</strong>: A collection of nodes that work together.</li>
+<li><strong>Data Centers</strong>: Groupings of nodes within a cluster, typically corresponding to physical or logical locations.</li>
+<li><strong>Keyspace</strong>: A namespace for tables, analogous to a database in SQL.</li>
+<li><strong>Tables</strong>: Collections of rows, each row containing columns, similar to tables in an RDBMS.</li>
+<li><strong>Commit Log</strong>: A log of all write operations, used for crash recovery.</li>
+<li><strong>Memtable</strong>: An in-memory structure where data is first written.</li>
+<li><strong>SSTable</strong>: Immutable on-disk storage files created from flushed Memtables.</li>
+<li><strong>Bloom Filters</strong>: Probabilistic data structures that help determine whether an SSTable might contain a requested row.</li>
+</ul>
+
+
+<a name="Architecture-Overview"></a>
+<h3>Architecture Overview</h3>
+
+<a name="Cluster-Management"></a>
+<h4>Cluster Management</h4>
+
+<p>Cassandra&rsquo;s cluster architecture ensures high availability and fault tolerance. The cluster is a set of nodes, and data is distributed among these nodes using consistent hashing. Key features include:</p>
+
+<ul>
+<li><strong>Gossip Protocol</strong>: Nodes communicate with each other using a peer-to-peer gossip protocol to share state information.</li>
+<li><strong>Snitches</strong>: Determine the relative distance between nodes to route requests efficiently.</li>
+<li><strong>Replication</strong>: Data is replicated across multiple nodes. The replication strategy and factor determine how and where data is replicated.</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Data-Distribution"></a>
+<h4>Data Distribution</h4>
+
+<p>Cassandra uses a consistent hashing algorithm to distribute data across nodes. Key features include:</p>
+
+<ul>
+<li><strong>Partitioners</strong>: Determine the node placement of data based on the primary key.</li>
+<li><strong>Token Ring</strong>: Each node in the cluster is assigned a range of tokens. Data is distributed based on these tokens.</li>
+<li><strong>Replication Factor</strong>: The number of copies of data stored in the cluster.</li>
+</ul>
+
+
+<a name="Write-Path"></a>
+<h4>Write Path</h4>
+
+<p>The write path in Cassandra ensures durability and high availability:</p>
+
+<ul>
+<li><strong>Commit Log</strong>: Each write operation is recorded in the commit log for durability.</li>
+<li><strong>Memtable</strong>: The data is written to an in-memory structure called the Memtable.</li>
+<li><strong>SSTable</strong>: Once the Memtable is full, data is flushed to disk into an SSTable.</li>
+<li><strong>Compaction</strong>: Over time, SSTables are compacted to merge and purge deleted data.</li>
+</ul>
+
+
+<a name="Read-Path"></a>
+<h4>Read Path</h4>
+
+<p>The read path in Cassandra is optimized for speed:</p>
+
+<ul>
+<li><strong>Read Request</strong>: A read request is routed to the appropriate nodes.</li>
+<li><strong>Bloom Filter</strong>: Checks if the SSTable might contain the requested row.</li>
+<li><strong>Key Cache</strong>: Quickly locates the row key in the SSTable.</li>
+<li><strong>Row Cache</strong>: Caches the entire row to speed up frequent queries.</li>
+<li><strong>Memtable and SSTable</strong>: Data is read from Memtables and SSTables, and results are merged.</li>
+</ul>
+
+
+<a name="Fault-Tolerance"></a>
+<h4>Fault Tolerance</h4>
+
+<p>Cassandra is designed to be highly fault-tolerant:</p>
+
+<ul>
+<li><strong>Data Replication</strong>: Multiple copies of data are stored across different nodes.</li>
+<li><strong>Hinted Handoff</strong>: If a node is down, writes are stored temporarily on another node and delivered when the target node is available.</li>
+<li><strong>Read Repair</strong>: During reads, inconsistencies are repaired by comparing data across replicas.</li>
+<li><strong>Anti-Entropy Repair</strong>: Regularly scheduled repairs ensure all replicas are consistent.</li>
+</ul>
+
+
+<a name="Diagram"></a>
+<h3>Diagram</h3>
+
+<p>Here’s a simplified diagram of Cassandra’s architecture:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>                    +-----------------------------+
+</span><span class='line'>                    |         Cassandra Cluster   |
+</span><span class='line'>                    +-----------------------------+
+</span><span class='line'>                                  |
+</span><span class='line'>  +-------------------------------+-------------------------------+
+</span><span class='line'>  |                               |                               |
+</span><span class='line'>+------------+                 +------------+                 +------------+
+</span><span class='line'>| Data Center 1 |               | Data Center 2 |               | Data Center 3 |
+</span><span class='line'>+------------+                 +------------+                 +------------+
+</span><span class='line'>  |                               |                               |
+</span><span class='line'>+------+--------+          +------+--------+          +------+--------+
+</span><span class='line'>| Node 1       |          | Node 1       |          | Node 1       |
+</span><span class='line'>+--------------+          +--------------+          +--------------+
+</span><span class='line'>| Commit Log   |          | Commit Log   |          | Commit Log   |
+</span><span class='line'>| Memtable     |          | Memtable     |          | Memtable     |
+</span><span class='line'>| SSTable      |          | SSTable      |          | SSTable      |
+</span><span class='line'>+--------------+          +--------------+          +--------------+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To illustrate, let&rsquo;s consider setting up a Cassandra cluster and creating a keyspace</p>
+
+<a name="Configuration"></a>
+<h4>Configuration</h4>
+
+<p><strong>cassandra.yaml</strong>: The primary configuration file for Cassandra.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">cluster_name</span><span class="p-Indicator">:</span> <span class="s">&#39;MyCluster&#39;</span>
+</span><span class='line'><span class="l-Scalar-Plain">num_tokens</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">256</span>
+</span><span class='line'><span class="l-Scalar-Plain">seed_provider</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">class_name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">org.apache.cassandra.locator.SimpleSeedProvider</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">seeds</span><span class="p-Indicator">:</span> <span class="s">&quot;127.0.0.1&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="l-Scalar-Plain">storage_port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">7000</span>
+</span><span class='line'><span class="l-Scalar-Plain">listen_address</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+</span><span class='line'>
+</span><span class='line'><span class="l-Scalar-Plain">rpc_port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">9042</span>
+</span><span class='line'><span class="l-Scalar-Plain">rpc_address</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+</span><span class='line'>
+</span><span class='line'><span class="l-Scalar-Plain">endpoint_snitch</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">SimpleSnitch</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Keyspace-and-Table-Creation"></a>
+<h4>Keyspace and Table Creation</h4>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- Create a keyspace</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="n">KEYSPACE</span> <span class="n">mykeyspace</span> <span class="k">WITH</span> <span class="n">replication</span> <span class="o">=</span> <span class="err">{</span>
+</span><span class='line'>  <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="s1">&#39;SimpleStrategy&#39;</span><span class="p">,</span>
+</span><span class='line'>  <span class="s1">&#39;replication_factor&#39;</span><span class="p">:</span> <span class="mi">3</span>
+</span><span class='line'><span class="err">}</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Use the keyspace</span>
+</span><span class='line'><span class="n">USE</span> <span class="n">mykeyspace</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Create a table</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">user_id</span> <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">name</span> <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">email</span> <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">age</span> <span class="nb">INT</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Why-is-Cassandra-fast-in-writes-3f-"></a>
+<h2>Why is Cassandra fast in writes?</h2>
+
+<a name="Log-2d-Structured-Storage"></a>
+<h3>Log-Structured Storage</h3>
+
+<ul>
+<li>Cassandra appends write operations to a commit log on disk for durability.</li>
+<li>This sequential write pattern minimizes disk seeks and maximizes disk throughput, leading to fast write operations.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra using CQL (Cassandra Query Language)</span>
+</span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="In-2d-Memory-Write-Path"></a>
+<h3>In-Memory Write Path</h3>
+
+<ul>
+<li>Write operations are stored in an in-memory structure called the Memtable.</li>
+<li>Memtables are flushed to disk periodically or when they reach a certain size threshold.</li>
+<li>Buffering writes in memory before flushing them to disk speeds up write operations.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra using CQL</span>
+</span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Multi-2d-Threaded-Architecture"></a>
+<h3>Multi-Threaded Architecture</h3>
+
+<ul>
+<li>Cassandra&rsquo;s architecture allows for parallel processing of writes across multiple threads and cores.</li>
+<li>Each node in the Cassandra cluster can handle multiple concurrent writes, maximizing hardware resources utilization.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra using multiple threads</span>
+</span><span class='line'><span class="n">ExecutorService</span> <span class="n">executor</span> <span class="o">=</span> <span class="n">Executors</span><span class="o">.</span><span class="na">newFixedThreadPool</span><span class="o">(</span><span class="mi">10</span><span class="o">);</span>
+</span><span class='line'><span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">executor</span><span class="o">.</span><span class="na">submit</span><span class="o">(()</span> <span class="o">-&gt;</span> <span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">));</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="n">executor</span><span class="o">.</span><span class="na">shutdown</span><span class="o">();</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Distributed-Writes"></a>
+<h3>Distributed Writes</h3>
+
+<ul>
+<li>Cassandra distributes data across multiple nodes using consistent hashing.</li>
+<li>Write operations are replicated to multiple nodes based on the configured replication factor.</li>
+<li>This distributed nature allows Cassandra to scale horizontally, handling write-heavy workloads with ease.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra with replication factor</span>
+</span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">)</span>
+</span><span class='line'>        <span class="o">.</span><span class="na">setConsistencyLevel</span><span class="o">(</span><span class="n">DefaultConsistencyLevel</span><span class="o">.</span><span class="na">ALL</span><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Tunable-Consistency"></a>
+<h3>Tunable Consistency</h3>
+
+<ul>
+<li>Cassandra allows for tunable consistency levels for write operations.</li>
+<li>Clients can choose the level of consistency required for each write operation, balancing consistency and latency.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra with tunable consistency level</span>
+</span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">)</span>
+</span><span class='line'>        <span class="o">.</span><span class="na">setConsistencyLevel</span><span class="o">(</span><span class="n">DefaultConsistencyLevel</span><span class="o">.</span><span class="na">QUORUM</span><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="No-Single-Point-of-Bottleneck"></a>
+<h3>No Single Point of Bottleneck</h3>
+
+<ul>
+<li>Cassandra&rsquo;s decentralized architecture ensures no single point of bottleneck for writes.</li>
+<li>Each node in the cluster can independently process write operations, leading to linear scalability.</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra on multiple nodes in the cluster</span>
+</span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">)</span>
+</span><span class='line'>        <span class="o">.</span><span class="na">setConsistencyLevel</span><span class="o">(</span><span class="n">DefaultConsistencyLevel</span><span class="o">.</span><span class="na">LOCAL_QUORUM</span><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Cassandra&rsquo;s fast write performance is achieved through a combination of log-structured storage, in-memory write buffering, multi-threaded architecture, distributed writes, tunable consistency, and decentralized design. By leveraging these design principles and using appropriate configuration options, Cassandra can handle high-throughput write workloads efficiently, making it an ideal choice for applications that require fast ingestion of large volumes of data.</p>
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2024 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        
+<!--Adding the Mathjax support -->
+<script id="MathJax-script" async src="/javascripts/tex-mml-chtml.js"></script>
+
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/cassandra-under-the-hood/';
+        var disqus_url = 'https://rishijeet.github.io/blog/cassandra-under-the-hood/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <!-- <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> &#8211;> 
+    </body>
+
+</html>
