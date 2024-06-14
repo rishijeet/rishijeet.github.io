@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: data_structure | Rishijeet Mishra]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/data-structure/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2024-06-14T07:51:35+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[Understanding the Bloom filter]]></title>
+        <link href="https://rishijeet.github.io/blog/understanding-the-bloom-filter/"/>
+        <updated>2024-06-11T10:09:01+05:30</updated>
+        <id>https://rishijeet.github.io/blog/understanding-the-bloom-filter</id>
+        <content type="html"><![CDATA[<p>A Bloom filter is a probabilistic data structure used to test whether an element is a member of a set. It is highly space-efficient and allows for fast query operations, but it has a small risk of false positives (reporting that an element is in the set when it is not) while guaranteeing no false negatives (an element that is in the set will always be reported as such).</p>
+
+<a name="How-Bloom-Filters-Work"></a>
+<h2>How Bloom Filters Work</h2>
+
+<p>A Bloom filter uses a bit array of fixed size and a set of hash functions. Here is a simplified example of how it works:</p>
+
+<p><strong>Initialization</strong>:</p>
+
+<ul>
+<li>Create a bit array of size \(m\) and initialize all bits to 0.</li>
+</ul>
+
+
+<p><strong>Adding an Element</strong>:</p>
+
+<ul>
+<li>Compute \(k\) hash values of the element using \(k\) different hash functions.</li>
+<li>Set the bits at the positions determined by the hash values to 1 in the bit array.</li>
+</ul>
+
+
+<p><strong>Checking Membership</strong>:</p>
+
+<ul>
+<li>Compute the \(k\) hash values of the element.</li>
+<li>Check the bits at the positions determined by the hash values.</li>
+<li>If all bits are set to 1, the element is considered to be possibly in the set (with a risk of false positive).</li>
+<li>If any bit is 0, the element is definitely not in the set.</li>
+</ul>
+
+
+<p>The underlying architecture of a Bloom filter consists of three main components: a bit array, a set of hash functions, and the operations for adding elements and checking membership. Below is a detailed breakdown of each component and the overall architecture:</p>
+
+<a name="Components-of-a-Bloom-Filter"></a>
+<h2>Components of a Bloom Filter</h2>
+
+<p><strong>Bit Array</strong>:</p>
+
+<ul>
+<li>A Bloom filter uses a bit array of fixed size \( m \). This array is initialized with all bits set to 0.</li>
+<li>The size of the bit array \( m \) is chosen based on the expected number of elements \( n \) and the desired
+false positive rate \( p \).</li>
+</ul>
+
+
+<p><strong>Hash Functions</strong>:</p>
+
+<ul>
+<li>A Bloom filter uses \( k \) different hash functions. Each hash function maps an input element to one of the
+positions in the bit array uniformly at random.</li>
+<li>The number of hash functions \( k \) is optimized to minimize the false positive rate.</li>
+</ul>
+
+
+<!-- more -->
+
+
+<a name="Operations"></a>
+<h2>Operations</h2>
+
+<p><strong>Adding an Element</strong>:</p>
+
+<ul>
+<li>To add an element to the Bloom filter, the element is passed through each of the \( k \) hash functions to
+produce \( k \) hash values.</li>
+<li>Each hash value corresponds to a position in the bit array. The bits at these positions are set to 1.</li>
+<li>If a bit is already set to 1, it remains 1.</li>
+</ul>
+
+
+<p><strong>Checking Membership</strong>:</p>
+
+<ul>
+<li>To check if an element is in the Bloom filter, the element is passed through the \( k \) hash functions to
+produce \( k \) hash values.</li>
+<li>Each hash value corresponds to a position in the bit array. If all the bits at these positions are 1, the element is considered to be possibly in the set.</li>
+<li>If any bit at these positions is 0, the element is definitely not in the set.</li>
+</ul>
+
+
+<a name="Architecture-Details"></a>
+<h2>Architecture Details</h2>
+
+<p>The architecture of a Bloom filter can be visualized as follows:</p>
+
+<pre><code>                    +---------------------+
+                    |     Bit Array       |
+                    | [0, 0, 0, ..., 0]   |
+                    +---------|-----------+
+                              |
+                              v
+    +-------------------+     v     +-------------------+
+    | Hash Function 1   | ----------&gt; | Hash Function 2   | ... | Hash Function k |
+    +-------------------+     |     +-------------------+
+           |                  |
+           v                  v
+    +------+-------+   +------+-------+
+    | Element to be |   | Element to be |
+    |    added      |   |  checked     |
+    +---------------+   +---------------+
+           |                  |
+           v                  v
+    +-------------------+     +-------------------+
+    | Calculate Hash    |     | Calculate Hash    |
+    |  Positions        |     |  Positions        |
+    +-------------------+     +-------------------+
+           |                  |
+           v                  v
+    +-------------------+     +-------------------+
+    | Set Bits in Bit   |     | Check Bits in Bit |
+    | Array to 1        |     | Array             |
+    +-------------------+     +-------------------+
+                              |
+                              v
+                          +-------------------+
+                          |   Check Result    |
+                          +-------------------+
+</code></pre>
+
+<a name="Detailed-Process"></a>
+<h2>Detailed Process</h2>
+
+<p><strong>Initialization</strong>:</p>
+
+<ul>
+<li>The bit array of size \( m \) is initialized to all 0s.</li>
+<li>The hash functions are chosen, ensuring they distribute hash values uniformly across the bit array.</li>
+</ul>
+
+
+<p><strong>Adding an Element</strong>:</p>
+
+<ul>
+<li>The element is processed through each hash function to get \( k \) positions.</li>
+<li><div> Example: For an element &#92;( x &#92;) and hash functions &#92;( h_1, h_2, &#8230;, h_k &#92;) </div>
+
+
+<ul>
+<li><div>\( h_1(x) = p_1 \)</div>
+</li>
+<li><div>\( h_2(x) = p_2 \)</div>
+</li>
+<li><div>&#8230;</div>
+</li>
+<li><div>\( h_k(x) = p_k \)</div>
+</li>
+</ul>
+</li>
+<li><div> Set the bit positions \( p_1, p_2, &#8230;, p_k \) to 1 in the bit array. </div>
+</li>
+</ul>
+
+
+<p><strong>Checking Membership</strong>:</p>
+
+<ul>
+<li>The element is processed through each hash function to get \( k \) positions.</li>
+<li><div>Example: For an element &#92;( y &#92;) and hash functions \( h_1, h_2, &#8230;, h_k \):</div>
+
+
+<ul>
+<li><div> &#92;( h_1(y) = q_1 &#92;)</div>
+</li>
+<li><div>&#92;( h_2(y) = q_2 &#92;)</div>
+</li>
+<li><div>&#8230;</div>
+</li>
+<li><div>&#92;( h_k(y) = q_k &#92;)</div>
+</li>
+</ul>
+</li>
+<li><div>Check if all bit positions &#92;( q_1, q_2, &#8230;, q_k &#92;) are 1 in the bit array. </div>
+</li>
+<li>If all are 1, the element is possibly in the set; if any is 0, the element is definitely not in the set.</li>
+</ul>
+
+
+<a name="Mathematical-Foundation"></a>
+<h2>Mathematical Foundation</h2>
+
+<ul>
+<li><p>The probability of a false positive can be estimated using the formula:
+\[
+p \approx \left(1 - e^{-\frac{kn}{m}}\right)^k
+\]
+where \( k \) is the number of hash functions, \( n \) is the number of elements added, and \( m \) is the size of the bit array.</p></li>
+<li><p>Optimal number of hash functions:
+\[
+k = \frac{m}{n} \ln 2
+\]
+This minimizes the false positive rate for given \( m \) and \( n \).</p></li>
+</ul>
+
+
+<a name="Example-in-Python"></a>
+<h3>Example in Python</h3>
+
+<p>Here’s a complete example of a Bloom filter in Python:</p>
+
+<pre><code class="python">import mmh3
+from bitarray import bitarray
+
+class BloomFilter:
+    def __init__(self, size, hash_count):
+        self.size = size
+        self.hash_count = hash_count
+        self.bit_array = bitarray(size)
+        self.bit_array.setall(0)
+
+    def add(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            self.bit_array[digest] = 1
+
+    def check(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            if self.bit_array[digest] == 0:
+                return False
+        return True
+
+# Example usage
+bf = BloomFilter(5000, 7)
+
+# Add items
+bf.add("apple")
+bf.add("banana")
+
+# Check for items
+print(bf.check("apple"))  # Output: True
+print(bf.check("banana"))  # Output: True
+print(bf.check("grape"))  # Output: False
+</code></pre>
+
+<a name="Types-of-Bloom-Filters"></a>
+<h2>Types of Bloom Filters</h2>
+
+<p>Bloom filters have several variations and types that cater to different use cases and requirements. Here are some of the main types of Bloom filters:</p>
+
+<p><strong>Standard Bloom Filter</strong>:</p>
+
+<ul>
+<li>The basic version as described previously, which uses a bit array and multiple hash functions to determine membership with a probabilistic guarantee.</li>
+</ul>
+
+
+<p><strong>Counting Bloom Filter</strong>:</p>
+
+<ul>
+<li>Extends the standard Bloom filter by using a counter array instead of a bit array.</li>
+<li>Allows for deletion of elements by decrementing the counters.</li>
+<li>Useful in scenarios where elements may be frequently added and removed.</li>
+</ul>
+
+
+<p><strong>Scalable Bloom Filter</strong>:</p>
+
+<ul>
+<li>Adjusts the size dynamically to accommodate an increasing number of elements while maintaining a low false positive rate.</li>
+<li>Uses a series of Bloom filters with exponentially increasing sizes and decreasing false positive rates.</li>
+</ul>
+
+
+<p><strong>Partitioned Bloom Filter</strong>:</p>
+
+<ul>
+<li>The bit array is divided into partitions, with each partition associated with one hash function.</li>
+<li>Reduces the chance of hash collisions and improves performance.</li>
+</ul>
+
+
+<p><strong>Compressed Bloom Filter</strong>:</p>
+
+<ul>
+<li>A Bloom filter that is compressed to save space, at the cost of slightly higher false positive rates and processing time.</li>
+<li>Useful in scenarios with very tight space constraints.</li>
+</ul>
+
+
+<p><strong>Cuckoo Filter</strong>:</p>
+
+<ul>
+<li>Similar to a Bloom filter but uses cuckoo hashing, which allows for dynamic insertion and deletion with a guaranteed maximum number of hash collisions.</li>
+<li>Provides better performance for insertion and deletion operations compared to counting Bloom filters.</li>
+</ul>
+
+
+<p><strong>d-left Counting Bloom Filter</strong>:</p>
+
+<ul>
+<li>A combination of d-left hashing and counting Bloom filters, providing efficient updates and low false positive rates.</li>
+<li>Suitable for scenarios with high update rates.</li>
+</ul>
+
+
+<p><strong>Stable Bloom Filter</strong>:</p>
+
+<ul>
+<li>Designed to handle continuous data streams where only the most recent elements matter.</li>
+<li>Uses a sliding window approach to keep the Bloom filter updated with the most recent elements.</li>
+</ul>
+
+
+<a name="Example-Implementations-in-Python"></a>
+<h3>Example Implementations in Python</h3>
+
+<p>Here are some Python implementations for a few types of Bloom filters:</p>
+
+<a name="Standard-Bloom-Filter"></a>
+<h4>Standard Bloom Filter</h4>
+
+<pre><code class="python">import mmh3
+from bitarray import bitarray
+
+class BloomFilter:
+    def __init__(self, size, hash_count):
+        self.size = size
+        self.hash_count = hash_count
+        self.bit_array = bitarray(size)
+        self.bit_array.setall(0)
+
+    def add(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            self.bit_array[digest] = 1
+
+    def check(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            if self.bit_array[digest] == 0:
+                return False
+        return True
+</code></pre>
+
+<a name="Counting-Bloom-Filter"></a>
+<h4>Counting Bloom Filter</h4>
+
+<pre><code class="python">import mmh3
+
+class CountingBloomFilter:
+    def __init__(self, size, hash_count):
+        self.size = size
+        self.hash_count = hash_count
+        self.count_array = [0] * size
+
+    def add(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            self.count_array[digest] += 1
+
+    def remove(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            if self.count_array[digest] &gt; 0:
+                self.count_array[digest] -= 1
+
+    def check(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            if self.count_array[digest] == 0:
+                return False
+        return True
+</code></pre>
+
+<a name="Scalable-Bloom-Filter"></a>
+<h4>Scalable Bloom Filter</h4>
+
+<pre><code class="python">import math
+import mmh3
+from bitarray import bitarray
+
+class ScalableBloomFilter:
+    def __init__(self, initial_size, error_rate):
+        self.filters = []
+        self.initial_size = initial_size
+        self.error_rate = error_rate
+        self._add_filter()
+
+    def _add_filter(self):
+        if not self.filters:
+            size = self.initial_size
+            error_rate = self.error_rate
+        else:
+            size = len(self.filters[-1].bit_array) * 2
+            error_rate = self.filters[-1].error_rate / 2
+        new_filter = BloomFilter(size, -math.log(error_rate) / math.log(2))
+        new_filter.error_rate = error_rate
+        self.filters.append(new_filter)
+
+    def add(self, item):
+        if self.check(item):
+            return
+        if self.filters[-1].count &gt;= len(self.filters[-1].bit_array):
+            self._add_filter()
+        self.filters[-1].add(item)
+
+    def check(self, item):
+        for f in self.filters:
+            if f.check(item):
+                return True
+        return False
+
+class BloomFilter:
+    def __init__(self, size, hash_count):
+        self.size = size
+        self.hash_count = int(hash_count)
+        self.bit_array = bitarray(size)
+        self.bit_array.setall(0)
+        self.count = 0
+
+    def add(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            self.bit_array[digest] = 1
+        self.count += 1
+
+    def check(self, item):
+        for i in range(self.hash_count):
+            digest = mmh3.hash(item, i) % self.size
+            if self.bit_array[digest] == 0:
+                return False
+        return True
+</code></pre>
+
+<a name="Key-uses-of-Bloom-Filters"></a>
+<h2>Key uses of Bloom Filters</h2>
+
+<p><strong>Membership Testing</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Used in network and database systems to test if an element (e.g., an IP address, URL, or
+database entry) is present in a large dataset.</li>
+<li><strong>Example</strong>: In a web caching system, a Bloom filter can quickly determine if a requested URL is already cached,
+thus avoiding the need to query the actual cache storage.</li>
+</ul>
+
+
+<p><strong>Preventing Redundant Data</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Helps in avoiding the storage or processing of duplicate elements.</li>
+<li><strong>Example</strong>: In distributed databases or big data processing frameworks like Hadoop and Spark, Bloom filters can ensure that only unique records are processed or stored.</li>
+</ul>
+
+
+<p><strong>Distributed Systems</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Used to efficiently share set membership information across distributed nodes.</li>
+<li><strong>Example</strong>: In a distributed hash table (DHT) like Cassandra, Bloom filters help quickly determine if a row exists in a particular node before attempting a read operation, thereby reducing unnecessary I/O operations.</li>
+</ul>
+
+
+<p><strong>Database Indexing</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Enhances the performance of database indexing mechanisms by quickly checking if a key is present.</li>
+<li><strong>Example</strong>: In a database like Apache HBase, Bloom filters are used to reduce the number of disk lookups for non-existent rows.</li>
+</ul>
+
+
+<p><strong>Network Security</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Helps in quickly checking if a network packet matches a known malicious pattern.</li>
+<li><strong>Example</strong>: In intrusion detection systems (IDS) and firewalls, Bloom filters can be used to check if incoming network traffic matches a list of known attack signatures.</li>
+</ul>
+
+
+<p><strong>Spell Checking</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Quickly verify if a word exists in a dictionary.</li>
+<li><strong>Example</strong>: Spell checkers can use Bloom filters to rapidly determine if a word is valid, thus speeding up the spell-checking process.</li>
+</ul>
+
+
+<a name="Summary"></a>
+<h2>Summary</h2>
+
+<p>Bloom filters are versatile data structures with various types designed to optimize performance, space efficiency, and functionality for different use cases. Whether you need basic membership checking, dynamic size adjustment, element deletion, or handling continuous data streams, there&rsquo;s a Bloom filter variant that can meet your requirements.</p>
+]]></content>
+    </entry>
+    
+</feed>

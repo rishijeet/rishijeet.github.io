@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2024-05-26T20:36:49+05:30</updated>
+  <updated>2024-06-14T07:51:35+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,667 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Understanding the Bloom filter]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/understanding-the-bloom-filter/"/>
+    <updated>2024-06-11T10:09:01+05:30</updated>
+    <id>https://rishijeet.github.io/blog/understanding-the-bloom-filter</id>
+    <content type="html"><![CDATA[<p>A Bloom filter is a probabilistic data structure used to test whether an element is a member of a set. It is highly space-efficient and allows for fast query operations, but it has a small risk of false positives (reporting that an element is in the set when it is not) while guaranteeing no false negatives (an element that is in the set will always be reported as such).</p>
+
+<a name="How-Bloom-Filters-Work"></a>
+<h2>How Bloom Filters Work</h2>
+
+<p>A Bloom filter uses a bit array of fixed size and a set of hash functions. Here is a simplified example of how it works:</p>
+
+<p><strong>Initialization</strong>:</p>
+
+<ul>
+<li>Create a bit array of size \(m\) and initialize all bits to 0.</li>
+</ul>
+
+
+<p><strong>Adding an Element</strong>:</p>
+
+<ul>
+<li>Compute \(k\) hash values of the element using \(k\) different hash functions.</li>
+<li>Set the bits at the positions determined by the hash values to 1 in the bit array.</li>
+</ul>
+
+
+<p><strong>Checking Membership</strong>:</p>
+
+<ul>
+<li>Compute the \(k\) hash values of the element.</li>
+<li>Check the bits at the positions determined by the hash values.</li>
+<li>If all bits are set to 1, the element is considered to be possibly in the set (with a risk of false positive).</li>
+<li>If any bit is 0, the element is definitely not in the set.</li>
+</ul>
+
+
+<p>The underlying architecture of a Bloom filter consists of three main components: a bit array, a set of hash functions, and the operations for adding elements and checking membership. Below is a detailed breakdown of each component and the overall architecture:</p>
+
+<a name="Components-of-a-Bloom-Filter"></a>
+<h2>Components of a Bloom Filter</h2>
+
+<p><strong>Bit Array</strong>:</p>
+
+<ul>
+<li>A Bloom filter uses a bit array of fixed size \( m \). This array is initialized with all bits set to 0.</li>
+<li>The size of the bit array \( m \) is chosen based on the expected number of elements \( n \) and the desired
+false positive rate \( p \).</li>
+</ul>
+
+
+<p><strong>Hash Functions</strong>:</p>
+
+<ul>
+<li>A Bloom filter uses \( k \) different hash functions. Each hash function maps an input element to one of the
+positions in the bit array uniformly at random.</li>
+<li>The number of hash functions \( k \) is optimized to minimize the false positive rate.</li>
+</ul>
+
+
+<!-- more -->
+
+
+<a name="Operations"></a>
+<h2>Operations</h2>
+
+<p><strong>Adding an Element</strong>:</p>
+
+<ul>
+<li>To add an element to the Bloom filter, the element is passed through each of the \( k \) hash functions to
+produce \( k \) hash values.</li>
+<li>Each hash value corresponds to a position in the bit array. The bits at these positions are set to 1.</li>
+<li>If a bit is already set to 1, it remains 1.</li>
+</ul>
+
+
+<p><strong>Checking Membership</strong>:</p>
+
+<ul>
+<li>To check if an element is in the Bloom filter, the element is passed through the \( k \) hash functions to
+produce \( k \) hash values.</li>
+<li>Each hash value corresponds to a position in the bit array. If all the bits at these positions are 1, the element is considered to be possibly in the set.</li>
+<li>If any bit at these positions is 0, the element is definitely not in the set.</li>
+</ul>
+
+
+<a name="Architecture-Details"></a>
+<h2>Architecture Details</h2>
+
+<p>The architecture of a Bloom filter can be visualized as follows:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>                +---------------------+
+</span><span class='line'>                |     Bit Array       |
+</span><span class='line'>                | [0, 0, 0, ..., 0]   |
+</span><span class='line'>                +---------|-----------+
+</span><span class='line'>                          |
+</span><span class='line'>                          v
+</span><span class='line'>+-------------------+     v     +-------------------+
+</span><span class='line'>| Hash Function 1   | ----------&gt; | Hash Function 2   | ... | Hash Function k |
+</span><span class='line'>+-------------------+     |     +-------------------+
+</span><span class='line'>       |                  |
+</span><span class='line'>       v                  v
+</span><span class='line'>+------+-------+   +------+-------+
+</span><span class='line'>| Element to be |   | Element to be |
+</span><span class='line'>|    added      |   |  checked     |
+</span><span class='line'>+---------------+   +---------------+
+</span><span class='line'>       |                  |
+</span><span class='line'>       v                  v
+</span><span class='line'>+-------------------+     +-------------------+
+</span><span class='line'>| Calculate Hash    |     | Calculate Hash    |
+</span><span class='line'>|  Positions        |     |  Positions        |
+</span><span class='line'>+-------------------+     +-------------------+
+</span><span class='line'>       |                  |
+</span><span class='line'>       v                  v
+</span><span class='line'>+-------------------+     +-------------------+
+</span><span class='line'>| Set Bits in Bit   |     | Check Bits in Bit |
+</span><span class='line'>| Array to 1        |     | Array             |
+</span><span class='line'>+-------------------+     +-------------------+
+</span><span class='line'>                          |
+</span><span class='line'>                          v
+</span><span class='line'>                      +-------------------+
+</span><span class='line'>                      |   Check Result    |
+</span><span class='line'>                      +-------------------+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Detailed-Process"></a>
+<h2>Detailed Process</h2>
+
+<p><strong>Initialization</strong>:</p>
+
+<ul>
+<li>The bit array of size \( m \) is initialized to all 0s.</li>
+<li>The hash functions are chosen, ensuring they distribute hash values uniformly across the bit array.</li>
+</ul>
+
+
+<p><strong>Adding an Element</strong>:</p>
+
+<ul>
+<li>The element is processed through each hash function to get \( k \) positions.</li>
+<li><div> Example: For an element &#92;( x &#92;) and hash functions &#92;( h_1, h_2, &#8230;, h_k &#92;) </div>
+
+
+<ul>
+<li><div>\( h_1(x) = p_1 \)</div>
+</li>
+<li><div>\( h_2(x) = p_2 \)</div>
+</li>
+<li><div>&#8230;</div>
+</li>
+<li><div>\( h_k(x) = p_k \)</div>
+</li>
+</ul>
+</li>
+<li><div> Set the bit positions \( p_1, p_2, &#8230;, p_k \) to 1 in the bit array. </div>
+</li>
+</ul>
+
+
+<p><strong>Checking Membership</strong>:</p>
+
+<ul>
+<li>The element is processed through each hash function to get \( k \) positions.</li>
+<li><div>Example: For an element &#92;( y &#92;) and hash functions \( h_1, h_2, &#8230;, h_k \):</div>
+
+
+<ul>
+<li><div> &#92;( h_1(y) = q_1 &#92;)</div>
+</li>
+<li><div>&#92;( h_2(y) = q_2 &#92;)</div>
+</li>
+<li><div>&#8230;</div>
+</li>
+<li><div>&#92;( h_k(y) = q_k &#92;)</div>
+</li>
+</ul>
+</li>
+<li><div>Check if all bit positions &#92;( q_1, q_2, &#8230;, q_k &#92;) are 1 in the bit array. </div>
+</li>
+<li>If all are 1, the element is possibly in the set; if any is 0, the element is definitely not in the set.</li>
+</ul>
+
+
+<a name="Mathematical-Foundation"></a>
+<h2>Mathematical Foundation</h2>
+
+<ul>
+<li><p>The probability of a false positive can be estimated using the formula:
+\[
+p \approx \left(1 - e^{-\frac{kn}{m}}\right)^k
+\]
+where \( k \) is the number of hash functions, \( n \) is the number of elements added, and \( m \) is the size of the bit array.</p></li>
+<li><p>Optimal number of hash functions:
+\[
+k = \frac{m}{n} \ln 2
+\]
+This minimizes the false positive rate for given \( m \) and \( n \).</p></li>
+</ul>
+
+
+<a name="Example-in-Python"></a>
+<h3>Example in Python</h3>
+
+<p>Here’s a complete example of a Bloom filter in Python:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">mmh3</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">bitarray</span> <span class="kn">import</span> <span class="n">bitarray</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">BloomFilter</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span> <span class="o">=</span> <span class="n">hash_count</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span> <span class="o">=</span> <span class="n">bitarray</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="o">.</span><span class="n">setall</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Example usage</span>
+</span><span class='line'><span class="n">bf</span> <span class="o">=</span> <span class="n">BloomFilter</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Add items</span>
+</span><span class='line'><span class="n">bf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s">&quot;apple&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">bf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s">&quot;banana&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Check for items</span>
+</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">bf</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s">&quot;apple&quot;</span><span class="p">))</span>  <span class="c"># Output: True</span>
+</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">bf</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s">&quot;banana&quot;</span><span class="p">))</span>  <span class="c"># Output: True</span>
+</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">bf</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s">&quot;grape&quot;</span><span class="p">))</span>  <span class="c"># Output: False</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Types-of-Bloom-Filters"></a>
+<h2>Types of Bloom Filters</h2>
+
+<p>Bloom filters have several variations and types that cater to different use cases and requirements. Here are some of the main types of Bloom filters:</p>
+
+<p><strong>Standard Bloom Filter</strong>:</p>
+
+<ul>
+<li>The basic version as described previously, which uses a bit array and multiple hash functions to determine membership with a probabilistic guarantee.</li>
+</ul>
+
+
+<p><strong>Counting Bloom Filter</strong>:</p>
+
+<ul>
+<li>Extends the standard Bloom filter by using a counter array instead of a bit array.</li>
+<li>Allows for deletion of elements by decrementing the counters.</li>
+<li>Useful in scenarios where elements may be frequently added and removed.</li>
+</ul>
+
+
+<p><strong>Scalable Bloom Filter</strong>:</p>
+
+<ul>
+<li>Adjusts the size dynamically to accommodate an increasing number of elements while maintaining a low false positive rate.</li>
+<li>Uses a series of Bloom filters with exponentially increasing sizes and decreasing false positive rates.</li>
+</ul>
+
+
+<p><strong>Partitioned Bloom Filter</strong>:</p>
+
+<ul>
+<li>The bit array is divided into partitions, with each partition associated with one hash function.</li>
+<li>Reduces the chance of hash collisions and improves performance.</li>
+</ul>
+
+
+<p><strong>Compressed Bloom Filter</strong>:</p>
+
+<ul>
+<li>A Bloom filter that is compressed to save space, at the cost of slightly higher false positive rates and processing time.</li>
+<li>Useful in scenarios with very tight space constraints.</li>
+</ul>
+
+
+<p><strong>Cuckoo Filter</strong>:</p>
+
+<ul>
+<li>Similar to a Bloom filter but uses cuckoo hashing, which allows for dynamic insertion and deletion with a guaranteed maximum number of hash collisions.</li>
+<li>Provides better performance for insertion and deletion operations compared to counting Bloom filters.</li>
+</ul>
+
+
+<p><strong>d-left Counting Bloom Filter</strong>:</p>
+
+<ul>
+<li>A combination of d-left hashing and counting Bloom filters, providing efficient updates and low false positive rates.</li>
+<li>Suitable for scenarios with high update rates.</li>
+</ul>
+
+
+<p><strong>Stable Bloom Filter</strong>:</p>
+
+<ul>
+<li>Designed to handle continuous data streams where only the most recent elements matter.</li>
+<li>Uses a sliding window approach to keep the Bloom filter updated with the most recent elements.</li>
+</ul>
+
+
+<a name="Example-Implementations-in-Python"></a>
+<h3>Example Implementations in Python</h3>
+
+<p>Here are some Python implementations for a few types of Bloom filters:</p>
+
+<a name="Standard-Bloom-Filter"></a>
+<h4>Standard Bloom Filter</h4>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">mmh3</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">bitarray</span> <span class="kn">import</span> <span class="n">bitarray</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">BloomFilter</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span> <span class="o">=</span> <span class="n">hash_count</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span> <span class="o">=</span> <span class="n">bitarray</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="o">.</span><span class="n">setall</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Counting-Bloom-Filter"></a>
+<h4>Counting Bloom Filter</h4>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">mmh3</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">CountingBloomFilter</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span> <span class="o">=</span> <span class="n">hash_count</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">count_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">size</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">count_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>                <span class="bp">self</span><span class="o">.</span><span class="n">count_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Scalable-Bloom-Filter"></a>
+<h4>Scalable Bloom Filter</h4>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">math</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">mmh3</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">bitarray</span> <span class="kn">import</span> <span class="n">bitarray</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">ScalableBloomFilter</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_size</span><span class="p">,</span> <span class="n">error_rate</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">filters</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">initial_size</span> <span class="o">=</span> <span class="n">initial_size</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">error_rate</span> <span class="o">=</span> <span class="n">error_rate</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">_add_filter</span><span class="p">()</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">_add_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_size</span>
+</span><span class='line'>            <span class="n">error_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_rate</span>
+</span><span class='line'>        <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">bit_array</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+</span><span class='line'>            <span class="n">error_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">error_rate</span> <span class="o">/</span> <span class="mi">2</span>
+</span><span class='line'>        <span class="n">new_filter</span> <span class="o">=</span> <span class="n">BloomFilter</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">error_rate</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+</span><span class='line'>        <span class="n">new_filter</span><span class="o">.</span><span class="n">error_rate</span> <span class="o">=</span> <span class="n">error_rate</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_filter</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
+</span><span class='line'>            <span class="k">return</span>
+</span><span class='line'>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">count</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">bit_array</span><span class="p">):</span>
+</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">_add_filter</span><span class="p">()</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
+</span><span class='line'>                <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">BloomFilter</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">hash_count</span><span class="p">)</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span> <span class="o">=</span> <span class="n">bitarray</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="o">.</span><span class="n">setall</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash_count</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">digest</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+</span><span class='line'>            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_array</span><span class="p">[</span><span class="n">digest</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Key-uses-of-Bloom-Filters"></a>
+<h2>Key uses of Bloom Filters</h2>
+
+<p><strong>Membership Testing</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Used in network and database systems to test if an element (e.g., an IP address, URL, or
+database entry) is present in a large dataset.</li>
+<li><strong>Example</strong>: In a web caching system, a Bloom filter can quickly determine if a requested URL is already cached,
+thus avoiding the need to query the actual cache storage.</li>
+</ul>
+
+
+<p><strong>Preventing Redundant Data</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Helps in avoiding the storage or processing of duplicate elements.</li>
+<li><strong>Example</strong>: In distributed databases or big data processing frameworks like Hadoop and Spark, Bloom filters can ensure that only unique records are processed or stored.</li>
+</ul>
+
+
+<p><strong>Distributed Systems</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Used to efficiently share set membership information across distributed nodes.</li>
+<li><strong>Example</strong>: In a distributed hash table (DHT) like Cassandra, Bloom filters help quickly determine if a row exists in a particular node before attempting a read operation, thereby reducing unnecessary I/O operations.</li>
+</ul>
+
+
+<p><strong>Database Indexing</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Enhances the performance of database indexing mechanisms by quickly checking if a key is present.</li>
+<li><strong>Example</strong>: In a database like Apache HBase, Bloom filters are used to reduce the number of disk lookups for non-existent rows.</li>
+</ul>
+
+
+<p><strong>Network Security</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Helps in quickly checking if a network packet matches a known malicious pattern.</li>
+<li><strong>Example</strong>: In intrusion detection systems (IDS) and firewalls, Bloom filters can be used to check if incoming network traffic matches a list of known attack signatures.</li>
+</ul>
+
+
+<p><strong>Spell Checking</strong></p>
+
+<ul>
+<li><strong>Applications</strong>: Quickly verify if a word exists in a dictionary.</li>
+<li><strong>Example</strong>: Spell checkers can use Bloom filters to rapidly determine if a word is valid, thus speeding up the spell-checking process.</li>
+</ul>
+
+
+<a name="Summary"></a>
+<h2>Summary</h2>
+
+<p>Bloom filters are versatile data structures with various types designed to optimize performance, space efficiency, and functionality for different use cases. Whether you need basic membership checking, dynamic size adjustment, element deletion, or handling continuous data streams, there&rsquo;s a Bloom filter variant that can meet your requirements.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Cassandra - Under the hood]]></title>
