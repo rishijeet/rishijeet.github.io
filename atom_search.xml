@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2024-06-26T10:01:30+05:30</updated>
+  <updated>2024-06-26T19:57:30+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -281,16 +281,22 @@ items in an order are ready, it generates an &ldquo;OrderReady&rdquo; event and 
     - A customer orders a cappuccino and a sandwich at the counter.
     - The Counter Service generates an &ldquo;OrderPlaced&rdquo; event:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "items": [
-            {"type": "beverage", "name": "cappuccino"},
-            {"type": "food", "name": "sandwich"}
-        ]
-    }
-    ```
-</code></pre>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="nt">&quot;orderId&quot;</span><span class="p">:</span> <span class="s2">&quot;12345&quot;</span><span class="p">,</span>
+</span><span class='line'>    <span class="nt">&quot;items&quot;</span><span class="p">:</span> <span class="p">[</span>
+</span><span class='line'>        <span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;beverage&quot;</span><span class="p">,</span> <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;cappuccino&quot;</span><span class="p">},</span>
+</span><span class='line'>        <span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;food&quot;</span><span class="p">,</span> <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;sandwich&quot;</span><span class="p">}</span>
+</span><span class='line'>    <span class="p">]</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
 
 <p><strong>Inventory Check</strong>:
     - The Product Service receives the &ldquo;OrderPlaced&rdquo; event and checks inventory.
@@ -301,37 +307,46 @@ items in an order are ready, it generates an &ldquo;OrderReady&rdquo; event and 
     - The Barista Service receives the &ldquo;OrderPlaced&rdquo; event and starts preparing the cappuccino.
     - Once the cappuccino is ready, it generates a &ldquo;BeverageReady&rdquo; event:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "item": "cappuccino"
-    }
-    ```
-</code></pre>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="nt">&quot;orderId&quot;</span><span class="p">:</span> <span class="s2">&quot;12345&quot;</span><span class="p">,</span>
+</span><span class='line'>    <span class="nt">&quot;item&quot;</span><span class="p">:</span> <span class="s2">&quot;cappuccino&quot;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
 
 <p><strong>Food Preparation</strong>:
     - The Kitchen Service receives the &ldquo;OrderPlaced&rdquo; event and starts preparing the sandwich.
     - Once the sandwich is ready, it generates a &ldquo;FoodReady&rdquo; event:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "item": "sandwich"
-    }
-    ```
-</code></pre>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="nt">&quot;orderId&quot;</span><span class="p">:</span> <span class="s2">&quot;12345&quot;</span><span class="p">,</span>
+</span><span class='line'>    <span class="nt">&quot;item&quot;</span><span class="p">:</span> <span class="s2">&quot;sandwich&quot;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
 
 <p><strong>Order Ready Notification</strong>:
     - The Counter Service receives both &ldquo;BeverageReady&rdquo; and &ldquo;FoodReady&rdquo; events.
     - Once all items for order 12345 are ready, it generates an &ldquo;OrderReady&rdquo; event and notifies the customer:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "status": "ready"
-    }
-    ```
-</code></pre>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="nt">&quot;orderId&quot;</span><span class="p">:</span> <span class="s2">&quot;12345&quot;</span><span class="p">,</span>
+</span><span class='line'>    <span class="nt">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;ready&quot;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
 
 <a name="Best-Practices-for-Implementing-Event-2d-Based-Architecture"></a>
 <h2>Best Practices for Implementing Event-Based Architecture</h2>

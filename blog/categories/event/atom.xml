@@ -4,7 +4,7 @@
     <title><![CDATA[Category: event | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/event/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-06-26T10:01:30+05:30</updated>
+    <updated>2024-06-26T19:57:30+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -119,15 +119,13 @@ items in an order are ready, it generates an &ldquo;OrderReady&rdquo; event and 
     - A customer orders a cappuccino and a sandwich at the counter.
     - The Counter Service generates an &ldquo;OrderPlaced&rdquo; event:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "items": [
-            {"type": "beverage", "name": "cappuccino"},
-            {"type": "food", "name": "sandwich"}
-        ]
-    }
-    ```
+<pre><code class="json">{
+    "orderId": "12345",
+    "items": [
+        {"type": "beverage", "name": "cappuccino"},
+        {"type": "food", "name": "sandwich"}
+    ]
+}
 </code></pre>
 
 <p><strong>Inventory Check</strong>:
@@ -139,36 +137,30 @@ items in an order are ready, it generates an &ldquo;OrderReady&rdquo; event and 
     - The Barista Service receives the &ldquo;OrderPlaced&rdquo; event and starts preparing the cappuccino.
     - Once the cappuccino is ready, it generates a &ldquo;BeverageReady&rdquo; event:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "item": "cappuccino"
-    }
-    ```
+<pre><code class="json">{
+    "orderId": "12345",
+    "item": "cappuccino"
+}
 </code></pre>
 
 <p><strong>Food Preparation</strong>:
     - The Kitchen Service receives the &ldquo;OrderPlaced&rdquo; event and starts preparing the sandwich.
     - Once the sandwich is ready, it generates a &ldquo;FoodReady&rdquo; event:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "item": "sandwich"
-    }
-    ```
+<pre><code class="json">{
+    "orderId": "12345",
+    "item": "sandwich"
+}
 </code></pre>
 
 <p><strong>Order Ready Notification</strong>:
     - The Counter Service receives both &ldquo;BeverageReady&rdquo; and &ldquo;FoodReady&rdquo; events.
     - Once all items for order 12345 are ready, it generates an &ldquo;OrderReady&rdquo; event and notifies the customer:</p>
 
-<pre><code>    ```json
-    {
-        "orderId": "12345",
-        "status": "ready"
-    }
-    ```
+<pre><code class="json">{
+    "orderId": "12345",
+    "status": "ready"
+}
 </code></pre>
 
 <a name="Best-Practices-for-Implementing-Event-2d-Based-Architecture"></a>
