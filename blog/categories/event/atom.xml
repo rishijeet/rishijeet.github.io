@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
-    <title><![CDATA[Category: kafka | Rishijeet Mishra]]></title>
-    <link href="https://rishijeet.github.io/blog/categories/kafka/atom.xml" rel="self"/>
+    <title><![CDATA[Category: event | Rishijeet Mishra]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/event/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
     <updated>2024-06-26T09:46:07+05:30</updated>
     <id>https://rishijeet.github.io/</id>
@@ -194,124 +194,6 @@ strategies.</li>
 <p>Modern event-based architecture provides a robust and flexible approach to building scalable, resilient, and real-time systems. By decoupling components and enabling asynchronous communication through events, this architecture pattern addresses many challenges of traditional systems. Whether you&rsquo;re building an e-commerce platform, a real-time analytics system, or an IoT solution, event-based architecture can help you achieve better performance, scalability, and agility.</p>
 
 <p>Embracing this architectural style requires careful planning, but the benefits it offers make it a worthwhile investment for any modern application.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Tuning Apache Kafka’s performance]]></title>
-        <link href="https://rishijeet.github.io/blog/tuning-apache-kafkas-performance/"/>
-        <updated>2019-07-11T11:42:32+05:30</updated>
-        <id>https://rishijeet.github.io/blog/tuning-apache-kafkas-performance</id>
-        <content type="html"><![CDATA[<p>Well, Apache Kafka is one of the best pub-sub messaging system used widely across several technology’s based industries. Originated at LinkedIn and was open sourced in early 2011.</p>
-
-<p>Ok, so what so special about <strong>Apache Kafka</strong> ? Here are the few things Kafka is meant to handle.</p>
-
-<ul>
-<li>High throughput to support large volume event feeds.</li>
-<li>Real time processing of enormous amount of data.</li>
-<li>Support large data backlogs to handle periodic ingestion from offline systems.</li>
-<li>Support low - latency delivery of the messages compared to other messaging systems</li>
-<li>High Availability, Fault Tolerance.</li>
-</ul>
-
-
-<p>So what else are you looking ?</p>
-
-<!--more-->
-
-
-<p>Now if you know about Apache Kafka a bit, here are few things we can fine tune to make it better in terms of performance. Let’s categories the system into the following aspects and see what could be done in each space.</p>
-
-<ul>
-<li>Producers</li>
-<li>Brokers</li>
-<li>Consumers</li>
-</ul>
-
-
-<a name="Producers"></a>
-<h2>Producers</h2>
-
-<a name="Asynchronous"></a>
-<h3>Asynchronous</h3>
-
-<p>Now think, how long you want to wait for the ack on the message sent to the broker ? Answer to this question will change the speed of handling the messages in the Kafka.</p>
-
-<p>request.required.acks is the property of the producer.</p>
-
-<p>Possible values for this are:</p>
-
-<ul>
-<li><code>0</code> = producer never waits for the ack from the broker. This will give you “Least durability and least latency”.</li>
-<li><code>1</code> = producer gets ack from the master replica. This will give you “some durability and less latency”.</li>
-<li><code>-1</code> = producer gets ack from the all the replicas. This will give you “most durability and most latency”.</li>
-</ul>
-
-
-<a name="Batching"></a>
-<h3>Batching</h3>
-
-<p>How about batching the messages ? Let’s use the asynchronous producers.</p>
-
-<p><code>producer.type=1</code> to make the producers run async.</p>
-
-<p>You can get the “callback” for the messages here to know their status. Now batch your messages to the brokers in different threads, this will improve the throughput. Some configuration to handle the messages in this scenario are:</p>
-
-<ul>
-<li><code>queue.buffer.max.ms</code> - Duration of the batch window.</li>
-<li><code>batch.num.messages</code> - Number of messages to be sent in a batch.</li>
-</ul>
-
-
-<a name="Compression"></a>
-<h3>Compression</h3>
-
-<p>Use the compression property to reduces the I/O on the machine. We might also want to think of the CPU load when it decompresses the message object back. So, maintain a balance between the two. compression.codec - Values are none, gzip and snappy</p>
-
-<p>For presumably large messages say - 10G , you might want to pass the file location of the share drive in the maessage rather than the payload itself. This would be tremendously faster.</p>
-
-<a name="Timeout"></a>
-<h3>Timeout</h3>
-
-<p>Don’t wait for the message unnecessarily unless its is really really required. Have a “timeout”</p>
-
-<p><code>request.timeout.ms</code> - The time until the broker waits before sending error back to the client.
-Amount of time to block before dropping the messages when running in async mode ( default = indefinitely )</p>
-
-<a name="Brokers"></a>
-<h2>Brokers</h2>
-
-<a name="Partition"></a>
-<h3>Partition</h3>
-
-<p>Plan to have as number of partitions = number of consumers. This will increase the concurrency, the more the partitions the more the concurrency. Remember, more the partitions more the latency too. Also, recommended to have one partition per physical disk to ensure I/O is not the bottleneck while writing the logs.</p>
-
-<p>Use “kafka-reassign-partitions.sh” to ensure partition is not overloaded.</p>
-
-<p>Some of the configurations worth mentioning here are:</p>
-
-<ul>
-<li><code>num.io.threads</code> - The number of I/O threads server uses to execute the requests.</li>
-<li><code>num.partitions</code> - Number of partitions per topic</li>
-<li><code>log.flush.interval,messages</code> - The number of messages written to the log partition before we force an fsync on the log.</li>
-</ul>
-
-
-<a name="Consumers"></a>
-<h2>Consumers</h2>
-
-<p>The max number of consumers for the topic is equal to number of partitions. Have enough partitions to handle all the consumers in your Kafka’s ecosystem.</p>
-
-<p>Consumer in the same consumer group split the partitions among themselves. Adding more consumers to a group can enhance performance.</p>
-
-<p>Performance is not affected by adding more consumer groups</p>
-
-<p><code>replica.high.watermark.checkpoint.interval.ms</code> can affect the throughput. When reading from partition, you can mark the last point where you read the information. If you set checkpoint watermark for every event, you will have high durability but hit on the performance. Rather, set it to check the offset for every x number of messages wherein you have margin of safety and will less impact your throughput.</p>
-
-<a name="Timeout"></a>
-<h3>Timeout</h3>
-
-<p>Choose the timeouts and onward pipeline properly. Also, refer to Apache Kafka doc for setting fetch size, time, auto-commit etc.</p>
 ]]></content>
     </entry>
     
