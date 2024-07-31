@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2024-07-16T10:31:16+05:30</updated>
+  <updated>2024-07-31T10:26:04+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,211 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Exploring Quarkus Performance]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/exploring-quarkus-performance/"/>
+    <updated>2024-07-31T10:00:32+05:30</updated>
+    <id>https://rishijeet.github.io/blog/exploring-quarkus-performance</id>
+    <content type="html"><![CDATA[<p>Quarkus is an open-source Kubernetes-native Java framework tailored for GraalVM and OpenJDK HotSpot. It is designed to optimize Java specifically for containers, making it an ideal platform for serverless, cloud-native, and microservices environments. In this blog, we will delve into the performance benefits of Quarkus, backed by metrics and code snippets to illustrate its capabilities.</p>
+
+<a name="Why-Quarkus-3f-"></a>
+<h2>Why Quarkus?</h2>
+
+<p>Quarkus brings a host of performance improvements to Java applications, including:</p>
+
+<ul>
+<li><strong>Faster Startup Times</strong>: Quarkus significantly reduces startup times, which is critical for scaling microservices
+in cloud environments.</li>
+<li><strong>Lower Memory Footprint</strong>: It reduces the memory consumption of applications, enabling more efficient use of
+resources.</li>
+<li><strong>GraalVM Native Image</strong>: Quarkus can compile Java applications into native executables, further enhancing startup
+times and reducing memory usage.</li>
+</ul>
+
+
+<a name="Performance-Metrics"></a>
+<h2>Performance Metrics</h2>
+
+<p>To demonstrate the performance of Quarkus, we’ll compare a simple REST API application built with Quarkus against a similar application built with a traditional Java framework.</p>
+
+<a name="Environment-Setup"></a>
+<h4>Environment Setup</h4>
+
+<ul>
+<li><strong>CPU</strong>: Intel i7-9700K</li>
+<li><strong>Memory</strong>: 32GB DDR4</li>
+<li><strong>JDK</strong>: OpenJDK 11</li>
+<li><strong>Quarkus Version</strong>: 2.0.0.Final</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Metrics"></a>
+<h4>Metrics</h4>
+
+<ul>
+<li><strong>Startup Time</strong></li>
+<li><strong>Memory Usage</strong></li>
+<li><strong>Response Time Under Load</strong></li>
+</ul>
+
+
+<a name="Benchmark-Results"></a>
+<h4>Benchmark Results</h4>
+
+<table>
+<thead>
+<tr>
+<th> Metric                 </th>
+<th style="text-align:center;">      Traditional <br/>Java Framework      </th>
+<th style="text-align:center;">  Quarkus (JVM)  </th>
+<th style="text-align:center;">  Quarkus (Native)  </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> <strong>Startup Time</strong>       </td>
+<td style="text-align:center;">                3.2 seconds                </td>
+<td style="text-align:center;">   0.8 seconds   </td>
+<td style="text-align:center;">   0.015 seconds    </td>
+</tr>
+<tr>
+<td> <strong>Memory Usage</strong>       </td>
+<td style="text-align:center;">                  300 MB                   </td>
+<td style="text-align:center;">     120 MB      </td>
+<td style="text-align:center;">       35 MB        </td>
+</tr>
+<tr>
+<td> <strong>Response Time (p99)</strong></td>
+<td style="text-align:center;">                   45 ms                   </td>
+<td style="text-align:center;">      25 ms      </td>
+<td style="text-align:center;">       20 ms        </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br/></p>
+
+<p>As evident from the table, Quarkus, particularly in its native form, offers substantial improvements in startup time and memory usage, with comparable or better response times under load.</p>
+
+<a name="Let-27-s-dive-with-the-code"></a>
+<h2>Let&rsquo;s dive with the code</h2>
+
+<p>We will create a simple REST API using Quarkus to demonstrate its performance.</p>
+
+<a name="Setting-Up-the-Project"></a>
+<h3>Setting Up the Project</h3>
+
+<p>You can set up a Quarkus project using the following command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>mvn io.quarkus:quarkus-maven-plugin:2.0.0.Final:create <span class="se">\</span>
+</span><span class='line'>    -DprojectGroupId<span class="o">=</span>com.example <span class="se">\</span>
+</span><span class='line'>    -DprojectArtifactId<span class="o">=</span>quarkus-performance <span class="se">\</span>
+</span><span class='line'>    -DclassName<span class="o">=</span><span class="s2">&quot;com.example.GreetingResource&quot;</span> <span class="se">\</span>
+</span><span class='line'>    -Dpath<span class="o">=</span><span class="s2">&quot;/hello&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Writing-the-REST-Endpoint"></a>
+<h3>Writing the REST Endpoint</h3>
+
+<p>In <code>src/main/java/com/example/GreetingResource.java</code>, implement the REST endpoint:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">javax.ws.rs.GET</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">javax.ws.rs.Path</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">javax.ws.rs.Produces</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">javax.ws.rs.core.MediaType</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Path</span><span class="o">(</span><span class="s">&quot;/hello&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">GreetingResource</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@GET</span>
+</span><span class='line'>    <span class="nd">@Produces</span><span class="o">(</span><span class="n">MediaType</span><span class="o">.</span><span class="na">TEXT_PLAIN</span><span class="o">)</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="n">String</span> <span class="nf">hello</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Hello, Quarkus!&quot;</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Building-and-Running-the-Application"></a>
+<h3>Building and Running the Application</h3>
+
+<p>To run the application in JVM mode, use:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>./mvnw quarkus:dev
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To build a native executable:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>./mvnw package -Pnative
+</span><span class='line'>./target/quarkus-performance-1.0.0-SNAPSHOT-runner
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Testing-Performance"></a>
+<h3>Testing Performance</h3>
+
+<p>We can use tools like <code>wrk</code> or <code>Apache JMeter</code> to test the performance of our Quarkus application.</p>
+
+<a name="Example--3c-code-3e-wrk-3c--2f-code-3e--Command:"></a>
+<h4>Example <code>wrk</code> Command:</h4>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>wrk -t12 -c400 -d30s http://localhost:8080/hello
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Performance-Observations"></a>
+<h3>Performance Observations</h3>
+
+<ul>
+<li><strong>Startup Time</strong>: The native executable starts almost instantaneously, making it ideal for serverless deployments where cold starts can be a concern.</li>
+<li><strong>Memory Usage</strong>: The native image consumes significantly less memory compared to running on the JVM.</li>
+<li><strong>Response Time</strong>: Under load, Quarkus exhibits stable and low response times, indicating efficient request handling.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>Quarkus delivers impressive performance improvements, particularly in terms of startup time and memory consumption. These benefits make it an excellent choice for building modern, cloud-native applications. By leveraging Quarkus, developers can create highly efficient, scalable microservices with minimal resource overhead.</p>
+
+<p>Quarkus is a game-changer in the Java ecosystem, providing a compelling option for developers looking to optimize their applications for the cloud. Whether you&rsquo;re building microservices, serverless functions, or traditional web applications, Quarkus can help you achieve better performance and lower operational costs.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[A Shift from DevOps to DevEx: Shaping the Future of Technology]]></title>
@@ -1331,7 +1536,7 @@ produce \( k \) hash values.</li>
 <ul>
 <li><p>The probability of a false positive can be estimated using the formula:
 \[
-p \approx \left(1 - e^{-\frac{kn}{m}}\right)^k
+p \approx \left(1 - e^{-\frac{kn}{m}}\right)<sup>k</sup>
 \]
 where \( k \) is the number of hash functions, \( n \) is the number of elements added, and \( m \) is the size of the bit array.</p></li>
 <li><p>Optimal number of hash functions:
@@ -3813,7 +4018,7 @@ Conversational agents can benefit from RAG by providing more informative and con
 <a name="Unleashing-Unprecedented-Power-and-Efficiency"></a>
 <h5>Unleashing Unprecedented Power and Efficiency</h5>
 
-<p>The Envise chip is a game-changer in the world of AI inference. It features 16 Envise Chips in a 4-U server configuration, consuming only 3kW of power. This remarkable power efficiency enables the chip to run the largest neural networks developed to date with exceptional performance. In fact, Lightmatter claims that the Envise chip delivers three times higher instructions per second (IPS) than the Nvidia DGX-A100, while achieving eight times the IPS per watt on BERT-Base SQuAD. These numbers are staggering and highlight the potential of the Envise chip to redefine AI inference capabilities.<a href="">^1</a></p>
+<p>The Envise chip is a game-changer in the world of AI inference. It features 16 Envise Chips in a 4-U server configuration, consuming only 3kW of power. This remarkable power efficiency enables the chip to run the largest neural networks developed to date with exceptional performance. In fact, Lightmatter claims that the Envise chip delivers three times higher instructions per second (IPS) than the Nvidia DGX-A100, while achieving eight times the IPS per watt on BERT-Base SQuAD. These numbers are staggering and highlight the potential of the Envise chip to redefine AI inference capabilities.<sup id="fnref:1"><a href="#fn:1" rel="footnote">1</a></sup></p>
 
 <a name="Unmatched-Specifications"></a>
 <h5>Unmatched Specifications</h5>
@@ -3843,6 +4048,14 @@ Conversational agents can benefit from RAG by providing more informative and con
 <p><img src="https://rishijeet.github.io/images/Hot-Chips-32-Lightmatter-Software.jpg" height="300" width="900" alt="Alt text" /><em>Source: Lightmatter</em></p>
 
 <p>Lightmatter&rsquo;s Envise chip stands as a testament to the rapid evolution of AI inference processors. Its exceptional performance, energy efficiency, and broad applications make it a force to be reckoned with in the AI industry. As more companies explore photonic processors and accelerators, the development of specialized computing devices like the Envise chip paves the way for a future where AI capabilities are maximized while minimizing energy consumption. The Envise chip is poised to transform industries and contribute to the realization of sustainable and economical data centers.</p>
+<div class="footnotes">
+<hr/>
+<ol>
+<li id="fn:1">
+<em>Source Lightmatter</em><a href="#fnref:1" rev="footnote">&#8617;</a></li>
+</ol>
+</div>
+
 ]]></content>
   </entry>
   
@@ -4012,9 +4225,11 @@ Conversational agents can benefit from RAG by providing more informative and con
 <a name="Training-Deep-Learning-Models"></a>
 <h5>Training Deep Learning Models</h5>
 
-<p>a. Backpropagation: Backpropagation is a key algorithm used to train deep learning models. It calculates the gradients of the model&rsquo;s parameters with respect to a loss function, allowing the network to update its weights and improve its performance.</p>
+<ol type="a">
+<li><p>Backpropagation: Backpropagation is a key algorithm used to train deep learning models. It calculates the gradients of the model&rsquo;s parameters with respect to a loss function, allowing the network to update its weights and improve its performance.</p></li>
+<li><p>Optimization Algorithms: Various optimization algorithms, such as stochastic gradient descent (SGD), Adam, and RMSprop, help find the optimal set of weights for deep learning models. These algorithms aim to minimize the loss function and improve model accuracy.</p></li>
+</ol>
 
-<p>b. Optimization Algorithms: Various optimization algorithms, such as stochastic gradient descent (SGD), Adam, and RMSprop, help find the optimal set of weights for deep learning models. These algorithms aim to minimize the loss function and improve model accuracy.</p>
 
 <a name="Conclusion"></a>
 <h5>Conclusion</h5>

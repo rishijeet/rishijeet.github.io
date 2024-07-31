@@ -156,19 +156,19 @@ Because neither of them constructs a result list all at once, they save memory s
 
 <p>Here are the things happening in the code:</p>
 
-<p>The presence of the yield keyword in create<em>counter() means that this is not a normal function. It is a special kind of function which generates values one at a time. We can think of it as a resumable function. Calling it will return a generator that can be used to generate successive values of n.
-To create an instance of the create</em>counter() generator, just call it like any other function. Note that this does not actually execute the function code. We can tell this because the first line of the create_counter() function calls print(), but nothing was printed from the line:</p>
+<p>The presence of the yield keyword in create_counter() means that this is not a normal function. It is a special kind of function which generates values one at a time. We can think of it as a resumable function. Calling it will return a generator that can be used to generate successive values of n.
+To create an instance of the create_counter() generator, just call it like any other function. Note that this does not actually execute the function code. We can tell this because the first line of the create_counter() function calls print(), but nothing was printed from the line:</p>
 
 <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='python'><span class='line'><span class="o">&gt;&gt;&gt;</span> <span class="n">c</span> <span class="o">=</span> <span class="n">create_counter</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>The create<em>counter() function returns a generator object.
-The next() function takes a generator object and returns its next value. The first time we call next() with the counter generator, it executes the code in create</em>counter() up to the first yield statement, then returns the value that was yielded. In this case, that will be 2, because we originally created the generator by calling create<em>counter(2).
+<p>The create_counter() function returns a generator object.
+The next() function takes a generator object and returns its next value. The first time we call next() with the counter generator, it executes the code in create_counter() up to the first yield statement, then returns the value that was yielded. In this case, that will be 2, because we originally created the generator by calling create_counter(2).
 Repeatedly calling next() with the same generator object resumes exactly where it left off and continues until it hits the next yield statement. All variables, local state, &amp;c. are saved on yield and restored on next(). The next line of code waiting to be executed calls print(), which prints increment n. After that, the statement n += 1. Then it loops through the while loop again, and the first thing it hits is the statement yield n, which saves the state of everything and returns the current value of n (now 3).
 The second time we call next&copy;, we do all the same things again, but this time n is now 4.
-Since create</em>counter() sets up an infinite loop, we could theoretically do this forever, and it would just keep incrementing n and spitting out values.</p>
+Since create_counter() sets up an infinite loop, we could theoretically do this forever, and it would just keep incrementing n and spitting out values.</p>
 
 <p>The generator function in the following example generated the cubics of numbers over time:</p>
 
