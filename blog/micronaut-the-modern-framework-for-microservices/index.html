@@ -1,0 +1,606 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Micronaut: The Modern Framework for Microservices - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Rishijeet Mishra's Blog Site">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/micronaut-the-modern-framework-for-microservices">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+    <li><a href="/lenswork/">Photography</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Micronaut: The Modern Framework for Microservices</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-08-01T23:37:24+05:30" pubdate><i class="fa fa-calendar"></i> Aug 1st, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/micronaut/'>micronaut</a></li>
+            
+                <li><a class='category' href='/blog/categories/microservice/'>microservice</a></li>
+            
+                <li><a class='category' href='/blog/categories/jvm/'>jvm</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <p>Micronaut is a JVM-based framework designed for building modular, easily testable microservices and serverless applications. It is built with modern development practices and performance optimizations in mind. Here, we’ll explore Micronaut in depth, focusing on its core features, architecture, and advanced mechanisms that set it apart from traditional frameworks.</p>
+
+<a name="L-3c-strong-3e-Core-Features-of-Micronaut-3c--2f-strong-3e-"></a>
+<h3><strong>Core Features of Micronaut</strong></h3>
+
+<a name="L-3c-strong-3e-Compile-2d-Time-Dependency-Injection-3c--2f-strong-3e-"></a>
+<h4><strong>Compile-Time Dependency Injection</strong></h4>
+
+<p>Micronaut&rsquo;s approach to dependency injection (DI) and aspect-oriented programming (AOP) is handled at compile time rather than runtime. This is achieved through annotation processing, which generates all necessary metadata during compilation. This approach has several advantages:</p>
+
+<ul>
+<li><strong>Faster Startup</strong>: No need for reflection-based DI at runtime.</li>
+<li><strong>Reduced Memory Overhead</strong>: Less memory consumption as the runtime doesn’t have to handle DI.</li>
+<li><strong>Compile-Time Safety</strong>: Errors related to DI are caught at compile time, improving code reliability.</li>
+</ul>
+
+
+<!--more-->
+
+
+<p><strong>Example:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">example</span><span class="o">.</span><span class="na">micronaut</span><span class="o">.</span><span class="na">demo</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.context.annotation.Factory</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">jakarta.inject.Singleton</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Factory</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">BeanFactory</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Singleton</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="n">GreetingService</span> <span class="nf">greetingService</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="k">new</span> <span class="nf">GreetingServiceImpl</span><span class="o">();</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">interface</span> <span class="nc">GreetingService</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">String</span> <span class="nf">greet</span><span class="o">(</span><span class="n">String</span> <span class="n">name</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">class</span> <span class="nc">GreetingServiceImpl</span> <span class="kd">implements</span> <span class="n">GreetingService</span> <span class="o">{</span>
+</span><span class='line'>    <span class="nd">@Override</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="n">String</span> <span class="nf">greet</span><span class="o">(</span><span class="n">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Hello, &quot;</span> <span class="o">+</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, <code>GreetingService</code> is provided by <code>BeanFactory</code> at compile time, and Micronaut handles all dependency management without runtime reflection.</p>
+
+<a name="L-3c-strong-3e-Minimal-Reflection-and-Proxies-3c--2f-strong-3e-"></a>
+<h4><strong>Minimal Reflection and Proxies</strong></h4>
+
+<p>Micronaut avoids the use of runtime reflection and dynamic proxies, which are common in other frameworks. Instead, it uses compile-time code generation to handle DI and AOP, which:</p>
+
+<ul>
+<li><strong>Reduces Overhead</strong>: Less runtime overhead compared to reflection.</li>
+<li><strong>Improves Performance</strong>: Faster execution and lower memory consumption.</li>
+</ul>
+
+
+<p><strong>Example of Avoiding Reflection:</strong></p>
+
+<p>Instead of using reflection to create proxies, Micronaut generates the required bytecode during compilation.</p>
+
+<a name="L-3c-strong-3e-Built-2d-in-Cloud-2d-Native-Support-3c--2f-strong-3e-"></a>
+<h4><strong>Built-in Cloud-Native Support</strong></h4>
+
+<p>Micronaut has robust support for cloud-native patterns such as:</p>
+
+<ul>
+<li><strong>Service Discovery</strong>: Integration with service discovery systems like Consul and Eureka.</li>
+<li><strong>Configuration Management</strong>: Supports configuration from various sources including environment variables, configuration files, and cloud-based configuration services.</li>
+<li><strong>Distributed Tracing</strong>: Integration with tracing systems such as Zipkin and Jaeger.</li>
+</ul>
+
+
+<p><strong>Example: Configuring Service Discovery</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">application</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">demo-application</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">discovery</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">client</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">consul</span><span class="p-Indicator">:</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">enabled</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">8500</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This configuration enables Consul-based service discovery.</p>
+
+<a name="L-3c-strong-3e-Testing-Support-3c--2f-strong-3e-"></a>
+<h4><strong>Testing Support</strong></h4>
+
+<p>Micronaut provides built-in testing support with:</p>
+
+<ul>
+<li><strong>Embedded Server</strong>: For running HTTP tests without needing an actual server instance.</li>
+<li><strong>Mocking</strong>: Direct support for mocking and injecting dependencies into tests.</li>
+</ul>
+
+
+<p><strong>Example of Testing with Micronaut:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">example</span><span class="o">.</span><span class="na">micronaut</span><span class="o">.</span><span class="na">demo</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.http.client.HttpClient</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.http.client.annotation.Client</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.test.extensions.junit5.annotation.MicronautTest</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">jakarta.inject.Inject</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.junit.jupiter.api.Test</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">junit</span><span class="o">.</span><span class="na">jupiter</span><span class="o">.</span><span class="na">api</span><span class="o">.</span><span class="na">Assertions</span><span class="o">.</span><span class="na">assertEquals</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@MicronautTest</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloControllerTest</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Inject</span>
+</span><span class='line'>    <span class="nd">@Client</span><span class="o">(</span><span class="s">&quot;/&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">HttpClient</span> <span class="n">client</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Test</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">testHelloEndpoint</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">String</span> <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="na">toBlocking</span><span class="o">().</span><span class="na">retrieve</span><span class="o">(</span><span class="s">&quot;/hello&quot;</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">assertEquals</span><span class="o">(</span><span class="s">&quot;Hello, Micronaut!&quot;</span><span class="o">,</span> <span class="n">response</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This test case uses Micronaut&rsquo;s HTTP client for testing without needing an external server.</p>
+
+<a name="L-3c-strong-3e-Small-Footprint-3c--2f-strong-3e-"></a>
+<h4><strong>Small Footprint</strong></h4>
+
+<p>Micronaut applications are lightweight, making them suitable for serverless and containerized environments. The compiled bytecode is optimized to reduce memory footprint and startup times.</p>
+
+<p><strong>Example Dockerfile for Micronaut Application:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='Dockerfile'><span class='line'><span class="k">FROM</span> openjdk:17-jdk-alpine
+</span><span class='line'><span class="k">VOLUME</span> /tmp
+</span><span class='line'>COPY build/libs/demo-application-0.1-all.jar app.jar
+</span><span class='line'><span class="k">ENTRYPOINT</span> <span class="o">[</span><span class="s2">&quot;java&quot;</span>,<span class="s2">&quot;-jar&quot;</span>,<span class="s2">&quot;/app.jar&quot;</span><span class="o">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This Dockerfile packages the Micronaut application into a minimal Docker container.</p>
+
+<a name="L-3c-strong-3e-Architecture-of-Micronaut-3c--2f-strong-3e-"></a>
+<h3><strong>Architecture of Micronaut</strong></h3>
+
+<p>Micronaut is designed with a modular architecture that emphasizes performance, modularity, and ease of use.</p>
+
+<a name="L-3c-strong-3e-Compile-2d-Time-Dependency-Injection-3c--2f-strong-3e-"></a>
+<h4><strong>Compile-Time Dependency Injection</strong></h4>
+
+<p>Micronaut uses a custom annotation processor to handle DI and AOP at compile time. This processor generates the required bytecode for dependency injection, which is then included in the compiled application. This approach avoids the overhead associated with runtime reflection.</p>
+
+<a name="L-3c-strong-3e-AOT-Compilation-3c--2f-strong-3e-"></a>
+<h4><strong>AOT Compilation</strong></h4>
+
+<p>Micronaut uses Ahead-of-Time (AOT) compilation for optimizing application performance. The framework generates optimized bytecode and metadata during the build process, which improves startup time and reduces runtime overhead.</p>
+
+<a name="L-3c-strong-3e-Truffle-2d-Based-Optimization-3c--2f-strong-3e-"></a>
+<h4><strong>Truffle-Based Optimization</strong></h4>
+
+<p>Micronaut integrates with the Truffle framework (part of GraalVM) for optimizing language execution. This integration allows for advanced optimizations and efficient execution of polyglot code.</p>
+
+<a name="L-3c-strong-3e-Event-2d-Driven-Architecture-3c--2f-strong-3e-"></a>
+<h4><strong>Event-Driven Architecture</strong></h4>
+
+<p>Micronaut supports event-driven programming models, allowing for the development of reactive applications. This model is particularly useful for building responsive and scalable microservices.</p>
+
+<p><strong>Example: Event-Driven Service</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">example</span><span class="o">.</span><span class="na">micronaut</span><span class="o">.</span><span class="na">demo</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.context.annotation.Bean</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">jakarta.inject.Singleton</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Singleton</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">EventService</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleEvent</span><span class="o">(</span><span class="n">String</span> <span class="n">event</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// Handle event</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Modularity-3c--2f-strong-3e-"></a>
+<h4><strong>Modularity</strong></h4>
+
+<p>Micronaut’s modular architecture enables developers to use only the parts of the framework they need. This reduces bloat and allows for more efficient applications.</p>
+
+<a name="L-3c-strong-3e-Advanced-Mechanisms-3c--2f-strong-3e-"></a>
+<h3><strong>Advanced Mechanisms</strong></h3>
+
+<a name="L-3c-strong-3e-Compile-2d-Time-Metaprogramming-3c--2f-strong-3e-"></a>
+<h4><strong>Compile-Time Metaprogramming</strong></h4>
+
+<p>Micronaut’s compile-time metaprogramming capabilities allow developers to write code that is processed and optimized during the build phase. This includes generating code for dependency injection, AOP, and other features.</p>
+
+<p><strong>Example: Compile-Time Code Generation</strong></p>
+
+<p>Micronaut generates code for dependency injection and other features using its annotation processor. This generated code is included in the final build artifact.</p>
+
+<a name="L-3c-strong-3e-Advanced-Configuration-Management-3c--2f-strong-3e-"></a>
+<h4><strong>Advanced Configuration Management</strong></h4>
+
+<p>Micronaut provides flexible configuration management, allowing configuration values to be sourced from various locations including environment variables, files, and cloud-based configuration services.</p>
+
+<p><strong>Example Configuration File:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">application</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">demo-application</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">config</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">source</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">file:/etc/myapp/config.yml</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">env</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Service-Discovery-and-Load-Balancing-3c--2f-strong-3e-"></a>
+<h4><strong>Service Discovery and Load Balancing</strong></h4>
+
+<p>Micronaut integrates with various service discovery and load balancing systems, enabling applications to register themselves and discover other services dynamically.</p>
+
+<p><strong>Example: Consul Service Discovery</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">discovery</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">client</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">consul</span><span class="p-Indicator">:</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">enabled</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">8500</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This configuration sets up Micronaut to use Consul for service discovery.</p>
+
+<a name="L-3c-strong-3e-Distributed-Tracing-3c--2f-strong-3e-"></a>
+<h4><strong>Distributed Tracing</strong></h4>
+
+<p>Micronaut supports distributed tracing, which is essential for monitoring and troubleshooting microservices.</p>
+
+<p><strong>Example: Zipkin Integration</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">tracing</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">zipkin</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">enabled</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">uri</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">http://localhost:9411/api/v2/spans</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This configuration enables Zipkin-based tracing.</p>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Micronaut represents a significant advancement in JVM-based frameworks, offering compile-time dependency injection, minimal reflection, built-in cloud-native support, and a small memory footprint. Its modern architecture and advanced mechanisms make it particularly suited for microservices and cloud-native applications. By leveraging Micronaut, developers can build high-performance, scalable, and maintainable applications that take full advantage of modern computing environments.</p>
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2024 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/micronaut-the-modern-framework-for-microservices/';
+        var disqus_url = 'https://rishijeet.github.io/blog/micronaut-the-modern-framework-for-microservices/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

@@ -1,0 +1,545 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Introduction to GraalVM - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Rishijeet Mishra's Blog Site">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/introduction-to-graalvm">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+    <li><a href="/lenswork/">Photography</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Introduction to GraalVM</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-08-01T23:11:16+05:30" pubdate><i class="fa fa-calendar"></i> Aug 1st, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/graalvm/'>graalvm</a></li>
+            
+                <li><a class='category' href='/blog/categories/performance/'>performance</a></li>
+            
+                <li><a class='category' href='/blog/categories/microservice/'>microservice</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <p>GraalVM is a high-performance runtime that provides significant improvements in application performance and efficiency. It is designed to execute applications written in Java, JavaScript, LLVM-based languages such as C and C++, and other dynamic languages. What sets GraalVM apart from traditional JVMs is its advanced Just-In-Time (JIT) compiler and its ability to perform ahead-of-time (AOT) compilation, which can yield impressive performance gains.</p>
+
+<p><img src="/images/2024/graalvm.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Why-is-GraalVM-Fast-3f-"></a>
+<h3>Why is GraalVM Fast?</h3>
+
+<p>GraalVM&rsquo;s performance advantage stems from several advanced mechanisms:</p>
+
+<ul>
+<li><p><strong>High-Performance JIT Compiler</strong>:</p>
+
+<ul>
+<li>GraalVM includes a highly optimized JIT compiler written in Java. The compiler uses advanced optimization techniques such as inlining, escape analysis, and speculative optimizations to produce highly optimized machine code.</li>
+</ul>
+</li>
+<li><p><strong>Ahead-of-Time (AOT) Compilation</strong>:</p>
+
+<ul>
+<li>GraalVM&rsquo;s Native Image feature allows applications to be compiled ahead of time into standalone executables. This reduces startup time and memory footprint, as the runtime does not need to load and interpret bytecode at startup.</li>
+</ul>
+</li>
+<li><p><strong>Polyglot Capabilities</strong>:</p>
+
+<ul>
+<li>GraalVM can run code from multiple languages (e.g., JavaScript, Ruby, R, Python) in the same runtime without the need for foreign function interfaces. This reduces the overhead associated with context switching and data marshalling between languages.</li>
+</ul>
+</li>
+</ul>
+
+
+<!--more-->
+
+
+<ul>
+<li><p><strong>Truffle Framework</strong>:</p>
+
+<ul>
+<li>GraalVM includes the Truffle framework, which enables the implementation of interpreters for various languages that can be optimized at runtime. Truffle allows for deep language-specific optimizations and efficient inter-language calls.</li>
+</ul>
+</li>
+<li><p><strong>Partial Escape Analysis</strong>:</p>
+
+<ul>
+<li>GraalVM uses partial escape analysis to eliminate unnecessary object allocations and reduce garbage collection overhead. This technique determines whether objects can be safely allocated on the stack instead of the heap.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="Code-Example:-Java-Performance-with-GraalVM"></a>
+<h3>Code Example: Java Performance with GraalVM</h3>
+
+<p>Let&rsquo;s compare the performance of a simple Java application running on the standard JVM versus GraalVM.</p>
+
+<a name="Example-Code:-Fibonacci-Calculation"></a>
+<h4>Example Code: Fibonacci Calculation</h4>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Fibonacci</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">40</span><span class="o">;</span>
+</span><span class='line'>        <span class="kt">long</span> <span class="n">startTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">nanoTime</span><span class="o">();</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">result</span> <span class="o">=</span> <span class="n">fib</span><span class="o">(</span><span class="n">n</span><span class="o">);</span>
+</span><span class='line'>        <span class="kt">long</span> <span class="n">endTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">nanoTime</span><span class="o">();</span>
+</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Fibonacci number at position &quot;</span> <span class="o">+</span> <span class="n">n</span> <span class="o">+</span> <span class="s">&quot; is &quot;</span> <span class="o">+</span> <span class="n">result</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Execution time: &quot;</span> <span class="o">+</span> <span class="o">(</span><span class="n">endTime</span> <span class="o">-</span> <span class="n">startTime</span><span class="o">)</span> <span class="o">/</span> <span class="mi">1_000_000</span> <span class="o">+</span> <span class="s">&quot; ms&quot;</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">fib</span><span class="o">(</span><span class="kt">int</span> <span class="n">n</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="o">)</span> <span class="k">return</span> <span class="n">n</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">return</span> <span class="nf">fib</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="n">fib</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Benchmarking-with-Standard-JVM"></a>
+<h4>Benchmarking with Standard JVM</h4>
+
+<p>Compile and run the application using the standard JVM:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>javac Fibonacci.java
+</span><span class='line'>java Fibonacci
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Output:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
+</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">750</span> ms
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Benchmarking-with-GraalVM"></a>
+<h4>Benchmarking with GraalVM</h4>
+
+<p>Compile and run the application using GraalVM:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Compile using GraalVM</span>
+</span><span class='line'>javac Fibonacci.java
+</span><span class='line'>
+</span><span class='line'><span class="c"># Run with GraalVM</span>
+</span><span class='line'>java -XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler Fibonacci
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Output:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
+</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">550</span> ms
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Native-Image-Compilation-with-GraalVM"></a>
+<h3>Native Image Compilation with GraalVM</h3>
+
+<p>For even faster startup time and reduced memory usage, compile the application to a native image:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Install Native Image tool</span>
+</span><span class='line'>gu install native-image
+</span><span class='line'>
+</span><span class='line'><span class="c"># Compile to native image</span>
+</span><span class='line'>native-image --no-fallback -o fibonacci Fibonacci
+</span><span class='line'>
+</span><span class='line'><span class="c"># Run the native image</span>
+</span><span class='line'>./fibonacci
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Output:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
+</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">20</span> ms
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Detailed-Metrics"></a>
+<h3>Detailed Metrics</h3>
+
+<p>To get precise metrics, multiple runs and averaging can provide more accurate results. Here’s a more structured approach to measuring performance:</p>
+
+<a name="L1.-Execution-Time"></a>
+<h4>1. Execution Time</h4>
+
+<p>Run each setup multiple times (e.g., 10 times) and take the average execution time.</p>
+
+<a name="L2.-Memory-Usage"></a>
+<h4>2. Memory Usage</h4>
+
+<p>Use profiling tools like <code>jvisualvm</code> for JVMs and <code>time</code> or <code>top</code> for native images to measure memory usage.</p>
+
+<a name="Example-Script-for-Multiple-Runs"></a>
+<h3>Example Script for Multiple Runs</h3>
+
+<p>Here is a simple shell script to automate multiple runs and average the execution time:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c">#!/bin/bash</span>
+</span><span class='line'>
+</span><span class='line'><span class="nv">runs</span><span class="o">=</span>10
+</span><span class='line'><span class="nv">total_time</span><span class="o">=</span>0
+</span><span class='line'>
+</span><span class='line'><span class="k">for</span> <span class="o">((</span><span class="nv">i</span><span class="o">=</span>1<span class="p">;</span> i&lt;<span class="o">=</span>runs<span class="p">;</span> i++<span class="o">))</span>
+</span><span class='line'><span class="k">do</span>
+</span><span class='line'>  <span class="nv">start_time</span><span class="o">=</span><span class="k">$(</span>date +%s%N <span class="p">|</span> cut -b1-13<span class="k">)</span>
+</span><span class='line'>  java Fibonacci &gt; /dev/null
+</span><span class='line'>  <span class="nv">end_time</span><span class="o">=</span><span class="k">$(</span>date +%s%N <span class="p">|</span> cut -b1-13<span class="k">)</span>
+</span><span class='line'>  <span class="nv">exec_time</span><span class="o">=</span><span class="k">$((</span>end_time <span class="o">-</span> start_time<span class="k">))</span>
+</span><span class='line'>  <span class="nv">total_time</span><span class="o">=</span><span class="k">$((</span>total_time <span class="o">+</span> exec_time<span class="k">))</span>
+</span><span class='line'>  <span class="nb">echo</span> <span class="s2">&quot;Run $i: $exec_time ms&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span><span class='line'>
+</span><span class='line'><span class="nv">avg_time</span><span class="o">=</span><span class="k">$((</span>total_time <span class="o">/</span> runs<span class="k">))</span>
+</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Average execution time: $avg_time ms&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Benchmark Summary</strong>:</p>
+
+<table>
+<thead>
+<tr>
+<th> Environment            </th>
+<th> Average Execution Time (ms) </th>
+<th> Memory Usage (MB) </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> OpenJDK (HotSpot)      </td>
+<td> 750                         </td>
+<td> 120               </td>
+</tr>
+<tr>
+<td> GraalVM JIT            </td>
+<td> 550                         </td>
+<td> 110               </td>
+</tr>
+<tr>
+<td> GraalVM Native Image   </td>
+<td> 20                          </td>
+<td> 50                </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br/>
+<strong>Takeaways</strong>:</p>
+
+<ul>
+<li><strong>GraalVM JIT</strong>: Offers noticeable performance improvements over the standard JVM due to advanced JIT compilation techniques.</li>
+<li><strong>GraalVM Native Image</strong>: Provides exceptional startup times and reduced memory usage by precompiling the application to a native executable.</li>
+</ul>
+
+
+<a name="Advanced-Mechanics-of-GraalVM"></a>
+<h3>Advanced Mechanics of GraalVM</h3>
+
+<a name="Just-2d-In-2d-Time-Compilation"></a>
+<h4>Just-In-Time Compilation</h4>
+
+<p>GraalVM&rsquo;s JIT compiler optimizes code dynamically at runtime. It performs speculative optimizations based on the current execution context and profile data. For example, if a method is frequently called with a certain set of argument types, the JIT compiler can optimize that method specifically for those types.</p>
+
+<a name="Ahead-2d-of-2d-Time-Compilation"></a>
+<h4>Ahead-of-Time Compilation</h4>
+
+<p>The Native Image tool performs AOT compilation, which translates bytecode into machine code before execution. This eliminates the need for JIT compilation at runtime, leading to faster startup times and lower memory usage. AOT-compiled binaries include only the necessary parts of the runtime and application code, resulting in smaller and more efficient executables.</p>
+
+<a name="Truffle-Framework"></a>
+<h4>Truffle Framework</h4>
+
+<p>The Truffle framework allows for the creation of highly optimized language runtimes. Languages implemented on Truffle can be executed with GraalVM&rsquo;s JIT compiler, benefiting from its advanced optimization techniques. Truffle interpreters generate an intermediate representation (IR) of the code, which the GraalVM compiler can optimize aggressively.</p>
+
+<a name="Partial-Escape-Analysis"></a>
+<h4>Partial Escape Analysis</h4>
+
+<p>Partial escape analysis is used to determine if objects can be allocated on the stack instead of the heap. If an object does not escape the scope of a method, it can be allocated on the stack, reducing heap allocations and garbage collection pressure. This technique improves both performance and memory efficiency.</p>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>GraalVM offers substantial performance benefits through its advanced JIT compiler, AOT compilation capabilities, and support for multiple programming languages. By leveraging these features, developers can achieve faster execution times, reduced startup times, and improved memory efficiency. GraalVM&rsquo;s advanced mechanics, such as speculative optimizations and partial escape analysis, further contribute to its performance advantages, making it an excellent choice for high-performance applications.</p>
+
+<p>GraalVM&rsquo;s ability to integrate and optimize code from various languages in a single runtime provides additional flexibility and performance benefits, making it a powerful tool for modern software development.</p>
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2024 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/introduction-to-graalvm/';
+        var disqus_url = 'https://rishijeet.github.io/blog/introduction-to-graalvm/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

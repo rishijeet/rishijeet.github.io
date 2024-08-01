@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2024-07-31T10:26:04+05:30</updated>
+  <updated>2024-08-01T23:57:46+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,679 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Micronaut: The Modern Framework for Microservices]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/micronaut-the-modern-framework-for-microservices/"/>
+    <updated>2024-08-01T23:37:24+05:30</updated>
+    <id>https://rishijeet.github.io/blog/micronaut-the-modern-framework-for-microservices</id>
+    <content type="html"><![CDATA[<p>Micronaut is a JVM-based framework designed for building modular, easily testable microservices and serverless applications. It is built with modern development practices and performance optimizations in mind. Here, we’ll explore Micronaut in depth, focusing on its core features, architecture, and advanced mechanisms that set it apart from traditional frameworks.</p>
+
+<a name="L-3c-strong-3e-Core-Features-of-Micronaut-3c--2f-strong-3e-"></a>
+<h3><strong>Core Features of Micronaut</strong></h3>
+
+<a name="L-3c-strong-3e-Compile-2d-Time-Dependency-Injection-3c--2f-strong-3e-"></a>
+<h4><strong>Compile-Time Dependency Injection</strong></h4>
+
+<p>Micronaut&rsquo;s approach to dependency injection (DI) and aspect-oriented programming (AOP) is handled at compile time rather than runtime. This is achieved through annotation processing, which generates all necessary metadata during compilation. This approach has several advantages:</p>
+
+<ul>
+<li><strong>Faster Startup</strong>: No need for reflection-based DI at runtime.</li>
+<li><strong>Reduced Memory Overhead</strong>: Less memory consumption as the runtime doesn’t have to handle DI.</li>
+<li><strong>Compile-Time Safety</strong>: Errors related to DI are caught at compile time, improving code reliability.</li>
+</ul>
+
+
+<!--more-->
+
+
+<p><strong>Example:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">example</span><span class="o">.</span><span class="na">micronaut</span><span class="o">.</span><span class="na">demo</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.context.annotation.Factory</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">jakarta.inject.Singleton</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Factory</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">BeanFactory</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Singleton</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="n">GreetingService</span> <span class="nf">greetingService</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="k">new</span> <span class="nf">GreetingServiceImpl</span><span class="o">();</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">interface</span> <span class="nc">GreetingService</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">String</span> <span class="nf">greet</span><span class="o">(</span><span class="n">String</span> <span class="n">name</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">class</span> <span class="nc">GreetingServiceImpl</span> <span class="kd">implements</span> <span class="n">GreetingService</span> <span class="o">{</span>
+</span><span class='line'>    <span class="nd">@Override</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="n">String</span> <span class="nf">greet</span><span class="o">(</span><span class="n">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Hello, &quot;</span> <span class="o">+</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, <code>GreetingService</code> is provided by <code>BeanFactory</code> at compile time, and Micronaut handles all dependency management without runtime reflection.</p>
+
+<a name="L-3c-strong-3e-Minimal-Reflection-and-Proxies-3c--2f-strong-3e-"></a>
+<h4><strong>Minimal Reflection and Proxies</strong></h4>
+
+<p>Micronaut avoids the use of runtime reflection and dynamic proxies, which are common in other frameworks. Instead, it uses compile-time code generation to handle DI and AOP, which:</p>
+
+<ul>
+<li><strong>Reduces Overhead</strong>: Less runtime overhead compared to reflection.</li>
+<li><strong>Improves Performance</strong>: Faster execution and lower memory consumption.</li>
+</ul>
+
+
+<p><strong>Example of Avoiding Reflection:</strong></p>
+
+<p>Instead of using reflection to create proxies, Micronaut generates the required bytecode during compilation.</p>
+
+<a name="L-3c-strong-3e-Built-2d-in-Cloud-2d-Native-Support-3c--2f-strong-3e-"></a>
+<h4><strong>Built-in Cloud-Native Support</strong></h4>
+
+<p>Micronaut has robust support for cloud-native patterns such as:</p>
+
+<ul>
+<li><strong>Service Discovery</strong>: Integration with service discovery systems like Consul and Eureka.</li>
+<li><strong>Configuration Management</strong>: Supports configuration from various sources including environment variables, configuration files, and cloud-based configuration services.</li>
+<li><strong>Distributed Tracing</strong>: Integration with tracing systems such as Zipkin and Jaeger.</li>
+</ul>
+
+
+<p><strong>Example: Configuring Service Discovery</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">application</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">demo-application</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">discovery</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">client</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">consul</span><span class="p-Indicator">:</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">enabled</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">8500</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This configuration enables Consul-based service discovery.</p>
+
+<a name="L-3c-strong-3e-Testing-Support-3c--2f-strong-3e-"></a>
+<h4><strong>Testing Support</strong></h4>
+
+<p>Micronaut provides built-in testing support with:</p>
+
+<ul>
+<li><strong>Embedded Server</strong>: For running HTTP tests without needing an actual server instance.</li>
+<li><strong>Mocking</strong>: Direct support for mocking and injecting dependencies into tests.</li>
+</ul>
+
+
+<p><strong>Example of Testing with Micronaut:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">example</span><span class="o">.</span><span class="na">micronaut</span><span class="o">.</span><span class="na">demo</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.http.client.HttpClient</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.http.client.annotation.Client</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.test.extensions.junit5.annotation.MicronautTest</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">jakarta.inject.Inject</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.junit.jupiter.api.Test</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">junit</span><span class="o">.</span><span class="na">jupiter</span><span class="o">.</span><span class="na">api</span><span class="o">.</span><span class="na">Assertions</span><span class="o">.</span><span class="na">assertEquals</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@MicronautTest</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloControllerTest</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Inject</span>
+</span><span class='line'>    <span class="nd">@Client</span><span class="o">(</span><span class="s">&quot;/&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">HttpClient</span> <span class="n">client</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Test</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">testHelloEndpoint</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">String</span> <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="na">toBlocking</span><span class="o">().</span><span class="na">retrieve</span><span class="o">(</span><span class="s">&quot;/hello&quot;</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">assertEquals</span><span class="o">(</span><span class="s">&quot;Hello, Micronaut!&quot;</span><span class="o">,</span> <span class="n">response</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This test case uses Micronaut&rsquo;s HTTP client for testing without needing an external server.</p>
+
+<a name="L-3c-strong-3e-Small-Footprint-3c--2f-strong-3e-"></a>
+<h4><strong>Small Footprint</strong></h4>
+
+<p>Micronaut applications are lightweight, making them suitable for serverless and containerized environments. The compiled bytecode is optimized to reduce memory footprint and startup times.</p>
+
+<p><strong>Example Dockerfile for Micronaut Application:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='Dockerfile'><span class='line'><span class="k">FROM</span> openjdk:17-jdk-alpine
+</span><span class='line'><span class="k">VOLUME</span> /tmp
+</span><span class='line'>COPY build/libs/demo-application-0.1-all.jar app.jar
+</span><span class='line'><span class="k">ENTRYPOINT</span> <span class="o">[</span><span class="s2">&quot;java&quot;</span>,<span class="s2">&quot;-jar&quot;</span>,<span class="s2">&quot;/app.jar&quot;</span><span class="o">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This Dockerfile packages the Micronaut application into a minimal Docker container.</p>
+
+<a name="L-3c-strong-3e-Architecture-of-Micronaut-3c--2f-strong-3e-"></a>
+<h3><strong>Architecture of Micronaut</strong></h3>
+
+<p>Micronaut is designed with a modular architecture that emphasizes performance, modularity, and ease of use.</p>
+
+<a name="L-3c-strong-3e-Compile-2d-Time-Dependency-Injection-3c--2f-strong-3e-"></a>
+<h4><strong>Compile-Time Dependency Injection</strong></h4>
+
+<p>Micronaut uses a custom annotation processor to handle DI and AOP at compile time. This processor generates the required bytecode for dependency injection, which is then included in the compiled application. This approach avoids the overhead associated with runtime reflection.</p>
+
+<a name="L-3c-strong-3e-AOT-Compilation-3c--2f-strong-3e-"></a>
+<h4><strong>AOT Compilation</strong></h4>
+
+<p>Micronaut uses Ahead-of-Time (AOT) compilation for optimizing application performance. The framework generates optimized bytecode and metadata during the build process, which improves startup time and reduces runtime overhead.</p>
+
+<a name="L-3c-strong-3e-Truffle-2d-Based-Optimization-3c--2f-strong-3e-"></a>
+<h4><strong>Truffle-Based Optimization</strong></h4>
+
+<p>Micronaut integrates with the Truffle framework (part of GraalVM) for optimizing language execution. This integration allows for advanced optimizations and efficient execution of polyglot code.</p>
+
+<a name="L-3c-strong-3e-Event-2d-Driven-Architecture-3c--2f-strong-3e-"></a>
+<h4><strong>Event-Driven Architecture</strong></h4>
+
+<p>Micronaut supports event-driven programming models, allowing for the development of reactive applications. This model is particularly useful for building responsive and scalable microservices.</p>
+
+<p><strong>Example: Event-Driven Service</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">example</span><span class="o">.</span><span class="na">micronaut</span><span class="o">.</span><span class="na">demo</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">io.micronaut.context.annotation.Bean</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">jakarta.inject.Singleton</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Singleton</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">EventService</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleEvent</span><span class="o">(</span><span class="n">String</span> <span class="n">event</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// Handle event</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Modularity-3c--2f-strong-3e-"></a>
+<h4><strong>Modularity</strong></h4>
+
+<p>Micronaut’s modular architecture enables developers to use only the parts of the framework they need. This reduces bloat and allows for more efficient applications.</p>
+
+<a name="L-3c-strong-3e-Advanced-Mechanisms-3c--2f-strong-3e-"></a>
+<h3><strong>Advanced Mechanisms</strong></h3>
+
+<a name="L-3c-strong-3e-Compile-2d-Time-Metaprogramming-3c--2f-strong-3e-"></a>
+<h4><strong>Compile-Time Metaprogramming</strong></h4>
+
+<p>Micronaut’s compile-time metaprogramming capabilities allow developers to write code that is processed and optimized during the build phase. This includes generating code for dependency injection, AOP, and other features.</p>
+
+<p><strong>Example: Compile-Time Code Generation</strong></p>
+
+<p>Micronaut generates code for dependency injection and other features using its annotation processor. This generated code is included in the final build artifact.</p>
+
+<a name="L-3c-strong-3e-Advanced-Configuration-Management-3c--2f-strong-3e-"></a>
+<h4><strong>Advanced Configuration Management</strong></h4>
+
+<p>Micronaut provides flexible configuration management, allowing configuration values to be sourced from various locations including environment variables, files, and cloud-based configuration services.</p>
+
+<p><strong>Example Configuration File:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">application</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">demo-application</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">config</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">source</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">file:/etc/myapp/config.yml</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">env</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Service-Discovery-and-Load-Balancing-3c--2f-strong-3e-"></a>
+<h4><strong>Service Discovery and Load Balancing</strong></h4>
+
+<p>Micronaut integrates with various service discovery and load balancing systems, enabling applications to register themselves and discover other services dynamically.</p>
+
+<p><strong>Example: Consul Service Discovery</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">discovery</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">client</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">consul</span><span class="p-Indicator">:</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">enabled</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+</span><span class='line'>        <span class="l-Scalar-Plain">port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">8500</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This configuration sets up Micronaut to use Consul for service discovery.</p>
+
+<a name="L-3c-strong-3e-Distributed-Tracing-3c--2f-strong-3e-"></a>
+<h4><strong>Distributed Tracing</strong></h4>
+
+<p>Micronaut supports distributed tracing, which is essential for monitoring and troubleshooting microservices.</p>
+
+<p><strong>Example: Zipkin Integration</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">micronaut</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">tracing</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">zipkin</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">enabled</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">uri</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">http://localhost:9411/api/v2/spans</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This configuration enables Zipkin-based tracing.</p>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Micronaut represents a significant advancement in JVM-based frameworks, offering compile-time dependency injection, minimal reflection, built-in cloud-native support, and a small memory footprint. Its modern architecture and advanced mechanisms make it particularly suited for microservices and cloud-native applications. By leveraging Micronaut, developers can build high-performance, scalable, and maintainable applications that take full advantage of modern computing environments.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Introduction to GraalVM]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/introduction-to-graalvm/"/>
+    <updated>2024-08-01T23:11:16+05:30</updated>
+    <id>https://rishijeet.github.io/blog/introduction-to-graalvm</id>
+    <content type="html"><![CDATA[<p>GraalVM is a high-performance runtime that provides significant improvements in application performance and efficiency. It is designed to execute applications written in Java, JavaScript, LLVM-based languages such as C and C++, and other dynamic languages. What sets GraalVM apart from traditional JVMs is its advanced Just-In-Time (JIT) compiler and its ability to perform ahead-of-time (AOT) compilation, which can yield impressive performance gains.</p>
+
+<p><img src="https://rishijeet.github.io/images/2024/graalvm.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Why-is-GraalVM-Fast-3f-"></a>
+<h3>Why is GraalVM Fast?</h3>
+
+<p>GraalVM&rsquo;s performance advantage stems from several advanced mechanisms:</p>
+
+<ul>
+<li><p><strong>High-Performance JIT Compiler</strong>:</p>
+
+<ul>
+<li>GraalVM includes a highly optimized JIT compiler written in Java. The compiler uses advanced optimization techniques such as inlining, escape analysis, and speculative optimizations to produce highly optimized machine code.</li>
+</ul>
+</li>
+<li><p><strong>Ahead-of-Time (AOT) Compilation</strong>:</p>
+
+<ul>
+<li>GraalVM&rsquo;s Native Image feature allows applications to be compiled ahead of time into standalone executables. This reduces startup time and memory footprint, as the runtime does not need to load and interpret bytecode at startup.</li>
+</ul>
+</li>
+<li><p><strong>Polyglot Capabilities</strong>:</p>
+
+<ul>
+<li>GraalVM can run code from multiple languages (e.g., JavaScript, Ruby, R, Python) in the same runtime without the need for foreign function interfaces. This reduces the overhead associated with context switching and data marshalling between languages.</li>
+</ul>
+</li>
+</ul>
+
+
+<!--more-->
+
+
+<ul>
+<li><p><strong>Truffle Framework</strong>:</p>
+
+<ul>
+<li>GraalVM includes the Truffle framework, which enables the implementation of interpreters for various languages that can be optimized at runtime. Truffle allows for deep language-specific optimizations and efficient inter-language calls.</li>
+</ul>
+</li>
+<li><p><strong>Partial Escape Analysis</strong>:</p>
+
+<ul>
+<li>GraalVM uses partial escape analysis to eliminate unnecessary object allocations and reduce garbage collection overhead. This technique determines whether objects can be safely allocated on the stack instead of the heap.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="Code-Example:-Java-Performance-with-GraalVM"></a>
+<h3>Code Example: Java Performance with GraalVM</h3>
+
+<p>Let&rsquo;s compare the performance of a simple Java application running on the standard JVM versus GraalVM.</p>
+
+<a name="Example-Code:-Fibonacci-Calculation"></a>
+<h4>Example Code: Fibonacci Calculation</h4>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Fibonacci</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">40</span><span class="o">;</span>
+</span><span class='line'>        <span class="kt">long</span> <span class="n">startTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">nanoTime</span><span class="o">();</span>
+</span><span class='line'>        <span class="kt">int</span> <span class="n">result</span> <span class="o">=</span> <span class="n">fib</span><span class="o">(</span><span class="n">n</span><span class="o">);</span>
+</span><span class='line'>        <span class="kt">long</span> <span class="n">endTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">nanoTime</span><span class="o">();</span>
+</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Fibonacci number at position &quot;</span> <span class="o">+</span> <span class="n">n</span> <span class="o">+</span> <span class="s">&quot; is &quot;</span> <span class="o">+</span> <span class="n">result</span><span class="o">);</span>
+</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Execution time: &quot;</span> <span class="o">+</span> <span class="o">(</span><span class="n">endTime</span> <span class="o">-</span> <span class="n">startTime</span><span class="o">)</span> <span class="o">/</span> <span class="mi">1_000_000</span> <span class="o">+</span> <span class="s">&quot; ms&quot;</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">fib</span><span class="o">(</span><span class="kt">int</span> <span class="n">n</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="o">)</span> <span class="k">return</span> <span class="n">n</span><span class="o">;</span>
+</span><span class='line'>        <span class="k">return</span> <span class="nf">fib</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="n">fib</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Benchmarking-with-Standard-JVM"></a>
+<h4>Benchmarking with Standard JVM</h4>
+
+<p>Compile and run the application using the standard JVM:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>javac Fibonacci.java
+</span><span class='line'>java Fibonacci
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Output:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
+</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">750</span> ms
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Benchmarking-with-GraalVM"></a>
+<h4>Benchmarking with GraalVM</h4>
+
+<p>Compile and run the application using GraalVM:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Compile using GraalVM</span>
+</span><span class='line'>javac Fibonacci.java
+</span><span class='line'>
+</span><span class='line'><span class="c"># Run with GraalVM</span>
+</span><span class='line'>java -XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler Fibonacci
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Output:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
+</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">550</span> ms
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Native-Image-Compilation-with-GraalVM"></a>
+<h3>Native Image Compilation with GraalVM</h3>
+
+<p>For even faster startup time and reduced memory usage, compile the application to a native image:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Install Native Image tool</span>
+</span><span class='line'>gu install native-image
+</span><span class='line'>
+</span><span class='line'><span class="c"># Compile to native image</span>
+</span><span class='line'>native-image --no-fallback -o fibonacci Fibonacci
+</span><span class='line'>
+</span><span class='line'><span class="c"># Run the native image</span>
+</span><span class='line'>./fibonacci
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Output:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
+</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">20</span> ms
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Detailed-Metrics"></a>
+<h3>Detailed Metrics</h3>
+
+<p>To get precise metrics, multiple runs and averaging can provide more accurate results. Here’s a more structured approach to measuring performance:</p>
+
+<a name="L1.-Execution-Time"></a>
+<h4>1. Execution Time</h4>
+
+<p>Run each setup multiple times (e.g., 10 times) and take the average execution time.</p>
+
+<a name="L2.-Memory-Usage"></a>
+<h4>2. Memory Usage</h4>
+
+<p>Use profiling tools like <code>jvisualvm</code> for JVMs and <code>time</code> or <code>top</code> for native images to measure memory usage.</p>
+
+<a name="Example-Script-for-Multiple-Runs"></a>
+<h3>Example Script for Multiple Runs</h3>
+
+<p>Here is a simple shell script to automate multiple runs and average the execution time:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c">#!/bin/bash</span>
+</span><span class='line'>
+</span><span class='line'><span class="nv">runs</span><span class="o">=</span>10
+</span><span class='line'><span class="nv">total_time</span><span class="o">=</span>0
+</span><span class='line'>
+</span><span class='line'><span class="k">for</span> <span class="o">((</span><span class="nv">i</span><span class="o">=</span>1<span class="p">;</span> i&lt;<span class="o">=</span>runs<span class="p">;</span> i++<span class="o">))</span>
+</span><span class='line'><span class="k">do</span>
+</span><span class='line'>  <span class="nv">start_time</span><span class="o">=</span><span class="k">$(</span>date +%s%N <span class="p">|</span> cut -b1-13<span class="k">)</span>
+</span><span class='line'>  java Fibonacci &gt; /dev/null
+</span><span class='line'>  <span class="nv">end_time</span><span class="o">=</span><span class="k">$(</span>date +%s%N <span class="p">|</span> cut -b1-13<span class="k">)</span>
+</span><span class='line'>  <span class="nv">exec_time</span><span class="o">=</span><span class="k">$((</span>end_time <span class="o">-</span> start_time<span class="k">))</span>
+</span><span class='line'>  <span class="nv">total_time</span><span class="o">=</span><span class="k">$((</span>total_time <span class="o">+</span> exec_time<span class="k">))</span>
+</span><span class='line'>  <span class="nb">echo</span> <span class="s2">&quot;Run $i: $exec_time ms&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span><span class='line'>
+</span><span class='line'><span class="nv">avg_time</span><span class="o">=</span><span class="k">$((</span>total_time <span class="o">/</span> runs<span class="k">))</span>
+</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Average execution time: $avg_time ms&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Benchmark Summary</strong>:</p>
+
+<table>
+<thead>
+<tr>
+<th> Environment            </th>
+<th> Average Execution Time (ms) </th>
+<th> Memory Usage (MB) </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> OpenJDK (HotSpot)      </td>
+<td> 750                         </td>
+<td> 120               </td>
+</tr>
+<tr>
+<td> GraalVM JIT            </td>
+<td> 550                         </td>
+<td> 110               </td>
+</tr>
+<tr>
+<td> GraalVM Native Image   </td>
+<td> 20                          </td>
+<td> 50                </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br/>
+<strong>Takeaways</strong>:</p>
+
+<ul>
+<li><strong>GraalVM JIT</strong>: Offers noticeable performance improvements over the standard JVM due to advanced JIT compilation techniques.</li>
+<li><strong>GraalVM Native Image</strong>: Provides exceptional startup times and reduced memory usage by precompiling the application to a native executable.</li>
+</ul>
+
+
+<a name="Advanced-Mechanics-of-GraalVM"></a>
+<h3>Advanced Mechanics of GraalVM</h3>
+
+<a name="Just-2d-In-2d-Time-Compilation"></a>
+<h4>Just-In-Time Compilation</h4>
+
+<p>GraalVM&rsquo;s JIT compiler optimizes code dynamically at runtime. It performs speculative optimizations based on the current execution context and profile data. For example, if a method is frequently called with a certain set of argument types, the JIT compiler can optimize that method specifically for those types.</p>
+
+<a name="Ahead-2d-of-2d-Time-Compilation"></a>
+<h4>Ahead-of-Time Compilation</h4>
+
+<p>The Native Image tool performs AOT compilation, which translates bytecode into machine code before execution. This eliminates the need for JIT compilation at runtime, leading to faster startup times and lower memory usage. AOT-compiled binaries include only the necessary parts of the runtime and application code, resulting in smaller and more efficient executables.</p>
+
+<a name="Truffle-Framework"></a>
+<h4>Truffle Framework</h4>
+
+<p>The Truffle framework allows for the creation of highly optimized language runtimes. Languages implemented on Truffle can be executed with GraalVM&rsquo;s JIT compiler, benefiting from its advanced optimization techniques. Truffle interpreters generate an intermediate representation (IR) of the code, which the GraalVM compiler can optimize aggressively.</p>
+
+<a name="Partial-Escape-Analysis"></a>
+<h4>Partial Escape Analysis</h4>
+
+<p>Partial escape analysis is used to determine if objects can be allocated on the stack instead of the heap. If an object does not escape the scope of a method, it can be allocated on the stack, reducing heap allocations and garbage collection pressure. This technique improves both performance and memory efficiency.</p>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>GraalVM offers substantial performance benefits through its advanced JIT compiler, AOT compilation capabilities, and support for multiple programming languages. By leveraging these features, developers can achieve faster execution times, reduced startup times, and improved memory efficiency. GraalVM&rsquo;s advanced mechanics, such as speculative optimizations and partial escape analysis, further contribute to its performance advantages, making it an excellent choice for high-performance applications.</p>
+
+<p>GraalVM&rsquo;s ability to integrate and optimize code from various languages in a single runtime provides additional flexibility and performance benefits, making it a powerful tool for modern software development.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Exploring Quarkus Performance]]></title>

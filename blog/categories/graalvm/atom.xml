@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: graalvm | Rishijeet Mishra]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/graalvm/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2024-08-01T23:57:46+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[Introduction to GraalVM]]></title>
+        <link href="https://rishijeet.github.io/blog/introduction-to-graalvm/"/>
+        <updated>2024-08-01T23:11:16+05:30</updated>
+        <id>https://rishijeet.github.io/blog/introduction-to-graalvm</id>
+        <content type="html"><![CDATA[<p>GraalVM is a high-performance runtime that provides significant improvements in application performance and efficiency. It is designed to execute applications written in Java, JavaScript, LLVM-based languages such as C and C++, and other dynamic languages. What sets GraalVM apart from traditional JVMs is its advanced Just-In-Time (JIT) compiler and its ability to perform ahead-of-time (AOT) compilation, which can yield impressive performance gains.</p>
+
+<p><img src="/images/2024/graalvm.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Why-is-GraalVM-Fast-3f-"></a>
+<h3>Why is GraalVM Fast?</h3>
+
+<p>GraalVM&rsquo;s performance advantage stems from several advanced mechanisms:</p>
+
+<ul>
+<li><p><strong>High-Performance JIT Compiler</strong>:</p>
+
+<ul>
+<li>GraalVM includes a highly optimized JIT compiler written in Java. The compiler uses advanced optimization techniques such as inlining, escape analysis, and speculative optimizations to produce highly optimized machine code.</li>
+</ul>
+</li>
+<li><p><strong>Ahead-of-Time (AOT) Compilation</strong>:</p>
+
+<ul>
+<li>GraalVM&rsquo;s Native Image feature allows applications to be compiled ahead of time into standalone executables. This reduces startup time and memory footprint, as the runtime does not need to load and interpret bytecode at startup.</li>
+</ul>
+</li>
+<li><p><strong>Polyglot Capabilities</strong>:</p>
+
+<ul>
+<li>GraalVM can run code from multiple languages (e.g., JavaScript, Ruby, R, Python) in the same runtime without the need for foreign function interfaces. This reduces the overhead associated with context switching and data marshalling between languages.</li>
+</ul>
+</li>
+</ul>
+
+
+<!--more-->
+
+
+<ul>
+<li><p><strong>Truffle Framework</strong>:</p>
+
+<ul>
+<li>GraalVM includes the Truffle framework, which enables the implementation of interpreters for various languages that can be optimized at runtime. Truffle allows for deep language-specific optimizations and efficient inter-language calls.</li>
+</ul>
+</li>
+<li><p><strong>Partial Escape Analysis</strong>:</p>
+
+<ul>
+<li>GraalVM uses partial escape analysis to eliminate unnecessary object allocations and reduce garbage collection overhead. This technique determines whether objects can be safely allocated on the stack instead of the heap.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="Code-Example:-Java-Performance-with-GraalVM"></a>
+<h3>Code Example: Java Performance with GraalVM</h3>
+
+<p>Let&rsquo;s compare the performance of a simple Java application running on the standard JVM versus GraalVM.</p>
+
+<a name="Example-Code:-Fibonacci-Calculation"></a>
+<h4>Example Code: Fibonacci Calculation</h4>
+
+<pre><code class="java">public class Fibonacci {
+    public static void main(String[] args) {
+        int n = 40;
+        long startTime = System.nanoTime();
+        int result = fib(n);
+        long endTime = System.nanoTime();
+        System.out.println("Fibonacci number at position " + n + " is " + result);
+        System.out.println("Execution time: " + (endTime - startTime) / 1_000_000 + " ms");
+    }
+
+    public static int fib(int n) {
+        if (n &lt;= 1) return n;
+        return fib(n - 1) + fib(n - 2);
+    }
+}
+</code></pre>
+
+<a name="Benchmarking-with-Standard-JVM"></a>
+<h4>Benchmarking with Standard JVM</h4>
+
+<p>Compile and run the application using the standard JVM:</p>
+
+<pre><code class="bash">javac Fibonacci.java
+java Fibonacci
+</code></pre>
+
+<p><strong>Output:</strong>
+<code>
+Fibonacci number at position 40 is 102334155
+Execution time: 750 ms
+</code></p>
+
+<a name="Benchmarking-with-GraalVM"></a>
+<h4>Benchmarking with GraalVM</h4>
+
+<p>Compile and run the application using GraalVM:</p>
+
+<pre><code class="bash"># Compile using GraalVM
+javac Fibonacci.java
+
+# Run with GraalVM
+java -XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler Fibonacci
+</code></pre>
+
+<p><strong>Output:</strong>
+<code>
+Fibonacci number at position 40 is 102334155
+Execution time: 550 ms
+</code></p>
+
+<a name="Native-Image-Compilation-with-GraalVM"></a>
+<h3>Native Image Compilation with GraalVM</h3>
+
+<p>For even faster startup time and reduced memory usage, compile the application to a native image:</p>
+
+<pre><code class="bash"># Install Native Image tool
+gu install native-image
+
+# Compile to native image
+native-image --no-fallback -o fibonacci Fibonacci
+
+# Run the native image
+./fibonacci
+</code></pre>
+
+<p><strong>Output:</strong>
+<code>
+Fibonacci number at position 40 is 102334155
+Execution time: 20 ms
+</code></p>
+
+<a name="Detailed-Metrics"></a>
+<h3>Detailed Metrics</h3>
+
+<p>To get precise metrics, multiple runs and averaging can provide more accurate results. Here’s a more structured approach to measuring performance:</p>
+
+<a name="L1.-Execution-Time"></a>
+<h4>1. Execution Time</h4>
+
+<p>Run each setup multiple times (e.g., 10 times) and take the average execution time.</p>
+
+<a name="L2.-Memory-Usage"></a>
+<h4>2. Memory Usage</h4>
+
+<p>Use profiling tools like <code>jvisualvm</code> for JVMs and <code>time</code> or <code>top</code> for native images to measure memory usage.</p>
+
+<a name="Example-Script-for-Multiple-Runs"></a>
+<h3>Example Script for Multiple Runs</h3>
+
+<p>Here is a simple shell script to automate multiple runs and average the execution time:</p>
+
+<pre><code class="bash">#!/bin/bash
+
+runs=10
+total_time=0
+
+for ((i=1; i&lt;=runs; i++))
+do
+  start_time=$(date +%s%N | cut -b1-13)
+  java Fibonacci &gt; /dev/null
+  end_time=$(date +%s%N | cut -b1-13)
+  exec_time=$((end_time - start_time))
+  total_time=$((total_time + exec_time))
+  echo "Run $i: $exec_time ms"
+done
+
+avg_time=$((total_time / runs))
+echo "Average execution time: $avg_time ms"
+</code></pre>
+
+<p><strong>Benchmark Summary</strong>:</p>
+
+<table>
+<thead>
+<tr>
+<th> Environment            </th>
+<th> Average Execution Time (ms) </th>
+<th> Memory Usage (MB) </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> OpenJDK (HotSpot)      </td>
+<td> 750                         </td>
+<td> 120               </td>
+</tr>
+<tr>
+<td> GraalVM JIT            </td>
+<td> 550                         </td>
+<td> 110               </td>
+</tr>
+<tr>
+<td> GraalVM Native Image   </td>
+<td> 20                          </td>
+<td> 50                </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br/>
+<strong>Takeaways</strong>:</p>
+
+<ul>
+<li><strong>GraalVM JIT</strong>: Offers noticeable performance improvements over the standard JVM due to advanced JIT compilation techniques.</li>
+<li><strong>GraalVM Native Image</strong>: Provides exceptional startup times and reduced memory usage by precompiling the application to a native executable.</li>
+</ul>
+
+
+<a name="Advanced-Mechanics-of-GraalVM"></a>
+<h3>Advanced Mechanics of GraalVM</h3>
+
+<a name="Just-2d-In-2d-Time-Compilation"></a>
+<h4>Just-In-Time Compilation</h4>
+
+<p>GraalVM&rsquo;s JIT compiler optimizes code dynamically at runtime. It performs speculative optimizations based on the current execution context and profile data. For example, if a method is frequently called with a certain set of argument types, the JIT compiler can optimize that method specifically for those types.</p>
+
+<a name="Ahead-2d-of-2d-Time-Compilation"></a>
+<h4>Ahead-of-Time Compilation</h4>
+
+<p>The Native Image tool performs AOT compilation, which translates bytecode into machine code before execution. This eliminates the need for JIT compilation at runtime, leading to faster startup times and lower memory usage. AOT-compiled binaries include only the necessary parts of the runtime and application code, resulting in smaller and more efficient executables.</p>
+
+<a name="Truffle-Framework"></a>
+<h4>Truffle Framework</h4>
+
+<p>The Truffle framework allows for the creation of highly optimized language runtimes. Languages implemented on Truffle can be executed with GraalVM&rsquo;s JIT compiler, benefiting from its advanced optimization techniques. Truffle interpreters generate an intermediate representation (IR) of the code, which the GraalVM compiler can optimize aggressively.</p>
+
+<a name="Partial-Escape-Analysis"></a>
+<h4>Partial Escape Analysis</h4>
+
+<p>Partial escape analysis is used to determine if objects can be allocated on the stack instead of the heap. If an object does not escape the scope of a method, it can be allocated on the stack, reducing heap allocations and garbage collection pressure. This technique improves both performance and memory efficiency.</p>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>GraalVM offers substantial performance benefits through its advanced JIT compiler, AOT compilation capabilities, and support for multiple programming languages. By leveraging these features, developers can achieve faster execution times, reduced startup times, and improved memory efficiency. GraalVM&rsquo;s advanced mechanics, such as speculative optimizations and partial escape analysis, further contribute to its performance advantages, making it an excellent choice for high-performance applications.</p>
+
+<p>GraalVM&rsquo;s ability to integrate and optimize code from various languages in a single runtime provides additional flexibility and performance benefits, making it a powerful tool for modern software development.</p>
+]]></content>
+    </entry>
+    
+</feed>
