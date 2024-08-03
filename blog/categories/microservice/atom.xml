@@ -4,7 +4,7 @@
     <title><![CDATA[Category: microservice | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/microservice/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-08-03T19:00:29+05:30</updated>
+    <updated>2024-08-03T23:32:32+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,257 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Vert.x: The Reactive Toolkit for Modern Applications]]></title>
+        <link href="https://rishijeet.github.io/blog/vert-dot-x-the-reactive-toolkit-for-modern-applications/"/>
+        <updated>2024-08-03T23:22:56+05:30</updated>
+        <id>https://rishijeet.github.io/blog/vert-dot-x-the-reactive-toolkit-for-modern-applications</id>
+        <content type="html"><![CDATA[<p>In the realm of modern web applications, responsiveness and scalability are paramount. Vert.x, a toolkit for building reactive applications on the JVM, stands out due to its performance and flexibility. Vert.x is polyglot, allowing developers to use multiple languages such as Java, JavaScript, Groovy, Ruby, Kotlin, and Scala. Its non-blocking nature and event-driven architecture make it an excellent choice for developing high-throughput, low-latency applications.</p>
+
+<p>In this blog, we&rsquo;ll explore the unique aspects of Vert.x, how it leverages the reactive programming model, and provide examples to illustrate its capabilities.
+<img src="/images/2024/vertx.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="What-Makes-Vert.x-Unique-3f-"></a>
+<h2>What Makes Vert.x Unique?</h2>
+
+<a name="L-3c-strong-3e-Polyglot-Support-3c--2f-strong-3e-"></a>
+<h3><strong>Polyglot Support</strong></h3>
+
+<p>Vert.x allows developers to write applications in multiple languages, providing flexibility and enabling teams to use the best language for their needs.</p>
+
+<a name="L-3c-strong-3e-Event-2d-Driven-and-Non-2d-Blocking-3c--2f-strong-3e-"></a>
+<h3><strong>Event-Driven and Non-Blocking</strong></h3>
+
+<p>Vert.x uses a non-blocking, event-driven model, allowing it to handle many concurrent connections with minimal threads. This leads to better resource utilization and scalability.</p>
+
+<a name="L-3c-strong-3e-Reactive-Programming-3c--2f-strong-3e-"></a>
+<h3><strong>Reactive Programming</strong></h3>
+
+<p>Vert.x embraces reactive programming principles, making it easier to build responsive, resilient, and elastic applications. It integrates seamlessly with reactive libraries like RxJava and Reactor.</p>
+
+<a name="L-3c-strong-3e-Verticles-and-Event-Bus-3c--2f-strong-3e-"></a>
+<h3><strong>Verticles and Event Bus</strong></h3>
+
+<p>Vert.x applications are composed of Verticles, which are units of deployment and concurrency. The Event Bus facilitates communication between Verticles, enabling a highly decoupled architecture.</p>
+
+<!--more-->
+
+
+<a name="L-3c-strong-3e-Module-System-3c--2f-strong-3e-"></a>
+<h3><strong>Module System</strong></h3>
+
+<p>Vert.x offers a powerful module system, allowing for easy reuse and deployment of components.</p>
+
+<a name="Getting-Started-with-Vert.x"></a>
+<h2>Getting Started with Vert.x</h2>
+
+<p>Let&rsquo;s walk through setting up a simple Vert.x application and explore its features.</p>
+
+<a name="Example:-Setting-Up-a-Vert.x-Project"></a>
+<h3>Example: Setting Up a Vert.x Project</h3>
+
+<a name="Project-Structure"></a>
+<h4>Project Structure</h4>
+
+<p>We&rsquo;ll create a basic Vert.x application in Java. Ensure you have Maven or Gradle installed.</p>
+
+<a name="Maven-Project-Setup"></a>
+<h4>Maven Project Setup</h4>
+
+<p><strong>pom.xml:</strong></p>
+
+<pre><code class="xml">&lt;project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+    &lt;groupId&gt;com.example&lt;/groupId&gt;
+    &lt;artifactId&gt;vertx-demo&lt;/artifactId&gt;
+    &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;
+
+    &lt;properties&gt;
+        &lt;maven.compiler.source&gt;11&lt;/maven.compiler.source&gt;
+        &lt;maven.compiler.target&gt;11&lt;/maven.compiler.target&gt;
+        &lt;vertx.version&gt;4.3.4&lt;/vertx.version&gt;
+    &lt;/properties&gt;
+
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.vertx&lt;/groupId&gt;
+            &lt;artifactId&gt;vertx-core&lt;/artifactId&gt;
+            &lt;version&gt;${vertx.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.vertx&lt;/groupId&gt;
+            &lt;artifactId&gt;vertx-web&lt;/artifactId&gt;
+            &lt;version&gt;${vertx.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;build&gt;
+        &lt;plugins&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+                &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;
+                &lt;version&gt;3.8.1&lt;/version&gt;
+            &lt;/plugin&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;io.fabric8&lt;/groupId&gt;
+                &lt;artifactId&gt;docker-maven-plugin&lt;/artifactId&gt;
+                &lt;version&gt;0.34.1&lt;/version&gt;
+            &lt;/plugin&gt;
+        &lt;/plugins&gt;
+    &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+
+<a name="Example:-Creating-a-Simple-HTTP-Server"></a>
+<h3>Example: Creating a Simple HTTP Server</h3>
+
+<a name="Main-Verticle"></a>
+<h4>Main Verticle</h4>
+
+<pre><code class="java">package com.example;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Vertx;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+
+public class MainVerticle extends AbstractVerticle {
+
+    @Override
+    public void start() {
+        Router router = Router.router(vertx);
+        router.route("/").handler(this::handleRoot);
+
+        vertx.createHttpServer()
+             .requestHandler(router)
+             .listen(8888, result -&gt; {
+                 if (result.succeeded()) {
+                     System.out.println("Server started on port 8888");
+                 } else {
+                     System.out.println("Failed to start server: " + result.cause());
+                 }
+             });
+    }
+
+    private void handleRoot(RoutingContext context) {
+        context.response()
+               .putHeader("content-type", "text/plain")
+               .end("Hello, Rishijeet!");
+    }
+
+    public static void main(String[] args) {
+        Vertx vertx = Vertx.vertx();
+        vertx.deployVerticle(new MainVerticle());
+    }
+}
+</code></pre>
+
+<p>This simple Vert.x application sets up an HTTP server that listens on port 8888 and responds with &ldquo;Hello, Rishijeet!&rdquo;
+when the root URL is accessed.</p>
+
+<a name="Example:-Deploying-Verticles"></a>
+<h3>Example: Deploying Verticles</h3>
+
+<p>Vert.x applications are composed of Verticles. You can deploy multiple Verticles, enabling a modular and scalable architecture.</p>
+
+<a name="Worker-Verticle"></a>
+<h4>Worker Verticle</h4>
+
+<pre><code class="java">package com.example;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Promise;
+
+public class WorkerVerticle extends AbstractVerticle {
+
+    @Override
+    public void start(Promise&lt;Void&gt; startPromise) {
+        vertx.setPeriodic(1000, id -&gt; {
+            System.out.println("Worker Verticle: " + Thread.currentThread().getName());
+        });
+        startPromise.complete();
+    }
+}
+</code></pre>
+
+<a name="Deploying-Verticles"></a>
+<h4>Deploying Verticles</h4>
+
+<pre><code class="java">package com.example;
+
+import io.vertx.core.Vertx;
+
+public class MainApp {
+    public static void main(String[] args) {
+        Vertx vertx = Vertx.vertx();
+        vertx.deployVerticle(new MainVerticle());
+        vertx.deployVerticle(new WorkerVerticle());
+    }
+}
+</code></pre>
+
+<a name="Example:-Using-the-Event-Bus"></a>
+<h3>Example: Using the Event Bus</h3>
+
+<p>The Event Bus allows Verticles to communicate asynchronously.</p>
+
+<a name="Sender-Verticle"></a>
+<h4>Sender Verticle</h4>
+
+<pre><code class="java">package com.example;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Vertx;
+
+public class SenderVerticle extends AbstractVerticle {
+
+    @Override
+    public void start() {
+        vertx.eventBus().send("example.address", "Hello from SenderVerticle!");
+    }
+
+    public static void main(String[] args) {
+        Vertx vertx = Vertx.vertx();
+        vertx.deployVerticle(new SenderVerticle());
+    }
+}
+</code></pre>
+
+<a name="Receiver-Verticle"></a>
+<h4>Receiver Verticle</h4>
+
+<pre><code class="java">package com.example;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Vertx;
+
+public class ReceiverVerticle extends AbstractVerticle {
+
+    @Override
+    public void start() {
+        vertx.eventBus().consumer("example.address", message -&gt; {
+            System.out.println("Received message: " + message.body());
+        });
+    }
+
+    public static void main(String[] args) {
+        Vertx vertx = Vertx.vertx();
+        vertx.deployVerticle(new ReceiverVerticle());
+    }
+}
+</code></pre>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Vert.x offers a powerful and flexible toolkit for building modern, reactive applications. Its unique features, including polyglot support, non-blocking event-driven architecture, and the Event Bus, make it an excellent choice for high-throughput, low-latency applications. By leveraging Verticles and the reactive programming model, developers can build scalable, maintainable, and efficient applications.</p>
+
+<p>Understanding the power of Vert.x and how to use its features effectively can significantly improve the responsiveness and scalability of your applications. Whether you&rsquo;re building microservices, real-time web applications, or IoT solutions, Vert.x provides the tools you need to succeed.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Micronaut: The Modern Framework for Microservices]]></title>
