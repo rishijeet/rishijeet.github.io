@@ -1,0 +1,487 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Exploring Coroutines: Concurrency Made Easy - Rishijeet Mishra</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Rishijeet Mishra's Blog Site">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/exploring-coroutines-concurrency-made-easy">
+
+        <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="http://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+    <li><a href="/lenswork/">Photography</a></li>
+    <li><a href="/about/">About</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">Exploring Coroutines: Concurrency Made Easy</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-08-03T18:29:50+05:30" pubdate><i class="fa fa-calendar"></i> Aug 3rd, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/coroutines/'>coroutines</a></li>
+            
+                <li><a class='category' href='/blog/categories/concurrency/'>concurrency</a></li>
+            
+                <li><a class='category' href='/blog/categories/kotlin/'>kotlin</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <p>Concurrency is a critical aspect of modern software development, enabling applications to perform multiple tasks simultaneously. Traditional approaches to concurrency, such as threads, often come with complexity and overhead. Coroutines offer a powerful alternative by providing a simpler, more efficient way to handle concurrent operations. In this blog, we&rsquo;ll delve into the world of coroutines, explore what makes them unique, and provide examples to illustrate their usage. We&rsquo;ll also discuss alternative concurrency models and their trade-offs.</p>
+
+<a name="What-Are-Coroutines-3f-"></a>
+<h2>What Are Coroutines?</h2>
+
+<p>Coroutines are a concurrency primitive that allows functions to pause execution and resume later, enabling non-blocking asynchronous code execution. Unlike traditional threads, coroutines are lightweight, have minimal overhead, and do not require OS-level context switching.</p>
+
+<a name="Key-Features-of-Coroutines"></a>
+<h3>Key Features of Coroutines</h3>
+
+<ol>
+<li><strong>Lightweight</strong>: Coroutines are more lightweight than threads, allowing you to run thousands of coroutines simultaneously without significant performance impact.</li>
+<li><strong>Non-Blocking</strong>: Coroutines enable non-blocking asynchronous code execution, which is crucial for I/O-bound and network-bound tasks.</li>
+<li><strong>Structured Concurrency</strong>: Coroutines support structured concurrency, making it easier to manage the lifecycle of concurrent tasks.</li>
+<li><strong>Suspend Functions</strong>: Functions can be suspended and resumed at a later time, allowing for more readable and maintainable asynchronous code.</li>
+</ol>
+
+
+<a name="Coroutines-in-Kotlin"></a>
+<h2>Coroutines in Kotlin</h2>
+
+<p>Kotlin is one of the languages that has built-in support for coroutines, making it a popular choice for modern asynchronous programming. Let&rsquo;s explore coroutines in Kotlin with some examples.</p>
+
+<!--more-->
+
+
+<a name="Example:-Basic-Coroutine"></a>
+<h3>Example: Basic Coroutine</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">launch</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">delay</span><span class="p">(</span><span class="m">1000L</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">println</span><span class="p">(</span><span class="s">&quot;Rishijeet!&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Hello,&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, <code>runBlocking</code> starts a coroutine and blocks the main thread until the coroutine completes. The <code>launch</code> function starts a new coroutine that delays for 1 second and then prints &ldquo;World!&rdquo;. Meanwhile, &ldquo;Hello,&rdquo; is printed immediately.</p>
+
+<a name="Example:-Structured-Concurrency"></a>
+<h3>Example: Structured Concurrency</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">val</span> <span class="py">job</span> <span class="p">=</span> <span class="n">launch</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">doWork</span><span class="p">()</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Waiting for work to complete...&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">job</span><span class="p">.</span><span class="n">join</span><span class="p">()</span>
+</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Work completed!&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">suspend</span> <span class="k">fun</span> <span class="nf">doWork</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">delay</span><span class="p">(</span><span class="m">2000L</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Work in progress...&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This example demonstrates structured concurrency. The <code>doWork</code> function is a suspend function that simulates work with a 2-second delay. The <code>launch</code> function starts a coroutine that runs <code>doWork</code>, and <code>job.join()</code> waits for the coroutine to complete.</p>
+
+<a name="Example:-Async-and-Await"></a>
+<h3>Example: Async and Await</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">val</span> <span class="py">deferred</span> <span class="p">=</span> <span class="n">async</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">computeValue</span><span class="p">()</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Waiting for result...&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">val</span> <span class="py">result</span> <span class="p">=</span> <span class="n">deferred</span><span class="p">.</span><span class="n">await</span><span class="p">()</span>
+</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Result: $result&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">suspend</span> <span class="k">fun</span> <span class="nf">computeValue</span><span class="p">():</span> <span class="n">Int</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">delay</span><span class="p">(</span><span class="m">1000L</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">return</span> <span class="m">42</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, the <code>async</code> function starts a coroutine that computes a value asynchronously. The <code>await</code> function suspends the coroutine until the result is available.</p>
+
+<a name="Alternatives-to-Coroutines"></a>
+<h2>Alternatives to Coroutines</h2>
+
+<p>While coroutines offer many advantages, there are other concurrency models to consider. Each has its own trade-offs and use cases.</p>
+
+<a name="L-3c-strong-3e-Threads-3c--2f-strong-3e-"></a>
+<h3><strong>Threads</strong></h3>
+
+<p>Threads are the traditional approach to concurrency. They are managed by the OS and provide true parallelism but come with significant overhead and complexity.</p>
+
+<p><strong>Example: Threads in Java</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadExample</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">Thread</span> <span class="n">thread</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">Thread</span><span class="o">(()</span> <span class="o">-&gt;</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">try</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">Thread</span><span class="o">.</span><span class="na">sleep</span><span class="o">(</span><span class="mi">1000</span><span class="o">);</span>
+</span><span class='line'>                <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Rishijeet!&quot;</span><span class="o">);</span>
+</span><span class='line'>            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">InterruptedException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>        <span class="o">});</span>
+</span><span class='line'>        <span class="n">thread</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Hello,&quot;</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Reactive-Programming-3c--2f-strong-3e-"></a>
+<h3><strong>Reactive Programming</strong></h3>
+
+<p>Reactive programming, using libraries like RxJava or Reactor, is another approach to concurrency. It is based on the Observer pattern and provides powerful abstractions for asynchronous programming.</p>
+
+<p><strong>Example: RxJava</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">io.reactivex.Observable</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">RxJavaExample</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">Observable</span><span class="o">.</span><span class="na">just</span><span class="o">(</span><span class="s">&quot;Hello, Rishijeet!&quot;</span><span class="o">)</span>
+</span><span class='line'>                  <span class="o">.</span><span class="na">delay</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span> <span class="n">TimeUnit</span><span class="o">.</span><span class="na">SECONDS</span><span class="o">)</span>
+</span><span class='line'>                  <span class="o">.</span><span class="na">subscribe</span><span class="o">(</span><span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">::</span><span class="n">println</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Async-2f-Await--28-Promises-29--3c--2f-strong-3e-"></a>
+<h3><strong>Async/Await (Promises)</strong></h3>
+
+<p>Async/await is a popular pattern in languages like JavaScript and Python. It simplifies asynchronous code by allowing it to be written in a synchronous style.</p>
+
+<p><strong>Example: Async/Await in JavaScript</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="kd">function</span> <span class="nx">delay</span><span class="p">(</span><span class="nx">ms</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="k">new</span> <span class="nx">Promise</span><span class="p">(</span><span class="nx">resolve</span> <span class="o">=&gt;</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">ms</span><span class="p">));</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nx">async</span> <span class="kd">function</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">&quot;Hello,&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="nx">await</span> <span class="nx">delay</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
+</span><span class='line'>    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">&quot;Rishijeet!&quot;</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nx">main</span><span class="p">();</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Coroutines offer a powerful and efficient way to handle concurrency, providing simplicity and performance advantages over traditional threads. They are particularly well-suited for I/O-bound and network-bound tasks, enabling non-blocking asynchronous code execution. While there are alternative concurrency models like threads, reactive programming, and async/await, coroutines stand out for their lightweight nature and structured concurrency.</p>
+
+<p>Kotlin&rsquo;s built-in support for coroutines makes it an excellent choice for modern asynchronous programming. By leveraging coroutines, developers can write more readable, maintainable, and efficient concurrent code.</p>
+
+<p>Understanding the various concurrency models and their trade-offs allows developers to choose the best approach for their specific use cases. Whether using coroutines, threads, reactive programming, or async/await, the key is to find the right balance between simplicity, performance, and scalability.</p>
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2024 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+    </div>
+</footer>
+
+
+        
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/exploring-coroutines-concurrency-made-easy/';
+        var disqus_url = 'https://rishijeet.github.io/blog/exploring-coroutines-concurrency-made-easy/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

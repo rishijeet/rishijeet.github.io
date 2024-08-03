@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: coroutines | Rishijeet Mishra]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/coroutines/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2024-08-03T19:00:29+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[Exploring Coroutines: Concurrency Made Easy]]></title>
+        <link href="https://rishijeet.github.io/blog/exploring-coroutines-concurrency-made-easy/"/>
+        <updated>2024-08-03T18:29:50+05:30</updated>
+        <id>https://rishijeet.github.io/blog/exploring-coroutines-concurrency-made-easy</id>
+        <content type="html"><![CDATA[<p>Concurrency is a critical aspect of modern software development, enabling applications to perform multiple tasks simultaneously. Traditional approaches to concurrency, such as threads, often come with complexity and overhead. Coroutines offer a powerful alternative by providing a simpler, more efficient way to handle concurrent operations. In this blog, we&rsquo;ll delve into the world of coroutines, explore what makes them unique, and provide examples to illustrate their usage. We&rsquo;ll also discuss alternative concurrency models and their trade-offs.</p>
+
+<a name="What-Are-Coroutines-3f-"></a>
+<h2>What Are Coroutines?</h2>
+
+<p>Coroutines are a concurrency primitive that allows functions to pause execution and resume later, enabling non-blocking asynchronous code execution. Unlike traditional threads, coroutines are lightweight, have minimal overhead, and do not require OS-level context switching.</p>
+
+<a name="Key-Features-of-Coroutines"></a>
+<h3>Key Features of Coroutines</h3>
+
+<ol>
+<li><strong>Lightweight</strong>: Coroutines are more lightweight than threads, allowing you to run thousands of coroutines simultaneously without significant performance impact.</li>
+<li><strong>Non-Blocking</strong>: Coroutines enable non-blocking asynchronous code execution, which is crucial for I/O-bound and network-bound tasks.</li>
+<li><strong>Structured Concurrency</strong>: Coroutines support structured concurrency, making it easier to manage the lifecycle of concurrent tasks.</li>
+<li><strong>Suspend Functions</strong>: Functions can be suspended and resumed at a later time, allowing for more readable and maintainable asynchronous code.</li>
+</ol>
+
+
+<a name="Coroutines-in-Kotlin"></a>
+<h2>Coroutines in Kotlin</h2>
+
+<p>Kotlin is one of the languages that has built-in support for coroutines, making it a popular choice for modern asynchronous programming. Let&rsquo;s explore coroutines in Kotlin with some examples.</p>
+
+<!--more-->
+
+
+<a name="Example:-Basic-Coroutine"></a>
+<h3>Example: Basic Coroutine</h3>
+
+<pre><code class="kotlin">import kotlinx.coroutines.*
+
+fun main() = runBlocking {
+    launch {
+        delay(1000L)
+        println("Rishijeet!")
+    }
+    println("Hello,")
+}
+</code></pre>
+
+<p>In this example, <code>runBlocking</code> starts a coroutine and blocks the main thread until the coroutine completes. The <code>launch</code> function starts a new coroutine that delays for 1 second and then prints &ldquo;World!&rdquo;. Meanwhile, &ldquo;Hello,&rdquo; is printed immediately.</p>
+
+<a name="Example:-Structured-Concurrency"></a>
+<h3>Example: Structured Concurrency</h3>
+
+<pre><code class="kotlin">import kotlinx.coroutines.*
+
+fun main() = runBlocking {
+    val job = launch {
+        doWork()
+    }
+    println("Waiting for work to complete...")
+    job.join()
+    println("Work completed!")
+}
+
+suspend fun doWork() {
+    delay(2000L)
+    println("Work in progress...")
+}
+</code></pre>
+
+<p>This example demonstrates structured concurrency. The <code>doWork</code> function is a suspend function that simulates work with a 2-second delay. The <code>launch</code> function starts a coroutine that runs <code>doWork</code>, and <code>job.join()</code> waits for the coroutine to complete.</p>
+
+<a name="Example:-Async-and-Await"></a>
+<h3>Example: Async and Await</h3>
+
+<pre><code class="kotlin">import kotlinx.coroutines.*
+
+fun main() = runBlocking {
+    val deferred = async {
+        computeValue()
+    }
+    println("Waiting for result...")
+    val result = deferred.await()
+    println("Result: $result")
+}
+
+suspend fun computeValue(): Int {
+    delay(1000L)
+    return 42
+}
+</code></pre>
+
+<p>In this example, the <code>async</code> function starts a coroutine that computes a value asynchronously. The <code>await</code> function suspends the coroutine until the result is available.</p>
+
+<a name="Alternatives-to-Coroutines"></a>
+<h2>Alternatives to Coroutines</h2>
+
+<p>While coroutines offer many advantages, there are other concurrency models to consider. Each has its own trade-offs and use cases.</p>
+
+<a name="L-3c-strong-3e-Threads-3c--2f-strong-3e-"></a>
+<h3><strong>Threads</strong></h3>
+
+<p>Threads are the traditional approach to concurrency. They are managed by the OS and provide true parallelism but come with significant overhead and complexity.</p>
+
+<p><strong>Example: Threads in Java</strong></p>
+
+<pre><code class="java">public class ThreadExample {
+    public static void main(String[] args) {
+        Thread thread = new Thread(() -&gt; {
+            try {
+                Thread.sleep(1000);
+                System.out.println("Rishijeet!");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        thread.start();
+        System.out.println("Hello,");
+    }
+}
+</code></pre>
+
+<a name="L-3c-strong-3e-Reactive-Programming-3c--2f-strong-3e-"></a>
+<h3><strong>Reactive Programming</strong></h3>
+
+<p>Reactive programming, using libraries like RxJava or Reactor, is another approach to concurrency. It is based on the Observer pattern and provides powerful abstractions for asynchronous programming.</p>
+
+<p><strong>Example: RxJava</strong></p>
+
+<pre><code class="java">import io.reactivex.Observable;
+
+public class RxJavaExample {
+    public static void main(String[] args) {
+        Observable.just("Hello, Rishijeet!")
+                  .delay(1, TimeUnit.SECONDS)
+                  .subscribe(System.out::println);
+    }
+}
+</code></pre>
+
+<a name="L-3c-strong-3e-Async-2f-Await--28-Promises-29--3c--2f-strong-3e-"></a>
+<h3><strong>Async/Await (Promises)</strong></h3>
+
+<p>Async/await is a popular pattern in languages like JavaScript and Python. It simplifies asynchronous code by allowing it to be written in a synchronous style.</p>
+
+<p><strong>Example: Async/Await in JavaScript</strong></p>
+
+<pre><code class="javascript">function delay(ms) {
+    return new Promise(resolve =&gt; setTimeout(resolve, ms));
+}
+
+async function main() {
+    console.log("Hello,");
+    await delay(1000);
+    console.log("Rishijeet!");
+}
+
+main();
+</code></pre>
+
+<a name="Conclusion"></a>
+<h3>Conclusion</h3>
+
+<p>Coroutines offer a powerful and efficient way to handle concurrency, providing simplicity and performance advantages over traditional threads. They are particularly well-suited for I/O-bound and network-bound tasks, enabling non-blocking asynchronous code execution. While there are alternative concurrency models like threads, reactive programming, and async/await, coroutines stand out for their lightweight nature and structured concurrency.</p>
+
+<p>Kotlin&rsquo;s built-in support for coroutines makes it an excellent choice for modern asynchronous programming. By leveraging coroutines, developers can write more readable, maintainable, and efficient concurrent code.</p>
+
+<p>Understanding the various concurrency models and their trade-offs allows developers to choose the best approach for their specific use cases. Whether using coroutines, threads, reactive programming, or async/await, the key is to find the right balance between simplicity, performance, and scalability.</p>
+]]></content>
+    </entry>
+    
+</feed>
