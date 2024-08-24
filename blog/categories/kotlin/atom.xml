@@ -4,7 +4,7 @@
     <title><![CDATA[Category: kotlin | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/kotlin/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2024-08-03T23:32:32+05:30</updated>
+    <updated>2024-08-24T13:26:17+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,270 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Ktor: A Lightweight Framework for Building Asynchronous Web Applications]]></title>
+        <link href="https://rishijeet.github.io/blog/ktor-a-lightweight-framework-for-building-asynchronous-web-applications/"/>
+        <updated>2024-08-24T13:13:46+05:30</updated>
+        <id>https://rishijeet.github.io/blog/ktor-a-lightweight-framework-for-building-asynchronous-web-applications</id>
+        <content type="html"><![CDATA[<p>Ktor is a Kotlin-based framework developed by JetBrains for building asynchronous web applications and microservices. Unlike many traditional frameworks, Ktor is designed to be lightweight and flexible, allowing developers to create highly customized applications without unnecessary overhead. Whether you&rsquo;re building a simple web server, a RESTful API, or a fully-fledged microservice, Ktor provides the tools you need while embracing Kotlin&rsquo;s expressive syntax.</p>
+
+<p>In this blog, we’ll dive into what makes Ktor unique, explore its features, and walk through a basic example to illustrate its capabilities.
+<img src="/images/2024/ktor.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="What-Makes-Ktor-Unique-3f-"></a>
+<h2>What Makes Ktor Unique?</h2>
+
+<a name="L-3c-strong-3e-Kotlin-First-3c--2f-strong-3e-"></a>
+<h3><strong>Kotlin First</strong></h3>
+
+<p>Ktor is built specifically for Kotlin, taking full advantage of Kotlin’s language features, such as coroutines, to provide a smooth and idiomatic experience. This tight integration with Kotlin allows for concise and expressive code.</p>
+
+<a name="L-3c-strong-3e-Asynchronous-by-Design-3c--2f-strong-3e-"></a>
+<h3><strong>Asynchronous by Design</strong></h3>
+
+<p>Ktor is asynchronous at its core, leveraging Kotlin’s coroutines to handle multiple requests efficiently without blocking threads. This makes Ktor particularly suitable for high-performance applications that need to handle many simultaneous connections.</p>
+
+<a name="L-3c-strong-3e-Modular-Architecture-3c--2f-strong-3e-"></a>
+<h3><strong>Modular Architecture</strong></h3>
+
+<p>Ktor is highly modular, allowing developers to include only the components they need. Whether you require authentication, session management, or templating, you can easily add or remove features as necessary, keeping your application lightweight.</p>
+
+<!--more-->
+
+
+<a name="L-3c-strong-3e-Flexibility-3c--2f-strong-3e-"></a>
+<h3><strong>Flexibility</strong></h3>
+
+<p>Ktor provides a high degree of flexibility in defining routes, handling requests, and responding to clients. This flexibility allows developers to build applications that fit their specific needs without being constrained by the framework.</p>
+
+<a name="L-3c-strong-3e-Minimal-Configuration-3c--2f-strong-3e-"></a>
+<h3><strong>Minimal Configuration</strong></h3>
+
+<p>Ktor is designed to be simple to set up with minimal configuration. You can get a basic web server running with just a few lines of code, making it ideal for rapid development and prototyping.</p>
+
+<a name="Setting-Up-a-Ktor-Project"></a>
+<h2>Setting Up a Ktor Project</h2>
+
+<p>Let’s walk through creating a simple Ktor application. We’ll start by setting up the project and then build a basic web server with some routing.</p>
+
+<a name="Project-Setup"></a>
+<h3>Project Setup</h3>
+
+<p>To start, create a new Gradle project and add the following dependencies to your <code>build.gradle.kts</code> file:</p>
+
+<pre><code class="kotlin">plugins {
+    kotlin("jvm") version "1.8.0"
+    application
+}
+
+application {
+    mainClass.set("com.example.ApplicationKt")
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("io.ktor:ktor-server-core:2.2.1")
+    implementation("io.ktor:ktor-server-netty:2.2.1")
+    implementation("io.ktor:ktor-server-html-builder:2.2.1")
+    implementation("ch.qos.logback:logback-classic:1.4.3")
+    testImplementation("io.ktor:ktor-server-tests:2.2.1")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.8.0")
+}
+</code></pre>
+
+<a name="Example:-Creating-a-Simple-Ktor-Web-Server"></a>
+<h3>Example: Creating a Simple Ktor Web Server</h3>
+
+<p>Now that the project is set up, let’s create a simple web server that responds to basic HTTP requests.</p>
+
+<a name="Basic-Server-Setup"></a>
+<h4>Basic Server Setup</h4>
+
+<p>Create a new Kotlin file, <code>Application.kt</code>, and add the following code:</p>
+
+<pre><code class="kotlin">package com.example
+
+import io.ktor.application.*
+import io.ktor.http.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.features.ContentNegotiation
+import io.ktor.serialization.gson
+
+fun main() {
+    embeddedServer(Netty, port = 8080) {
+        module()
+    }.start(wait = true)
+}
+
+fun Application.module() {
+    install(ContentNegotiation) {
+        gson {
+            setPrettyPrinting()
+        }
+    }
+    routing {
+        get("/") {
+            call.respondText("Hello, Rishijeet!", ContentType.Text.Plain)
+        }
+        get("/json") {
+            val data = mapOf("message" to "Hello, JSON!")
+            call.respond(data)
+        }
+        post("/submit") {
+            val post = call.receive&lt;Map&lt;String, String&gt;&gt;()
+            call.respond(mapOf("status" to "Received", "data" to post))
+        }
+    }
+}
+</code></pre>
+
+<a name="Code-Breakdown"></a>
+<h3>Code Breakdown</h3>
+
+<ul>
+<li><p><strong>embeddedServer(Netty, port = 8080)</strong>: This line starts an embedded Netty server on port 8080. Ktor supports multiple engines like Netty, Jetty, and Tomcat, but Netty is commonly used for its performance and ease of use.</p></li>
+<li><p><strong>ContentNegotiation</strong>: This feature is installed to automatically handle JSON serialization and deserialization using Gson, making it easy to work with JSON payloads.</p></li>
+<li><p><strong>Routing</strong>: The <code>routing</code> block defines the various routes that the server will respond to:</p>
+
+<ul>
+<li><strong>GET <code>/</code></strong>: Responds with a simple &ldquo;Hello, Rishijeet!&rdquo; message in plain text.</li>
+<li><strong>GET <code>/json</code></strong>: Responds with a JSON object containing a message.</li>
+<li><strong>POST <code>/submit</code></strong>: Receives a JSON payload and responds with the same data, confirming that the server received it.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="Running-the-Server"></a>
+<h3>Running the Server</h3>
+
+<p>Run the server by executing the main function in <code>Application.kt</code>. Once the server is running, you can test the endpoints using a browser or tools like <code>curl</code> or Postman.</p>
+
+<a name="Example-Requests"></a>
+<h4>Example Requests</h4>
+
+<ul>
+<li><strong>GET Request to <code>/</code></strong>:</li>
+</ul>
+
+
+<pre><code class="``bash">  curl http://localhost:8080/
+</code></pre>
+
+<p>  <strong>Response</strong>: <code>Hello, Rishijeet!</code></p>
+
+<ul>
+<li><strong>GET Request to <code>/json</code></strong>:</li>
+</ul>
+
+
+<pre><code class="``bash">  curl http://localhost:8080/json
+</code></pre>
+
+<p>  <strong>Response</strong>:</p>
+
+<pre><code class="``json">  {
+    "message": "Hello, JSON!"
+  }
+</code></pre>
+
+<ul>
+<li><strong>POST Request to <code>/submit</code></strong>:</li>
+</ul>
+
+
+<pre><code class="``bash">  curl -X POST -H "Content-Type: application/json" -d '{"name": "Ktor", "type": "framework"}' http://localhost:8080/submit
+</code></pre>
+
+<p>  <strong>Response</strong>:</p>
+
+<pre><code class="``json">  {
+    "status": "Received",
+    "data": {
+      "name": "Ktor",
+      "type": "framework"
+    }
+  }
+</code></pre>
+
+<a name="Advanced-Features-in-Ktor"></a>
+<h3>Advanced Features in Ktor</h3>
+
+<p>Ktor also provides more advanced features that make it suitable for production-ready applications:</p>
+
+<a name="L-3c-strong-3e-Authentication-3c--2f-strong-3e-"></a>
+<h4><strong>Authentication</strong></h4>
+
+<p>Ktor supports various authentication mechanisms, including session-based, JWT, OAuth, and more. You can easily add authentication to your routes to secure your application.</p>
+
+<a name="L-3c-strong-3e-WebSockets-3c--2f-strong-3e-"></a>
+<h4><strong>WebSockets</strong></h4>
+
+<p>Ktor has built-in support for WebSockets, enabling real-time communication between the server and clients.</p>
+
+<a name="L-3c-strong-3e-Content-Negotiation-and-Serialization-3c--2f-strong-3e-"></a>
+<h4><strong>Content Negotiation and Serialization</strong></h4>
+
+<p>Ktor’s flexible content negotiation allows you to work with multiple formats (JSON, XML, etc.) and serialization libraries (Gson, Kotlinx.serialization).</p>
+
+<a name="L-3c-strong-3e-HTTP-Client-3c--2f-strong-3e-"></a>
+<h4><strong>HTTP Client</strong></h4>
+
+<p>Ktor also includes an HTTP client, making it easy to send HTTP requests from within your application. This is particularly useful when integrating with other services or APIs.</p>
+
+<a name="Example:-Securing-Routes-with-Authentication"></a>
+<h3>Example: Securing Routes with Authentication</h3>
+
+<pre><code class="kotlin">install(Authentication) {
+    basic(name = "auth") {
+        realm = "Ktor Server"
+        validate { credentials -&gt;
+            if (credentials.name == "user" &amp;&amp; credentials.password == "password") {
+                UserIdPrincipal(credentials.name)
+            } else null
+        }
+    }
+}
+
+routing {
+    authenticate("auth") {
+        get("/secure") {
+            call.respondText("You are authenticated!", ContentType.Text.Plain)
+        }
+    }
+}
+</code></pre>
+
+<a name="Example:-WebSocket-Communication"></a>
+<h3>Example: WebSocket Communication</h3>
+
+<pre><code class="kotlin">routing {
+    webSocket("/chat") {
+        for (frame in incoming) {
+            when (frame) {
+                is Frame.Text -&gt; send(Frame.Text("Server received: ${frame.readText()}"))
+            }
+        }
+    }
+}
+</code></pre>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>Ktor is a powerful and flexible framework for building asynchronous web applications in Kotlin. Its Kotlin-first approach, coupled with features like modularity, asynchronous processing, and minimal configuration, makes it an excellent choice for developers looking to build lightweight and high-performance web applications.</p>
+
+<p>Whether you’re building a simple API, a microservice, or a real-time application with WebSockets, Ktor provides the tools you need while allowing for a high degree of customization. As the Kotlin ecosystem continues to grow, Ktor is likely to become even more popular among developers seeking a modern, efficient web framework.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Exploring Coroutines: Concurrency Made Easy]]></title>

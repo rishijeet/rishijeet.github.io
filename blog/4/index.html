@@ -85,6 +85,127 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/understanding-windowing-in-apache-flink/">Understanding Windowing in Apache Flink</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-05-19T20:57:38+05:30" pubdate><i class="fa fa-calendar"></i> May 19th, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/apache-flink/'>apache-flink</a></li>
+            
+                <li><a class='category' href='/blog/categories/streaming-data/'>streaming-data</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <p>Windowing is a fundamental concept in stream processing that allows you to group a continuous stream of events into finite chunks for processing. Apache Flink provides powerful windowing capabilities that support various window types and triggers for flexible, real-time data analysis.</p>
+
+<p><img src="/images/windows.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
+
+<a name="Types-of-Windows-in-Flink"></a>
+<h2>Types of Windows in Flink</h2>
+
+<a name="Tumbling-Windows"></a>
+<h3>Tumbling Windows</h3>
+
+<p>Tumbling windows are fixed-size, non-overlapping windows. Each event belongs to exactly one window.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span> <span class="c1">// your event stream</span>
+</span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">windowedStream</span> <span class="o">=</span> <span class="n">stream</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">TumblingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">)))</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">apply</span><span class="o">(</span><span class="k">new</span> <span class="n">WindowFunction</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">,</span> <span class="n">WindowedEvent</span><span class="o">,</span> <span class="n">Key</span><span class="o">,</span> <span class="n">TimeWindow</span><span class="o">&gt;()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="nd">@Override</span>
+</span><span class='line'>        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">apply</span><span class="o">(</span><span class="n">Key</span> <span class="n">key</span><span class="o">,</span> <span class="n">TimeWindow</span> <span class="n">window</span><span class="o">,</span> <span class="n">Iterable</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">input</span><span class="o">,</span> <span class="n">Collector</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">out</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="c1">// Window processing logic</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Sliding-Windows"></a>
+<h3>Sliding Windows</h3>
+
+<p>Sliding windows are also fixed-size but can overlap. Each event can belong to multiple windows depending on the slide interval.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
+</span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">windowedStream</span> <span class="o">=</span> <span class="n">stream</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">SlidingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">),</span> <span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">5</span><span class="o">)))</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">apply</span><span class="o">(</span><span class="k">new</span> <span class="n">WindowFunction</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">,</span> <span class="n">WindowedEvent</span><span class="o">,</span> <span class="n">Key</span><span class="o">,</span> <span class="n">TimeWindow</span><span class="o">&gt;()</span> <span class="o">{</span>
+</span><span class='line'>        <span class="nd">@Override</span>
+</span><span class='line'>        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">apply</span><span class="o">(</span><span class="n">Key</span> <span class="n">key</span><span class="o">,</span> <span class="n">TimeWindow</span> <span class="n">window</span><span class="o">,</span> <span class="n">Iterable</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">input</span><span class="o">,</span> <span class="n">Collector</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">out</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="c1">// Window processing logic</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+
+        <a class="btn pull-right" href="/blog/understanding-windowing-in-apache-flink/">Read on &rarr;</a>
+    </div>
+
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/understanding-watermarks-in-apache-flink/">Understanding Watermarks in Apache Flink</a>
         </h1>
     
@@ -405,75 +526,6 @@
 
 
         <a class="btn pull-right" href="/blog/efficient-thread-handling-in-rust-a-deep-dive/">Read on &rarr;</a>
-    </div>
-
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/enhancing-natural-language-processing-with-retrieval-augmented-generation/">Enhancing Natural Language Processing with Retrieval-Augmented Generation</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2024-01-13T20:34:07+05:30" pubdate><i class="fa fa-calendar"></i> Jan 13th, 2024</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/rag/'>rag</a></li>
-            
-                <li><a class='category' href='/blog/categories/ai/'>ai</a></li>
-            
-                <li><a class='category' href='/blog/categories/gpt/'>gpt</a></li>
-            
-                <li><a class='category' href='/blog/categories/nlp/'>nlp</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <p>Natural Language Processing (NLP) has witnessed remarkable advancements in recent years, with the advent of sophisticated language models like GPT-3 (Generative Pre-trained Transformer 3). However, one of the challenges that still persists in NLP is the generation of coherent and contextually relevant content. Retrieval-Augmented Generation (RAG) emerges as a powerful solution to address this issue, combining the strengths of both retrieval-based and generation-based approaches.</p>
-
-<a name="Understanding-Retrieval-2d-Augmented-Generation"></a>
-<h1>Understanding Retrieval-Augmented Generation</h1>
-
-<p>Retrieval-Augmented Generation is a hybrid approach that integrates the benefits of information retrieval systems with generative models. Let&rsquo;s delve into the mathematical formulations of the key components of RAG.</p>
-
-<p><img src="/images/rag_new.png" height="300" width="900" alt="Alt text" /> Figure: Overview of our approach. We combine a pre-trained retriever <em>(Query Encoder + Document Index)</em> with a pre-trained seq2seq model <em>(Generator)</em> and fine-tune end-to-end. For query \(x\), we use Maximum Inner Product Search (MIPS) to find the top-\(K\) documents \(z_i\). For the final prediction \(y\), we treat \(z\) as a latent variable and marginalize over seq2seq predictions given different documents. <em><a href="https://arxiv.org/pdf/2005.11401.pdf">Source: arxiv.org</a></em></p>
-
-
-        <a class="btn pull-right" href="/blog/enhancing-natural-language-processing-with-retrieval-augmented-generation/">Read on &rarr;</a>
     </div>
 
 
