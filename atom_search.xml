@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2024-08-24T13:26:17+05:30</updated>
+  <updated>2024-10-08T09:43:04+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,223 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Apache Airflow Architecture: A Detailed Overview]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/apache-airflow-architecture-a-detailed-overview/"/>
+    <updated>2024-10-08T09:35:07+05:30</updated>
+    <id>https://rishijeet.github.io/blog/apache-airflow-architecture-a-detailed-overview</id>
+    <content type="html"><![CDATA[<p>Apache Airflow is a powerful open-source platform used to programmatically author, schedule, and monitor workflows. It is designed for complex data engineering tasks, pipeline automation, and orchestrating multiple processes. This article will break down Airflow&rsquo;s architecture and provide a code example to help you understand how to work with it.</p>
+
+<p><img src="https://rishijeet.github.io/images/2024/apache_airflow.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Key-Concepts-in-Airflow"></a>
+<h3>Key Concepts in Airflow</h3>
+
+<p>Before diving into the architecture, let’s go over some important Airflow concepts:</p>
+
+<ul>
+<li><strong>DAG (Directed Acyclic Graph)</strong>: The core abstraction in Airflow. A DAG represents a workflow, organized as a set of tasks that can be scheduled and executed.</li>
+<li><strong>Operator</strong>: A specific task within a DAG. There are various types of operators, including PythonOperator, BashOperator, and others.</li>
+<li><strong>Task</strong>: An individual step in a workflow.</li>
+<li><strong>Executor</strong>: Responsible for running tasks on the worker nodes.</li>
+<li><strong>Scheduler</strong>: Determines when DAGs and their tasks should run.</li>
+<li><strong>Web Server</strong>: Provides a UI for monitoring DAGs and tasks.</li>
+<li><strong>Metadata Database</strong>: Stores information about the DAGs and their run status.</li>
+</ul>
+
+
+<!--more-->
+
+
+<p>Now that we&rsquo;ve introduced these basic concepts, let’s look at Airflow’s architecture in detail.</p>
+
+<a name="Airflow-Architecture"></a>
+<h2>Airflow Architecture</h2>
+
+<p>The Airflow architecture is based on a distributed model where different components handle specific responsibilities. The primary components are:</p>
+
+<a name="L-3c-strong-3e-Scheduler-3c--2f-strong-3e-"></a>
+<h3><strong>Scheduler</strong></h3>
+
+<p>The Scheduler is the heart of Airflow. It is responsible for determining when a task should run based on the scheduling interval defined in a DAG. It monitors all active DAGs and adds tasks to the execution queue.</p>
+
+<ul>
+<li><strong>DAG Parsing</strong>: The scheduler continuously parses DAG files to check for changes or new DAGs.</li>
+<li><strong>Task Queueing</strong>: It places tasks that need execution in a queue.</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Executor-3c--2f-strong-3e-"></a>
+<h3><strong>Executor</strong></h3>
+
+<p>The Executor is responsible for running the tasks that the scheduler assigns to it. Different types of executors can be used, depending on the scale and complexity of the environment.</p>
+
+<ul>
+<li><strong>SequentialExecutor</strong>: Useful for development and debugging, but can only run one task at a time.</li>
+<li><strong>LocalExecutor</strong>: Runs tasks in parallel on the local machine.</li>
+<li><strong>CeleryExecutor</strong>: Uses Celery and Redis or RabbitMQ to run tasks in parallel across multiple worker nodes.</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Workers-3c--2f-strong-3e-"></a>
+<h3><strong>Workers</strong></h3>
+
+<p>Workers are the machines where the tasks are executed. In larger deployments, workers are distributed across multiple machines to handle high workloads efficiently. Workers receive tasks from the executor and execute them.</p>
+
+<a name="L-3c-strong-3e-Web-Server-3c--2f-strong-3e-"></a>
+<h3><strong>Web Server</strong></h3>
+
+<p>The Web Server provides an interface for users to monitor and manage the execution of workflows. This is built on Flask and provides a rich UI to visualize DAGs, track task statuses, logs, etc.</p>
+
+<a name="L-3c-strong-3e-Metadata-Database-3c--2f-strong-3e-"></a>
+<h3><strong>Metadata Database</strong></h3>
+
+<p>Airflow uses a relational database (e.g., PostgreSQL, MySQL) as the metadata store. It holds details about DAGs, task instances, users, connections, variables, and other essential metadata.</p>
+
+<a name="L-3c-strong-3e-Flower-3c--2f-strong-3e-"></a>
+<h3><strong>Flower</strong></h3>
+
+<p>Flower is an optional component that can be used with the CeleryExecutor to monitor worker nodes and tasks in real-time.</p>
+
+<a name="L-3c-strong-3e-Message-Broker--28-For-CeleryExecutor-29--3c--2f-strong-3e-"></a>
+<h3><strong>Message Broker (For CeleryExecutor)</strong></h3>
+
+<p>In a setup using CeleryExecutor, a message broker (RabbitMQ, Redis) is used to manage communication between the scheduler, executor, and workers.</p>
+
+<a name="L-3c-strong-3e-DagBag-3c--2f-strong-3e-"></a>
+<h3><strong>DagBag</strong></h3>
+
+<p>DagBag is the collection of all the DAGs that are active and ready to be scheduled by the scheduler. Every time a new DAG file is added or updated, it is added to the DagBag for execution.</p>
+
+<a name="Typical-Workflow"></a>
+<h2>Typical Workflow</h2>
+
+<ol>
+<li><strong>Authoring DAGs</strong>: DAGs are Python scripts that define the workflow. The user defines a set of tasks (using operators) and their dependencies.</li>
+<li><strong>Scheduler Monitoring</strong>: The scheduler parses the DAGs and determines when they should be run based on the defined scheduling intervals (e.g., daily, hourly).</li>
+<li><strong>Task Queuing</strong>: Tasks that are ready for execution are placed in a queue by the scheduler.</li>
+<li><strong>Execution by Workers</strong>: The executor pulls tasks from the queue and assigns them to worker nodes for execution.</li>
+<li><strong>Task Tracking</strong>: As tasks are executed, the metadata database is updated with the task status (e.g., success, failure).</li>
+<li><strong>Monitoring via Web UI</strong>: The status of DAGs and tasks can be monitored in real-time using the web server.</li>
+</ol>
+
+
+<a name="Code-Example"></a>
+<h2>Code Example</h2>
+
+<p>Let’s create a basic DAG that uses a PythonOperator to run a Python function.</p>
+
+<a name="DAG-Definition"></a>
+<h3>DAG Definition</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">datetime</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">airflow</span> <span class="kn">import</span> <span class="n">DAG</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">airflow.operators.python_operator</span> <span class="kn">import</span> <span class="n">PythonOperator</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Define a simple Python function to be used in the DAG</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">my_task</span><span class="p">():</span>
+</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Hello from Apache Airflow!&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Define default arguments for the DAG</span>
+</span><span class='line'><span class="n">default_args</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;owner&#39;</span><span class="p">:</span> <span class="s">&#39;airflow&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;depends_on_past&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;start_date&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span>
+</span><span class='line'>    <span class="s">&#39;email_on_failure&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;email_on_retry&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;retries&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;retry_delay&#39;</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Initialize the DAG</span>
+</span><span class='line'><span class="n">dag</span> <span class="o">=</span> <span class="n">DAG</span><span class="p">(</span>
+</span><span class='line'>    <span class="s">&#39;my_first_dag&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">default_args</span><span class="o">=</span><span class="n">default_args</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">description</span><span class="o">=</span><span class="s">&#39;A simple DAG&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">schedule_interval</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Define a PythonOperator that will run the Python function</span>
+</span><span class='line'><span class="n">task</span> <span class="o">=</span> <span class="n">PythonOperator</span><span class="p">(</span>
+</span><span class='line'>    <span class="n">task_id</span><span class="o">=</span><span class="s">&#39;print_hello&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">python_callable</span><span class="o">=</span><span class="n">my_task</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">dag</span><span class="o">=</span><span class="n">dag</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Breakdown-of-the-Code"></a>
+<h3>Breakdown of the Code</h3>
+
+<ul>
+<li><strong>DAG Definition</strong>: We start by defining the DAG, including its <code>start_date</code>, schedule, and default arguments.</li>
+<li><strong>PythonOperator</strong>: The <code>PythonOperator</code> is used to run the Python function <code>my_task</code> as a task in the DAG.</li>
+<li><strong>Scheduling</strong>: In this case, the DAG is scheduled to run once per day.</li>
+</ul>
+
+
+<a name="Running-the-DAG"></a>
+<h3>Running the DAG</h3>
+
+<ol>
+<li>Place the DAG file in your Airflow DAGs folder (typically located at <code>/airflow/dags</code>).</li>
+<li>Start the Airflow scheduler using the command:
+<code>bash
+airflow scheduler
+</code></li>
+<li>Access the Airflow UI by starting the web server:
+<code>bash
+airflow webserver
+</code>
+Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
+</ol>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>Apache Airflow is a flexible and scalable platform for orchestrating workflows. Its modular architecture—comprising the scheduler, workers, web server, and metadata database—makes it ideal for managing complex data pipelines in distributed environments. The ability to define DAGs using Python, combined with its rich set of operators and scheduling capabilities, provides a powerful way to automate data workflows.</p>
+
+<p>The provided code example shows how simple it is to define and run a task using PythonOperator. As you scale up, Airflow supports a range of executors and message brokers to handle more complex, distributed workloads efficiently.</p>
+
+<p>By understanding Airflow&rsquo;s architecture and seeing a basic example in action, you&rsquo;re well on your way to using Airflow to manage and automate workflows in your projects.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Ktor: A Lightweight Framework for Building Asynchronous Web Applications]]></title>
