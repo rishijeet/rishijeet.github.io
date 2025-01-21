@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2024-10-08T09:43:04+05:30</updated>
+  <updated>2025-01-21T10:24:31+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,142 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[MLX vs CUDA: A Detailed Technical Comparison]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/mlx-vs-cuda-a-detailed-technical-comparison/"/>
+    <updated>2025-01-21T07:45:30+05:30</updated>
+    <id>https://rishijeet.github.io/blog/mlx-vs-cuda-a-detailed-technical-comparison</id>
+    <content type="html"><![CDATA[<p>Machine learning frameworks and technologies continue to evolve, leading to the rise of competing platforms designed to maximize performance, flexibility, and ease of use for modern AI workloads. Two prominent frameworks, MLX (Machine Learning Exchange) and CUDA (Compute Unified Device Architecture), are often compared in terms of performance and functionality. This article provides a detailed exploration of the differences between MLX and CUDA, focusing on their architecture, usability, and benchmarking scores.</p>
+
+<a name="L-3c-strong-3e-What-is-CUDA-3f--3c--2f-strong-3e-"></a>
+<h3><strong>What is CUDA?</strong></h3>
+
+<p>CUDA is a parallel computing platform and programming model developed by NVIDIA, specifically designed for NVIDIA GPUs. It allows developers to use C, C++, Fortran, and Python to write applications that can leverage GPU acceleration. CUDA provides low-level access to the GPU hardware, enabling high performance for applications like deep learning, scientific computing, and high-performance simulations.</p>
+
+<p><img src="https://rishijeet.github.io/images/2025/cuda.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<p>Key features of CUDA:</p>
+
+<ul>
+<li><strong>Low-level optimization</strong>: Offers direct control over GPU memory and thread management.</li>
+<li><strong>Rich ecosystem</strong>: Integrated with libraries like cuDNN, NCCL, and TensorRT.</li>
+<li><strong>Highly mature</strong>: Over a decade of optimizations and wide industry adoption.</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="L-3c-strong-3e-What-is-MLX-3f--3c--2f-strong-3e-"></a>
+<h3><strong>What is MLX?</strong></h3>
+
+<p>MLX (Machine Learning Exchange) is an emerging platform that abstracts machine learning and deep learning workflows. It supports heterogeneous hardware, including GPUs, CPUs, and specialized accelerators. MLX often integrates high-level APIs, enabling users to optimize workloads without deep knowledge of hardware architecture.</p>
+
+<p><img src="https://rishijeet.github.io/images/2025/mlx.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<p>Key features of MLX:</p>
+
+<ul>
+<li><strong>Cross-platform support</strong>: Runs on multiple hardware types.</li>
+<li><strong>High-level abstraction</strong>: Simplifies model training and deployment.</li>
+<li><strong>Integration-friendly</strong>: Works well with TensorFlow, PyTorch, and ONNX.</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Architecture-3c--2f-strong-3e-"></a>
+<h2><strong>Architecture</strong></h2>
+
+<ul>
+<li><p><strong>CUDA</strong>:</p>
+
+<ul>
+<li>CUDA provides fine-grained control over GPU execution.</li>
+<li>Thread and memory management are handled explicitly, giving developers the ability to maximize performance through detailed tuning.</li>
+<li>Works exclusively on NVIDIA GPUs, leveraging specialized hardware like Tensor Cores.</li>
+</ul>
+</li>
+<li><p><strong>MLX</strong>:</p>
+
+<ul>
+<li>MLX abstracts the underlying hardware, making it easier for developers to build models without focusing on device-specific optimizations.</li>
+<li>Supports a variety of hardware, including GPUs (NVIDIA, AMD), CPUs, and emerging accelerators like TPUs.</li>
+<li>Focuses on portability over deep hardware-specific optimizations.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Performance-Benchmarks-3c--2f-strong-3e-"></a>
+<h2><strong>Performance Benchmarks</strong></h2>
+
+<p>Benchmarking was conducted to evaluate the performance of MLX and CUDA on several machine learning workloads. The results are based on tests using an NVIDIA A100 GPU (for CUDA) and the same GPU running MLX (where applicable).</p>
+
+<p><img src="https://rishijeet.github.io/images/2025/cuda_mlx_benchmark.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>The performance benchmark chart above highlights the comparison between CUDA and MLX for training throughput and inference latency across three tasks: Image Classification, Object Detection, and Transformer Models.</p>
+
+<ul>
+<li>Training Throughput: CUDA consistently achieves higher throughput (bars on the left for each task), demonstrating
+its fine-grained optimization for NVIDIA GPUs.</li>
+<li>Inference Latency: CUDA also exhibits lower latency (lines with green markers) compared to MLX (lines with red
+markers), showcasing its efficiency in real-time workloads.
+This visualization emphasizes CUDA&rsquo;s advantage in both raw performance and latency, particularly on NVIDIA GPUs, while MLX offers competitive results with a broader hardware compatibility.
+
+<a name="L-3c-strong-3e-Key-Observations-3c--2f-strong-3e-"></a>
+<h3><strong>Key Observations</strong></h3></li>
+<li>CUDA consistently outperformed MLX in raw throughput and latency due to its hardware-specific optimizations and direct access to NVIDIA GPU architecture.</li>
+<li>MLX’s performance was competitive, particularly for workflows prioritizing hardware-agnostic support.</li>
+<li>The performance gap was more pronounced in tasks involving fine-grained GPU operations, such as training BERT or running YOLOv5.</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Energy-Efficiency-3c--2f-strong-3e-"></a>
+<h3><strong>Energy Efficiency</strong></h3>
+
+<p>Energy consumption was measured for both frameworks during the benchmarks.
+<img src="https://rishijeet.github.io/images/2025/cuda_mlx_efficiency.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Here is the graphical representation of the energy efficiency comparison between CUDA and MLX. It highlights:</p>
+
+<ul>
+<li>The average power consumption (W) for each framework (shown as bars).</li>
+<li>The energy efficiency (images/sec/W) (shown as a line plot).</li>
+</ul>
+
+
+<p>CUDA demonstrated better energy efficiency due to optimized GPU utilization and reduced overhead.</p>
+
+<a name="L-3c-strong-3e-Use-Cases-3c--2f-strong-3e-"></a>
+<h2><strong>Use Cases</strong></h2>
+
+<ul>
+<li><p><strong>CUDA</strong>:</p>
+
+<ul>
+<li>Ideal for applications requiring peak performance, such as autonomous vehicles, financial modeling, and real-time simulations.</li>
+<li>Suitable for research and production environments where NVIDIA GPUs are the standard.</li>
+</ul>
+</li>
+<li><p><strong>MLX</strong>:</p>
+
+<ul>
+<li>Best suited for teams working across heterogeneous hardware environments or those prioritizing ease of use.</li>
+<li>Effective for organizations building portable machine learning solutions for diverse infrastructure.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Conclusion-3c--2f-strong-3e-"></a>
+<h2><strong>Conclusion</strong></h2>
+
+<p>CUDA remains the gold standard for GPU-accelerated machine learning, offering unparalleled performance and efficiency. However, MLX provides a compelling alternative for developers seeking hardware-agnostic solutions and ease of use. While CUDA is better suited for NVIDIA-specific workflows, MLX’s flexibility makes it ideal for broader deployment scenarios.</p>
+
+<p>Ultimately, the choice between MLX and CUDA depends on your specific requirements: if peak performance on NVIDIA GPUs is critical, CUDA is the clear choice. For portability and simplicity, MLX offers significant advantages.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Apache Airflow Architecture: A Detailed Overview]]></title>
