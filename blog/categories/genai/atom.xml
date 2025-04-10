@@ -4,7 +4,7 @@
     <title><![CDATA[Category: genai | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/genai/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-03-30T20:34:24+05:30</updated>
+    <updated>2025-04-10T10:05:30+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,300 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Model Context Protocol (MCP): The Backbone of Dynamic AI Workflows]]></title>
+        <link href="https://rishijeet.github.io/blog/model-context-protocol-mcp-the-backbone-of-dynamic-ai-workflows/"/>
+        <updated>2025-04-08T23:14:14+05:30</updated>
+        <id>https://rishijeet.github.io/blog/model-context-protocol-mcp-the-backbone-of-dynamic-ai-workflows</id>
+        <content type="html"><![CDATA[<p>As the AI landscape rapidly evolves, the demand for systems that support <strong>modular</strong>, <strong>context-aware</strong>, and <strong>efficient orchestration</strong> of models has grown. Enter the <strong>Model Context Protocol (MCP)</strong> — a rising standard that enables dynamic, multi-agent AI systems to exchange context, manage state, and chain model invocations intelligently.</p>
+
+<p>In this article, we’ll explore what MCP is, why it matters, and how it’s becoming a key component in the infrastructure stack for advanced AI applications. We’ll also walk through a conceptual example of building an MCP-compatible server.</p>
+
+<a name="What-is-the-Model-Context-Protocol--28-MCP-29--3f-"></a>
+<h2>What is the Model Context Protocol (MCP)?</h2>
+
+<p><strong>MCP</strong> is a protocol designed to manage the <strong>contextual state</strong> of AI models across requests in multi-agent, multi-model environments. It’s part of a broader effort to make LLMs (Large Language Models) more <strong>stateful</strong>, <strong>collaborative</strong>, and <strong>task-aware</strong>.</p>
+
+<p>At its core, MCP provides:</p>
+
+<ul>
+<li>A way to <strong>pass and maintain context</strong> (like conversation history, task progress, or shared knowledge) across AI agents or model calls.</li>
+<li>A standardized protocol to support <strong>chained inference</strong>, where multiple models collaborate on subtasks.</li>
+<li>Support for <strong>stateful computation</strong>, which is critical in complex reasoning or long-running workflows.</li>
+</ul>
+
+
+<p><img src="/images/2025/mcp_server" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<!--more-->
+
+
+<a name="Why-is-MCP-Relevant-Now-3f-"></a>
+<h2>Why is MCP Relevant Now?</h2>
+
+<p>The growing interest in <strong>AI agents</strong>, <strong>function-calling APIs</strong>, and <strong>model interoperability</strong> has created a pressing need for something like MCP. Some trends driving MCP adoption include:</p>
+
+<style>
+  .trend-impact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+  }
+  .trend-impact-table th,
+  .trend-impact-table td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #ccc;
+    vertical-align: top;
+  }
+  .trend-impact-table th {
+    background-color: #f2f2f2;
+    width: 25%;
+  }
+</style>
+
+
+
+
+<table class="trend-impact-table">
+  <thead>
+    <tr>
+      <th>Trend</th>
+      <th>Impact</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Agentic Workflows</td>
+      <td>Models need shared context to collaborate efficiently (e.g., ReAct, AutoGPT, BabyAGI).</td>
+    </tr>
+    <tr>
+      <td>LLM Orchestration Frameworks</td>
+      <td>Tools like LangChain, Semantic Kernel, and OpenDevin push for context-aware memory and model chaining.</td>
+    </tr>
+    <tr>
+      <td>Open Model Ecosystems</td>
+      <td>Efforts like Hugging Face&#8217;s Inference Endpoints, vLLM, and Modal want to standardize inference behavior.</td>
+    </tr>
+    <tr>
+      <td>Retrieval-Augmented Generation (RAG)</td>
+      <td>Persistent context and metadata handling are vital for grounded reasoning.</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<p>Leading companies like <strong>OpenAI (via ChatGPT APIs)</strong>, <strong>Anthropic (via Claude’s memory)</strong>, and <strong>Mistral</strong> are integrating ideas from MCP implicitly, if not through standardized APIs.</p>
+
+<a name="Core-Concepts-of-MCP"></a>
+<h2>Core Concepts of MCP</h2>
+
+<p>An MCP server typically supports the following concepts:</p>
+
+<a name="L-3c-strong-3e-Model-Context-3c--2f-strong-3e-"></a>
+<h3><strong>Model Context</strong></h3>
+
+<pre><code class="json">{
+  "session_id": "abc-123",
+  "user_id": "user-456",
+  "context": {
+    "history": [
+      { "role": "user", "content": "Generate a project plan." },
+      { "role": "assistant", "content": "Sure, here's a draft..." }
+    ],
+    "task": "project_planning",
+    "dependencies": ["retrieval_plugin", "summarizer_model"]
+  }
+}
+</code></pre>
+
+<a name="L-3c-strong-3e-Model-Invocation-with-Context-3c--2f-strong-3e-"></a>
+<h3><strong>Model Invocation with Context</strong></h3>
+
+<pre><code class="json">{
+  "model": "gpt-4",
+  "input": "What are the next steps?",
+  "context_ref": "abc-123",
+  "metadata": {
+    "requested_capability": "planning.summarize"
+  }
+}
+</code></pre>
+
+<a name="L-3c-strong-3e-Chained-Outputs-and-Shared-State-3c--2f-strong-3e-"></a>
+<h3><strong>Chained Outputs and Shared State</strong></h3>
+
+<p>Each model contributes to a shared state, stored either in an in-memory store (like Redis) or a structured store (like Postgres + pgvector for embeddings).</p>
+
+<a name="Building-a-Basic-MCP-Server"></a>
+<h2>Building a Basic MCP Server</h2>
+
+<p>Let’s outline what a minimal MCP-compatible server might look like using <strong>FastAPI</strong> and <strong>Redis</strong>.</p>
+
+<a name="Basic-Server-with-Context-Store"></a>
+<h3>Basic Server with Context Store</h3>
+
+<pre><code class="python">from fastapi import FastAPI, Request
+import redis
+import uuid
+import json
+
+app = FastAPI()
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+@app.post("/invoke")
+async def invoke_model(request: Request):
+    payload = await request.json()
+    context_ref = payload.get("context_ref")
+    input_text = payload["input"]
+    model = payload["model"]
+
+    # Load context
+    context = json.loads(r.get(context_ref)) if context_ref else {}
+    history = context.get("history", [])
+
+    # Simulate model response
+    history.append({"role": "user", "content": input_text})
+    response = f"Simulated response to: {input_text}"
+    history.append({"role": "assistant", "content": response})
+
+    # Save updated context
+    new_context_ref = context_ref or str(uuid.uuid4())
+    r.set(new_context_ref, json.dumps({"history": history}))
+
+    return {"output": response, "context_ref": new_context_ref}
+</code></pre>
+
+<a name="Add-Capability-Metadata"></a>
+<h3>Add Capability Metadata</h3>
+
+<p>Enhance the server to log requested capabilities and dependency resolution (e.g., invoking tools or submodels).</p>
+
+<pre><code class="python">capability = payload.get("metadata", {}).get("requested_capability")
+log_event(user_id, session_id, model, capability)
+</code></pre>
+
+<hr />
+
+<a name="MCP-vs-Alternatives"></a>
+<h2>MCP vs Alternatives</h2>
+
+<p>MCP aims to serve as the <strong>underlying protocol</strong>, while frameworks like LangChain act as <strong>developer tooling on top</strong>.</p>
+
+<style>
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+  }
+  .comparison-table th,
+  .comparison-table td {
+    text-align: center;
+    padding: 12px;
+    border-bottom: 1px solid #ccc;
+    width: 20%;
+  }
+  .comparison-table th {
+    background-color: #f2f2f2;
+  }
+</style>
+
+
+
+
+<table class="comparison-table">
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>MCP</th>
+      <th>LangChain</th>
+      <th>Semantic Kernel</th>
+      <th>ChatML (OpenAI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Context Persistence</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>Partial</td>
+    </tr>
+    <tr>
+      <td>Model-Agnostic</td>
+      <td>✅</td>
+      <td>❌<br><small>(Python-specific)</small></td>
+      <td>✅</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td>Stateful Memory</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>Partial</td>
+    </tr>
+    <tr>
+      <td>Chaining Support</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td>Explicit Protocol</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>✅<br><small>(format only)</small></td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="Adoption-and-Ecosystem-Signals"></a>
+<h2>Adoption and Ecosystem Signals</h2>
+
+<ul>
+<li><strong>LangChain and LlamaIndex</strong>: Moving towards standardizing memory interfaces with composable context.</li>
+<li><strong>OpenAI’s Assistant API</strong>: Explicitly supports persistent threads, similar to MCP session_id and shared memory.</li>
+<li><strong>Anthropic&rsquo;s Memory Plans</strong>: Incorporates long-term memory slots, resembling MCP’s context model.</li>
+<li><strong>Meta’s Multi-Agent Research (2024)</strong>: Proposes architectures that are context-routing centric — aligning with MCP’s goals.</li>
+</ul>
+
+
+<a name="Challenges-and-Future-Directions"></a>
+<h2>Challenges and Future Directions</h2>
+
+<a name="Technical-Challenges"></a>
+<h3>Technical Challenges</h3>
+
+<ul>
+<li>Efficient context storage and retrieval at scale.</li>
+<li>Dynamic resolution of capabilities and tool invocation.</li>
+<li>Real-time chaining with latency constraints.</li>
+</ul>
+
+
+<a name="What-e2--80--99-s-Next-3f-"></a>
+<h3>What’s Next?</h3>
+
+<ul>
+<li><strong>Open spec for MCP</strong>: Standardization akin to OpenAPI or GraphQL.</li>
+<li><strong>Plugin Interop</strong>: Tool APIs that conform to context-aware interfaces.</li>
+<li><strong>LLMOps Integration</strong>: Tracking usage, debugging flows, and observability in agentic systems.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>The <strong>Model Context Protocol</strong> is a foundational building block for the next wave of <strong>AI-native applications</strong>. It abstracts and manages the complexity of context, model chaining, and agent collaboration — enabling AI systems that behave less like stateless endpoints and more like intelligent software agents.</p>
+
+<p>As the AI ecosystem matures, MCP (whether explicitly named or not) will become central to orchestrating rich, multi-turn, multi-model AI systems.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[High-Flyer: Pioneering AI in Finance]]></title>

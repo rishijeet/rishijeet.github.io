@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-03-30T20:34:24+05:30</updated>
+    <updated>2025-04-10T10:05:30+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,355 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Model Context Protocol (MCP): The Backbone of Dynamic AI Workflows]]></title>
+        <link href="https://rishijeet.github.io/blog/model-context-protocol-mcp-the-backbone-of-dynamic-ai-workflows/"/>
+        <updated>2025-04-08T23:14:14+05:30</updated>
+        <id>https://rishijeet.github.io/blog/model-context-protocol-mcp-the-backbone-of-dynamic-ai-workflows</id>
+        <content type="html"><![CDATA[<p>As the AI landscape rapidly evolves, the demand for systems that support <strong>modular</strong>, <strong>context-aware</strong>, and <strong>efficient orchestration</strong> of models has grown. Enter the <strong>Model Context Protocol (MCP)</strong> — a rising standard that enables dynamic, multi-agent AI systems to exchange context, manage state, and chain model invocations intelligently.</p>
+
+<p>In this article, we’ll explore what MCP is, why it matters, and how it’s becoming a key component in the infrastructure stack for advanced AI applications. We’ll also walk through a conceptual example of building an MCP-compatible server.</p>
+
+<a name="What-is-the-Model-Context-Protocol--28-MCP-29--3f-"></a>
+<h2>What is the Model Context Protocol (MCP)?</h2>
+
+<p><strong>MCP</strong> is a protocol designed to manage the <strong>contextual state</strong> of AI models across requests in multi-agent, multi-model environments. It’s part of a broader effort to make LLMs (Large Language Models) more <strong>stateful</strong>, <strong>collaborative</strong>, and <strong>task-aware</strong>.</p>
+
+<p>At its core, MCP provides:</p>
+
+<ul>
+<li>A way to <strong>pass and maintain context</strong> (like conversation history, task progress, or shared knowledge) across AI agents or model calls.</li>
+<li>A standardized protocol to support <strong>chained inference</strong>, where multiple models collaborate on subtasks.</li>
+<li>Support for <strong>stateful computation</strong>, which is critical in complex reasoning or long-running workflows.</li>
+</ul>
+
+
+<p><img src="https://rishijeet.github.io/images/2025/mcp_server" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<!--more-->
+
+
+<a name="Why-is-MCP-Relevant-Now-3f-"></a>
+<h2>Why is MCP Relevant Now?</h2>
+
+<p>The growing interest in <strong>AI agents</strong>, <strong>function-calling APIs</strong>, and <strong>model interoperability</strong> has created a pressing need for something like MCP. Some trends driving MCP adoption include:</p>
+
+<style>
+  .trend-impact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+  }
+  .trend-impact-table th,
+  .trend-impact-table td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #ccc;
+    vertical-align: top;
+  }
+  .trend-impact-table th {
+    background-color: #f2f2f2;
+    width: 25%;
+  }
+</style>
+
+
+
+
+<table class="trend-impact-table">
+  <thead>
+    <tr>
+      <th>Trend</th>
+      <th>Impact</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Agentic Workflows</td>
+      <td>Models need shared context to collaborate efficiently (e.g., ReAct, AutoGPT, BabyAGI).</td>
+    </tr>
+    <tr>
+      <td>LLM Orchestration Frameworks</td>
+      <td>Tools like LangChain, Semantic Kernel, and OpenDevin push for context-aware memory and model chaining.</td>
+    </tr>
+    <tr>
+      <td>Open Model Ecosystems</td>
+      <td>Efforts like Hugging Face&#8217;s Inference Endpoints, vLLM, and Modal want to standardize inference behavior.</td>
+    </tr>
+    <tr>
+      <td>Retrieval-Augmented Generation (RAG)</td>
+      <td>Persistent context and metadata handling are vital for grounded reasoning.</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<p>Leading companies like <strong>OpenAI (via ChatGPT APIs)</strong>, <strong>Anthropic (via Claude’s memory)</strong>, and <strong>Mistral</strong> are integrating ideas from MCP implicitly, if not through standardized APIs.</p>
+
+<a name="Core-Concepts-of-MCP"></a>
+<h2>Core Concepts of MCP</h2>
+
+<p>An MCP server typically supports the following concepts:</p>
+
+<a name="L-3c-strong-3e-Model-Context-3c--2f-strong-3e-"></a>
+<h3><strong>Model Context</strong></h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="nt">&quot;session_id&quot;</span><span class="p">:</span> <span class="s2">&quot;abc-123&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;user-456&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;context&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nt">&quot;history&quot;</span><span class="p">:</span> <span class="p">[</span>
+</span><span class='line'>      <span class="p">{</span> <span class="nt">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="nt">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Generate a project plan.&quot;</span> <span class="p">},</span>
+</span><span class='line'>      <span class="p">{</span> <span class="nt">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span> <span class="nt">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Sure, here&#39;s a draft...&quot;</span> <span class="p">}</span>
+</span><span class='line'>    <span class="p">],</span>
+</span><span class='line'>    <span class="nt">&quot;task&quot;</span><span class="p">:</span> <span class="s2">&quot;project_planning&quot;</span><span class="p">,</span>
+</span><span class='line'>    <span class="nt">&quot;dependencies&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;retrieval_plugin&quot;</span><span class="p">,</span> <span class="s2">&quot;summarizer_model&quot;</span><span class="p">]</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Model-Invocation-with-Context-3c--2f-strong-3e-"></a>
+<h3><strong>Model Invocation with Context</strong></h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="nt">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;input&quot;</span><span class="p">:</span> <span class="s2">&quot;What are the next steps?&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;context_ref&quot;</span><span class="p">:</span> <span class="s2">&quot;abc-123&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nt">&quot;requested_capability&quot;</span><span class="p">:</span> <span class="s2">&quot;planning.summarize&quot;</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="L-3c-strong-3e-Chained-Outputs-and-Shared-State-3c--2f-strong-3e-"></a>
+<h3><strong>Chained Outputs and Shared State</strong></h3>
+
+<p>Each model contributes to a shared state, stored either in an in-memory store (like Redis) or a structured store (like Postgres + pgvector for embeddings).</p>
+
+<a name="Building-a-Basic-MCP-Server"></a>
+<h2>Building a Basic MCP Server</h2>
+
+<p>Let’s outline what a minimal MCP-compatible server might look like using <strong>FastAPI</strong> and <strong>Redis</strong>.</p>
+
+<a name="Basic-Server-with-Context-Store"></a>
+<h3>Basic Server with Context Store</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">Request</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">redis</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">uuid</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">json</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+</span><span class='line'><span class="n">r</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s">&#39;localhost&#39;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">6379</span><span class="p">,</span> <span class="n">decode_responses</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@app.post</span><span class="p">(</span><span class="s">&quot;/invoke&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">async</span> <span class="k">def</span> <span class="nf">invoke_model</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">payload</span> <span class="o">=</span> <span class="n">await</span> <span class="n">request</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+</span><span class='line'>    <span class="n">context_ref</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;context_ref&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">input_text</span> <span class="o">=</span> <span class="n">payload</span><span class="p">[</span><span class="s">&quot;input&quot;</span><span class="p">]</span>
+</span><span class='line'>    <span class="n">model</span> <span class="o">=</span> <span class="n">payload</span><span class="p">[</span><span class="s">&quot;model&quot;</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Load context</span>
+</span><span class='line'>    <span class="n">context</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">context_ref</span><span class="p">))</span> <span class="k">if</span> <span class="n">context_ref</span> <span class="k">else</span> <span class="p">{}</span>
+</span><span class='line'>    <span class="n">history</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;history&quot;</span><span class="p">,</span> <span class="p">[])</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Simulate model response</span>
+</span><span class='line'>    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s">&quot;role&quot;</span><span class="p">:</span> <span class="s">&quot;user&quot;</span><span class="p">,</span> <span class="s">&quot;content&quot;</span><span class="p">:</span> <span class="n">input_text</span><span class="p">})</span>
+</span><span class='line'>    <span class="n">response</span> <span class="o">=</span> <span class="n">f</span><span class="s">&quot;Simulated response to: {input_text}&quot;</span>
+</span><span class='line'>    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s">&quot;role&quot;</span><span class="p">:</span> <span class="s">&quot;assistant&quot;</span><span class="p">,</span> <span class="s">&quot;content&quot;</span><span class="p">:</span> <span class="n">response</span><span class="p">})</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Save updated context</span>
+</span><span class='line'>    <span class="n">new_context_ref</span> <span class="o">=</span> <span class="n">context_ref</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">())</span>
+</span><span class='line'>    <span class="n">r</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">new_context_ref</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s">&quot;history&quot;</span><span class="p">:</span> <span class="n">history</span><span class="p">}))</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="p">{</span><span class="s">&quot;output&quot;</span><span class="p">:</span> <span class="n">response</span><span class="p">,</span> <span class="s">&quot;context_ref&quot;</span><span class="p">:</span> <span class="n">new_context_ref</span><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<a name="Add-Capability-Metadata"></a>
+<h3>Add Capability Metadata</h3>
+
+<p>Enhance the server to log requested capabilities and dependency resolution (e.g., invoking tools or submodels).</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">capability</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;requested_capability&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">log_event</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">session_id</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">capability</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<hr />
+
+<a name="MCP-vs-Alternatives"></a>
+<h2>MCP vs Alternatives</h2>
+
+<p>MCP aims to serve as the <strong>underlying protocol</strong>, while frameworks like LangChain act as <strong>developer tooling on top</strong>.</p>
+
+<style>
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+  }
+  .comparison-table th,
+  .comparison-table td {
+    text-align: center;
+    padding: 12px;
+    border-bottom: 1px solid #ccc;
+    width: 20%;
+  }
+  .comparison-table th {
+    background-color: #f2f2f2;
+  }
+</style>
+
+
+
+
+<table class="comparison-table">
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>MCP</th>
+      <th>LangChain</th>
+      <th>Semantic Kernel</th>
+      <th>ChatML (OpenAI)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Context Persistence</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>Partial</td>
+    </tr>
+    <tr>
+      <td>Model-Agnostic</td>
+      <td>✅</td>
+      <td>❌<br><small>(Python-specific)</small></td>
+      <td>✅</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td>Stateful Memory</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>Partial</td>
+    </tr>
+    <tr>
+      <td>Chaining Support</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td>Explicit Protocol</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>✅<br><small>(format only)</small></td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="Adoption-and-Ecosystem-Signals"></a>
+<h2>Adoption and Ecosystem Signals</h2>
+
+<ul>
+<li><strong>LangChain and LlamaIndex</strong>: Moving towards standardizing memory interfaces with composable context.</li>
+<li><strong>OpenAI’s Assistant API</strong>: Explicitly supports persistent threads, similar to MCP session_id and shared memory.</li>
+<li><strong>Anthropic&rsquo;s Memory Plans</strong>: Incorporates long-term memory slots, resembling MCP’s context model.</li>
+<li><strong>Meta’s Multi-Agent Research (2024)</strong>: Proposes architectures that are context-routing centric — aligning with MCP’s goals.</li>
+</ul>
+
+
+<a name="Challenges-and-Future-Directions"></a>
+<h2>Challenges and Future Directions</h2>
+
+<a name="Technical-Challenges"></a>
+<h3>Technical Challenges</h3>
+
+<ul>
+<li>Efficient context storage and retrieval at scale.</li>
+<li>Dynamic resolution of capabilities and tool invocation.</li>
+<li>Real-time chaining with latency constraints.</li>
+</ul>
+
+
+<a name="What-e2--80--99-s-Next-3f-"></a>
+<h3>What’s Next?</h3>
+
+<ul>
+<li><strong>Open spec for MCP</strong>: Standardization akin to OpenAPI or GraphQL.</li>
+<li><strong>Plugin Interop</strong>: Tool APIs that conform to context-aware interfaces.</li>
+<li><strong>LLMOps Integration</strong>: Tracking usage, debugging flows, and observability in agentic systems.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>The <strong>Model Context Protocol</strong> is a foundational building block for the next wave of <strong>AI-native applications</strong>. It abstracts and manages the complexity of context, model chaining, and agent collaboration — enabling AI systems that behave less like stateless endpoints and more like intelligent software agents.</p>
+
+<p>As the AI ecosystem matures, MCP (whether explicitly named or not) will become central to orchestrating rich, multi-turn, multi-model AI systems.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[High-Flyer: Pioneering AI in Finance]]></title>
@@ -3826,175 +4175,6 @@ a wealth of community knowledge, tutorials, and research papers centered around 
 <p>GPUs are indispensable for training and fine-tuning Large Language Models due to their parallel processing capabilities, high throughput, and optimized performance for deep learning tasks. Selecting the right GPU involves balancing performance needs, budget constraints, and scalability requirements. High-end GPUs like the NVIDIA A100 and V100 are ideal for large-scale training, while more affordable options like the T4 and RTX 3090 are suitable for smaller tasks and inference.</p>
 
 <p>By understanding the different types of GPUs and their costs, you can make informed decisions that align with your LLM project goals, ensuring efficient and cost-effective model development and deployment.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Understanding Types of Large Language Models (LLMs)]]></title>
-        <link href="https://rishijeet.github.io/blog/understanding-types-of-large-language-models-llms/"/>
-        <updated>2024-07-03T10:13:27+05:30</updated>
-        <id>https://rishijeet.github.io/blog/understanding-types-of-large-language-models-llms</id>
-        <content type="html"><![CDATA[<p>Large Language Models (LLMs) have revolutionized the field of natural language processing (NLP) with their ability to understand, generate, and interact with human language. These models are built using deep learning techniques and have been trained on vast amounts of text data. In this blog, we will explore the different types of LLMs, their architectures, and their applications.</p>
-
-<a name="L-3c-strong-3e-Generative-Pre-2d-trained-Transformers--28-GPT-29--3c--2f-strong-3e-"></a>
-<h3><strong>Generative Pre-trained Transformers (GPT)</strong></h3>
-
-<a name="Overview"></a>
-<h4>Overview</h4>
-
-<p>GPT models, developed by OpenAI, are among the most popular LLMs. They use a transformer-based architecture and are designed to generate human-like text. The models are pre-trained on a large corpus of text and then fine-tuned for specific tasks.</p>
-
-<p><img src="https://rishijeet.github.io/images/2024/gpt.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Key-Features"></a>
-<h4>Key Features</h4>
-
-<ul>
-<li><strong>Transformer Architecture:</strong> Utilizes self-attention mechanisms to process input text efficiently.</li>
-<li><strong>Pre-training and Fine-tuning:</strong> Initially pre-trained on diverse text data and then fine-tuned for specific tasks like language translation, summarization, and question answering.</li>
-<li><strong>Generative Capabilities:</strong> Can generate coherent and contextually relevant text based on a given prompt.</li>
-</ul>
-
-
-<!--more-->
-
-
-<a name="Applications"></a>
-<h4>Applications</h4>
-
-<ul>
-<li>Chatbots and virtual assistants</li>
-<li>Text completion and generation</li>
-<li>Content creation</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Bidirectional-Encoder-Representations-from-Transformers--28-BERT-29--3c--2f-strong-3e-"></a>
-<h3><strong>Bidirectional Encoder Representations from Transformers (BERT)</strong></h3>
-
-<a name="Overview"></a>
-<h4>Overview</h4>
-
-<p>BERT, developed by Google, is designed for understanding the context of words in a sentence. Unlike GPT, which generates text, BERT excels at tasks requiring a deep understanding of text, such as question answering and sentiment analysis.</p>
-
-<p><img src="https://rishijeet.github.io/images/2024/bert.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Key-Features"></a>
-<h4>Key Features</h4>
-
-<ul>
-<li><strong>Bidirectional Training:</strong> BERT reads text in both directions (left-to-right and right-to-left) to capture context more effectively.</li>
-<li><strong>Masked Language Modeling (MLM):</strong> Trained by predicting masked words in a sentence, enabling it to understand the context of each word.</li>
-<li><strong>Next Sentence Prediction (NSP):</strong> Helps the model understand the relationship between sentences.</li>
-</ul>
-
-
-<a name="Applications"></a>
-<h4>Applications</h4>
-
-<ul>
-<li>Question answering systems</li>
-<li>Sentiment analysis</li>
-<li>Text classification</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-T5--28-Text-2d-to-2d-Text-Transfer-Transformer-29--3c--2f-strong-3e-"></a>
-<h3><strong>T5 (Text-to-Text Transfer Transformer)</strong></h3>
-
-<a name="Overview"></a>
-<h4>Overview</h4>
-
-<p>T5, also developed by Google, treats every NLP task as a text-to-text problem. This means both the input and the output are text strings, making it highly versatile for various tasks.</p>
-
-<p><img src="https://rishijeet.github.io/images/2024/t5.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Key-Features"></a>
-<h4>Key Features</h4>
-
-<ul>
-<li><strong>Unified Framework:</strong> Simplifies the model by converting all tasks into a text-to-text format.</li>
-<li><strong>Pre-training on Diverse Tasks:</strong> Pre-trained on a mixture of unsupervised and supervised tasks, enabling it to generalize well.</li>
-<li><strong>Flexibility:</strong> Can be fine-tuned for a wide range of tasks such as translation, summarization, and classification.</li>
-</ul>
-
-
-<a name="Applications"></a>
-<h4>Applications</h4>
-
-<ul>
-<li>Machine translation</li>
-<li>Text summarization</li>
-<li>Sentence paraphrasing</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-XLNet-3c--2f-strong-3e-"></a>
-<h3><strong>XLNet</strong></h3>
-
-<a name="Overview"></a>
-<h4>Overview</h4>
-
-<p>XLNet, developed by Google and Carnegie Mellon University, aims to improve upon BERT by addressing its limitations. It uses a permutation-based training method to capture bidirectional context without masking.</p>
-
-<p><img src="https://rishijeet.github.io/images/2024/xlnet.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Key-Features"></a>
-<h4>Key Features</h4>
-
-<ul>
-<li><strong>Permutation Language Modeling:</strong> Instead of masking, XLNet predicts all tokens in a sentence in random order, preserving context for each word.</li>
-<li><strong>Autoregressive Method:</strong> Combines the strengths of autoregressive models (like GPT) with bidirectional context.</li>
-<li><strong>Improved Performance:</strong> Outperforms BERT on several NLP benchmarks.</li>
-</ul>
-
-
-<a name="Applications"></a>
-<h4>Applications</h4>
-
-<ul>
-<li>Reading comprehension</li>
-<li>Text classification</li>
-<li>Sentence completion</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Robustly-Optimized-BERT-Pretraining-Approach--28-RoBERTa-29--3c--2f-strong-3e-"></a>
-<h3><strong>Robustly Optimized BERT Pretraining Approach (RoBERTa)</strong></h3>
-
-<a name="Overview"></a>
-<h4>Overview</h4>
-
-<p>RoBERTa, developed by Facebook AI, is an optimized version of BERT. It focuses on improving BERT&rsquo;s performance by making changes to the training procedure.</p>
-
-<p><img src="https://rishijeet.github.io/images/2024/roberta.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Key-Features"></a>
-<h4>Key Features</h4>
-
-<ul>
-<li><strong>Larger Training Data:</strong> Trained on more data and for longer periods compared to BERT.</li>
-<li><strong>Dynamic Masking:</strong> Uses a different masking pattern for each epoch during training.</li>
-<li><strong>No NSP Task:</strong> Removes the next sentence prediction task, focusing solely on masked language modeling.</li>
-</ul>
-
-
-<a name="Applications"></a>
-<h4>Applications</h4>
-
-<ul>
-<li>Sentiment analysis</li>
-<li>Named entity recognition</li>
-<li>Text classification</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h3>Conclusion</h3>
-
-<p>Large Language Models have significantly advanced the field of NLP, offering powerful tools for understanding and generating human language. Each type of LLM has its strengths and is suited for different applications. As these models continue to evolve, they promise to unlock new possibilities in various domains, from enhancing virtual assistants to enabling more sophisticated language understanding systems.</p>
-
-<p>Understanding the differences between these models helps in selecting the right tool for specific tasks and leveraging their full potential. Whether it&rsquo;s the generative prowess of GPT, the contextual understanding of BERT, or the versatility of T5, LLMs are reshaping how we interact with and utilize language in the digital age.</p>
 ]]></content>
     </entry>
     
