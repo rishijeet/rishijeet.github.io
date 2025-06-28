@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-06-15T21:02:23+05:30</updated>
+    <updated>2025-06-28T09:31:31+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,422 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[From Text to Tokens: The Complete Guide to Tokenization in LLMs]]></title>
+        <link href="https://rishijeet.github.io/blog/from-text-to-tokens-the-complete-guide-to-tokenization-in-llms/"/>
+        <updated>2025-06-28T08:55:51+05:30</updated>
+        <id>https://rishijeet.github.io/blog/from-text-to-tokens-the-complete-guide-to-tokenization-in-llms</id>
+        <content type="html"><![CDATA[<p>In the ever-evolving field of artificial intelligence, large language models (LLMs) like GPT-4, Claude, Gemini, and LLaMA have reshaped how machines understand and generate human language. Behind the impressive capabilities of these models lies a deceptively simple but foundational step: <strong>tokenization</strong>.</p>
+
+<p>In this blog, we will dive deep into the concept of tokenization, understand its types, why it&rsquo;s needed, the challenges it solves, how it works under the hood, and where it’s headed in the future. This is a one-stop technical deep-dive for anyone looking to fully grasp the backbone of language understanding in LLMs.</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-What-is-Tokenization-3f--3c--2f-strong-3e-"></a>
+<h2><strong>What is Tokenization?</strong></h2>
+
+<p>At its core, tokenization is the process of converting raw text into smaller units called <strong>tokens</strong> that a language model can understand and process. These tokens can be:</p>
+
+<ul>
+<li>Characters</li>
+<li>Words</li>
+<li>Subwords</li>
+<li>Byte-pair sequences</li>
+<li>WordPieces</li>
+<li>SentencePieces</li>
+<li>Byte-level representations</li>
+</ul>
+
+
+<p>Each model has its own strategy, depending on design goals like efficiency, vocabulary size, multilingual handling, and memory constraints.</p>
+
+<!--more-->
+
+
+<p>For example, the sentence:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>"Tokenization is crucial for LLMs."</span></code></pre></td></tr></table></div></figure>
+
+
+<p>May be tokenized as:</p>
+
+<ul>
+<li>Word-level: <code>["Tokenization", "is", "crucial", "for", "LLMs", "."]</code></li>
+<li>Character-level: <code>["T", "o", "k", ..., "L", "L", "M", "s", "."]</code></li>
+<li>Subword (BPE): <code>["Token", "ization", "is", "cru", "cial", "for", "LL", "Ms", "."]</code></li>
+</ul>
+
+
+<a name="Tokens"></a>
+<h4>Tokens</h4>
+
+<p><img src="https://rishijeet.github.io/images/2025/token.png" height="300" width="900" alt="Alt text" /></p>
+
+<a name="Token-IDs"></a>
+<h4>Token IDs</h4>
+
+<p><img src="https://rishijeet.github.io/images/2025/tokenid.png" height="300" width="900" alt="Alt text" /></p>
+
+<hr />
+
+<a name="L-3c-strong-3e-Why-Tokenization-is-Needed-in-LLMs-3c--2f-strong-3e-"></a>
+<h2><strong>Why Tokenization is Needed in LLMs</strong></h2>
+
+<p>Language models operate over numbers (tensors), not raw strings. Before any neural network processes your prompt, the words must be:</p>
+
+<ol>
+<li><strong>Split into atomic units (tokens)</strong></li>
+<li><strong>Mapped to numerical IDs (vocabulary embedding)</strong></li>
+<li><strong>Fed into the model as vectors</strong></li>
+</ol>
+
+
+<p>Without tokenization:</p>
+
+<ul>
+<li>Models would struggle with infinite vocabulary.</li>
+<li>Multilingual text and compound words would explode the vocabulary.</li>
+<li>There would be no efficient way to control sequence length or positional encoding.</li>
+</ul>
+
+
+<hr />
+
+<a name="L-3c-strong-3e-Types-of-Tokenization-Strategies-3c--2f-strong-3e-"></a>
+<h2><strong>Types of Tokenization Strategies</strong></h2>
+
+<a name="L-3c-strong-3e-Word-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
+<h3><strong>Word-Level Tokenization</strong></h3>
+
+<p>Each word is a token. Simple but inefficient for:</p>
+
+<ul>
+<li>Unknown words (out-of-vocabulary issues)</li>
+<li>Morphologically rich languages</li>
+<li>Compound words</li>
+</ul>
+
+
+<p><strong>Example:</strong>
+&ldquo;unhappiness&rdquo; → 1 token → [“unhappiness”]
+If unseen during training, this is a problem.</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-Character-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
+<h3><strong>Character-Level Tokenization</strong></h3>
+
+<p>Each character is a token. Solves OOV issues but leads to longer sequences and loss of semantic granularity.</p>
+
+<p><strong>Example:</strong>
+&ldquo;unhappiness&rdquo; → [“u”, “n”, “h”, “a”, “p”, …]</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-Subword-Tokenization-3c--2f-strong-3e-"></a>
+<h3><strong>Subword Tokenization</strong></h3>
+
+<p>Breaks words into frequent subword units using statistical techniques like:</p>
+
+<ul>
+<li><strong>Byte Pair Encoding (BPE)</strong> – used by GPT-2, GPT-3</li>
+<li><strong>WordPiece</strong> – used by BERT</li>
+<li><strong>Unigram Language Model</strong> – used by SentencePiece (T5, LLaMA)</li>
+</ul>
+
+
+<p><strong>Example (BPE):</strong>
+&ldquo;unhappiness&rdquo; → [“un”, “happi”, “ness”]</p>
+
+<p><strong>Benefits:</strong></p>
+
+<ul>
+<li>Handles unknown words gracefully</li>
+<li>Reduces vocabulary size</li>
+<li>Efficient for multilingual models</li>
+</ul>
+
+
+<hr />
+
+<a name="L-3c-strong-3e-Byte-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
+<h3><strong>Byte-Level Tokenization</strong></h3>
+
+<p>Tokenizes text at the byte level, including UTF-8 encodings.</p>
+
+<p>Used by models like GPT-3.5/4 to handle raw binary inputs and emojis robustly.</p>
+
+<p><strong>Example:</strong>
+“🔥” → byte sequence → [240, 159, 148, 165]</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-SentencePiece-3c--2f-strong-3e-"></a>
+<h3><strong>SentencePiece</strong></h3>
+
+<p>A library that trains subword models using BPE or Unigram LM on raw text. Used in multilingual LLMs like T5, mT5.</p>
+
+<p>It allows training on raw text without pre-tokenization (no need for whitespace-based splitting).</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-How-Tokenization-Works:-Under-the-Hood-3c--2f-strong-3e-"></a>
+<h2><strong>How Tokenization Works: Under the Hood</strong></h2>
+
+<a name="L-3c-strong-3e-Training-a-Tokenizer-3c--2f-strong-3e-"></a>
+<h3><strong>Training a Tokenizer</strong></h3>
+
+<p>During tokenizer training, the process involves:</p>
+
+<ul>
+<li>Reading a large corpus</li>
+<li>Building frequency tables of substrings</li>
+<li>Iteratively merging the most frequent substrings</li>
+<li>Forming a vocabulary of tokens</li>
+<li>Saving a tokenizer model (vocab + merge rules)</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Encoding-3c--2f-strong-3e-"></a>
+<h3><strong>Encoding</strong></h3>
+
+<p>At inference or training:</p>
+
+<ul>
+<li>Input string → split into substrings based on learned merges</li>
+<li>Tokens → mapped to numerical IDs via the vocabulary</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">GPT2Tokenizer</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">GPT2Tokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s">&quot;gpt2&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="s">&quot;Tokenization is powerful.&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+</span><span class='line'><span class="c"># Output: [&#39;Token&#39;, &#39;ization&#39;, &#39;Ġis&#39;, &#39;Ġpowerful&#39;, &#39;.&#39;]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>Ġ</code> indicates a space in GPT-2 tokenizers.</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-Tokenization-and-Model-Limits-3c--2f-strong-3e-"></a>
+<h2><strong>Tokenization and Model Limits</strong></h2>
+
+<p>Most LLMs have a context window defined in <strong>tokens</strong>, not characters. For instance:</p>
+
+<ul>
+<li>GPT-3.5: 4,096 tokens</li>
+<li>GPT-4 (o4): 128,000 tokens</li>
+<li>Claude 3 Opus: \~200,000 tokens</li>
+</ul>
+
+
+<p>So, 1000 words of English ≈ 750 tokens.</p>
+
+<p>This is crucial for prompt design, summarization, RAG (Retrieval Augmented Generation), and efficient inference.</p>
+
+<a name="L-3c-strong-3e-Challenges-and-Trade-2d-offs-3c--2f-strong-3e-"></a>
+<h2><strong>Challenges and Trade-offs</strong></h2>
+
+<table style="width:100%; border-collapse: collapse; text-align: left; font-family: sans-serif;">
+  <thead style="background-color: #f2f2f2;">
+    <tr>
+      <th style="border: 1px solid #ddd; padding: 12px;">Challenge</th>
+      <th style="border: 1px solid #ddd; padding: 12px;">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">OOV (Out-of-Vocabulary)</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Especially for word-level tokenization</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">Token inflation</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Some languages (e.g., Chinese, Japanese) produce more tokens</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">Inconsistency</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Subword boundaries may not align with morphemes</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">Efficiency vs Accuracy</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Smaller tokens = longer sequences = more compute</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">Encoding Bias</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Tokenizers trained on certain scripts or corpora may underperform on others</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="L-3c-strong-3e-Tokenization-in-Multilingual-and-Code-Models-3c--2f-strong-3e-"></a>
+<h2><strong>Tokenization in Multilingual and Code Models</strong></h2>
+
+<a name="L-3c-strong-3e-Multilingual-Tokenization-3c--2f-strong-3e-"></a>
+<h3><strong>Multilingual Tokenization</strong></h3>
+
+<ul>
+<li>Unicode-aware models must handle multiple scripts (Latin, Devanagari, Arabic, etc.)</li>
+<li>Token inflation can disadvantage languages like Hindi and Tamil</li>
+<li>SentencePiece helps standardize across languages</li>
+</ul>
+
+
+<a name="L-3c-strong-3e-Code-Tokenization-3c--2f-strong-3e-"></a>
+<h3><strong>Code Tokenization</strong></h3>
+
+<ul>
+<li>Code models (e.g., Codex, CodeBERT) often use language-specific tokenizers</li>
+<li>Must preserve syntax, spacing, indentation, and even comments</li>
+</ul>
+
+
+<p>Example:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">say_hello</span><span class="p">():</span>
+</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Hello&quot;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>→ <code>[‘def’, ‘Ġsay’, ‘_’, ‘hello’, ‘()’, ‘:’, ‘Ġ’, ‘print’, ‘(”, ‘Hello’, ‘”)’]</code></p>
+
+<hr />
+
+<a name="L-3c-strong-3e-Compression-2c--Prompt-Engineering-2c--and-Token-Optimization-3c--2f-strong-3e-"></a>
+<h2><strong>Compression, Prompt Engineering, and Token Optimization</strong></h2>
+
+<p>Tokenization also directly affects:</p>
+
+<ul>
+<li><strong>Prompt length limits</strong> (compressed prompts → more room for data)</li>
+<li><strong>Token cost in inference/billing</strong></li>
+<li><strong>RAG performance</strong> (chunking based on tokens)</li>
+<li><strong>Training data deduplication</strong> (token-based hashing)</li>
+</ul>
+
+
+<p>Optimizing prompts for fewer tokens can reduce cost and latency.</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-Tokenization-vs.-Embeddings-3c--2f-strong-3e-"></a>
+<h2><strong>Tokenization vs. Embeddings</strong></h2>
+
+<p>It’s important to note:</p>
+
+<ul>
+<li><strong>Tokenization</strong> comes before embedding.</li>
+<li>Token → token ID → embedding vector</li>
+</ul>
+
+
+<p>A poor tokenization scheme = noisy embeddings = reduced model performance.</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-The-Future-of-Tokenization-in-LLMs-3c--2f-strong-3e-"></a>
+<h2><strong>The Future of Tokenization in LLMs</strong></h2>
+
+<a name="L-3c-strong-3e-Token-2d-Free-Models-3c--2f-strong-3e-"></a>
+<h3><strong>Token-Free Models</strong></h3>
+
+<p>Efforts like <strong>Charformer</strong> and <strong>Byte-level transformers</strong> aim to bypass static tokenization and learn from raw bytes or characters.</p>
+
+<a name="L-3c-strong-3e-Neural-Tokenization-3c--2f-strong-3e-"></a>
+<h3><strong>Neural Tokenization</strong></h3>
+
+<p>Trainable tokenizers using neural nets to learn optimal segmentation dynamically.</p>
+
+<a name="L-3c-strong-3e-Universal-Tokenizers-3c--2f-strong-3e-"></a>
+<h3><strong>Universal Tokenizers</strong></h3>
+
+<p>Tokenizers trained across modalities (text, image, code) using a common vocabulary to unify multimodal models.</p>
+
+<a name="L-3c-strong-3e-Efficient-Context-Windows-3c--2f-strong-3e-"></a>
+<h3><strong>Efficient Context Windows</strong></h3>
+
+<p>With sliding-window and compression-based methods (e.g., Mamba, Hyena), token overhead may reduce for long contexts.</p>
+
+<hr />
+
+<a name="L-3c-strong-3e-Major-LLMs-and-Their-Tokenization-3c--2f-strong-3e-"></a>
+<h2><strong>Major LLMs and Their Tokenization</strong></h2>
+
+<table style="width:100%; border-collapse: collapse; text-align: left; font-family: sans-serif;">
+  <thead style="background-color: #f2f2f2;">
+    <tr>
+      <th style="border: 1px solid #ddd; padding: 12px;">Model</th>
+      <th style="border: 1px solid #ddd; padding: 12px;">Tokenizer</th>
+      <th style="border: 1px solid #ddd; padding: 12px;">Type</th>
+      <th style="border: 1px solid #ddd; padding: 12px;">Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">GPT-3/4</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">GPT2Tokenizer</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">BPE + byte</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Handles Unicode well</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">BERT</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">WordPiece</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Subword</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Requires pre-tokenization</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">RoBERTa</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">BPE (FairSeq)</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Subword</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Custom vocabulary</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">T5</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">SentencePiece</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Unigram LM</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Whitespace-free tokenization</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">LLaMA 2/3/4</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">SentencePiece</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Unigram LM</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Supports multiple languages</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ddd; padding: 12px;">Claude</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Byte-level BPE</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Proprietary</td>
+      <td style="border: 1px solid #ddd; padding: 12px;">Handles emojis and long context</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<hr />
+
+<a name="L-3c-strong-3e-Conclusion-3c--2f-strong-3e-"></a>
+<h2><strong>Conclusion</strong></h2>
+
+<p>Tokenization may appear trivial at first glance, but it&rsquo;s the hidden workhorse powering the language capabilities of every modern LLM. From enabling multilingual understanding to compressing long documents into tight prompts, tokenization determines what the model sees, learns, and generates.</p>
+
+<p>As we step into an era of 1M+ token context windows, modality fusion, and instruction-following agents, tokenization will either evolve or be replaced by more fluid, learned representations.</p>
+
+<p>But for now—and the foreseeable future—it remains a vital piece of the LLM puzzle.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Electric Illusion: The Rise and Fall of BluSmart]]></title>
@@ -4046,311 +4462,6 @@ printed immediately.</p>
 <h3>Conclusion</h3>
 
 <p>Micronaut represents a significant advancement in JVM-based frameworks, offering compile-time dependency injection, minimal reflection, built-in cloud-native support, and a small memory footprint. Its modern architecture and advanced mechanisms make it particularly suited for microservices and cloud-native applications. By leveraging Micronaut, developers can build high-performance, scalable, and maintainable applications that take full advantage of modern computing environments.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Introduction to GraalVM]]></title>
-        <link href="https://rishijeet.github.io/blog/introduction-to-graalvm/"/>
-        <updated>2024-08-01T23:11:16+05:30</updated>
-        <id>https://rishijeet.github.io/blog/introduction-to-graalvm</id>
-        <content type="html"><![CDATA[<p>GraalVM is a high-performance runtime that provides significant improvements in application performance and efficiency. It is designed to execute applications written in Java, JavaScript, LLVM-based languages such as C and C++, and other dynamic languages. What sets GraalVM apart from traditional JVMs is its advanced Just-In-Time (JIT) compiler and its ability to perform ahead-of-time (AOT) compilation, which can yield impressive performance gains.</p>
-
-<p><img src="https://rishijeet.github.io/images/2024/graalvm.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Why-is-GraalVM-Fast-3f-"></a>
-<h3>Why is GraalVM Fast?</h3>
-
-<p>GraalVM&rsquo;s performance advantage stems from several advanced mechanisms:</p>
-
-<ul>
-<li><p><strong>High-Performance JIT Compiler</strong>:</p>
-
-<ul>
-<li>GraalVM includes a highly optimized JIT compiler written in Java. The compiler uses advanced optimization techniques such as inlining, escape analysis, and speculative optimizations to produce highly optimized machine code.</li>
-</ul>
-</li>
-<li><p><strong>Ahead-of-Time (AOT) Compilation</strong>:</p>
-
-<ul>
-<li>GraalVM&rsquo;s Native Image feature allows applications to be compiled ahead of time into standalone executables. This reduces startup time and memory footprint, as the runtime does not need to load and interpret bytecode at startup.</li>
-</ul>
-</li>
-<li><p><strong>Polyglot Capabilities</strong>:</p>
-
-<ul>
-<li>GraalVM can run code from multiple languages (e.g., JavaScript, Ruby, R, Python) in the same runtime without the need for foreign function interfaces. This reduces the overhead associated with context switching and data marshalling between languages.</li>
-</ul>
-</li>
-</ul>
-
-
-<!--more-->
-
-
-<ul>
-<li><p><strong>Truffle Framework</strong>:</p>
-
-<ul>
-<li>GraalVM includes the Truffle framework, which enables the implementation of interpreters for various languages that can be optimized at runtime. Truffle allows for deep language-specific optimizations and efficient inter-language calls.</li>
-</ul>
-</li>
-<li><p><strong>Partial Escape Analysis</strong>:</p>
-
-<ul>
-<li>GraalVM uses partial escape analysis to eliminate unnecessary object allocations and reduce garbage collection overhead. This technique determines whether objects can be safely allocated on the stack instead of the heap.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="Code-Example:-Java-Performance-with-GraalVM"></a>
-<h3>Code Example: Java Performance with GraalVM</h3>
-
-<p>Let&rsquo;s compare the performance of a simple Java application running on the standard JVM versus GraalVM.</p>
-
-<a name="Example-Code:-Fibonacci-Calculation"></a>
-<h4>Example Code: Fibonacci Calculation</h4>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Fibonacci</span> <span class="o">{</span>
-</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">40</span><span class="o">;</span>
-</span><span class='line'>        <span class="kt">long</span> <span class="n">startTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">nanoTime</span><span class="o">();</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">result</span> <span class="o">=</span> <span class="n">fib</span><span class="o">(</span><span class="n">n</span><span class="o">);</span>
-</span><span class='line'>        <span class="kt">long</span> <span class="n">endTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">nanoTime</span><span class="o">();</span>
-</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Fibonacci number at position &quot;</span> <span class="o">+</span> <span class="n">n</span> <span class="o">+</span> <span class="s">&quot; is &quot;</span> <span class="o">+</span> <span class="n">result</span><span class="o">);</span>
-</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Execution time: &quot;</span> <span class="o">+</span> <span class="o">(</span><span class="n">endTime</span> <span class="o">-</span> <span class="n">startTime</span><span class="o">)</span> <span class="o">/</span> <span class="mi">1_000_000</span> <span class="o">+</span> <span class="s">&quot; ms&quot;</span><span class="o">);</span>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">fib</span><span class="o">(</span><span class="kt">int</span> <span class="n">n</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="o">)</span> <span class="k">return</span> <span class="n">n</span><span class="o">;</span>
-</span><span class='line'>        <span class="k">return</span> <span class="nf">fib</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="n">fib</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="o">);</span>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<a name="Benchmarking-with-Standard-JVM"></a>
-<h4>Benchmarking with Standard JVM</h4>
-
-<p>Compile and run the application using the standard JVM:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>javac Fibonacci.java
-</span><span class='line'>java Fibonacci
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Output:</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
-</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">750</span> ms
-</span></code></pre></td></tr></table></div></figure>
-
-
-<a name="Benchmarking-with-GraalVM"></a>
-<h4>Benchmarking with GraalVM</h4>
-
-<p>Compile and run the application using GraalVM:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Compile using GraalVM</span>
-</span><span class='line'>javac Fibonacci.java
-</span><span class='line'>
-</span><span class='line'><span class="c"># Run with GraalVM</span>
-</span><span class='line'>java -XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler Fibonacci
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Output:</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
-</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">550</span> ms
-</span></code></pre></td></tr></table></div></figure>
-
-
-<a name="Native-Image-Compilation-with-GraalVM"></a>
-<h3>Native Image Compilation with GraalVM</h3>
-
-<p>For even faster startup time and reduced memory usage, compile the application to a native image:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Install Native Image tool</span>
-</span><span class='line'>gu install native-image
-</span><span class='line'>
-</span><span class='line'><span class="c"># Compile to native image</span>
-</span><span class='line'>native-image --no-fallback -o fibonacci Fibonacci
-</span><span class='line'>
-</span><span class='line'><span class="c"># Run the native image</span>
-</span><span class='line'>./fibonacci
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Output:</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>Fibonacci number at position <span class="m">40</span> is 102334155
-</span><span class='line'>Execution <span class="nb">time</span>: <span class="m">20</span> ms
-</span></code></pre></td></tr></table></div></figure>
-
-
-<a name="Detailed-Metrics"></a>
-<h3>Detailed Metrics</h3>
-
-<p>To get precise metrics, multiple runs and averaging can provide more accurate results. Here’s a more structured approach to measuring performance:</p>
-
-<a name="L1.-Execution-Time"></a>
-<h4>1. Execution Time</h4>
-
-<p>Run each setup multiple times (e.g., 10 times) and take the average execution time.</p>
-
-<a name="L2.-Memory-Usage"></a>
-<h4>2. Memory Usage</h4>
-
-<p>Use profiling tools like <code>jvisualvm</code> for JVMs and <code>time</code> or <code>top</code> for native images to measure memory usage.</p>
-
-<a name="Example-Script-for-Multiple-Runs"></a>
-<h3>Example Script for Multiple Runs</h3>
-
-<p>Here is a simple shell script to automate multiple runs and average the execution time:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c">#!/bin/bash</span>
-</span><span class='line'>
-</span><span class='line'><span class="nv">runs</span><span class="o">=</span>10
-</span><span class='line'><span class="nv">total_time</span><span class="o">=</span>0
-</span><span class='line'>
-</span><span class='line'><span class="k">for</span> <span class="o">((</span><span class="nv">i</span><span class="o">=</span>1<span class="p">;</span> i&lt;<span class="o">=</span>runs<span class="p">;</span> i++<span class="o">))</span>
-</span><span class='line'><span class="k">do</span>
-</span><span class='line'>  <span class="nv">start_time</span><span class="o">=</span><span class="k">$(</span>date +%s%N <span class="p">|</span> cut -b1-13<span class="k">)</span>
-</span><span class='line'>  java Fibonacci &gt; /dev/null
-</span><span class='line'>  <span class="nv">end_time</span><span class="o">=</span><span class="k">$(</span>date +%s%N <span class="p">|</span> cut -b1-13<span class="k">)</span>
-</span><span class='line'>  <span class="nv">exec_time</span><span class="o">=</span><span class="k">$((</span>end_time <span class="o">-</span> start_time<span class="k">))</span>
-</span><span class='line'>  <span class="nv">total_time</span><span class="o">=</span><span class="k">$((</span>total_time <span class="o">+</span> exec_time<span class="k">))</span>
-</span><span class='line'>  <span class="nb">echo</span> <span class="s2">&quot;Run $i: $exec_time ms&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span><span class='line'>
-</span><span class='line'><span class="nv">avg_time</span><span class="o">=</span><span class="k">$((</span>total_time <span class="o">/</span> runs<span class="k">))</span>
-</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Average execution time: $avg_time ms&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Benchmark Summary</strong>:</p>
-
-<table>
-<thead>
-<tr>
-<th> Environment            </th>
-<th> Average Execution Time (ms) </th>
-<th> Memory Usage (MB) </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> OpenJDK (HotSpot)      </td>
-<td> 750                         </td>
-<td> 120               </td>
-</tr>
-<tr>
-<td> GraalVM JIT            </td>
-<td> 550                         </td>
-<td> 110               </td>
-</tr>
-<tr>
-<td> GraalVM Native Image   </td>
-<td> 20                          </td>
-<td> 50                </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/>
-<strong>Takeaways</strong>:</p>
-
-<ul>
-<li><strong>GraalVM JIT</strong>: Offers noticeable performance improvements over the standard JVM due to advanced JIT compilation techniques.</li>
-<li><strong>GraalVM Native Image</strong>: Provides exceptional startup times and reduced memory usage by precompiling the application to a native executable.</li>
-</ul>
-
-
-<a name="Advanced-Mechanics-of-GraalVM"></a>
-<h3>Advanced Mechanics of GraalVM</h3>
-
-<a name="Just-2d-In-2d-Time-Compilation"></a>
-<h4>Just-In-Time Compilation</h4>
-
-<p>GraalVM&rsquo;s JIT compiler optimizes code dynamically at runtime. It performs speculative optimizations based on the current execution context and profile data. For example, if a method is frequently called with a certain set of argument types, the JIT compiler can optimize that method specifically for those types.</p>
-
-<a name="Ahead-2d-of-2d-Time-Compilation"></a>
-<h4>Ahead-of-Time Compilation</h4>
-
-<p>The Native Image tool performs AOT compilation, which translates bytecode into machine code before execution. This eliminates the need for JIT compilation at runtime, leading to faster startup times and lower memory usage. AOT-compiled binaries include only the necessary parts of the runtime and application code, resulting in smaller and more efficient executables.</p>
-
-<a name="Truffle-Framework"></a>
-<h4>Truffle Framework</h4>
-
-<p>The Truffle framework allows for the creation of highly optimized language runtimes. Languages implemented on Truffle can be executed with GraalVM&rsquo;s JIT compiler, benefiting from its advanced optimization techniques. Truffle interpreters generate an intermediate representation (IR) of the code, which the GraalVM compiler can optimize aggressively.</p>
-
-<a name="Partial-Escape-Analysis"></a>
-<h4>Partial Escape Analysis</h4>
-
-<p>Partial escape analysis is used to determine if objects can be allocated on the stack instead of the heap. If an object does not escape the scope of a method, it can be allocated on the stack, reducing heap allocations and garbage collection pressure. This technique improves both performance and memory efficiency.</p>
-
-<a name="Conclusion"></a>
-<h3>Conclusion</h3>
-
-<p>GraalVM offers substantial performance benefits through its advanced JIT compiler, AOT compilation capabilities, and support for multiple programming languages. By leveraging these features, developers can achieve faster execution times, reduced startup times, and improved memory efficiency. GraalVM&rsquo;s advanced mechanics, such as speculative optimizations and partial escape analysis, further contribute to its performance advantages, making it an excellent choice for high-performance applications.</p>
-
-<p>GraalVM&rsquo;s ability to integrate and optimize code from various languages in a single runtime provides additional flexibility and performance benefits, making it a powerful tool for modern software development.</p>
 ]]></content>
     </entry>
     
