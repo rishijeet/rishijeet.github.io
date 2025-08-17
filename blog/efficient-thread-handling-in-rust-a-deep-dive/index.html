@@ -117,19 +117,7 @@
 
 <p>Rust&rsquo;s standard library provides the <code>std::thread</code> module for working with threads. To create a new thread, the <code>std::thread::spawn</code> function is used, taking a closure that represents the code to be executed in the new thread.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="rust"><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
 </span><span class='line'>    <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="o">||</span> <span class="p">{</span>
@@ -141,7 +129,7 @@
 </span><span class='line'>    <span class="c1">// Wait for the spawned thread to finish</span>
 </span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 
@@ -156,29 +144,7 @@
 
 <p>However, when shared state is necessary, Rust provides synchronization primitives such as <code>Mutex</code>, <code>Arc</code> (atomic reference counting), and <code>RwLock</code> to manage shared mutable state safely. The following example uses a <code>Mutex</code> to protect a shared counter:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="p">{</span><span class="n">Mutex</span><span class="p">,</span> <span class="n">Arc</span><span class="p">};</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="rust"><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="p">{</span><span class="n">Mutex</span><span class="p">,</span> <span class="n">Arc</span><span class="p">};</span>
 </span><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
@@ -200,7 +166,7 @@
 </span><span class='line'>
 </span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;Result: {}&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">counter</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">unwrap</span><span class="p">());</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>Here, the <code>Mutex</code> ensures exclusive access to the shared counter, preventing multiple threads from updating it simultaneously.</p>
@@ -210,25 +176,7 @@
 
 <p>Rust&rsquo;s channels provide a powerful mechanism for communication between threads. The <code>std::sync::mpsc</code> module offers multiple-producer, single-consumer channels. The following example demonstrates message passing using channels:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="n">mpsc</span><span class="p">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="rust"><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">sync</span><span class="o">::</span><span class="n">mpsc</span><span class="p">;</span>
 </span><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
@@ -246,7 +194,7 @@
 </span><span class='line'>
 </span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>Here, the <code>sender</code> and <code>receiver</code> allow communication between the main thread and the spawned thread, and the <code>recv</code> method blocks until a message is received.</p>
@@ -256,15 +204,7 @@
 
 <p>Creating a new thread for every concurrent task can lead to inefficiencies due to the associated overhead. Thread pooling, a technique where a fixed number of threads are reused to execute tasks, can enhance performance. The <code>rayon</code> crate provides an elegant interface for parallel programming in Rust:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='rust'><span class='line'><span class="kn">use</span> <span class="n">rayon</span><span class="o">::</span><span class="n">prelude</span><span class="o">::*</span><span class="p">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="rust"><span class='line'><span class="kn">use</span> <span class="n">rayon</span><span class="o">::</span><span class="n">prelude</span><span class="o">::*</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
 </span><span class='line'>    <span class="kd">let</span> <span class="n">data</span> <span class="o">=</span> <span class="n">vec</span><span class="o">!</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">];</span>
@@ -272,7 +212,7 @@
 </span><span class='line'>
 </span><span class='line'>    <span class="nb">println</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;{:?}&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">);</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>The <code>par_iter</code> method from <code>rayon</code> allows parallel iteration over the data, and the <code>map</code> function applies the closure to each element concurrently.</p>

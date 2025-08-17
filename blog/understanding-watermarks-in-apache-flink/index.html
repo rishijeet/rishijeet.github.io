@@ -154,43 +154,7 @@
 
 <p>Here’s a code example demonstrating how to assign timestamps and generate watermarks using periodic watermarks:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.SerializableTimestampAssigner</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.SerializableTimestampAssigner</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.WatermarkGenerator</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.WatermarkGeneratorSupplier</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.WatermarkStrategy</span><span class="o">;</span>
@@ -226,7 +190,7 @@
 </span><span class='line'>        <span class="n">env</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;Watermark Example&quot;</span><span class="o">);</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Example-Source-Function"></a>
@@ -234,25 +198,7 @@
 
 <p>Here’s a simple source function generating events with timestamps:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">EventSource</span> <span class="kd">implements</span> <span class="n">SourceFunction</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="o">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">EventSource</span> <span class="kd">implements</span> <span class="n">SourceFunction</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="o">{</span>
 </span><span class='line'>    <span class="kd">private</span> <span class="kd">volatile</span> <span class="kt">boolean</span> <span class="n">running</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="nd">@Override</span>
@@ -270,7 +216,7 @@
 </span><span class='line'>        <span class="n">running</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Handling-Parallel-Streams"></a>
@@ -285,25 +231,7 @@
 
 <p>When using parallel streams, each sub-task generates its watermarks, and Flink computes the minimum watermark across all sub-tasks. This is crucial to correctly handle late events and ensure accurate window computations.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">ParallelEventSource</span><span class="o">()).</span><span class="na">setParallelism</span><span class="o">(</span><span class="mi">4</span><span class="o">);</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">ParallelEventSource</span><span class="o">()).</span><span class="na">setParallelism</span><span class="o">(</span><span class="mi">4</span><span class="o">);</span>
 </span><span class='line'>
 </span><span class='line'><span class="n">WatermarkStrategy</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">watermarkStrategy</span> <span class="o">=</span> <span class="n">WatermarkStrategy</span>
 </span><span class='line'>    <span class="o">.&lt;</span><span class="n">Event</span><span class="o">&gt;</span><span class="n">forBoundedOutOfOrderness</span><span class="o">(</span><span class="n">Duration</span><span class="o">.</span><span class="na">ofSeconds</span><span class="o">(</span><span class="mi">5</span><span class="o">))</span>
@@ -321,7 +249,7 @@
 </span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">TumblingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">)))</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">process</span><span class="o">(</span><span class="k">new</span> <span class="nf">EventTimeWindowFunction</span><span class="o">())</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">print</span><span class="o">();</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Watermark-Strategy-for-Parallel-Sources"></a>
@@ -329,25 +257,7 @@
 
 <p>Here&rsquo;s an example of a parallel source function generating events and watermarks:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ParallelEventSource</span> <span class="kd">extends</span> <span class="n">RichParallelSourceFunction</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="o">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ParallelEventSource</span> <span class="kd">extends</span> <span class="n">RichParallelSourceFunction</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="o">{</span>
 </span><span class='line'>    <span class="kd">private</span> <span class="kd">volatile</span> <span class="kt">boolean</span> <span class="n">running</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="nd">@Override</span>
@@ -365,7 +275,7 @@
 </span><span class='line'>        <span class="n">running</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Benefits-of-Watermarks"></a>

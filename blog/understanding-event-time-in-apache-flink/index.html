@@ -173,29 +173,7 @@
 
 <p>Here’s an example in Java:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">MyEventSource</span><span class="o">());</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">MyEventSource</span><span class="o">());</span>
 </span><span class='line'>
 </span><span class='line'><span class="n">stream</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">assignTimestampsAndWatermarks</span><span class="o">(</span><span class="k">new</span> <span class="n">AssignerWithPunctuatedWatermarks</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;()</span> <span class="o">{</span>
@@ -217,7 +195,7 @@
 </span><span class='line'>            <span class="c1">// Process windowed events</span>
 </span><span class='line'>        <span class="o">}</span>
 </span><span class='line'>    <span class="o">});</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Using-Event-Time-Windows"></a>
@@ -234,19 +212,13 @@
 
 <p>Example of a tumbling window in Event Time:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span> <span class="c1">// Your event stream</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">MyEvent</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span> <span class="c1">// Your event stream</span>
 </span><span class='line'>
 </span><span class='line'><span class="n">stream</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">TumblingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">)))</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">sum</span><span class="o">(</span><span class="s">&quot;value&quot;</span><span class="o">);</span> <span class="c1">// Aggregation function</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Conclusion"></a>

@@ -123,57 +123,19 @@
 
 <p>The routes can be declared as mentioned below</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='go'><span class='line'><span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+<figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
 </span><span class='line'>    <span class="nx">r</span> <span class="o">:=</span> <span class="nx">mux</span><span class="p">.</span><span class="nx">NewRouter</span><span class="p">()</span>
 </span><span class='line'>    <span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/&quot;</span><span class="p">,</span> <span class="nx">HomeHandler</span><span class="p">)</span>
 </span><span class='line'>    <span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/users&quot;</span><span class="p">,</span> <span class="nx">UsersHandler</span><span class="p">)</span>
 </span><span class='line'>    <span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/blogs&quot;</span><span class="p">,</span> <span class="nx">BlogHandler</span><span class="p">)</span>
 </span><span class='line'>    <span class="nx">http</span><span class="p">.</span><span class="nx">Handle</span><span class="p">(</span><span class="s">&quot;/&quot;</span><span class="p">,</span> <span class="nx">r</span><span class="p">)</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>The basic http server code</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-</pre></td><td class='code'><pre><code class='go'><span class='line'><span class="c1">// Author: Rishijeet Mishra</span>
+<figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="c1">// Author: Rishijeet Mishra</span>
 </span><span class='line'><span class="kn">package</span> <span class="nx">main</span>
 </span><span class='line'>
 </span><span class='line'><span class="kn">import</span> <span class="p">(</span>
@@ -204,25 +166,12 @@
 </span><span class='line'>    <span class="p">}</span> <span class="p">)</span>
 </span><span class='line'>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>Let&rsquo;s add the POST method</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='go'><span class='line'><span class="c1">// Add the route</span>
+<figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="c1">// Add the route</span>
 </span><span class='line'>
 </span><span class='line'>
 </span><span class='line'><span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/add/{item}&quot;</span><span class="p">,</span> <span class="nx">addItem</span><span class="p">).</span><span class="nx">Methods</span><span class="p">(</span><span class="s">&quot;POST&quot;</span><span class="p">)</span>
@@ -235,32 +184,12 @@
 </span><span class='line'>    <span class="nx">json</span><span class="p">.</span><span class="nx">NewEncoder</span><span class="p">(</span><span class="nx">w</span><span class="p">).</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span>
 </span><span class='line'>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>Let&rsquo;s add the GET</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-</pre></td><td class='code'><pre><code class='go'><span class='line'><span class="c1">// The struct for grouping</span>
+<figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="c1">// The struct for grouping</span>
 </span><span class='line'><span class="kd">type</span> <span class="nx">Item</span> <span class="kd">struct</span> <span class="p">{</span>
 </span><span class='line'>    <span class="nx">Data</span> <span class="kt">string</span>
 </span><span class='line'><span class="p">}</span>
@@ -280,24 +209,18 @@
 </span><span class='line'>    <span class="nx">json</span><span class="p">.</span><span class="nx">NewEncoder</span><span class="p">(</span><span class="nx">w</span><span class="p">).</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span>
 </span><span class='line'>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>Mux supports the addition of middlewares to a Router, which are executed in the order they are added if a match is found, including its subrouters. Middlewares are (typically) small pieces of code which take one request, do something with it, and pass it down to another middleware or the final handler.</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='batch'><span class='line'>type MiddlewareFunc func(http.Handler) http.Handler
+<figure class='code'><div class="highlight"><pre><code class="batch"><span class='line'>type MiddlewareFunc func(http.Handler) http.Handler
 </span><span class='line'>
 </span><span class='line'><span class="n">//Add</span> the middleware to the route
 </span><span class='line'>r :<span class="o">=</span> mux.NewRouter()
 </span><span class='line'>r.HandleFunc(<span class="s2">&quot;/&quot;</span><span class="p">,</span> handler)
 </span><span class='line'>r.Use(loggingMiddleware)
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>Click for more details on the <a href="https://github.com/gorilla/mux">gorilla/mux</a></p>

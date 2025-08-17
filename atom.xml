@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-08-15T10:41:51+05:30</updated>
+    <updated>2025-08-17T20:13:53+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,129 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Efficient Fine-Tuning of Large Language Models: A Deep Dive into LoRA and QLoRA]]></title>
+        <link href="https://rishijeet.github.io/blog/efficient-fine-tuning-of-large-language-models-a-deep-dive-into-lora-and-qlora/"/>
+        <updated>2025-08-17T18:27:01+05:30</updated>
+        <id>https://rishijeet.github.io/blog/efficient-fine-tuning-of-large-language-models-a-deep-dive-into-lora-and-qlora</id>
+        <content type="html"><![CDATA[<p>In the era of large language models (LLMs) like GPT-3 and Llama, fine-tuning these behemoths for specific tasks has become a cornerstone of AI development. However, traditional full fine-tuning demands enormous computational resources, often requiring hundreds of GBs of GPU memory and extensive training time. This is where parameter-efficient fine-tuning (PEFT) techniques shine, allowing us to adapt massive models with minimal overhead. Among these, Low-Rank Adaptation (LoRA) and its quantized variant, Quantized LoRA (QLoRA), stand out for their efficiency and effectiveness. In this technical blog, we&rsquo;ll explore the mechanics, mathematics, advantages, and practical implementations of LoRA and QLoRA, drawing from foundational research and real-world applications.</p>
+
+<a name="Understanding-Fine-2d-Tuning-Challenges"></a>
+<h2>Understanding Fine-Tuning Challenges</h2>
+
+<p>Full fine-tuning involves updating all parameters of a pre-trained model on a downstream dataset, which maximizes performance but at a steep cost. For instance, fine-tuning a 175B-parameter model like GPT-3 requires retraining every weight, leading to high memory usage and deployment challenges. PEFT methods mitigate this by updating only a subset of parameters or adding lightweight adapters, reducing trainable parameters by orders of magnitude while preserving model quality.</p>
+
+<p><img src="https://rishijeet.github.io/images/2025/lora_qlora.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<!--more-->
+
+
+<a name="What-is-LoRA-3f-"></a>
+<h2>What is LoRA?</h2>
+
+<p>LoRA, or Low-Rank Adaptation, was introduced by Microsoft researchers in 2021 as a method to fine-tune LLMs by injecting low-rank trainable matrices into the model&rsquo;s layers without altering the original weights. The core idea stems from the observation that weight updates during fine-tuning often lie in a low-dimensional subspace—meaning the changes to the model&rsquo;s weights have a low &ldquo;intrinsic rank.&rdquo; Instead of updating the full weight matrix, LoRA decomposes these updates into smaller, low-rank factors.</p>
+
+<a name="How-LoRA-Works"></a>
+<h3>How LoRA Works</h3>
+
+<p>Consider a pre-trained weight matrix \( W_0 \in \mathbb{R}^{d \times k} \) in a Transformer layer (e.g., attention weights like \( W_q, W_k, W_v, W_o \)). During fine-tuning, the update is constrained as \( \Delta W = BA \), where \( B \in \mathbb{R}^{d \times r} \), \( A \in \mathbb{R}^{r \times k} \), and \( r \ll \min(d, k) \) is the rank (typically 1-64). The original weights \( W_0 \) remain frozen, and only \( A \) and \( B \) are trained.</p>
+
+<p>The forward pass becomes:
+\[
+h = W_0 x + \frac{\alpha}{r} BA x
+\]
+where \( \alpha \) is a scaling factor (often set to twice the rank for stability), and the division by \( r \) normalizes the update magnitude. Initialization is key: \( A \) starts with random Gaussian values, while \( B \) is zeroed to ensure no initial change.</p>
+
+<p>LoRA is typically applied to attention layers in Transformers, as empirical studies show this yields the best results with fewer parameters. For a model like GPT-3 175B, this reduces trainable parameters from billions to just thousands (e.g., 0.3M for r=8), slashing GPU memory needs by 3x and trainable parameters by 10,000x compared to full fine-tuning.</p>
+
+<a name="Advantages-of-LoRA"></a>
+<h3>Advantages of LoRA</h3>
+
+<ul>
+<li><strong>Efficiency</strong>: Training throughput increases due to fewer gradients and optimizer states. For example, on GPT-3, LoRA matches or exceeds full fine-tuning quality on benchmarks like RoBERTa and DeBERTa while using far less memory.</li>
+<li><strong>Deployment Flexibility</strong>: Post-training, \( BA \) can be merged into \( W_0 \), incurring no inference latency. Multiple LoRA adapters can share the base model, enabling quick task-switching.</li>
+<li><strong>Hyperparameter Tips</strong>: Common ranks are 4-32; alpha is often 2x rank. Libraries like Hugging Face&rsquo;s PEFT make integration seamless.</li>
+</ul>
+
+
+<a name="Introducing-QLoRA:-Quantization-Meets-LoRA"></a>
+<h2>Introducing QLoRA: Quantization Meets LoRA</h2>
+
+<p>While LoRA is efficient, fine-tuning still requires loading the full model in high-precision formats (e.g., FP16), which can exceed single-GPU limits for models over 30B parameters. QLoRA, proposed in 2023, extends LoRA by quantizing the base model to 4 bits, enabling fine-tuning of 65B+ models on a single 48GB GPU without performance loss.</p>
+
+<a name="How-QLoRA-Builds-on-LoRA"></a>
+<h3>How QLoRA Builds on LoRA</h3>
+
+<p>QLoRA freezes a 4-bit quantized version of the pre-trained model and backpropagates gradients through it into LoRA adapters. Key innovations include:</p>
+
+<ul>
+<li><strong>4-bit NormalFloat (NF4) Quantization</strong>: An information-theoretically optimal data type for normally distributed weights. Weights are normalized to [-1, 1] and quantized into bins with equal expected values from a N(0,1) distribution, avoiding outliers.</li>
+<li><strong>Double Quantization</strong>: Quantizes the quantization constants themselves (e.g., to 8-bit), saving ~0.37 bits per parameter by reducing constants&#8217; memory footprint.</li>
+<li><strong>Paged Optimizers</strong>: Uses NVIDIA unified memory to page optimizer states to CPU RAM during spikes, preventing OOM errors.</li>
+</ul>
+
+
+<p>Mathematically, for a linear layer:</p>
+
+<div>
+<span>
+&#92;[
+Y_{&#92;text{BF16}} = X_{&#92;text{BF16}} &#92;cdot &#92;text{doubleDequant}(c_{&#92;text{FP32}_1}, c_{k&#92;text{-bit}_2}, W_{&#92;text{NF4}}) + X_{&#92;text{BF16}} &#92;cdot L_{&#92;text{BF16}_1} &#92;cdot L_{&#92;text{BF16}_2}
+&#92;]
+</span>
+</div>
+
+
+<p>Gradients are computed in BF16 for LoRA params (\( L_1, L_2 \)) only, while the quantized base remains frozen.</p>
+
+<p>QLoRA matches 16-bit full fine-tuning on benchmarks like Vicuna, with models like Guanaco achieving 99.3% of ChatGPT&rsquo;s performance after 24 hours on one GPU.</p>
+
+<a name="Advantages-of-QLoRA-Over-LoRA"></a>
+<h3>Advantages of QLoRA Over LoRA</h3>
+
+<ul>
+<li><strong>Memory Savings</strong>: Reduces footprint from >780GB to &lt;48GB for 65B models, democratizing access.</li>
+<li><strong>No Performance Trade-off</strong>: Unlike naive quantization, QLoRA preserves accuracy by fine-tuning adapters on high-quality data.</li>
+<li><strong>Scalability</strong>: Enables fine-tuning on consumer hardware, with extensions like 8-bit integration in Hugging Face for even broader use.</li>
+</ul>
+
+
+<a name="Practical-Implementation-with-Hugging-Face"></a>
+<h2>Practical Implementation with Hugging Face</h2>
+
+<p>Hugging Face&rsquo;s libraries (Transformers, PEFT, Diffusers) simplify LoRA/QLoRA usage. For LoRA fine-tuning of Stable Diffusion:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">diffusers</span> <span class="kn">import</span> <span class="n">StableDiffusionPipeline</span>
+</span><span class='line'><span class="n">pipe</span> <span class="o">=</span> <span class="n">StableDiffusionPipeline</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s">&quot;runwayml/stable-diffusion-v1-5&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">pipe</span><span class="o">.</span><span class="n">unet</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>  <span class="c"># Enable LoRA with rank 4</span>
+</span><span class='line'><span class="c"># Train on dataset, then merge and infer</span>
+</span></code></pre></div></figure>
+
+
+<p>For QLoRA with Gemma:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">keras_nlp.models</span> <span class="kn">import</span> <span class="n">GemmaLM</span>
+</span><span class='line'><span class="n">gemma_lm</span> <span class="o">=</span> <span class="n">GemmaLM</span><span class="o">.</span><span class="n">from_preset</span><span class="p">(</span><span class="s">&quot;gemma_2b_en&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="n">gemma_lm</span><span class="o">.</span><span class="n">quantize</span><span class="p">(</span><span class="s">&quot;int8&quot;</span><span class="p">)</span>  <span class="c"># Quantize to 8-bit (extendable to 4-bit)</span>
+</span><span class='line'><span class="n">gemma_lm</span><span class="o">.</span><span class="n">backbone</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span><span class='line'><span class="c"># Fine-tune and evaluate</span>
+</span></code></pre></div></figure>
+
+
+<p>Recent tutorials emphasize dataset preparation and evaluation for vision-language models like QWEN2.5VL.</p>
+
+<a name="Applications-and-Case-Studies"></a>
+<h2>Applications and Case Studies</h2>
+
+<p>LoRA/QLoRA power domain-specific adaptations, from chatbots (e.g., Guanaco) to image generation (e.g., Pokémon fine-tuning). In production, they&rsquo;ve enabled zero-shot learning via hypernetworks and optimized LLMs for edge devices. Studies from Lightning AI show QLoRA excelling in memory-constrained environments across hundreds of experiments.</p>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>LoRA and QLoRA revolutionize LLM fine-tuning by making it accessible, efficient, and scalable. LoRA&rsquo;s low-rank decomposition minimizes parameters, while QLoRA&rsquo;s quantization pushes boundaries further, enabling massive models on modest hardware. As AI evolves, these techniques will be pivotal for customizing foundation models. Experiment with Hugging Face tools to harness their power in your projects.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Data Centers in the United States &amp; AI-Driven Developments]]></title>
@@ -446,8 +569,7 @@ that power cloud computing, web services, and data-intensive applications. In th
 
 <p>For example, the sentence:</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>"Tokenization is crucial for LLMs."</span></code></pre></td></tr></table></div></figure>
+<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>"Tokenization is crucial for LLMs."</span></code></pre></div></figure>
 
 
 <p>May be tokenized as:</p>
@@ -600,19 +722,13 @@ If unseen during training, this is a problem.</p>
 </ul>
 
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">GPT2Tokenizer</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">GPT2Tokenizer</span>
 </span><span class='line'>
 </span><span class='line'><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">GPT2Tokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s">&quot;gpt2&quot;</span><span class="p">)</span>
 </span><span class='line'><span class="n">tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="s">&quot;Tokenization is powerful.&quot;</span><span class="p">)</span>
 </span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
 </span><span class='line'><span class="c"># Output: [&#39;Token&#39;, &#39;ization&#39;, &#39;Ġis&#39;, &#39;Ġpowerful&#39;, &#39;.&#39;]</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p><code>Ġ</code> indicates a space in GPT-2 tokenizers.</p>
@@ -694,11 +810,9 @@ If unseen during training, this is a problem.</p>
 
 <p>Example:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">say_hello</span><span class="p">():</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="k">def</span> <span class="nf">say_hello</span><span class="p">():</span>
 </span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Hello&quot;</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>→ <code>[‘def’, ‘Ġsay’, ‘_’, ‘hello’, ‘()’, ‘:’, ‘Ġ’, ‘print’, ‘(”, ‘Hello’, ‘”)’]</code></p>
@@ -1546,17 +1660,12 @@ Microservices need to stay loosely coupled — but shared types and utilities mu
 
 <p>To get started:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>git clone https://github.com/rishijeet/smartcase-engine.git
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="bash"><span class='line'>git clone https://github.com/rishijeet/smartcase-engine.git
 </span><span class='line'><span class="nb">cd </span>smartcase-engine
 </span><span class='line'>chmod +x build-and-deploy.sh start-services.sh
 </span><span class='line'>./build-and-deploy.sh
 </span><span class='line'>./start-services.sh
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Testing-and-Validation"></a>
@@ -1703,19 +1812,7 @@ Microservices need to stay loosely coupled — but shared types and utilities mu
 <a name="L-3c-strong-3e-Model-Context-3c--2f-strong-3e-"></a>
 <h3><strong>Model Context</strong></h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="json"><span class='line'><span class="p">{</span>
 </span><span class='line'>  <span class="nt">&quot;session_id&quot;</span><span class="p">:</span> <span class="s2">&quot;abc-123&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;user-456&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;context&quot;</span><span class="p">:</span> <span class="p">{</span>
@@ -1727,21 +1824,13 @@ Microservices need to stay loosely coupled — but shared types and utilities mu
 </span><span class='line'>    <span class="nt">&quot;dependencies&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;retrieval_plugin&quot;</span><span class="p">,</span> <span class="s2">&quot;summarizer_model&quot;</span><span class="p">]</span>
 </span><span class='line'>  <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="L-3c-strong-3e-Model-Invocation-with-Context-3c--2f-strong-3e-"></a>
 <h3><strong>Model Invocation with Context</strong></h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="json"><span class='line'><span class="p">{</span>
 </span><span class='line'>  <span class="nt">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;input&quot;</span><span class="p">:</span> <span class="s2">&quot;What are the next steps?&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;context_ref&quot;</span><span class="p">:</span> <span class="s2">&quot;abc-123&quot;</span><span class="p">,</span>
@@ -1749,7 +1838,7 @@ Microservices need to stay loosely coupled — but shared types and utilities mu
 </span><span class='line'>    <span class="nt">&quot;requested_capability&quot;</span><span class="p">:</span> <span class="s2">&quot;planning.summarize&quot;</span>
 </span><span class='line'>  <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="L-3c-strong-3e-Chained-Outputs-and-Shared-State-3c--2f-strong-3e-"></a>
@@ -1765,36 +1854,7 @@ Microservices need to stay loosely coupled — but shared types and utilities mu
 <a name="Basic-Server-with-Context-Store"></a>
 <h3>Basic Server with Context Store</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">Request</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">Request</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">redis</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">uuid</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">json</span>
@@ -1823,7 +1883,7 @@ Microservices need to stay loosely coupled — but shared types and utilities mu
 </span><span class='line'>    <span class="n">r</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">new_context_ref</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s">&quot;history&quot;</span><span class="p">:</span> <span class="n">history</span><span class="p">}))</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="k">return</span> <span class="p">{</span><span class="s">&quot;output&quot;</span><span class="p">:</span> <span class="n">response</span><span class="p">,</span> <span class="s">&quot;context_ref&quot;</span><span class="p">:</span> <span class="n">new_context_ref</span><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Add-Capability-Metadata"></a>
@@ -1831,11 +1891,9 @@ Microservices need to stay loosely coupled — but shared types and utilities mu
 
 <p>Enhance the server to log requested capabilities and dependency resolution (e.g., invoking tools or submodels).</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">capability</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;requested_capability&quot;</span><span class="p">)</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="n">capability</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;requested_capability&quot;</span><span class="p">)</span>
 </span><span class='line'><span class="n">log_event</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">session_id</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">capability</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <hr />
@@ -3295,40 +3353,7 @@ This visualization emphasizes CUDA&rsquo;s advantage in both raw performance and
 <a name="DAG-Definition"></a>
 <h3>DAG Definition</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">datetime</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">datetime</span>
 </span><span class='line'><span class="kn">from</span> <span class="nn">airflow</span> <span class="kn">import</span> <span class="n">DAG</span>
 </span><span class='line'><span class="kn">from</span> <span class="nn">airflow.operators.python_operator</span> <span class="kn">import</span> <span class="n">PythonOperator</span>
 </span><span class='line'>
@@ -3361,7 +3386,7 @@ This visualization emphasizes CUDA&rsquo;s advantage in both raw performance and
 </span><span class='line'>    <span class="n">python_callable</span><span class="o">=</span><span class="n">my_task</span><span class="p">,</span>
 </span><span class='line'>    <span class="n">dag</span><span class="o">=</span><span class="n">dag</span><span class="p">,</span>
 </span><span class='line'><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Breakdown-of-the-Code"></a>
@@ -3453,28 +3478,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 
 <p>To start, create a new Gradle project and add the following dependencies to your <code>build.gradle.kts</code> file:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="n">plugins</span> <span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="n">plugins</span> <span class="p">{</span>
 </span><span class='line'>    <span class="n">kotlin</span><span class="p">(</span><span class="s">&quot;jvm&quot;</span><span class="p">)</span> <span class="n">version</span> <span class="s">&quot;1.8.0&quot;</span>
 </span><span class='line'>    <span class="n">application</span>
 </span><span class='line'><span class="p">}</span>
@@ -3495,7 +3499,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 </span><span class='line'>    <span class="n">testImplementation</span><span class="p">(</span><span class="s">&quot;io.ktor:ktor-server-tests:2.2.1&quot;</span><span class="p">)</span>
 </span><span class='line'>    <span class="n">testImplementation</span><span class="p">(</span><span class="s">&quot;org.jetbrains.kotlin:kotlin-test-junit:1.8.0&quot;</span><span class="p">)</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Example:-Creating-a-Simple-Ktor-Web-Server"></a>
@@ -3508,45 +3512,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 
 <p>Create a new Kotlin file, <code>Application.kt</code>, and add the following code:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">package</span> <span class="nn">com.example</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">package</span> <span class="nn">com.example</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.application.*</span>
 </span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.http.*</span>
@@ -3584,7 +3550,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 </span><span class='line'>        <span class="p">}</span>
 </span><span class='line'>    <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Code-Breakdown"></a>
@@ -3684,25 +3650,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 <a name="Example:-Securing-Routes-with-Authentication"></a>
 <h3>Example: Securing Routes with Authentication</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="n">install</span><span class="p">(</span><span class="n">Authentication</span><span class="p">)</span> <span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="n">install</span><span class="p">(</span><span class="n">Authentication</span><span class="p">)</span> <span class="p">{</span>
 </span><span class='line'>    <span class="n">basic</span><span class="p">(</span><span class="n">name</span> <span class="p">=</span> <span class="s">&quot;auth&quot;</span><span class="p">)</span> <span class="p">{</span>
 </span><span class='line'>        <span class="n">realm</span> <span class="p">=</span> <span class="s">&quot;Ktor Server&quot;</span>
 </span><span class='line'>        <span class="n">validate</span> <span class="p">{</span> <span class="n">credentials</span> <span class="p">-&gt;</span>
@@ -3720,22 +3668,13 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 </span><span class='line'>        <span class="p">}</span>
 </span><span class='line'>    <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Example:-WebSocket-Communication"></a>
 <h3>Example: WebSocket Communication</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="n">routing</span> <span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="n">routing</span> <span class="p">{</span>
 </span><span class='line'>    <span class="n">webSocket</span><span class="p">(</span><span class="s">&quot;/chat&quot;</span><span class="p">)</span> <span class="p">{</span>
 </span><span class='line'>        <span class="k">for</span> <span class="p">(</span><span class="n">frame</span> <span class="k">in</span> <span class="n">incoming</span><span class="p">)</span> <span class="p">{</span>
 </span><span class='line'>            <span class="k">when</span> <span class="p">(</span><span class="n">frame</span><span class="p">)</span> <span class="p">{</span>
@@ -3744,7 +3683,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 </span><span class='line'>        <span class="p">}</span>
 </span><span class='line'>    <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Conclusion"></a>
@@ -3815,49 +3754,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 
 <p><strong>pom.xml:</strong></p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;project</span> <span class="na">xmlns=</span><span class="s">&quot;http://maven.apache.org/POM/4.0.0&quot;</span> <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="xml"><span class='line'><span class="nt">&lt;project</span> <span class="na">xmlns=</span><span class="s">&quot;http://maven.apache.org/POM/4.0.0&quot;</span> <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
 </span><span class='line'>    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;</span><span class="nt">&gt;</span>
 </span><span class='line'>    <span class="nt">&lt;modelVersion&gt;</span>4.0.0<span class="nt">&lt;/modelVersion&gt;</span>
 </span><span class='line'>
@@ -3899,7 +3796,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 </span><span class='line'>        <span class="nt">&lt;/plugins&gt;</span>
 </span><span class='line'>    <span class="nt">&lt;/build&gt;</span>
 </span><span class='line'><span class="nt">&lt;/project&gt;</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Example:-Creating-a-Simple-HTTP-Server"></a>
@@ -3908,43 +3805,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 <a name="Main-Verticle"></a>
 <h4>Main Verticle</h4>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.AbstractVerticle</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.Vertx</span><span class="o">;</span>
@@ -3980,7 +3841,7 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 </span><span class='line'>        <span class="n">vertx</span><span class="o">.</span><span class="na">deployVerticle</span><span class="o">(</span><span class="k">new</span> <span class="nf">MainVerticle</span><span class="o">());</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>This simple Vert.x application sets up an HTTP server that listens on port 8888 and responds with &ldquo;Hello, Rishijeet!&rdquo;
@@ -3994,22 +3855,7 @@ when the root URL is accessed.</p>
 <a name="Worker-Verticle"></a>
 <h4>Worker Verticle</h4>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.AbstractVerticle</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.Promise</span><span class="o">;</span>
@@ -4024,24 +3870,13 @@ when the root URL is accessed.</p>
 </span><span class='line'>        <span class="n">startPromise</span><span class="o">.</span><span class="na">complete</span><span class="o">();</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Deploying-Verticles"></a>
 <h4>Deploying Verticles</h4>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.Vertx</span><span class="o">;</span>
 </span><span class='line'>
@@ -4052,7 +3887,7 @@ when the root URL is accessed.</p>
 </span><span class='line'>        <span class="n">vertx</span><span class="o">.</span><span class="na">deployVerticle</span><span class="o">(</span><span class="k">new</span> <span class="nf">WorkerVerticle</span><span class="o">());</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Example:-Using-the-Event-Bus"></a>
@@ -4063,24 +3898,7 @@ when the root URL is accessed.</p>
 <a name="Sender-Verticle"></a>
 <h4>Sender Verticle</h4>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.AbstractVerticle</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.Vertx</span><span class="o">;</span>
@@ -4097,32 +3915,13 @@ when the root URL is accessed.</p>
 </span><span class='line'>        <span class="n">vertx</span><span class="o">.</span><span class="na">deployVerticle</span><span class="o">(</span><span class="k">new</span> <span class="nf">SenderVerticle</span><span class="o">());</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Receiver-Verticle"></a>
 <h4>Receiver Verticle</h4>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.AbstractVerticle</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">io.vertx.core.Vertx</span><span class="o">;</span>
@@ -4141,7 +3940,7 @@ when the root URL is accessed.</p>
 </span><span class='line'>        <span class="n">vertx</span><span class="o">.</span><span class="na">deployVerticle</span><span class="o">(</span><span class="k">new</span> <span class="nf">ReceiverVerticle</span><span class="o">());</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Conclusion"></a>
@@ -4150,255 +3949,6 @@ when the root URL is accessed.</p>
 <p>Vert.x offers a powerful and flexible toolkit for building modern, reactive applications. Its unique features, including polyglot support, non-blocking event-driven architecture, and the Event Bus, make it an excellent choice for high-throughput, low-latency applications. By leveraging Verticles and the reactive programming model, developers can build scalable, maintainable, and efficient applications.</p>
 
 <p>Understanding the power of Vert.x and how to use its features effectively can significantly improve the responsiveness and scalability of your applications. Whether you&rsquo;re building microservices, real-time web applications, or IoT solutions, Vert.x provides the tools you need to succeed.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Exploring Coroutines: Concurrency Made Easy]]></title>
-        <link href="https://rishijeet.github.io/blog/exploring-coroutines-concurrency-made-easy/"/>
-        <updated>2024-08-03T18:29:50+05:30</updated>
-        <id>https://rishijeet.github.io/blog/exploring-coroutines-concurrency-made-easy</id>
-        <content type="html"><![CDATA[<p>Concurrency is a critical aspect of modern software development, enabling applications to perform multiple tasks simultaneously. Traditional approaches to concurrency, such as threads, often come with complexity and overhead. Coroutines offer a powerful alternative by providing a simpler, more efficient way to handle concurrent operations. In this blog, we&rsquo;ll delve into the world of coroutines, explore what makes them unique, and provide examples to illustrate their usage. We&rsquo;ll also discuss alternative concurrency models and their trade-offs.</p>
-
-<a name="What-Are-Coroutines-3f-"></a>
-<h2>What Are Coroutines?</h2>
-
-<p>Coroutines are a concurrency primitive that allows functions to pause execution and resume later, enabling non-blocking asynchronous code execution. Unlike traditional threads, coroutines are lightweight, have minimal overhead, and do not require OS-level context switching.</p>
-
-<a name="Key-Features-of-Coroutines"></a>
-<h3>Key Features of Coroutines</h3>
-
-<ol>
-<li><strong>Lightweight</strong>: Coroutines are more lightweight than threads, allowing you to run thousands of coroutines simultaneously without significant performance impact.</li>
-<li><strong>Non-Blocking</strong>: Coroutines enable non-blocking asynchronous code execution, which is crucial for I/O-bound and network-bound tasks.</li>
-<li><strong>Structured Concurrency</strong>: Coroutines support structured concurrency, making it easier to manage the lifecycle of concurrent tasks.</li>
-<li><strong>Suspend Functions</strong>: Functions can be suspended and resumed at a later time, allowing for more readable and maintainable asynchronous code.</li>
-</ol>
-
-
-<a name="Coroutines-in-Kotlin"></a>
-<h2>Coroutines in Kotlin</h2>
-
-<p>Kotlin is one of the languages that has built-in support for coroutines, making it a popular choice for modern asynchronous programming. Let&rsquo;s explore coroutines in Kotlin with some examples.</p>
-
-<!--more-->
-
-
-<a name="Example:-Basic-Coroutine"></a>
-<h3>Example: Basic Coroutine</h3>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">launch</span> <span class="p">{</span>
-</span><span class='line'>        <span class="n">delay</span><span class="p">(</span><span class="m">1000L</span><span class="p">)</span>
-</span><span class='line'>        <span class="n">println</span><span class="p">(</span><span class="s">&quot;Rishijeet!&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Hello,&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, <code>runBlocking</code> starts a coroutine and blocks the main thread until the coroutine completes. The
-<code>launch</code> function starts a new coroutine that delays for 1 second and then prints &ldquo;Rishijeet!&rdquo;. Meanwhile, &ldquo;Hello,&rdquo; is
-printed immediately.</p>
-
-<a name="Example:-Structured-Concurrency"></a>
-<h3>Example: Structured Concurrency</h3>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">val</span> <span class="py">job</span> <span class="p">=</span> <span class="n">launch</span> <span class="p">{</span>
-</span><span class='line'>        <span class="n">doWork</span><span class="p">()</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Waiting for work to complete...&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">job</span><span class="p">.</span><span class="n">join</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Work completed!&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">suspend</span> <span class="k">fun</span> <span class="nf">doWork</span><span class="p">()</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">delay</span><span class="p">(</span><span class="m">2000L</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Work in progress...&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>This example demonstrates structured concurrency. The <code>doWork</code> function is a suspend function that simulates work with a 2-second delay. The <code>launch</code> function starts a coroutine that runs <code>doWork</code>, and <code>job.join()</code> waits for the coroutine to complete.</p>
-
-<a name="Example:-Async-and-Await"></a>
-<h3>Example: Async and Await</h3>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">val</span> <span class="py">deferred</span> <span class="p">=</span> <span class="n">async</span> <span class="p">{</span>
-</span><span class='line'>        <span class="n">computeValue</span><span class="p">()</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Waiting for result...&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">val</span> <span class="py">result</span> <span class="p">=</span> <span class="n">deferred</span><span class="p">.</span><span class="n">await</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Result: $result&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">suspend</span> <span class="k">fun</span> <span class="nf">computeValue</span><span class="p">():</span> <span class="n">Int</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">delay</span><span class="p">(</span><span class="m">1000L</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">return</span> <span class="m">42</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, the <code>async</code> function starts a coroutine that computes a value asynchronously. The <code>await</code> function suspends the coroutine until the result is available.</p>
-
-<a name="Alternatives-to-Coroutines"></a>
-<h2>Alternatives to Coroutines</h2>
-
-<p>While coroutines offer many advantages, there are other concurrency models to consider. Each has its own trade-offs and use cases.</p>
-
-<a name="L-3c-strong-3e-Threads-3c--2f-strong-3e-"></a>
-<h3><strong>Threads</strong></h3>
-
-<p>Threads are the traditional approach to concurrency. They are managed by the OS and provide true parallelism but come with significant overhead and complexity.</p>
-
-<p><strong>Example: Threads in Java</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadExample</span> <span class="o">{</span>
-</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">Thread</span> <span class="n">thread</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">Thread</span><span class="o">(()</span> <span class="o">-&gt;</span> <span class="o">{</span>
-</span><span class='line'>            <span class="k">try</span> <span class="o">{</span>
-</span><span class='line'>                <span class="n">Thread</span><span class="o">.</span><span class="na">sleep</span><span class="o">(</span><span class="mi">1000</span><span class="o">);</span>
-</span><span class='line'>                <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Rishijeet!&quot;</span><span class="o">);</span>
-</span><span class='line'>            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">InterruptedException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>                <span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
-</span><span class='line'>            <span class="o">}</span>
-</span><span class='line'>        <span class="o">});</span>
-</span><span class='line'>        <span class="n">thread</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
-</span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Hello,&quot;</span><span class="o">);</span>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<a name="L-3c-strong-3e-Reactive-Programming-3c--2f-strong-3e-"></a>
-<h3><strong>Reactive Programming</strong></h3>
-
-<p>Reactive programming, using libraries like RxJava or Reactor, is another approach to concurrency. It is based on the Observer pattern and provides powerful abstractions for asynchronous programming.</p>
-
-<p><strong>Example: RxJava</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">io.reactivex.Observable</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">RxJavaExample</span> <span class="o">{</span>
-</span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">Observable</span><span class="o">.</span><span class="na">just</span><span class="o">(</span><span class="s">&quot;Hello, Rishijeet!&quot;</span><span class="o">)</span>
-</span><span class='line'>                  <span class="o">.</span><span class="na">delay</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span> <span class="n">TimeUnit</span><span class="o">.</span><span class="na">SECONDS</span><span class="o">)</span>
-</span><span class='line'>                  <span class="o">.</span><span class="na">subscribe</span><span class="o">(</span><span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">::</span><span class="n">println</span><span class="o">);</span>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<a name="L-3c-strong-3e-Async-2f-Await--28-Promises-29--3c--2f-strong-3e-"></a>
-<h3><strong>Async/Await (Promises)</strong></h3>
-
-<p>Async/await is a popular pattern in languages like JavaScript and Python. It simplifies asynchronous code by allowing it to be written in a synchronous style.</p>
-
-<p><strong>Example: Async/Await in JavaScript</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="kd">function</span> <span class="nx">delay</span><span class="p">(</span><span class="nx">ms</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">return</span> <span class="k">new</span> <span class="nx">Promise</span><span class="p">(</span><span class="nx">resolve</span> <span class="o">=&gt;</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">ms</span><span class="p">));</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nx">async</span> <span class="kd">function</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
-</span><span class='line'>    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">&quot;Hello,&quot;</span><span class="p">);</span>
-</span><span class='line'>    <span class="nx">await</span> <span class="nx">delay</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
-</span><span class='line'>    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">&quot;Rishijeet!&quot;</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nx">main</span><span class="p">();</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<a name="Conclusion"></a>
-<h3>Conclusion</h3>
-
-<p>Coroutines offer a powerful and efficient way to handle concurrency, providing simplicity and performance advantages over traditional threads. They are particularly well-suited for I/O-bound and network-bound tasks, enabling non-blocking asynchronous code execution. While there are alternative concurrency models like threads, reactive programming, and async/await, coroutines stand out for their lightweight nature and structured concurrency.</p>
-
-<p>Kotlin&rsquo;s built-in support for coroutines makes it an excellent choice for modern asynchronous programming. By leveraging coroutines, developers can write more readable, maintainable, and efficient concurrent code.</p>
-
-<p>Understanding the various concurrency models and their trade-offs allows developers to choose the best approach for their specific use cases. Whether using coroutines, threads, reactive programming, or async/await, the key is to find the right balance between simplicity, performance, and scalability.</p>
 ]]></content>
     </entry>
     

@@ -4,7 +4,7 @@
     <title><![CDATA[Category: llm | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/llm/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-08-15T10:41:51+05:30</updated>
+    <updated>2025-08-17T20:13:53+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,130 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Efficient Fine-Tuning of Large Language Models: A Deep Dive into LoRA and QLoRA]]></title>
+        <link href="https://rishijeet.github.io/blog/efficient-fine-tuning-of-large-language-models-a-deep-dive-into-lora-and-qlora/"/>
+        <updated>2025-08-17T18:27:01+05:30</updated>
+        <id>https://rishijeet.github.io/blog/efficient-fine-tuning-of-large-language-models-a-deep-dive-into-lora-and-qlora</id>
+        <content type="html"><![CDATA[<p>In the era of large language models (LLMs) like GPT-3 and Llama, fine-tuning these behemoths for specific tasks has become a cornerstone of AI development. However, traditional full fine-tuning demands enormous computational resources, often requiring hundreds of GBs of GPU memory and extensive training time. This is where parameter-efficient fine-tuning (PEFT) techniques shine, allowing us to adapt massive models with minimal overhead. Among these, Low-Rank Adaptation (LoRA) and its quantized variant, Quantized LoRA (QLoRA), stand out for their efficiency and effectiveness. In this technical blog, we&rsquo;ll explore the mechanics, mathematics, advantages, and practical implementations of LoRA and QLoRA, drawing from foundational research and real-world applications.</p>
+
+<a name="Understanding-Fine-2d-Tuning-Challenges"></a>
+<h2>Understanding Fine-Tuning Challenges</h2>
+
+<p>Full fine-tuning involves updating all parameters of a pre-trained model on a downstream dataset, which maximizes performance but at a steep cost. For instance, fine-tuning a 175B-parameter model like GPT-3 requires retraining every weight, leading to high memory usage and deployment challenges. PEFT methods mitigate this by updating only a subset of parameters or adding lightweight adapters, reducing trainable parameters by orders of magnitude while preserving model quality.</p>
+
+<p><img src="/images/2025/lora_qlora.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<!--more-->
+
+
+<a name="What-is-LoRA-3f-"></a>
+<h2>What is LoRA?</h2>
+
+<p>LoRA, or Low-Rank Adaptation, was introduced by Microsoft researchers in 2021 as a method to fine-tune LLMs by injecting low-rank trainable matrices into the model&rsquo;s layers without altering the original weights. The core idea stems from the observation that weight updates during fine-tuning often lie in a low-dimensional subspace—meaning the changes to the model&rsquo;s weights have a low &ldquo;intrinsic rank.&rdquo; Instead of updating the full weight matrix, LoRA decomposes these updates into smaller, low-rank factors.</p>
+
+<a name="How-LoRA-Works"></a>
+<h3>How LoRA Works</h3>
+
+<p>Consider a pre-trained weight matrix \( W_0 \in \mathbb{R}^{d \times k} \) in a Transformer layer (e.g., attention weights like \( W_q, W_k, W_v, W_o \)). During fine-tuning, the update is constrained as \( \Delta W = BA \), where \( B \in \mathbb{R}^{d \times r} \), \( A \in \mathbb{R}^{r \times k} \), and \( r \ll \min(d, k) \) is the rank (typically 1-64). The original weights \( W_0 \) remain frozen, and only \( A \) and \( B \) are trained.</p>
+
+<p>The forward pass becomes:
+\[
+h = W_0 x + \frac{\alpha}{r} BA x
+\]
+where \( \alpha \) is a scaling factor (often set to twice the rank for stability), and the division by \( r \) normalizes the update magnitude. Initialization is key: \( A \) starts with random Gaussian values, while \( B \) is zeroed to ensure no initial change.</p>
+
+<p>LoRA is typically applied to attention layers in Transformers, as empirical studies show this yields the best results with fewer parameters. For a model like GPT-3 175B, this reduces trainable parameters from billions to just thousands (e.g., 0.3M for r=8), slashing GPU memory needs by 3x and trainable parameters by 10,000x compared to full fine-tuning.</p>
+
+<a name="Advantages-of-LoRA"></a>
+<h3>Advantages of LoRA</h3>
+
+<ul>
+<li><strong>Efficiency</strong>: Training throughput increases due to fewer gradients and optimizer states. For example, on GPT-3, LoRA matches or exceeds full fine-tuning quality on benchmarks like RoBERTa and DeBERTa while using far less memory.</li>
+<li><strong>Deployment Flexibility</strong>: Post-training, \( BA \) can be merged into \( W_0 \), incurring no inference latency. Multiple LoRA adapters can share the base model, enabling quick task-switching.</li>
+<li><strong>Hyperparameter Tips</strong>: Common ranks are 4-32; alpha is often 2x rank. Libraries like Hugging Face&rsquo;s PEFT make integration seamless.</li>
+</ul>
+
+
+<a name="Introducing-QLoRA:-Quantization-Meets-LoRA"></a>
+<h2>Introducing QLoRA: Quantization Meets LoRA</h2>
+
+<p>While LoRA is efficient, fine-tuning still requires loading the full model in high-precision formats (e.g., FP16), which can exceed single-GPU limits for models over 30B parameters. QLoRA, proposed in 2023, extends LoRA by quantizing the base model to 4 bits, enabling fine-tuning of 65B+ models on a single 48GB GPU without performance loss.</p>
+
+<a name="How-QLoRA-Builds-on-LoRA"></a>
+<h3>How QLoRA Builds on LoRA</h3>
+
+<p>QLoRA freezes a 4-bit quantized version of the pre-trained model and backpropagates gradients through it into LoRA adapters. Key innovations include:</p>
+
+<ul>
+<li><strong>4-bit NormalFloat (NF4) Quantization</strong>: An information-theoretically optimal data type for normally distributed weights. Weights are normalized to [-1, 1] and quantized into bins with equal expected values from a N(0,1) distribution, avoiding outliers.</li>
+<li><strong>Double Quantization</strong>: Quantizes the quantization constants themselves (e.g., to 8-bit), saving ~0.37 bits per parameter by reducing constants&#8217; memory footprint.</li>
+<li><strong>Paged Optimizers</strong>: Uses NVIDIA unified memory to page optimizer states to CPU RAM during spikes, preventing OOM errors.</li>
+</ul>
+
+
+<p>Mathematically, for a linear layer:</p>
+
+<div>
+<span>
+&#92;[
+Y_{&#92;text{BF16}} = X_{&#92;text{BF16}} &#92;cdot &#92;text{doubleDequant}(c_{&#92;text{FP32}_1}, c_{k&#92;text{-bit}_2}, W_{&#92;text{NF4}}) + X_{&#92;text{BF16}} &#92;cdot L_{&#92;text{BF16}_1} &#92;cdot L_{&#92;text{BF16}_2}
+&#92;]
+</span>
+</div>
+
+
+<p>Gradients are computed in BF16 for LoRA params (\( L_1, L_2 \)) only, while the quantized base remains frozen.</p>
+
+<p>QLoRA matches 16-bit full fine-tuning on benchmarks like Vicuna, with models like Guanaco achieving 99.3% of ChatGPT&rsquo;s performance after 24 hours on one GPU.</p>
+
+<a name="Advantages-of-QLoRA-Over-LoRA"></a>
+<h3>Advantages of QLoRA Over LoRA</h3>
+
+<ul>
+<li><strong>Memory Savings</strong>: Reduces footprint from >780GB to &lt;48GB for 65B models, democratizing access.</li>
+<li><strong>No Performance Trade-off</strong>: Unlike naive quantization, QLoRA preserves accuracy by fine-tuning adapters on high-quality data.</li>
+<li><strong>Scalability</strong>: Enables fine-tuning on consumer hardware, with extensions like 8-bit integration in Hugging Face for even broader use.</li>
+</ul>
+
+
+<a name="Practical-Implementation-with-Hugging-Face"></a>
+<h2>Practical Implementation with Hugging Face</h2>
+
+<p>Hugging Face&rsquo;s libraries (Transformers, PEFT, Diffusers) simplify LoRA/QLoRA usage. For LoRA fine-tuning of Stable Diffusion:</p>
+
+<pre><code class="python">from diffusers import StableDiffusionPipeline
+pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+pipe.unet.enable_lora(rank=4)  # Enable LoRA with rank 4
+# Train on dataset, then merge and infer
+</code></pre>
+
+<p>For QLoRA with Gemma:
+&#8220;`python
+from keras_nlp.models import GemmaLM
+gemma_lm = GemmaLM.from_preset(&ldquo;gemma_2b_en&rdquo;)
+gemma_lm.quantize(&ldquo;int8&rdquo;)  # Quantize to 8-bit (extendable to 4-bit)
+gemma_lm.backbone.enable_lora(rank=4)</p>
+
+<a name="Fine-2d-tune-and-evaluate"></a>
+<h1>Fine-tune and evaluate</h1>
+
+<p>&#8220;`</p>
+
+<p>Recent tutorials emphasize dataset preparation and evaluation for vision-language models like QWEN2.5VL.</p>
+
+<a name="Applications-and-Case-Studies"></a>
+<h2>Applications and Case Studies</h2>
+
+<p>LoRA/QLoRA power domain-specific adaptations, from chatbots (e.g., Guanaco) to image generation (e.g., Pokémon fine-tuning). In production, they&rsquo;ve enabled zero-shot learning via hypernetworks and optimized LLMs for edge devices. Studies from Lightning AI show QLoRA excelling in memory-constrained environments across hundreds of experiments.</p>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>LoRA and QLoRA revolutionize LLM fine-tuning by making it accessible, efficient, and scalable. LoRA&rsquo;s low-rank decomposition minimizes parameters, while QLoRA&rsquo;s quantization pushes boundaries further, enabling massive models on modest hardware. As AI evolves, these techniques will be pivotal for customizing foundation models. Experiment with Hugging Face tools to harness their power in your projects.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Data Centers in the United States &amp; AI-Driven Developments]]></title>
@@ -1082,300 +1206,6 @@ chmod +x build-and-deploy.sh start-services.sh
 <h2>Conclusion</h2>
 
 <p>Smartcase Engine exemplifies how modern architectural principles can be harnessed to build robust, scalable, and efficient case management systems. Whether you&rsquo;re looking to streamline dispute resolutions or manage complex workflows, Smartcase Engine offers a solid foundation to build upon.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Model Context Protocol (MCP): The Backbone of Dynamic AI Workflows]]></title>
-        <link href="https://rishijeet.github.io/blog/model-context-protocol-mcp-the-backbone-of-dynamic-ai-workflows/"/>
-        <updated>2025-04-08T23:14:14+05:30</updated>
-        <id>https://rishijeet.github.io/blog/model-context-protocol-mcp-the-backbone-of-dynamic-ai-workflows</id>
-        <content type="html"><![CDATA[<p>As the AI landscape rapidly evolves, the demand for systems that support <strong>modular</strong>, <strong>context-aware</strong>, and <strong>efficient orchestration</strong> of models has grown. Enter the <strong>Model Context Protocol (MCP)</strong> — a rising standard that enables dynamic, multi-agent AI systems to exchange context, manage state, and chain model invocations intelligently.</p>
-
-<p>In this article, we’ll explore what MCP is, why it matters, and how it’s becoming a key component in the infrastructure stack for advanced AI applications. We’ll also walk through a conceptual example of building an MCP-compatible server.</p>
-
-<a name="What-is-the-Model-Context-Protocol--28-MCP-29--3f-"></a>
-<h2>What is the Model Context Protocol (MCP)?</h2>
-
-<p><strong>MCP</strong> is a protocol designed to manage the <strong>contextual state</strong> of AI models across requests in multi-agent, multi-model environments. It’s part of a broader effort to make LLMs (Large Language Models) more <strong>stateful</strong>, <strong>collaborative</strong>, and <strong>task-aware</strong>.</p>
-
-<p>At its core, MCP provides:</p>
-
-<ul>
-<li>A way to <strong>pass and maintain context</strong> (like conversation history, task progress, or shared knowledge) across AI agents or model calls.</li>
-<li>A standardized protocol to support <strong>chained inference</strong>, where multiple models collaborate on subtasks.</li>
-<li>Support for <strong>stateful computation</strong>, which is critical in complex reasoning or long-running workflows.</li>
-</ul>
-
-
-<p><img src="/images/2025/mcp_server" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<!--more-->
-
-
-<a name="Why-is-MCP-Relevant-Now-3f-"></a>
-<h2>Why is MCP Relevant Now?</h2>
-
-<p>The growing interest in <strong>AI agents</strong>, <strong>function-calling APIs</strong>, and <strong>model interoperability</strong> has created a pressing need for something like MCP. Some trends driving MCP adoption include:</p>
-
-<style>
-  .trend-impact-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, sans-serif;
-  }
-  .trend-impact-table th,
-  .trend-impact-table td {
-    text-align: left;
-    padding: 12px;
-    border-bottom: 1px solid #ccc;
-    vertical-align: top;
-  }
-  .trend-impact-table th {
-    background-color: #f2f2f2;
-    width: 25%;
-  }
-</style>
-
-
-
-
-<table class="trend-impact-table">
-  <thead>
-    <tr>
-      <th>Trend</th>
-      <th>Impact</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Agentic Workflows</td>
-      <td>Models need shared context to collaborate efficiently (e.g., ReAct, AutoGPT, BabyAGI).</td>
-    </tr>
-    <tr>
-      <td>LLM Orchestration Frameworks</td>
-      <td>Tools like LangChain, Semantic Kernel, and OpenDevin push for context-aware memory and model chaining.</td>
-    </tr>
-    <tr>
-      <td>Open Model Ecosystems</td>
-      <td>Efforts like Hugging Face&#8217;s Inference Endpoints, vLLM, and Modal want to standardize inference behavior.</td>
-    </tr>
-    <tr>
-      <td>Retrieval-Augmented Generation (RAG)</td>
-      <td>Persistent context and metadata handling are vital for grounded reasoning.</td>
-    </tr>
-  </tbody>
-</table>
-
-
-<p>Leading companies like <strong>OpenAI (via ChatGPT APIs)</strong>, <strong>Anthropic (via Claude’s memory)</strong>, and <strong>Mistral</strong> are integrating ideas from MCP implicitly, if not through standardized APIs.</p>
-
-<a name="Core-Concepts-of-MCP"></a>
-<h2>Core Concepts of MCP</h2>
-
-<p>An MCP server typically supports the following concepts:</p>
-
-<a name="L-3c-strong-3e-Model-Context-3c--2f-strong-3e-"></a>
-<h3><strong>Model Context</strong></h3>
-
-<pre><code class="json">{
-  "session_id": "abc-123",
-  "user_id": "user-456",
-  "context": {
-    "history": [
-      { "role": "user", "content": "Generate a project plan." },
-      { "role": "assistant", "content": "Sure, here's a draft..." }
-    ],
-    "task": "project_planning",
-    "dependencies": ["retrieval_plugin", "summarizer_model"]
-  }
-}
-</code></pre>
-
-<a name="L-3c-strong-3e-Model-Invocation-with-Context-3c--2f-strong-3e-"></a>
-<h3><strong>Model Invocation with Context</strong></h3>
-
-<pre><code class="json">{
-  "model": "gpt-4",
-  "input": "What are the next steps?",
-  "context_ref": "abc-123",
-  "metadata": {
-    "requested_capability": "planning.summarize"
-  }
-}
-</code></pre>
-
-<a name="L-3c-strong-3e-Chained-Outputs-and-Shared-State-3c--2f-strong-3e-"></a>
-<h3><strong>Chained Outputs and Shared State</strong></h3>
-
-<p>Each model contributes to a shared state, stored either in an in-memory store (like Redis) or a structured store (like Postgres + pgvector for embeddings).</p>
-
-<a name="Building-a-Basic-MCP-Server"></a>
-<h2>Building a Basic MCP Server</h2>
-
-<p>Let’s outline what a minimal MCP-compatible server might look like using <strong>FastAPI</strong> and <strong>Redis</strong>.</p>
-
-<a name="Basic-Server-with-Context-Store"></a>
-<h3>Basic Server with Context Store</h3>
-
-<pre><code class="python">from fastapi import FastAPI, Request
-import redis
-import uuid
-import json
-
-app = FastAPI()
-r = redis.Redis(host='localhost', port=6379, decode_responses=True)
-
-@app.post("/invoke")
-async def invoke_model(request: Request):
-    payload = await request.json()
-    context_ref = payload.get("context_ref")
-    input_text = payload["input"]
-    model = payload["model"]
-
-    # Load context
-    context = json.loads(r.get(context_ref)) if context_ref else {}
-    history = context.get("history", [])
-
-    # Simulate model response
-    history.append({"role": "user", "content": input_text})
-    response = f"Simulated response to: {input_text}"
-    history.append({"role": "assistant", "content": response})
-
-    # Save updated context
-    new_context_ref = context_ref or str(uuid.uuid4())
-    r.set(new_context_ref, json.dumps({"history": history}))
-
-    return {"output": response, "context_ref": new_context_ref}
-</code></pre>
-
-<a name="Add-Capability-Metadata"></a>
-<h3>Add Capability Metadata</h3>
-
-<p>Enhance the server to log requested capabilities and dependency resolution (e.g., invoking tools or submodels).</p>
-
-<pre><code class="python">capability = payload.get("metadata", {}).get("requested_capability")
-log_event(user_id, session_id, model, capability)
-</code></pre>
-
-<hr />
-
-<a name="MCP-vs-Alternatives"></a>
-<h2>MCP vs Alternatives</h2>
-
-<p>MCP aims to serve as the <strong>underlying protocol</strong>, while frameworks like LangChain act as <strong>developer tooling on top</strong>.</p>
-
-<style>
-  .comparison-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, sans-serif;
-  }
-  .comparison-table th,
-  .comparison-table td {
-    text-align: center;
-    padding: 12px;
-    border-bottom: 1px solid #ccc;
-    width: 20%;
-  }
-  .comparison-table th {
-    background-color: #f2f2f2;
-  }
-</style>
-
-
-
-
-<table class="comparison-table">
-  <thead>
-    <tr>
-      <th>Feature</th>
-      <th>MCP</th>
-      <th>LangChain</th>
-      <th>Semantic Kernel</th>
-      <th>ChatML (OpenAI)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Context Persistence</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>Partial</td>
-    </tr>
-    <tr>
-      <td>Model-Agnostic</td>
-      <td>✅</td>
-      <td>❌<br><small>(Python-specific)</small></td>
-      <td>✅</td>
-      <td>❌</td>
-    </tr>
-    <tr>
-      <td>Stateful Memory</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>Partial</td>
-    </tr>
-    <tr>
-      <td>Chaining Support</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>✅</td>
-      <td>❌</td>
-    </tr>
-    <tr>
-      <td>Explicit Protocol</td>
-      <td>✅</td>
-      <td>❌</td>
-      <td>❌</td>
-      <td>✅<br><small>(format only)</small></td>
-    </tr>
-  </tbody>
-</table>
-
-
-<a name="Adoption-and-Ecosystem-Signals"></a>
-<h2>Adoption and Ecosystem Signals</h2>
-
-<ul>
-<li><strong>LangChain and LlamaIndex</strong>: Moving towards standardizing memory interfaces with composable context.</li>
-<li><strong>OpenAI’s Assistant API</strong>: Explicitly supports persistent threads, similar to MCP session_id and shared memory.</li>
-<li><strong>Anthropic&rsquo;s Memory Plans</strong>: Incorporates long-term memory slots, resembling MCP’s context model.</li>
-<li><strong>Meta’s Multi-Agent Research (2024)</strong>: Proposes architectures that are context-routing centric — aligning with MCP’s goals.</li>
-</ul>
-
-
-<a name="Challenges-and-Future-Directions"></a>
-<h2>Challenges and Future Directions</h2>
-
-<a name="Technical-Challenges"></a>
-<h3>Technical Challenges</h3>
-
-<ul>
-<li>Efficient context storage and retrieval at scale.</li>
-<li>Dynamic resolution of capabilities and tool invocation.</li>
-<li>Real-time chaining with latency constraints.</li>
-</ul>
-
-
-<a name="What-e2--80--99-s-Next-3f-"></a>
-<h3>What’s Next?</h3>
-
-<ul>
-<li><strong>Open spec for MCP</strong>: Standardization akin to OpenAPI or GraphQL.</li>
-<li><strong>Plugin Interop</strong>: Tool APIs that conform to context-aware interfaces.</li>
-<li><strong>LLMOps Integration</strong>: Tracking usage, debugging flows, and observability in agentic systems.</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>The <strong>Model Context Protocol</strong> is a foundational building block for the next wave of <strong>AI-native applications</strong>. It abstracts and manages the complexity of context, model chaining, and agent collaboration — enabling AI systems that behave less like stateless endpoints and more like intelligent software agents.</p>
-
-<p>As the AI ecosystem matures, MCP (whether explicitly named or not) will become central to orchestrating rich, multi-turn, multi-model AI systems.</p>
 ]]></content>
     </entry>
     

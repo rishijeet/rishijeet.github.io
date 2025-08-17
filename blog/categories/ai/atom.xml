@@ -4,7 +4,7 @@
     <title><![CDATA[Category: ai | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/ai/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-08-15T10:41:51+05:30</updated>
+    <updated>2025-08-17T20:13:53+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,130 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Efficient Fine-Tuning of Large Language Models: A Deep Dive into LoRA and QLoRA]]></title>
+        <link href="https://rishijeet.github.io/blog/efficient-fine-tuning-of-large-language-models-a-deep-dive-into-lora-and-qlora/"/>
+        <updated>2025-08-17T18:27:01+05:30</updated>
+        <id>https://rishijeet.github.io/blog/efficient-fine-tuning-of-large-language-models-a-deep-dive-into-lora-and-qlora</id>
+        <content type="html"><![CDATA[<p>In the era of large language models (LLMs) like GPT-3 and Llama, fine-tuning these behemoths for specific tasks has become a cornerstone of AI development. However, traditional full fine-tuning demands enormous computational resources, often requiring hundreds of GBs of GPU memory and extensive training time. This is where parameter-efficient fine-tuning (PEFT) techniques shine, allowing us to adapt massive models with minimal overhead. Among these, Low-Rank Adaptation (LoRA) and its quantized variant, Quantized LoRA (QLoRA), stand out for their efficiency and effectiveness. In this technical blog, we&rsquo;ll explore the mechanics, mathematics, advantages, and practical implementations of LoRA and QLoRA, drawing from foundational research and real-world applications.</p>
+
+<a name="Understanding-Fine-2d-Tuning-Challenges"></a>
+<h2>Understanding Fine-Tuning Challenges</h2>
+
+<p>Full fine-tuning involves updating all parameters of a pre-trained model on a downstream dataset, which maximizes performance but at a steep cost. For instance, fine-tuning a 175B-parameter model like GPT-3 requires retraining every weight, leading to high memory usage and deployment challenges. PEFT methods mitigate this by updating only a subset of parameters or adding lightweight adapters, reducing trainable parameters by orders of magnitude while preserving model quality.</p>
+
+<p><img src="/images/2025/lora_qlora.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<!--more-->
+
+
+<a name="What-is-LoRA-3f-"></a>
+<h2>What is LoRA?</h2>
+
+<p>LoRA, or Low-Rank Adaptation, was introduced by Microsoft researchers in 2021 as a method to fine-tune LLMs by injecting low-rank trainable matrices into the model&rsquo;s layers without altering the original weights. The core idea stems from the observation that weight updates during fine-tuning often lie in a low-dimensional subspace—meaning the changes to the model&rsquo;s weights have a low &ldquo;intrinsic rank.&rdquo; Instead of updating the full weight matrix, LoRA decomposes these updates into smaller, low-rank factors.</p>
+
+<a name="How-LoRA-Works"></a>
+<h3>How LoRA Works</h3>
+
+<p>Consider a pre-trained weight matrix \( W_0 \in \mathbb{R}^{d \times k} \) in a Transformer layer (e.g., attention weights like \( W_q, W_k, W_v, W_o \)). During fine-tuning, the update is constrained as \( \Delta W = BA \), where \( B \in \mathbb{R}^{d \times r} \), \( A \in \mathbb{R}^{r \times k} \), and \( r \ll \min(d, k) \) is the rank (typically 1-64). The original weights \( W_0 \) remain frozen, and only \( A \) and \( B \) are trained.</p>
+
+<p>The forward pass becomes:
+\[
+h = W_0 x + \frac{\alpha}{r} BA x
+\]
+where \( \alpha \) is a scaling factor (often set to twice the rank for stability), and the division by \( r \) normalizes the update magnitude. Initialization is key: \( A \) starts with random Gaussian values, while \( B \) is zeroed to ensure no initial change.</p>
+
+<p>LoRA is typically applied to attention layers in Transformers, as empirical studies show this yields the best results with fewer parameters. For a model like GPT-3 175B, this reduces trainable parameters from billions to just thousands (e.g., 0.3M for r=8), slashing GPU memory needs by 3x and trainable parameters by 10,000x compared to full fine-tuning.</p>
+
+<a name="Advantages-of-LoRA"></a>
+<h3>Advantages of LoRA</h3>
+
+<ul>
+<li><strong>Efficiency</strong>: Training throughput increases due to fewer gradients and optimizer states. For example, on GPT-3, LoRA matches or exceeds full fine-tuning quality on benchmarks like RoBERTa and DeBERTa while using far less memory.</li>
+<li><strong>Deployment Flexibility</strong>: Post-training, \( BA \) can be merged into \( W_0 \), incurring no inference latency. Multiple LoRA adapters can share the base model, enabling quick task-switching.</li>
+<li><strong>Hyperparameter Tips</strong>: Common ranks are 4-32; alpha is often 2x rank. Libraries like Hugging Face&rsquo;s PEFT make integration seamless.</li>
+</ul>
+
+
+<a name="Introducing-QLoRA:-Quantization-Meets-LoRA"></a>
+<h2>Introducing QLoRA: Quantization Meets LoRA</h2>
+
+<p>While LoRA is efficient, fine-tuning still requires loading the full model in high-precision formats (e.g., FP16), which can exceed single-GPU limits for models over 30B parameters. QLoRA, proposed in 2023, extends LoRA by quantizing the base model to 4 bits, enabling fine-tuning of 65B+ models on a single 48GB GPU without performance loss.</p>
+
+<a name="How-QLoRA-Builds-on-LoRA"></a>
+<h3>How QLoRA Builds on LoRA</h3>
+
+<p>QLoRA freezes a 4-bit quantized version of the pre-trained model and backpropagates gradients through it into LoRA adapters. Key innovations include:</p>
+
+<ul>
+<li><strong>4-bit NormalFloat (NF4) Quantization</strong>: An information-theoretically optimal data type for normally distributed weights. Weights are normalized to [-1, 1] and quantized into bins with equal expected values from a N(0,1) distribution, avoiding outliers.</li>
+<li><strong>Double Quantization</strong>: Quantizes the quantization constants themselves (e.g., to 8-bit), saving ~0.37 bits per parameter by reducing constants&#8217; memory footprint.</li>
+<li><strong>Paged Optimizers</strong>: Uses NVIDIA unified memory to page optimizer states to CPU RAM during spikes, preventing OOM errors.</li>
+</ul>
+
+
+<p>Mathematically, for a linear layer:</p>
+
+<div>
+<span>
+&#92;[
+Y_{&#92;text{BF16}} = X_{&#92;text{BF16}} &#92;cdot &#92;text{doubleDequant}(c_{&#92;text{FP32}_1}, c_{k&#92;text{-bit}_2}, W_{&#92;text{NF4}}) + X_{&#92;text{BF16}} &#92;cdot L_{&#92;text{BF16}_1} &#92;cdot L_{&#92;text{BF16}_2}
+&#92;]
+</span>
+</div>
+
+
+<p>Gradients are computed in BF16 for LoRA params (\( L_1, L_2 \)) only, while the quantized base remains frozen.</p>
+
+<p>QLoRA matches 16-bit full fine-tuning on benchmarks like Vicuna, with models like Guanaco achieving 99.3% of ChatGPT&rsquo;s performance after 24 hours on one GPU.</p>
+
+<a name="Advantages-of-QLoRA-Over-LoRA"></a>
+<h3>Advantages of QLoRA Over LoRA</h3>
+
+<ul>
+<li><strong>Memory Savings</strong>: Reduces footprint from >780GB to &lt;48GB for 65B models, democratizing access.</li>
+<li><strong>No Performance Trade-off</strong>: Unlike naive quantization, QLoRA preserves accuracy by fine-tuning adapters on high-quality data.</li>
+<li><strong>Scalability</strong>: Enables fine-tuning on consumer hardware, with extensions like 8-bit integration in Hugging Face for even broader use.</li>
+</ul>
+
+
+<a name="Practical-Implementation-with-Hugging-Face"></a>
+<h2>Practical Implementation with Hugging Face</h2>
+
+<p>Hugging Face&rsquo;s libraries (Transformers, PEFT, Diffusers) simplify LoRA/QLoRA usage. For LoRA fine-tuning of Stable Diffusion:</p>
+
+<pre><code class="python">from diffusers import StableDiffusionPipeline
+pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+pipe.unet.enable_lora(rank=4)  # Enable LoRA with rank 4
+# Train on dataset, then merge and infer
+</code></pre>
+
+<p>For QLoRA with Gemma:
+&#8220;`python
+from keras_nlp.models import GemmaLM
+gemma_lm = GemmaLM.from_preset(&ldquo;gemma_2b_en&rdquo;)
+gemma_lm.quantize(&ldquo;int8&rdquo;)  # Quantize to 8-bit (extendable to 4-bit)
+gemma_lm.backbone.enable_lora(rank=4)</p>
+
+<a name="Fine-2d-tune-and-evaluate"></a>
+<h1>Fine-tune and evaluate</h1>
+
+<p>&#8220;`</p>
+
+<p>Recent tutorials emphasize dataset preparation and evaluation for vision-language models like QWEN2.5VL.</p>
+
+<a name="Applications-and-Case-Studies"></a>
+<h2>Applications and Case Studies</h2>
+
+<p>LoRA/QLoRA power domain-specific adaptations, from chatbots (e.g., Guanaco) to image generation (e.g., Pokémon fine-tuning). In production, they&rsquo;ve enabled zero-shot learning via hypernetworks and optimized LLMs for edge devices. Studies from Lightning AI show QLoRA excelling in memory-constrained environments across hundreds of experiments.</p>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>LoRA and QLoRA revolutionize LLM fine-tuning by making it accessible, efficient, and scalable. LoRA&rsquo;s low-rank decomposition minimizes parameters, while QLoRA&rsquo;s quantization pushes boundaries further, enabling massive models on modest hardware. As AI evolves, these techniques will be pivotal for customizing foundation models. Experiment with Hugging Face tools to harness their power in your projects.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Data Centers in the United States &amp; AI-Driven Developments]]></title>
@@ -1082,67 +1206,6 @@ chmod +x build-and-deploy.sh start-services.sh
 <h2>Conclusion</h2>
 
 <p>Smartcase Engine exemplifies how modern architectural principles can be harnessed to build robust, scalable, and efficient case management systems. Whether you&rsquo;re looking to streamline dispute resolutions or manage complex workflows, Smartcase Engine offers a solid foundation to build upon.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[High-Flyer: Pioneering AI in Finance]]></title>
-        <link href="https://rishijeet.github.io/blog/high-flyer-pioneering-ai-in-finance/"/>
-        <updated>2025-03-30T20:13:12+05:30</updated>
-        <id>https://rishijeet.github.io/blog/high-flyer-pioneering-ai-in-finance</id>
-        <content type="html"><![CDATA[<p>In the rapidly evolving landscape of artificial intelligence (AI), China&rsquo;s DeepSeek has emerged as a formidable contender, challenging established players and redefining industry standards. This ascent is deeply intertwined with High-Flyer, an AI-driven quantitative hedge fund whose strategic investments and visionary leadership have propelled DeepSeek to the forefront of AI innovation.</p>
-
-<p><img src="/images/2025/deepseek.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<p>Founded in February 2016 by Liang Wenfeng, High-Flyer—officially known as Hangzhou Huanfang Technology Ltd Co.—quickly distinguished itself in the financial sector by leveraging AI models for investment decisions. By late 2017, AI systems managed the majority of High-Flyer&rsquo;s trading activities, solidifying its reputation as a leader in AI-driven stock trading. The firm&rsquo;s portfolio burgeoned to an impressive 100 billion yuan (approximately $13.79 billion), underscoring the efficacy of its AI-centric strategies.</p>
-
-<!--more-->
-
-
-<p><img src="/images/2025/high_flyer.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Strategic-Investments-in-Computing-Power"></a>
-<h2>Strategic Investments in Computing Power</h2>
-
-<p>Anticipating the critical role of computational resources in AI advancement, Liang Wenfeng initiated substantial investments in high-performance hardware. Between 2020 and 2021, High-Flyer constructed two AI supercomputing clusters comprising Nvidia&rsquo;s A100 graphics processing units (GPUs). The first cluster, operational in 2020, integrated 1,100 A100 chips at a cost of 200 million yuan.
-The subsequent year saw the completion of a second, more expansive cluster with approximately 10,000 A100 chips, representing a 1 billion yuan investment. These strategic acquisitions occurred prior to the U.S. government&rsquo;s 2022 restrictions on exporting advanced chips to China, positioning High-Flyer advantageously amid tightening technological embargoes.</p>
-
-<p><img src="/images/2025/quant_china.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Transition-to-Artificial-General-Intelligence--28-AGI-29-"></a>
-<h2>Transition to Artificial General Intelligence (AGI)</h2>
-
-<p>In 2023, High-Flyer announced a pivotal shift towards pursuing artificial general intelligence (AGI), aiming to develop autonomous systems capable of outperforming humans in most economically valuable tasks. This initiative led to the establishment of DeepSeek as an independent research entity dedicated to exploring the essence of AGI. Liang Wenfeng assumed a leadership role in DeepSeek, guiding its strategic direction and research endeavors.</p>
-
-<p><img src="/images/2025/hedge_fund_mania.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<p><img src="/images/2025/high_flyer_return.avif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="DeepSeek-27-s-Breakthroughs-and-Industry-Impact"></a>
-<h2>DeepSeek&rsquo;s Breakthroughs and Industry Impact</h2>
-
-<p>DeepSeek&rsquo;s trajectory has been marked by a series of groundbreaking AI models:</p>
-
-<ul>
-<li><p><strong>DeepSeek-V2 (May 2024):</strong> This chatbot model gained widespread acclaim in China for its cost-efficiency and superior performance, outperforming offerings from major tech companies such as ByteDance, Tencent, Baidu, and Alibaba. Its release triggered a price war, compelling competitors to significantly reduce prices on their AI models.</p></li>
-<li><p><strong>DeepSeek-V3 (December 2024):</strong> Building upon its predecessor, DeepSeek-V3 further enhanced capabilities and solidified DeepSeek&rsquo;s dominance in the AI sector.</p></li>
-<li><p><strong>DeepSeek-R1 (January 2025):</strong> This reasoning model and its associated chatbot application marked DeepSeek&rsquo;s entry into the international market, challenging the prevailing assumption of U.S. dominance in AI.</p></li>
-</ul>
-
-
-<p>The sophistication of DeepSeek&rsquo;s models has garnered praise from Silicon Valley competitors, a first for a Chinese AI model. Notably, DeepSeek claims to have achieved these advancements using a fraction of the computing power deployed by leading U.S. firms, a revelation that contributed to a global selloff of tech shares.</p>
-
-<a name="Navigating-Challenges-and-Future-Outlook"></a>
-<h2>Navigating Challenges and Future Outlook</h2>
-
-<p>Despite its rapid ascent, DeepSeek faces challenges, particularly concerning access to advanced computing hardware due to export restrictions. Liang Wenfeng has expressed concerns about the embargo on high-end chips, acknowledging it as a significant hurdle. Nevertheless, DeepSeek continues to innovate, relying on existing resources, efficiency improvements, and exploring domestic alternatives.</p>
-
-<p>DeepSeek&rsquo;s success has also influenced China&rsquo;s financial markets. The Chinese stock market experienced a resurgence in investor interest, with equity issuance doubling in the first quarter of 2025 compared to the previous year, reaching $16.8 billion. This optimism is partly driven by the emergence of DeepSeek, which offers AI products at lower costs, encouraging global investors to reconsider China&rsquo;s potential despite ongoing trade tensions.</p>
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>DeepSeek&rsquo;s meteoric rise, underpinned by High-Flyer&rsquo;s strategic foresight and investment in AI, exemplifies China&rsquo;s growing prowess in the global AI landscape. By prioritizing research over immediate commercial profit and fostering a meritocratic environment, DeepSeek has not only achieved remarkable technological advancements but also challenged existing paradigms, signaling a shift towards a more diversified and competitive global AI ecosystem.</p>
 ]]></content>
     </entry>
     

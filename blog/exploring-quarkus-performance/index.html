@@ -207,17 +207,12 @@ times and reducing memory usage.</li>
 
 <p>You can set up a Quarkus project using the following command:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>mvn io.quarkus:quarkus-maven-plugin:2.0.0.Final:create <span class="se">\</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="bash"><span class='line'>mvn io.quarkus:quarkus-maven-plugin:2.0.0.Final:create <span class="se">\</span>
 </span><span class='line'>    -DprojectGroupId<span class="o">=</span>com.example <span class="se">\</span>
 </span><span class='line'>    -DprojectArtifactId<span class="o">=</span>quarkus-performance <span class="se">\</span>
 </span><span class='line'>    -DclassName<span class="o">=</span><span class="s2">&quot;com.example.GreetingResource&quot;</span> <span class="se">\</span>
 </span><span class='line'>    -Dpath<span class="o">=</span><span class="s2">&quot;/hello&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Writing-the-REST-Endpoint"></a>
@@ -225,23 +220,7 @@ times and reducing memory usage.</li>
 
 <p>In <code>src/main/java/com/example/GreetingResource.java</code>, implement the REST endpoint:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">package</span> <span class="n">com</span><span class="o">.</span><span class="na">example</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="kn">import</span> <span class="nn">javax.ws.rs.GET</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">javax.ws.rs.Path</span><span class="o">;</span>
@@ -257,7 +236,7 @@ times and reducing memory usage.</li>
 </span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Hello, Quarkus!&quot;</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Building-and-Running-the-Application"></a>
@@ -265,18 +244,15 @@ times and reducing memory usage.</li>
 
 <p>To run the application in JVM mode, use:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>./mvnw quarkus:dev
-</span></code></pre></td></tr></table></div></figure>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="bash"><span class='line'>./mvnw quarkus:dev
+</span></code></pre></div></figure>
 
 
 <p>To build a native executable:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>./mvnw package -Pnative
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="bash"><span class='line'>./mvnw package -Pnative
 </span><span class='line'>./target/quarkus-performance-1.0.0-SNAPSHOT-runner
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Testing-Performance"></a>
@@ -287,9 +263,8 @@ times and reducing memory usage.</li>
 <a name="Example--3c-code-3e-wrk-3c--2f-code-3e--Command:"></a>
 <h4>Example <code>wrk</code> Command:</h4>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>wrk -t12 -c400 -d30s http://localhost:8080/hello
-</span></code></pre></td></tr></table></div></figure>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="bash"><span class='line'>wrk -t12 -c400 -d30s http://localhost:8080/hello
+</span></code></pre></div></figure>
 
 
 <a name="Performance-Observations"></a>

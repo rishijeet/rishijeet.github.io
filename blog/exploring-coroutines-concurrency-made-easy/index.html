@@ -143,16 +143,7 @@
 <a name="Example:-Basic-Coroutine"></a>
 <h3>Example: Basic Coroutine</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
 </span><span class='line'>    <span class="n">launch</span> <span class="p">{</span>
@@ -161,7 +152,7 @@
 </span><span class='line'>    <span class="p">}</span>
 </span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Hello,&quot;</span><span class="p">)</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>In this example, <code>runBlocking</code> starts a coroutine and blocks the main thread until the coroutine completes. The
@@ -171,22 +162,7 @@ printed immediately.</p>
 <a name="Example:-Structured-Concurrency"></a>
 <h3>Example: Structured Concurrency</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
 </span><span class='line'>    <span class="k">val</span> <span class="py">job</span> <span class="p">=</span> <span class="n">launch</span> <span class="p">{</span>
@@ -201,7 +177,7 @@ printed immediately.</p>
 </span><span class='line'>    <span class="n">delay</span><span class="p">(</span><span class="m">2000L</span><span class="p">)</span>
 </span><span class='line'>    <span class="n">println</span><span class="p">(</span><span class="s">&quot;Work in progress...&quot;</span><span class="p">)</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>This example demonstrates structured concurrency. The <code>doWork</code> function is a suspend function that simulates work with a 2-second delay. The <code>launch</code> function starts a coroutine that runs <code>doWork</code>, and <code>job.join()</code> waits for the coroutine to complete.</p>
@@ -209,22 +185,7 @@ printed immediately.</p>
 <a name="Example:-Async-and-Await"></a>
 <h3>Example: Async and Await</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='kotlin'><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">=</span> <span class="n">runBlocking</span> <span class="p">{</span>
 </span><span class='line'>    <span class="k">val</span> <span class="py">deferred</span> <span class="p">=</span> <span class="n">async</span> <span class="p">{</span>
@@ -239,7 +200,7 @@ printed immediately.</p>
 </span><span class='line'>    <span class="n">delay</span><span class="p">(</span><span class="m">1000L</span><span class="p">)</span>
 </span><span class='line'>    <span class="k">return</span> <span class="m">42</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <p>In this example, the <code>async</code> function starts a coroutine that computes a value asynchronously. The <code>await</code> function suspends the coroutine until the result is available.</p>
@@ -256,21 +217,7 @@ printed immediately.</p>
 
 <p><strong>Example: Threads in Java</strong></p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadExample</span> <span class="o">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadExample</span> <span class="o">{</span>
 </span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>        <span class="n">Thread</span> <span class="n">thread</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">Thread</span><span class="o">(()</span> <span class="o">-&gt;</span> <span class="o">{</span>
 </span><span class='line'>            <span class="k">try</span> <span class="o">{</span>
@@ -284,7 +231,7 @@ printed immediately.</p>
 </span><span class='line'>        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Hello,&quot;</span><span class="o">);</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="L-3c-strong-3e-Reactive-Programming-3c--2f-strong-3e-"></a>
@@ -294,16 +241,7 @@ printed immediately.</p>
 
 <p><strong>Example: RxJava</strong></p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">io.reactivex.Observable</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">import</span> <span class="nn">io.reactivex.Observable</span><span class="o">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">RxJavaExample</span> <span class="o">{</span>
 </span><span class='line'>    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="n">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
@@ -312,7 +250,7 @@ printed immediately.</p>
 </span><span class='line'>                  <span class="o">.</span><span class="na">subscribe</span><span class="o">(</span><span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">::</span><span class="n">println</span><span class="o">);</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="L-3c-strong-3e-Async-2f-Await--28-Promises-29--3c--2f-strong-3e-"></a>
@@ -322,18 +260,7 @@ printed immediately.</p>
 
 <p><strong>Example: Async/Await in JavaScript</strong></p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="kd">function</span> <span class="nx">delay</span><span class="p">(</span><span class="nx">ms</span><span class="p">)</span> <span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="javascript"><span class='line'><span class="kd">function</span> <span class="nx">delay</span><span class="p">(</span><span class="nx">ms</span><span class="p">)</span> <span class="p">{</span>
 </span><span class='line'>    <span class="k">return</span> <span class="k">new</span> <span class="nx">Promise</span><span class="p">(</span><span class="nx">resolve</span> <span class="o">=&gt;</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">ms</span><span class="p">));</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
@@ -344,7 +271,7 @@ printed immediately.</p>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
 </span><span class='line'><span class="nx">main</span><span class="p">();</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Conclusion"></a>

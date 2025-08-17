@@ -124,17 +124,7 @@
 
 <p>Tumbling windows are fixed-size, non-overlapping windows. Each event belongs to exactly one window.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span> <span class="c1">// your event stream</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span> <span class="c1">// your event stream</span>
 </span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">windowedStream</span> <span class="o">=</span> <span class="n">stream</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">TumblingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">)))</span>
@@ -144,7 +134,7 @@
 </span><span class='line'>            <span class="c1">// Window processing logic</span>
 </span><span class='line'>        <span class="o">}</span>
 </span><span class='line'>    <span class="o">});</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Sliding-Windows"></a>
@@ -152,17 +142,7 @@
 
 <p>Sliding windows are also fixed-size but can overlap. Each event can belong to multiple windows depending on the slide interval.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
 </span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">windowedStream</span> <span class="o">=</span> <span class="n">stream</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">SlidingEventTimeWindows</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">),</span> <span class="n">Time</span><span class="o">.</span><span class="na">seconds</span><span class="o">(</span><span class="mi">5</span><span class="o">)))</span>
@@ -172,7 +152,7 @@
 </span><span class='line'>            <span class="c1">// Window processing logic</span>
 </span><span class='line'>        <span class="o">}</span>
 </span><span class='line'>    <span class="o">});</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 
@@ -185,17 +165,7 @@
 
 <p>Session windows group events that arrive close to each other, with a session gap defining the threshold for grouping.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
 </span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">windowedStream</span> <span class="o">=</span> <span class="n">stream</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">ProcessingTimeSessionWindows</span><span class="o">.</span><span class="na">withGap</span><span class="o">(</span><span class="n">Time</span><span class="o">.</span><span class="na">minutes</span><span class="o">(</span><span class="mi">5</span><span class="o">)))</span>
@@ -205,7 +175,7 @@
 </span><span class='line'>            <span class="c1">// Window processing logic</span>
 </span><span class='line'>        <span class="o">}</span>
 </span><span class='line'>    <span class="o">});</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Global-Windows"></a>
@@ -213,18 +183,7 @@
 
 <p>Global windows group all elements with the same key into a single window. These windows require custom triggers to define when to produce results.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
 </span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">WindowedEvent</span><span class="o">&gt;</span> <span class="n">windowedStream</span> <span class="o">=</span> <span class="n">stream</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">keyBy</span><span class="o">(</span><span class="n">event</span> <span class="o">-&gt;</span> <span class="n">event</span><span class="o">.</span><span class="na">getKey</span><span class="o">())</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">window</span><span class="o">(</span><span class="n">GlobalWindows</span><span class="o">.</span><span class="na">create</span><span class="o">())</span>
@@ -235,7 +194,7 @@
 </span><span class='line'>            <span class="c1">// Window processing logic</span>
 </span><span class='line'>        <span class="o">}</span>
 </span><span class='line'>    <span class="o">});</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Assigning-Timestamps-and-Generating-Watermarks"></a>
@@ -243,18 +202,7 @@
 
 <p>For event-time windowing, it&rsquo;s crucial to assign timestamps to events and generate watermarks.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">stream</span> <span class="o">=</span> <span class="o">...;</span>
 </span><span class='line'><span class="n">WatermarkStrategy</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">watermarkStrategy</span> <span class="o">=</span> <span class="n">WatermarkStrategy</span>
 </span><span class='line'>    <span class="o">.&lt;</span><span class="n">Event</span><span class="o">&gt;</span><span class="n">forBoundedOutOfOrderness</span><span class="o">(</span><span class="n">Duration</span><span class="o">.</span><span class="na">ofSeconds</span><span class="o">(</span><span class="mi">5</span><span class="o">))</span>
 </span><span class='line'>    <span class="o">.</span><span class="na">withTimestampAssigner</span><span class="o">(</span><span class="k">new</span> <span class="n">SerializableTimestampAssigner</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;()</span> <span class="o">{</span>
@@ -265,54 +213,13 @@
 </span><span class='line'>    <span class="o">});</span>
 </span><span class='line'>
 </span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Event</span><span class="o">&gt;</span> <span class="n">timestampedStream</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="na">assignTimestampsAndWatermarks</span><span class="o">(</span><span class="n">watermarkStrategy</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Example:-Tumbling-Window-with-Event-Time"></a>
 <h2>Example: Tumbling Window with Event Time</h2>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.SerializableTimestampAssigner</span><span class="o">;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.SerializableTimestampAssigner</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.api.common.eventtime.WatermarkStrategy</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.streaming.api.datastream.DataStream</span><span class="o">;</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">org.apache.flink.streaming.api.environment.StreamExecutionEnvironment</span><span class="o">;</span>
@@ -353,7 +260,7 @@
 </span><span class='line'>        <span class="n">env</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;Tumbling Window Example&quot;</span><span class="o">);</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Benefits-of-Windowing"></a>

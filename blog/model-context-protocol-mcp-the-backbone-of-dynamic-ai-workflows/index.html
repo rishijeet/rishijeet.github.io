@@ -204,19 +204,7 @@
 <a name="L-3c-strong-3e-Model-Context-3c--2f-strong-3e-"></a>
 <h3><strong>Model Context</strong></h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="json"><span class='line'><span class="p">{</span>
 </span><span class='line'>  <span class="nt">&quot;session_id&quot;</span><span class="p">:</span> <span class="s2">&quot;abc-123&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;user-456&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;context&quot;</span><span class="p">:</span> <span class="p">{</span>
@@ -228,21 +216,13 @@
 </span><span class='line'>    <span class="nt">&quot;dependencies&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;retrieval_plugin&quot;</span><span class="p">,</span> <span class="s2">&quot;summarizer_model&quot;</span><span class="p">]</span>
 </span><span class='line'>  <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="L-3c-strong-3e-Model-Invocation-with-Context-3c--2f-strong-3e-"></a>
 <h3><strong>Model Invocation with Context</strong></h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="json"><span class='line'><span class="p">{</span>
 </span><span class='line'>  <span class="nt">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;input&quot;</span><span class="p">:</span> <span class="s2">&quot;What are the next steps?&quot;</span><span class="p">,</span>
 </span><span class='line'>  <span class="nt">&quot;context_ref&quot;</span><span class="p">:</span> <span class="s2">&quot;abc-123&quot;</span><span class="p">,</span>
@@ -250,7 +230,7 @@
 </span><span class='line'>    <span class="nt">&quot;requested_capability&quot;</span><span class="p">:</span> <span class="s2">&quot;planning.summarize&quot;</span>
 </span><span class='line'>  <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="L-3c-strong-3e-Chained-Outputs-and-Shared-State-3c--2f-strong-3e-"></a>
@@ -266,36 +246,7 @@
 <a name="Basic-Server-with-Context-Store"></a>
 <h3>Basic Server with Context Store</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">Request</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">Request</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">redis</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">uuid</span>
 </span><span class='line'><span class="kn">import</span> <span class="nn">json</span>
@@ -324,7 +275,7 @@
 </span><span class='line'>    <span class="n">r</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">new_context_ref</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s">&quot;history&quot;</span><span class="p">:</span> <span class="n">history</span><span class="p">}))</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="k">return</span> <span class="p">{</span><span class="s">&quot;output&quot;</span><span class="p">:</span> <span class="n">response</span><span class="p">,</span> <span class="s">&quot;context_ref&quot;</span><span class="p">:</span> <span class="n">new_context_ref</span><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Add-Capability-Metadata"></a>
@@ -332,11 +283,9 @@
 
 <p>Enhance the server to log requested capabilities and dependency resolution (e.g., invoking tools or submodels).</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">capability</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;requested_capability&quot;</span><span class="p">)</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="n">capability</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;requested_capability&quot;</span><span class="p">)</span>
 </span><span class='line'><span class="n">log_event</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">session_id</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">capability</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <hr />

@@ -207,24 +207,7 @@
 
 <p>Here’s a simplified diagram of Cassandra’s architecture:</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>                    +-----------------------------+
+<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>                    +-----------------------------+
 </span><span class='line'>                    |         Cassandra Cluster   |
 </span><span class='line'>                    +-----------------------------+
 </span><span class='line'>                                  |
@@ -240,7 +223,7 @@
 </span><span class='line'>| Commit Log   |          | Commit Log   |          | Commit Log   |
 </span><span class='line'>| Memtable     |          | Memtable     |          | Memtable     |
 </span><span class='line'>| SSTable      |          | SSTable      |          | SSTable      |
-</span><span class='line'>+--------------+          +--------------+          +--------------+</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>+--------------+          +--------------+          +--------------+</span></code></pre></div></figure>
 
 
 <p>To illustrate, let&rsquo;s consider setting up a Cassandra cluster and creating a keyspace</p>
@@ -250,21 +233,7 @@
 
 <p><strong>cassandra.yaml</strong>: The primary configuration file for Cassandra.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">cluster_name</span><span class="p-Indicator">:</span> <span class="s">&#39;MyCluster&#39;</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="yaml"><span class='line'><span class="l-Scalar-Plain">cluster_name</span><span class="p-Indicator">:</span> <span class="s">&#39;MyCluster&#39;</span>
 </span><span class='line'><span class="l-Scalar-Plain">num_tokens</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">256</span>
 </span><span class='line'><span class="l-Scalar-Plain">seed_provider</span><span class="p-Indicator">:</span>
 </span><span class='line'>  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">class_name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">org.apache.cassandra.locator.SimpleSeedProvider</span>
@@ -278,29 +247,13 @@
 </span><span class='line'><span class="l-Scalar-Plain">rpc_address</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
 </span><span class='line'>
 </span><span class='line'><span class="l-Scalar-Plain">endpoint_snitch</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">SimpleSnitch</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Keyspace-and-Table-Creation"></a>
 <h4>Keyspace and Table Creation</h4>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- Create a keyspace</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- Create a keyspace</span>
 </span><span class='line'><span class="k">CREATE</span> <span class="n">KEYSPACE</span> <span class="n">mykeyspace</span> <span class="k">WITH</span> <span class="n">replication</span> <span class="o">=</span> <span class="err">{</span>
 </span><span class='line'>  <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="s1">&#39;SimpleStrategy&#39;</span><span class="p">,</span>
 </span><span class='line'>  <span class="s1">&#39;replication_factor&#39;</span><span class="p">:</span> <span class="mi">3</span>
@@ -316,7 +269,7 @@
 </span><span class='line'>  <span class="n">email</span> <span class="nb">TEXT</span><span class="p">,</span>
 </span><span class='line'>  <span class="n">age</span> <span class="nb">INT</span>
 </span><span class='line'><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Why-is-Cassandra-fast-in-writes-3f-"></a>
@@ -331,11 +284,9 @@
 </ul>
 
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra using CQL (Cassandra Query Language)</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="c1">// Insert data into Cassandra using CQL (Cassandra Query Language)</span>
 </span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="In-2d-Memory-Write-Path"></a>
@@ -348,11 +299,9 @@
 </ul>
 
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra using CQL</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="c1">// Insert data into Cassandra using CQL</span>
 </span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Multi-2d-Threaded-Architecture"></a>
@@ -364,19 +313,13 @@
 </ul>
 
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra using multiple threads</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="c1">// Insert data into Cassandra using multiple threads</span>
 </span><span class='line'><span class="n">ExecutorService</span> <span class="n">executor</span> <span class="o">=</span> <span class="n">Executors</span><span class="o">.</span><span class="na">newFixedThreadPool</span><span class="o">(</span><span class="mi">10</span><span class="o">);</span>
 </span><span class='line'><span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
 </span><span class='line'>    <span class="n">executor</span><span class="o">.</span><span class="na">submit</span><span class="o">(()</span> <span class="o">-&gt;</span> <span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">));</span>
 </span><span class='line'><span class="o">}</span>
 </span><span class='line'><span class="n">executor</span><span class="o">.</span><span class="na">shutdown</span><span class="o">();</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Distributed-Writes"></a>
@@ -389,13 +332,10 @@
 </ul>
 
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra with replication factor</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="c1">// Insert data into Cassandra with replication factor</span>
 </span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">)</span>
 </span><span class='line'>        <span class="o">.</span><span class="na">setConsistencyLevel</span><span class="o">(</span><span class="n">DefaultConsistencyLevel</span><span class="o">.</span><span class="na">ALL</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Tunable-Consistency"></a>
@@ -407,13 +347,10 @@
 </ul>
 
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra with tunable consistency level</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="c1">// Insert data into Cassandra with tunable consistency level</span>
 </span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">)</span>
 </span><span class='line'>        <span class="o">.</span><span class="na">setConsistencyLevel</span><span class="o">(</span><span class="n">DefaultConsistencyLevel</span><span class="o">.</span><span class="na">QUORUM</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="No-Single-Point-of-Bottleneck"></a>
@@ -425,13 +362,10 @@
 </ul>
 
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// Insert data into Cassandra on multiple nodes in the cluster</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="c1">// Insert data into Cassandra on multiple nodes in the cluster</span>
 </span><span class='line'><span class="n">session</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="s">&quot;INSERT INTO users (user_id, name, email, age) VALUES (uuid(), &#39;Alice&#39;, &#39;alice@example.com&#39;, 30)&quot;</span><span class="o">)</span>
 </span><span class='line'>        <span class="o">.</span><span class="na">setConsistencyLevel</span><span class="o">(</span><span class="n">DefaultConsistencyLevel</span><span class="o">.</span><span class="na">LOCAL_QUORUM</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></div></figure>
 
 
 <a name="Conclusion"></a>
