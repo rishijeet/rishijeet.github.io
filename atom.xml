@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-08-26T09:30:10+05:30</updated>
+    <updated>2025-08-28T09:03:28+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,253 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Understanding ReAct in Large Language Models]]></title>
+        <link href="https://rishijeet.github.io/blog/understanding-react-in-large-language-models/"/>
+        <updated>2025-08-28T08:48:16+05:30</updated>
+        <id>https://rishijeet.github.io/blog/understanding-react-in-large-language-models</id>
+        <content type="html"><![CDATA[<p>ReAct, short for Reasoning and Acting, is a paradigm for enhancing large language models (LLMs) by integrating verbal reasoning traces with task-specific actions. Introduced in a 2022 paper, it addresses limitations in chain-of-thought (CoT) prompting by allowing models to interact with external environments, such as APIs or databases, to gather real-time data. This makes LLMs more reliable for tasks requiring factual accuracy or multi-step planning.</p>
+
+<p>In the evolving field of artificial intelligence, large language models (LLMs) have transformed how we approach problem-solving, but they often struggle with hallucinations—generating plausible but incorrect information—or handling tasks requiring real-world interaction. Enter ReAct (Reasoning and Acting), a prompting framework that synergizes reasoning traces with actionable steps, enabling LLMs to behave more like intelligent agents. This detailed blog explores ReAct&rsquo;s foundations, mechanics, advantages, and practical implementation, culminating in a sample Python application using LangChain. We&rsquo;ll draw on established research and code examples to provide a comprehensive guide, updated with insights as of 2025.</p>
+
+<a name="How-ReAct-Works"></a>
+<h2>How ReAct Works</h2>
+
+<p>In ReAct, the LLM generates a &ldquo;thought&rdquo; to plan, selects an &ldquo;action&rdquo; from available tools, observes the outcome, and iterates. This loop continues until the model outputs a final answer. For example, answering &ldquo;What is Olivia Wilde&rsquo;s boyfriend&rsquo;s age raised to the 0.23 power?&rdquo; might involve searching for the boyfriend, then calculating the power.</p>
+
+<p><img src="https://rishijeet.github.io/images/2025/reAct.gif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Key-Points"></a>
+<h2>Key Points</h2>
+
+<ul>
+<li><strong>ReAct Framework</strong>: It seems likely that ReAct is a prompting technique enabling LLMs to alternate between reasoning (thinking step-by-step) and acting (using tools like searches or calculations), improving accuracy on complex tasks by reducing hallucinations and incorporating external information.</li>
+<li><strong>Core Process</strong>: Evidence leans toward a loop of Thought (reasoning), Action (tool invocation), Observation (results), repeating until a final answer, mimicking human problem-solving.</li>
+<li><strong>Benefits and Limitations</strong>: Research suggests ReAct enhances interpretability and performance on knowledge-intensive and decision-making tasks, though it may increase computational costs and rely on well-defined tools; it&rsquo;s particularly useful for dynamic environments but less so for simple queries.</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Foundations-of-ReAct"></a>
+<h2>Foundations of ReAct</h2>
+
+<p>ReAct was introduced in the 2022 paper &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; by Shunyu Yao et al. It builds on chain-of-thought (CoT) prompting, where LLMs break down problems into intermediate reasoning steps for better performance on tasks like arithmetic or commonsense reasoning. However, CoT relies solely on the model&rsquo;s internal knowledge, leading to issues like factual errors or outdated information.</p>
+
+<p>ReAct addresses this by interleaving reasoning (&ldquo;thoughts&rdquo;) with actions, allowing the model to query external sources (e.g., search engines, calculators, or databases) and incorporate observations back into its reasoning process. This creates a feedback loop inspired by human cognition: think, act, observe, and adjust. As of 2025, ReAct remains a cornerstone for building LLM agents, integrated into frameworks like LangChain and LangGraph, with enhancements for multi-agent systems and reduced latency.</p>
+
+<p>Key components include:</p>
+
+<ul>
+<li><strong>Thought</strong>: A verbalized reasoning step where the LLM plans or reflects.</li>
+<li><strong>Action</strong>: Invocation of a tool, such as searching Wikipedia or running a calculation.</li>
+<li><strong>Observation</strong>: The result from the action, fed back to the LLM.</li>
+<li><strong>Final Answer</strong>: Output when the loop concludes, often after several iterations.</li>
+</ul>
+
+
+<p>This structure improves trustworthiness by making the process interpretable—users can trace how the model arrived at an answer.</p>
+
+<a name="How-ReAct-Works:-A-Step-2d-by-2d-Step-Breakdown"></a>
+<h2>How ReAct Works: A Step-by-Step Breakdown</h2>
+
+<p>ReAct operates in an iterative loop, typically capped at a maximum number of turns to control costs and latency. Here&rsquo;s the flow:</p>
+
+<ol>
+<li><strong>Initialization</strong>: The LLM receives a prompt outlining the ReAct format (e.g., &ldquo;You run in a loop of Thought, Action, PAUSE, Observation&rdquo;).</li>
+<li><strong>Thought Generation</strong>: The model reasons about the query, deciding on the next action.</li>
+<li><strong>Action Execution</strong>: If an action is needed, the system pauses, executes the tool, and returns an observation.</li>
+<li><strong>Observation Integration</strong>: The observation is appended to the prompt, and the loop repeats.</li>
+<li><strong>Termination</strong>: The model outputs &ldquo;Answer&rdquo; when confident, or hits the iteration limit.</li>
+</ol>
+
+
+<p>For instance, in a knowledge-intensive task like HotpotQA (multi-hop question answering), ReAct might search for &ldquo;Colorado orogeny,&rdquo; observe the result, reason about the eastern sector, and lookup further details until answering the elevation range.</p>
+
+<p>ReAct excels in domains like:</p>
+
+<ul>
+<li><strong>Knowledge Tasks</strong>: Outperforms CoT by accessing external info, reducing hallucinations.</li>
+<li><strong>Decision-Making</strong>: Handles interactive environments (e.g., games or web navigation) via tools.</li>
+<li><strong>Agentic Workflows</strong>: Integrates with RAG or multi-agent systems for complex automation.</li>
+</ul>
+
+
+<p>However, challenges include dependency on tool quality, potential for infinite loops without safeguards, and higher token usage compared to simpler prompts.</p>
+
+<a name="Comparisons:-ReAct-vs.-Other-LLM-Techniques"></a>
+<h2>Comparisons: ReAct vs. Other LLM Techniques</h2>
+
+<p>To contextualize ReAct, consider this comparison table:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Description</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+      <th>Use Cases</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Chain-of-Thought (CoT)</b></td>
+      <td>Prompts LLMs to reason step-by-step without external actions.</td>
+      <td>Simple, low-cost; good for internal logic.</td>
+      <td>Prone to hallucinations; no real-world interaction.</td>
+      <td>Arithmetic, commonsense QA.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct</b></td>
+      <td>Interleaves reasoning with tool-based actions and observations.</td>
+      <td>Dynamic, factual; interpretable loop.</td>
+      <td>Higher latency; tool-dependent.</td>
+      <td>Multi-hop QA, web tasks, agents.</td>
+    </tr>
+    <tr>
+      <td><b>Function Calling</b></td>
+      <td>Fine-tuned models output JSON for tool calls, without explicit reasoning.</td>
+      <td>Fast, structured; efficient for predictable tasks.</td>
+      <td>Less adaptable; opaque reasoning.</td>
+      <td>API integrations, simple tools.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct + CoT</b></td>
+      <td>Hybrid: Uses ReAct for actions and CoT for pure reasoning switches.</td>
+      <td>Optimal performance; flexible.</td>
+      <td>Complex implementation.</td>
+      <td>Advanced agents, hybrid tasks.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+<p>ReAct often outperforms baselines on benchmarks like HotpotQA, Fever, ALFWorld, and WebShop, with gains in accuracy and efficiency when combined with CoT.</p>
+
+<a name="Building-a-Sample-ReAct-Application-in-Python"></a>
+<h2>Building a Sample ReAct Application in Python</h2>
+
+<p>A basic ReAct agent can be built using Python libraries like LangChain. The sample below creates an agent that searches the web and performs math, demonstrating the loop in action. You&rsquo;ll need API keys for an LLM (e.g., OpenAI) and tools (e.g., Google Serper for search). For full code and setup, see the detailed survey below. This sample creates an agent that answers questions by searching the web (via Tavily) and performing calculations. It demonstrates the full loop and includes conversational memory for multi-turn interactions.</p>
+
+<a name="Prerequisites"></a>
+<h3>Prerequisites</h3>
+
+<ul>
+<li>Python 3.10+.</li>
+<li>Install dependencies: <code>pip install -U langgraph langchain-tavily langgraph-checkpoint-sqlite langchain-openai</code>.</li>
+<li>API Keys: Obtain OpenAI (for the LLM) and Tavily (for search) keys. Set them as environment variables:
+<code>python
+import os
+import getpass
+os.environ["OPENAI_API_KEY"] = getpass.getpass("OpenAI API Key: ")
+os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
+</code></li>
+<li>For tracing (optional): Set LangSmith keys.</li>
+</ul>
+
+
+<a name="Code-Implementation"></a>
+<h3>Code Implementation</h3>
+
+<p>The application uses LangGraph&rsquo;s <code>create_react_agent</code> for the ReAct logic. Here&rsquo;s the complete code:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="c"># Import necessary modules</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_tavily</span> <span class="kn">import</span> <span class="n">TavilySearchResults</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_openai</span> <span class="kn">import</span> <span class="n">ChatOpenAI</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langgraph.prebuilt</span> <span class="kn">import</span> <span class="n">create_react_agent</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langgraph.checkpointer</span> <span class="kn">import</span> <span class="n">MemorySaver</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.messages</span> <span class="kn">import</span> <span class="n">HumanMessage</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Define tools</span>
+</span><span class='line'><span class="n">tool</span> <span class="o">=</span> <span class="n">TavilySearchResults</span><span class="p">(</span><span class="n">max_results</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span class='line'><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">tool</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Initialize the LLM (using OpenAI&#39;s GPT-4o-mini for efficiency)</span>
+</span><span class='line'><span class="n">model</span> <span class="o">=</span> <span class="n">ChatOpenAI</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Bind tools to the model</span>
+</span><span class='line'><span class="n">model_with_tools</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">bind_tools</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Create the agent with memory (using MemorySaver for conversational state)</span>
+</span><span class='line'><span class="n">memory</span> <span class="o">=</span> <span class="n">MemorySaver</span><span class="p">()</span>
+</span><span class='line'><span class="n">agent_executor</span> <span class="o">=</span> <span class="n">create_react_agent</span><span class="p">(</span><span class="n">model_with_tools</span><span class="p">,</span> <span class="n">tools</span><span class="p">,</span> <span class="n">checkpointer</span><span class="o">=</span><span class="n">memory</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Configuration for conversational thread (use a unique ID for each conversation)</span>
+</span><span class='line'><span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;configurable&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s">&quot;thread_id&quot;</span><span class="p">:</span> <span class="s">&quot;conversation-1&quot;</span><span class="p">}}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Function to run the agent</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">run_agent</span><span class="p">(</span><span class="n">query</span><span class="p">):</span>
+</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;User Query: {query}&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent_executor</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span>
+</span><span class='line'>        <span class="p">{</span><span class="s">&quot;messages&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">HumanMessage</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="n">query</span><span class="p">)]},</span> <span class="n">config</span>
+</span><span class='line'>    <span class="p">):</span>
+</span><span class='line'>        <span class="k">print</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">print</span><span class="p">(</span><span class="s">&quot;----&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="c"># Extract final response</span>
+</span><span class='line'>    <span class="n">response</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;agent&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;messages&quot;</span><span class="p">,</span> <span class="p">[{}])[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">content</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">response</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Example usage</span>
+</span><span class='line'><span class="n">query</span> <span class="o">=</span> <span class="s">&quot;Who is the current CEO of xAI? What is their age squared?&quot;</span>
+</span><span class='line'><span class="n">response</span> <span class="o">=</span> <span class="n">run_agent</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;Final Answer: {response}&quot;</span><span class="p">)</span>
+</span></code></pre></div></figure>
+
+
+<a name="Detailed-Explanation"></a>
+<h3>Detailed Explanation</h3>
+
+<ol>
+<li><strong>Tools Definition</strong>: <code>TavilySearchResults</code> is a web search tool returning up to 2 results. It&rsquo;s added to <code>tools</code> for the agent to use.</li>
+<li><strong>LLM Setup</strong>: <code>ChatOpenAI</code> initializes the model (e.g., GPT-4o-mini for cost-effectiveness). <code>bind_tools</code> informs the model about available actions.</li>
+<li><strong>Agent Creation</strong>: <code>create_react_agent</code> builds the ReAct loop, with <code>MemorySaver</code> enabling state persistence for follow-ups (e.g., &ldquo;Tell me more about them&rdquo;).</li>
+<li><strong>Execution</strong>: The <code>stream</code> method runs the agent, printing intermediate thoughts, actions, and observations. For the example query:
+
+<ul>
+<li>Thought: Reason about searching for xAI CEO.</li>
+<li>Action: Invoke Tavily search.</li>
+<li>Observation: Retrieve CEO (e.g., Elon Musk) and age.</li>
+<li>Thought: Calculate age squared.</li>
+<li>Final Answer: Output the result (e.g., &ldquo;Elon Musk, age 54 squared is 2916&rdquo;).</li>
+</ul>
+</li>
+<li><strong>Extensions</strong>: Add more tools (e.g., math via <code>LLMMathChain</code>) or integrate with databases for custom applications.</li>
+</ol>
+
+
+<a name="Testing-and-Output"></a>
+<h3>Testing and Output</h3>
+
+<p>Running the code might yield:</p>
+
+<ul>
+<li>Intermediate: Thought → Action (search) → Observation → Thought (calculate) → Answer.
+This ensures factual grounding, e.g., verifying current data as of 2025.</li>
+</ul>
+
+
+<a name="Advanced-Variations-and-Best-Practices"></a>
+<h2>Advanced Variations and Best Practices</h2>
+
+<ul>
+<li><strong>Simple Non-LangChain Implementation</strong>: For a lightweight version, use a custom loop with OpenAI&rsquo;s API, as in Simon Willison&rsquo;s example. Define actions like <code>wikipedia</code> and parse responses with regex.</li>
+<li><strong>With LangGraph</strong>: For production, use LangGraph for visual workflows and error handling.</li>
+<li><strong>Best Practices</strong>: Limit iterations (e.g., max_turns=5), use verbose mode for debugging, and combine with CoT for hybrid prompting. Monitor token usage, as ReAct can be resource-intensive.</li>
+<li><strong>2025 Updates</strong>: Recent integrations include multimodal support (e.g., image analysis tools) and edge deployment for low-latency agents.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>ReAct represents a pivotal shift toward agentic AI, empowering LLMs to not just generate text but actively engage with the world. By implementing the sample above, developers can experiment and scale to real-world applications like automated research or virtual assistants.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Deep Dive into Context: MCP, A2A and RAG]]></title>
@@ -3791,274 +4038,6 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 <p>The provided code example shows how simple it is to define and run a task using PythonOperator. As you scale up, Airflow supports a range of executors and message brokers to handle more complex, distributed workloads efficiently.</p>
 
 <p>By understanding Airflow&rsquo;s architecture and seeing a basic example in action, you&rsquo;re well on your way to using Airflow to manage and automate workflows in your projects.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Ktor: A Lightweight Framework for Building Asynchronous Web Applications]]></title>
-        <link href="https://rishijeet.github.io/blog/ktor-a-lightweight-framework-for-building-asynchronous-web-applications/"/>
-        <updated>2024-08-24T13:13:46+05:30</updated>
-        <id>https://rishijeet.github.io/blog/ktor-a-lightweight-framework-for-building-asynchronous-web-applications</id>
-        <content type="html"><![CDATA[<p>Ktor is a Kotlin-based framework developed by JetBrains for building asynchronous web applications and microservices. Unlike many traditional frameworks, Ktor is designed to be lightweight and flexible, allowing developers to create highly customized applications without unnecessary overhead. Whether you&rsquo;re building a simple web server, a RESTful API, or a fully-fledged microservice, Ktor provides the tools you need while embracing Kotlin&rsquo;s expressive syntax.</p>
-
-<p>In this blog, we’ll dive into what makes Ktor unique, explore its features, and walk through a basic example to illustrate its capabilities.
-<img src="https://rishijeet.github.io/images/2024/ktor.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="What-Makes-Ktor-Unique-3f-"></a>
-<h2>What Makes Ktor Unique?</h2>
-
-<a name="L-3c-strong-3e-Kotlin-First-3c--2f-strong-3e-"></a>
-<h3><strong>Kotlin First</strong></h3>
-
-<p>Ktor is built specifically for Kotlin, taking full advantage of Kotlin’s language features, such as coroutines, to provide a smooth and idiomatic experience. This tight integration with Kotlin allows for concise and expressive code.</p>
-
-<a name="L-3c-strong-3e-Asynchronous-by-Design-3c--2f-strong-3e-"></a>
-<h3><strong>Asynchronous by Design</strong></h3>
-
-<p>Ktor is asynchronous at its core, leveraging Kotlin’s coroutines to handle multiple requests efficiently without blocking threads. This makes Ktor particularly suitable for high-performance applications that need to handle many simultaneous connections.</p>
-
-<a name="L-3c-strong-3e-Modular-Architecture-3c--2f-strong-3e-"></a>
-<h3><strong>Modular Architecture</strong></h3>
-
-<p>Ktor is highly modular, allowing developers to include only the components they need. Whether you require authentication, session management, or templating, you can easily add or remove features as necessary, keeping your application lightweight.</p>
-
-<!--more-->
-
-
-<a name="L-3c-strong-3e-Flexibility-3c--2f-strong-3e-"></a>
-<h3><strong>Flexibility</strong></h3>
-
-<p>Ktor provides a high degree of flexibility in defining routes, handling requests, and responding to clients. This flexibility allows developers to build applications that fit their specific needs without being constrained by the framework.</p>
-
-<a name="L-3c-strong-3e-Minimal-Configuration-3c--2f-strong-3e-"></a>
-<h3><strong>Minimal Configuration</strong></h3>
-
-<p>Ktor is designed to be simple to set up with minimal configuration. You can get a basic web server running with just a few lines of code, making it ideal for rapid development and prototyping.</p>
-
-<a name="Setting-Up-a-Ktor-Project"></a>
-<h2>Setting Up a Ktor Project</h2>
-
-<p>Let’s walk through creating a simple Ktor application. We’ll start by setting up the project and then build a basic web server with some routing.</p>
-
-<a name="Project-Setup"></a>
-<h3>Project Setup</h3>
-
-<p>To start, create a new Gradle project and add the following dependencies to your <code>build.gradle.kts</code> file:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="n">plugins</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">kotlin</span><span class="p">(</span><span class="s">&quot;jvm&quot;</span><span class="p">)</span> <span class="n">version</span> <span class="s">&quot;1.8.0&quot;</span>
-</span><span class='line'>    <span class="n">application</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">application</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">mainClass</span><span class="p">.</span><span class="k">set</span><span class="p">(</span><span class="s">&quot;com.example.ApplicationKt&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">repositories</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">mavenCentral</span><span class="p">()</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">dependencies</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">implementation</span><span class="p">(</span><span class="s">&quot;io.ktor:ktor-server-core:2.2.1&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">implementation</span><span class="p">(</span><span class="s">&quot;io.ktor:ktor-server-netty:2.2.1&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">implementation</span><span class="p">(</span><span class="s">&quot;io.ktor:ktor-server-html-builder:2.2.1&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">implementation</span><span class="p">(</span><span class="s">&quot;ch.qos.logback:logback-classic:1.4.3&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">testImplementation</span><span class="p">(</span><span class="s">&quot;io.ktor:ktor-server-tests:2.2.1&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">testImplementation</span><span class="p">(</span><span class="s">&quot;org.jetbrains.kotlin:kotlin-test-junit:1.8.0&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></div></figure>
-
-
-<a name="Example:-Creating-a-Simple-Ktor-Web-Server"></a>
-<h3>Example: Creating a Simple Ktor Web Server</h3>
-
-<p>Now that the project is set up, let’s create a simple web server that responds to basic HTTP requests.</p>
-
-<a name="Basic-Server-Setup"></a>
-<h4>Basic Server Setup</h4>
-
-<p>Create a new Kotlin file, <code>Application.kt</code>, and add the following code:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">package</span> <span class="nn">com.example</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.application.*</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.http.*</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.response.*</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.request.*</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.routing.*</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.server.engine.embeddedServer</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.server.netty.Netty</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.features.ContentNegotiation</span>
-</span><span class='line'><span class="k">import</span> <span class="nn">io.ktor.serialization.gson</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">fun</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">embeddedServer</span><span class="p">(</span><span class="n">Netty</span><span class="p">,</span> <span class="n">port</span> <span class="p">=</span> <span class="m">8080</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>        <span class="n">module</span><span class="p">()</span>
-</span><span class='line'>    <span class="p">}.</span><span class="n">start</span><span class="p">(</span><span class="n">wait</span> <span class="p">=</span> <span class="k">true</span><span class="p">)</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">fun</span> <span class="nf">Application</span><span class="p">.</span><span class="n">module</span><span class="p">()</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">install</span><span class="p">(</span><span class="n">ContentNegotiation</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>        <span class="n">gson</span> <span class="p">{</span>
-</span><span class='line'>            <span class="n">setPrettyPrinting</span><span class="p">()</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="n">routing</span> <span class="p">{</span>
-</span><span class='line'>        <span class="k">get</span><span class="p">(</span><span class="s">&quot;/&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>            <span class="n">call</span><span class="p">.</span><span class="n">respondText</span><span class="p">(</span><span class="s">&quot;Hello, Rishijeet!&quot;</span><span class="p">,</span> <span class="n">ContentType</span><span class="p">.</span><span class="n">Text</span><span class="p">.</span><span class="n">Plain</span><span class="p">)</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>        <span class="k">get</span><span class="p">(</span><span class="s">&quot;/json&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>            <span class="k">val</span> <span class="py">data</span> <span class="p">=</span> <span class="n">mapOf</span><span class="p">(</span><span class="s">&quot;message&quot;</span> <span class="n">to</span> <span class="s">&quot;Hello, JSON!&quot;</span><span class="p">)</span>
-</span><span class='line'>            <span class="n">call</span><span class="p">.</span><span class="n">respond</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>        <span class="n">post</span><span class="p">(</span><span class="s">&quot;/submit&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>            <span class="k">val</span> <span class="py">post</span> <span class="p">=</span> <span class="n">call</span><span class="p">.</span><span class="n">receive</span><span class="p">&lt;</span><span class="n">Map</span><span class="p">&lt;</span><span class="n">String</span><span class="p">,</span> <span class="n">String</span><span class="p">&gt;&gt;()</span>
-</span><span class='line'>            <span class="n">call</span><span class="p">.</span><span class="n">respond</span><span class="p">(</span><span class="n">mapOf</span><span class="p">(</span><span class="s">&quot;status&quot;</span> <span class="n">to</span> <span class="s">&quot;Received&quot;</span><span class="p">,</span> <span class="s">&quot;data&quot;</span> <span class="n">to</span> <span class="n">post</span><span class="p">))</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></div></figure>
-
-
-<a name="Code-Breakdown"></a>
-<h3>Code Breakdown</h3>
-
-<ul>
-<li><p><strong>embeddedServer(Netty, port = 8080)</strong>: This line starts an embedded Netty server on port 8080. Ktor supports multiple engines like Netty, Jetty, and Tomcat, but Netty is commonly used for its performance and ease of use.</p></li>
-<li><p><strong>ContentNegotiation</strong>: This feature is installed to automatically handle JSON serialization and deserialization using Gson, making it easy to work with JSON payloads.</p></li>
-<li><p><strong>Routing</strong>: The <code>routing</code> block defines the various routes that the server will respond to:</p>
-
-<ul>
-<li><strong>GET <code>/</code></strong>: Responds with a simple &ldquo;Hello, Rishijeet!&rdquo; message in plain text.</li>
-<li><strong>GET <code>/json</code></strong>: Responds with a JSON object containing a message.</li>
-<li><strong>POST <code>/submit</code></strong>: Receives a JSON payload and responds with the same data, confirming that the server received it.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="Running-the-Server"></a>
-<h3>Running the Server</h3>
-
-<p>Run the server by executing the main function in <code>Application.kt</code>. Once the server is running, you can test the endpoints using a browser or tools like <code>curl</code> or Postman.</p>
-
-<a name="Example-Requests"></a>
-<h4>Example Requests</h4>
-
-<ul>
-<li><strong>GET Request to <code>/</code></strong>:</li>
-</ul>
-
-
-<pre><code class="``bash">  curl http://localhost:8080/
-</code></pre>
-
-<p>  <strong>Response</strong>: <code>Hello, Rishijeet!</code></p>
-
-<ul>
-<li><strong>GET Request to <code>/json</code></strong>:</li>
-</ul>
-
-
-<pre><code class="``bash">  curl http://localhost:8080/json
-</code></pre>
-
-<p>  <strong>Response</strong>:</p>
-
-<pre><code class="``json">  {
-    "message": "Hello, JSON!"
-  }
-</code></pre>
-
-<ul>
-<li><strong>POST Request to <code>/submit</code></strong>:</li>
-</ul>
-
-
-<pre><code class="``bash">  curl -X POST -H "Content-Type: application/json" -d '{"name": "Ktor", "type": "framework"}' http://localhost:8080/submit
-</code></pre>
-
-<p>  <strong>Response</strong>:</p>
-
-<pre><code class="``json">  {
-    "status": "Received",
-    "data": {
-      "name": "Ktor",
-      "type": "framework"
-    }
-  }
-</code></pre>
-
-<a name="Advanced-Features-in-Ktor"></a>
-<h3>Advanced Features in Ktor</h3>
-
-<p>Ktor also provides more advanced features that make it suitable for production-ready applications:</p>
-
-<a name="L-3c-strong-3e-Authentication-3c--2f-strong-3e-"></a>
-<h4><strong>Authentication</strong></h4>
-
-<p>Ktor supports various authentication mechanisms, including session-based, JWT, OAuth, and more. You can easily add authentication to your routes to secure your application.</p>
-
-<a name="L-3c-strong-3e-WebSockets-3c--2f-strong-3e-"></a>
-<h4><strong>WebSockets</strong></h4>
-
-<p>Ktor has built-in support for WebSockets, enabling real-time communication between the server and clients.</p>
-
-<a name="L-3c-strong-3e-Content-Negotiation-and-Serialization-3c--2f-strong-3e-"></a>
-<h4><strong>Content Negotiation and Serialization</strong></h4>
-
-<p>Ktor’s flexible content negotiation allows you to work with multiple formats (JSON, XML, etc.) and serialization libraries (Gson, Kotlinx.serialization).</p>
-
-<a name="L-3c-strong-3e-HTTP-Client-3c--2f-strong-3e-"></a>
-<h4><strong>HTTP Client</strong></h4>
-
-<p>Ktor also includes an HTTP client, making it easy to send HTTP requests from within your application. This is particularly useful when integrating with other services or APIs.</p>
-
-<a name="Example:-Securing-Routes-with-Authentication"></a>
-<h3>Example: Securing Routes with Authentication</h3>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="n">install</span><span class="p">(</span><span class="n">Authentication</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">basic</span><span class="p">(</span><span class="n">name</span> <span class="p">=</span> <span class="s">&quot;auth&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>        <span class="n">realm</span> <span class="p">=</span> <span class="s">&quot;Ktor Server&quot;</span>
-</span><span class='line'>        <span class="n">validate</span> <span class="p">{</span> <span class="n">credentials</span> <span class="p">-&gt;</span>
-</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">credentials</span><span class="p">.</span><span class="n">name</span> <span class="p">==</span> <span class="s">&quot;user&quot;</span> <span class="p">&amp;&amp;</span> <span class="n">credentials</span><span class="p">.</span><span class="n">password</span> <span class="p">==</span> <span class="s">&quot;password&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>                <span class="n">UserIdPrincipal</span><span class="p">(</span><span class="n">credentials</span><span class="p">.</span><span class="n">name</span><span class="p">)</span>
-</span><span class='line'>            <span class="p">}</span> <span class="k">else</span> <span class="k">null</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">routing</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">authenticate</span><span class="p">(</span><span class="s">&quot;auth&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>        <span class="k">get</span><span class="p">(</span><span class="s">&quot;/secure&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>            <span class="n">call</span><span class="p">.</span><span class="n">respondText</span><span class="p">(</span><span class="s">&quot;You are authenticated!&quot;</span><span class="p">,</span> <span class="n">ContentType</span><span class="p">.</span><span class="n">Text</span><span class="p">.</span><span class="n">Plain</span><span class="p">)</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></div></figure>
-
-
-<a name="Example:-WebSocket-Communication"></a>
-<h3>Example: WebSocket Communication</h3>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="n">routing</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">webSocket</span><span class="p">(</span><span class="s">&quot;/chat&quot;</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>        <span class="k">for</span> <span class="p">(</span><span class="n">frame</span> <span class="k">in</span> <span class="n">incoming</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>            <span class="k">when</span> <span class="p">(</span><span class="n">frame</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>                <span class="k">is</span> <span class="n">Frame</span><span class="p">.</span><span class="n">Text</span> <span class="p">-&gt;</span> <span class="n">send</span><span class="p">(</span><span class="n">Frame</span><span class="p">.</span><span class="n">Text</span><span class="p">(</span><span class="s">&quot;Server received: ${frame.readText()}&quot;</span><span class="p">))</span>
-</span><span class='line'>            <span class="p">}</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></div></figure>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>Ktor is a powerful and flexible framework for building asynchronous web applications in Kotlin. Its Kotlin-first approach, coupled with features like modularity, asynchronous processing, and minimal configuration, makes it an excellent choice for developers looking to build lightweight and high-performance web applications.</p>
-
-<p>Whether you’re building a simple API, a microservice, or a real-time application with WebSockets, Ktor provides the tools you need while allowing for a high degree of customization. As the Kotlin ecosystem continues to grow, Ktor is likely to become even more popular among developers seeking a modern, efficient web framework.</p>
 ]]></content>
     </entry>
     

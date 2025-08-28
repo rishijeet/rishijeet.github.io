@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2025-08-26T09:30:10+05:30</updated>
+  <updated>2025-08-28T09:03:28+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,254 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Understanding ReAct in Large Language Models]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/understanding-react-in-large-language-models/"/>
+    <updated>2025-08-28T08:48:16+05:30</updated>
+    <id>https://rishijeet.github.io/blog/understanding-react-in-large-language-models</id>
+    <content type="html"><![CDATA[<p>ReAct, short for Reasoning and Acting, is a paradigm for enhancing large language models (LLMs) by integrating verbal reasoning traces with task-specific actions. Introduced in a 2022 paper, it addresses limitations in chain-of-thought (CoT) prompting by allowing models to interact with external environments, such as APIs or databases, to gather real-time data. This makes LLMs more reliable for tasks requiring factual accuracy or multi-step planning.</p>
+
+<p>In the evolving field of artificial intelligence, large language models (LLMs) have transformed how we approach problem-solving, but they often struggle with hallucinations—generating plausible but incorrect information—or handling tasks requiring real-world interaction. Enter ReAct (Reasoning and Acting), a prompting framework that synergizes reasoning traces with actionable steps, enabling LLMs to behave more like intelligent agents. This detailed blog explores ReAct&rsquo;s foundations, mechanics, advantages, and practical implementation, culminating in a sample Python application using LangChain. We&rsquo;ll draw on established research and code examples to provide a comprehensive guide, updated with insights as of 2025.</p>
+
+<a name="How-ReAct-Works"></a>
+<h2>How ReAct Works</h2>
+
+<p>In ReAct, the LLM generates a &ldquo;thought&rdquo; to plan, selects an &ldquo;action&rdquo; from available tools, observes the outcome, and iterates. This loop continues until the model outputs a final answer. For example, answering &ldquo;What is Olivia Wilde&rsquo;s boyfriend&rsquo;s age raised to the 0.23 power?&rdquo; might involve searching for the boyfriend, then calculating the power.</p>
+
+<p><img src="https://rishijeet.github.io/images/2025/reAct.gif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Key-Points"></a>
+<h2>Key Points</h2>
+
+<ul>
+<li><strong>ReAct Framework</strong>: It seems likely that ReAct is a prompting technique enabling LLMs to alternate between reasoning (thinking step-by-step) and acting (using tools like searches or calculations), improving accuracy on complex tasks by reducing hallucinations and incorporating external information.</li>
+<li><strong>Core Process</strong>: Evidence leans toward a loop of Thought (reasoning), Action (tool invocation), Observation (results), repeating until a final answer, mimicking human problem-solving.</li>
+<li><strong>Benefits and Limitations</strong>: Research suggests ReAct enhances interpretability and performance on knowledge-intensive and decision-making tasks, though it may increase computational costs and rely on well-defined tools; it&rsquo;s particularly useful for dynamic environments but less so for simple queries.</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Foundations-of-ReAct"></a>
+<h2>Foundations of ReAct</h2>
+
+<p>ReAct was introduced in the 2022 paper &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; by Shunyu Yao et al. It builds on chain-of-thought (CoT) prompting, where LLMs break down problems into intermediate reasoning steps for better performance on tasks like arithmetic or commonsense reasoning. However, CoT relies solely on the model&rsquo;s internal knowledge, leading to issues like factual errors or outdated information.</p>
+
+<p>ReAct addresses this by interleaving reasoning (&ldquo;thoughts&rdquo;) with actions, allowing the model to query external sources (e.g., search engines, calculators, or databases) and incorporate observations back into its reasoning process. This creates a feedback loop inspired by human cognition: think, act, observe, and adjust. As of 2025, ReAct remains a cornerstone for building LLM agents, integrated into frameworks like LangChain and LangGraph, with enhancements for multi-agent systems and reduced latency.</p>
+
+<p>Key components include:</p>
+
+<ul>
+<li><strong>Thought</strong>: A verbalized reasoning step where the LLM plans or reflects.</li>
+<li><strong>Action</strong>: Invocation of a tool, such as searching Wikipedia or running a calculation.</li>
+<li><strong>Observation</strong>: The result from the action, fed back to the LLM.</li>
+<li><strong>Final Answer</strong>: Output when the loop concludes, often after several iterations.</li>
+</ul>
+
+
+<p>This structure improves trustworthiness by making the process interpretable—users can trace how the model arrived at an answer.</p>
+
+<a name="How-ReAct-Works:-A-Step-2d-by-2d-Step-Breakdown"></a>
+<h2>How ReAct Works: A Step-by-Step Breakdown</h2>
+
+<p>ReAct operates in an iterative loop, typically capped at a maximum number of turns to control costs and latency. Here&rsquo;s the flow:</p>
+
+<ol>
+<li><strong>Initialization</strong>: The LLM receives a prompt outlining the ReAct format (e.g., &ldquo;You run in a loop of Thought, Action, PAUSE, Observation&rdquo;).</li>
+<li><strong>Thought Generation</strong>: The model reasons about the query, deciding on the next action.</li>
+<li><strong>Action Execution</strong>: If an action is needed, the system pauses, executes the tool, and returns an observation.</li>
+<li><strong>Observation Integration</strong>: The observation is appended to the prompt, and the loop repeats.</li>
+<li><strong>Termination</strong>: The model outputs &ldquo;Answer&rdquo; when confident, or hits the iteration limit.</li>
+</ol>
+
+
+<p>For instance, in a knowledge-intensive task like HotpotQA (multi-hop question answering), ReAct might search for &ldquo;Colorado orogeny,&rdquo; observe the result, reason about the eastern sector, and lookup further details until answering the elevation range.</p>
+
+<p>ReAct excels in domains like:</p>
+
+<ul>
+<li><strong>Knowledge Tasks</strong>: Outperforms CoT by accessing external info, reducing hallucinations.</li>
+<li><strong>Decision-Making</strong>: Handles interactive environments (e.g., games or web navigation) via tools.</li>
+<li><strong>Agentic Workflows</strong>: Integrates with RAG or multi-agent systems for complex automation.</li>
+</ul>
+
+
+<p>However, challenges include dependency on tool quality, potential for infinite loops without safeguards, and higher token usage compared to simpler prompts.</p>
+
+<a name="Comparisons:-ReAct-vs.-Other-LLM-Techniques"></a>
+<h2>Comparisons: ReAct vs. Other LLM Techniques</h2>
+
+<p>To contextualize ReAct, consider this comparison table:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Description</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+      <th>Use Cases</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Chain-of-Thought (CoT)</b></td>
+      <td>Prompts LLMs to reason step-by-step without external actions.</td>
+      <td>Simple, low-cost; good for internal logic.</td>
+      <td>Prone to hallucinations; no real-world interaction.</td>
+      <td>Arithmetic, commonsense QA.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct</b></td>
+      <td>Interleaves reasoning with tool-based actions and observations.</td>
+      <td>Dynamic, factual; interpretable loop.</td>
+      <td>Higher latency; tool-dependent.</td>
+      <td>Multi-hop QA, web tasks, agents.</td>
+    </tr>
+    <tr>
+      <td><b>Function Calling</b></td>
+      <td>Fine-tuned models output JSON for tool calls, without explicit reasoning.</td>
+      <td>Fast, structured; efficient for predictable tasks.</td>
+      <td>Less adaptable; opaque reasoning.</td>
+      <td>API integrations, simple tools.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct + CoT</b></td>
+      <td>Hybrid: Uses ReAct for actions and CoT for pure reasoning switches.</td>
+      <td>Optimal performance; flexible.</td>
+      <td>Complex implementation.</td>
+      <td>Advanced agents, hybrid tasks.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+<p>ReAct often outperforms baselines on benchmarks like HotpotQA, Fever, ALFWorld, and WebShop, with gains in accuracy and efficiency when combined with CoT.</p>
+
+<a name="Building-a-Sample-ReAct-Application-in-Python"></a>
+<h2>Building a Sample ReAct Application in Python</h2>
+
+<p>A basic ReAct agent can be built using Python libraries like LangChain. The sample below creates an agent that searches the web and performs math, demonstrating the loop in action. You&rsquo;ll need API keys for an LLM (e.g., OpenAI) and tools (e.g., Google Serper for search). For full code and setup, see the detailed survey below. This sample creates an agent that answers questions by searching the web (via Tavily) and performing calculations. It demonstrates the full loop and includes conversational memory for multi-turn interactions.</p>
+
+<a name="Prerequisites"></a>
+<h3>Prerequisites</h3>
+
+<ul>
+<li>Python 3.10+.</li>
+<li>Install dependencies: <code>pip install -U langgraph langchain-tavily langgraph-checkpoint-sqlite langchain-openai</code>.</li>
+<li>API Keys: Obtain OpenAI (for the LLM) and Tavily (for search) keys. Set them as environment variables:
+<code>python
+import os
+import getpass
+os.environ["OPENAI_API_KEY"] = getpass.getpass("OpenAI API Key: ")
+os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
+</code></li>
+<li>For tracing (optional): Set LangSmith keys.</li>
+</ul>
+
+
+<a name="Code-Implementation"></a>
+<h3>Code Implementation</h3>
+
+<p>The application uses LangGraph&rsquo;s <code>create_react_agent</code> for the ReAct logic. Here&rsquo;s the complete code:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="c"># Import necessary modules</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_tavily</span> <span class="kn">import</span> <span class="n">TavilySearchResults</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_openai</span> <span class="kn">import</span> <span class="n">ChatOpenAI</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langgraph.prebuilt</span> <span class="kn">import</span> <span class="n">create_react_agent</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langgraph.checkpointer</span> <span class="kn">import</span> <span class="n">MemorySaver</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.messages</span> <span class="kn">import</span> <span class="n">HumanMessage</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Define tools</span>
+</span><span class='line'><span class="n">tool</span> <span class="o">=</span> <span class="n">TavilySearchResults</span><span class="p">(</span><span class="n">max_results</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span class='line'><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">tool</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Initialize the LLM (using OpenAI&#39;s GPT-4o-mini for efficiency)</span>
+</span><span class='line'><span class="n">model</span> <span class="o">=</span> <span class="n">ChatOpenAI</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Bind tools to the model</span>
+</span><span class='line'><span class="n">model_with_tools</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">bind_tools</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Create the agent with memory (using MemorySaver for conversational state)</span>
+</span><span class='line'><span class="n">memory</span> <span class="o">=</span> <span class="n">MemorySaver</span><span class="p">()</span>
+</span><span class='line'><span class="n">agent_executor</span> <span class="o">=</span> <span class="n">create_react_agent</span><span class="p">(</span><span class="n">model_with_tools</span><span class="p">,</span> <span class="n">tools</span><span class="p">,</span> <span class="n">checkpointer</span><span class="o">=</span><span class="n">memory</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Configuration for conversational thread (use a unique ID for each conversation)</span>
+</span><span class='line'><span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;configurable&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s">&quot;thread_id&quot;</span><span class="p">:</span> <span class="s">&quot;conversation-1&quot;</span><span class="p">}}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Function to run the agent</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">run_agent</span><span class="p">(</span><span class="n">query</span><span class="p">):</span>
+</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;User Query: {query}&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent_executor</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span>
+</span><span class='line'>        <span class="p">{</span><span class="s">&quot;messages&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">HumanMessage</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="n">query</span><span class="p">)]},</span> <span class="n">config</span>
+</span><span class='line'>    <span class="p">):</span>
+</span><span class='line'>        <span class="k">print</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">print</span><span class="p">(</span><span class="s">&quot;----&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="c"># Extract final response</span>
+</span><span class='line'>    <span class="n">response</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;agent&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;messages&quot;</span><span class="p">,</span> <span class="p">[{}])[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">content</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">response</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Example usage</span>
+</span><span class='line'><span class="n">query</span> <span class="o">=</span> <span class="s">&quot;Who is the current CEO of xAI? What is their age squared?&quot;</span>
+</span><span class='line'><span class="n">response</span> <span class="o">=</span> <span class="n">run_agent</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;Final Answer: {response}&quot;</span><span class="p">)</span>
+</span></code></pre></div></figure>
+
+
+<a name="Detailed-Explanation"></a>
+<h3>Detailed Explanation</h3>
+
+<ol>
+<li><strong>Tools Definition</strong>: <code>TavilySearchResults</code> is a web search tool returning up to 2 results. It&rsquo;s added to <code>tools</code> for the agent to use.</li>
+<li><strong>LLM Setup</strong>: <code>ChatOpenAI</code> initializes the model (e.g., GPT-4o-mini for cost-effectiveness). <code>bind_tools</code> informs the model about available actions.</li>
+<li><strong>Agent Creation</strong>: <code>create_react_agent</code> builds the ReAct loop, with <code>MemorySaver</code> enabling state persistence for follow-ups (e.g., &ldquo;Tell me more about them&rdquo;).</li>
+<li><strong>Execution</strong>: The <code>stream</code> method runs the agent, printing intermediate thoughts, actions, and observations. For the example query:
+
+<ul>
+<li>Thought: Reason about searching for xAI CEO.</li>
+<li>Action: Invoke Tavily search.</li>
+<li>Observation: Retrieve CEO (e.g., Elon Musk) and age.</li>
+<li>Thought: Calculate age squared.</li>
+<li>Final Answer: Output the result (e.g., &ldquo;Elon Musk, age 54 squared is 2916&rdquo;).</li>
+</ul>
+</li>
+<li><strong>Extensions</strong>: Add more tools (e.g., math via <code>LLMMathChain</code>) or integrate with databases for custom applications.</li>
+</ol>
+
+
+<a name="Testing-and-Output"></a>
+<h3>Testing and Output</h3>
+
+<p>Running the code might yield:</p>
+
+<ul>
+<li>Intermediate: Thought → Action (search) → Observation → Thought (calculate) → Answer.
+This ensures factual grounding, e.g., verifying current data as of 2025.</li>
+</ul>
+
+
+<a name="Advanced-Variations-and-Best-Practices"></a>
+<h2>Advanced Variations and Best Practices</h2>
+
+<ul>
+<li><strong>Simple Non-LangChain Implementation</strong>: For a lightweight version, use a custom loop with OpenAI&rsquo;s API, as in Simon Willison&rsquo;s example. Define actions like <code>wikipedia</code> and parse responses with regex.</li>
+<li><strong>With LangGraph</strong>: For production, use LangGraph for visual workflows and error handling.</li>
+<li><strong>Best Practices</strong>: Limit iterations (e.g., max_turns=5), use verbose mode for debugging, and combine with CoT for hybrid prompting. Monitor token usage, as ReAct can be resource-intensive.</li>
+<li><strong>2025 Updates</strong>: Recent integrations include multimodal support (e.g., image analysis tools) and edge deployment for low-latency agents.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>ReAct represents a pivotal shift toward agentic AI, empowering LLMs to not just generate text but actively engage with the world. By implementing the sample above, developers can experiment and scale to real-world applications like automated research or virtual assistants.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Deep Dive into Context: MCP, A2A and RAG]]></title>

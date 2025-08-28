@@ -4,7 +4,7 @@
     <title><![CDATA[Category: llm | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/llm/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-08-26T09:30:10+05:30</updated>
+    <updated>2025-08-28T09:03:28+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,252 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Understanding ReAct in Large Language Models]]></title>
+        <link href="https://rishijeet.github.io/blog/understanding-react-in-large-language-models/"/>
+        <updated>2025-08-28T08:48:16+05:30</updated>
+        <id>https://rishijeet.github.io/blog/understanding-react-in-large-language-models</id>
+        <content type="html"><![CDATA[<p>ReAct, short for Reasoning and Acting, is a paradigm for enhancing large language models (LLMs) by integrating verbal reasoning traces with task-specific actions. Introduced in a 2022 paper, it addresses limitations in chain-of-thought (CoT) prompting by allowing models to interact with external environments, such as APIs or databases, to gather real-time data. This makes LLMs more reliable for tasks requiring factual accuracy or multi-step planning.</p>
+
+<p>In the evolving field of artificial intelligence, large language models (LLMs) have transformed how we approach problem-solving, but they often struggle with hallucinations—generating plausible but incorrect information—or handling tasks requiring real-world interaction. Enter ReAct (Reasoning and Acting), a prompting framework that synergizes reasoning traces with actionable steps, enabling LLMs to behave more like intelligent agents. This detailed blog explores ReAct&rsquo;s foundations, mechanics, advantages, and practical implementation, culminating in a sample Python application using LangChain. We&rsquo;ll draw on established research and code examples to provide a comprehensive guide, updated with insights as of 2025.</p>
+
+<a name="How-ReAct-Works"></a>
+<h2>How ReAct Works</h2>
+
+<p>In ReAct, the LLM generates a &ldquo;thought&rdquo; to plan, selects an &ldquo;action&rdquo; from available tools, observes the outcome, and iterates. This loop continues until the model outputs a final answer. For example, answering &ldquo;What is Olivia Wilde&rsquo;s boyfriend&rsquo;s age raised to the 0.23 power?&rdquo; might involve searching for the boyfriend, then calculating the power.</p>
+
+<p><img src="/images/2025/reAct.gif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Key-Points"></a>
+<h2>Key Points</h2>
+
+<ul>
+<li><strong>ReAct Framework</strong>: It seems likely that ReAct is a prompting technique enabling LLMs to alternate between reasoning (thinking step-by-step) and acting (using tools like searches or calculations), improving accuracy on complex tasks by reducing hallucinations and incorporating external information.</li>
+<li><strong>Core Process</strong>: Evidence leans toward a loop of Thought (reasoning), Action (tool invocation), Observation (results), repeating until a final answer, mimicking human problem-solving.</li>
+<li><strong>Benefits and Limitations</strong>: Research suggests ReAct enhances interpretability and performance on knowledge-intensive and decision-making tasks, though it may increase computational costs and rely on well-defined tools; it&rsquo;s particularly useful for dynamic environments but less so for simple queries.</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Foundations-of-ReAct"></a>
+<h2>Foundations of ReAct</h2>
+
+<p>ReAct was introduced in the 2022 paper &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; by Shunyu Yao et al. It builds on chain-of-thought (CoT) prompting, where LLMs break down problems into intermediate reasoning steps for better performance on tasks like arithmetic or commonsense reasoning. However, CoT relies solely on the model&rsquo;s internal knowledge, leading to issues like factual errors or outdated information.</p>
+
+<p>ReAct addresses this by interleaving reasoning (&ldquo;thoughts&rdquo;) with actions, allowing the model to query external sources (e.g., search engines, calculators, or databases) and incorporate observations back into its reasoning process. This creates a feedback loop inspired by human cognition: think, act, observe, and adjust. As of 2025, ReAct remains a cornerstone for building LLM agents, integrated into frameworks like LangChain and LangGraph, with enhancements for multi-agent systems and reduced latency.</p>
+
+<p>Key components include:</p>
+
+<ul>
+<li><strong>Thought</strong>: A verbalized reasoning step where the LLM plans or reflects.</li>
+<li><strong>Action</strong>: Invocation of a tool, such as searching Wikipedia or running a calculation.</li>
+<li><strong>Observation</strong>: The result from the action, fed back to the LLM.</li>
+<li><strong>Final Answer</strong>: Output when the loop concludes, often after several iterations.</li>
+</ul>
+
+
+<p>This structure improves trustworthiness by making the process interpretable—users can trace how the model arrived at an answer.</p>
+
+<a name="How-ReAct-Works:-A-Step-2d-by-2d-Step-Breakdown"></a>
+<h2>How ReAct Works: A Step-by-Step Breakdown</h2>
+
+<p>ReAct operates in an iterative loop, typically capped at a maximum number of turns to control costs and latency. Here&rsquo;s the flow:</p>
+
+<ol>
+<li><strong>Initialization</strong>: The LLM receives a prompt outlining the ReAct format (e.g., &ldquo;You run in a loop of Thought, Action, PAUSE, Observation&rdquo;).</li>
+<li><strong>Thought Generation</strong>: The model reasons about the query, deciding on the next action.</li>
+<li><strong>Action Execution</strong>: If an action is needed, the system pauses, executes the tool, and returns an observation.</li>
+<li><strong>Observation Integration</strong>: The observation is appended to the prompt, and the loop repeats.</li>
+<li><strong>Termination</strong>: The model outputs &ldquo;Answer&rdquo; when confident, or hits the iteration limit.</li>
+</ol>
+
+
+<p>For instance, in a knowledge-intensive task like HotpotQA (multi-hop question answering), ReAct might search for &ldquo;Colorado orogeny,&rdquo; observe the result, reason about the eastern sector, and lookup further details until answering the elevation range.</p>
+
+<p>ReAct excels in domains like:</p>
+
+<ul>
+<li><strong>Knowledge Tasks</strong>: Outperforms CoT by accessing external info, reducing hallucinations.</li>
+<li><strong>Decision-Making</strong>: Handles interactive environments (e.g., games or web navigation) via tools.</li>
+<li><strong>Agentic Workflows</strong>: Integrates with RAG or multi-agent systems for complex automation.</li>
+</ul>
+
+
+<p>However, challenges include dependency on tool quality, potential for infinite loops without safeguards, and higher token usage compared to simpler prompts.</p>
+
+<a name="Comparisons:-ReAct-vs.-Other-LLM-Techniques"></a>
+<h2>Comparisons: ReAct vs. Other LLM Techniques</h2>
+
+<p>To contextualize ReAct, consider this comparison table:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Description</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+      <th>Use Cases</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Chain-of-Thought (CoT)</b></td>
+      <td>Prompts LLMs to reason step-by-step without external actions.</td>
+      <td>Simple, low-cost; good for internal logic.</td>
+      <td>Prone to hallucinations; no real-world interaction.</td>
+      <td>Arithmetic, commonsense QA.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct</b></td>
+      <td>Interleaves reasoning with tool-based actions and observations.</td>
+      <td>Dynamic, factual; interpretable loop.</td>
+      <td>Higher latency; tool-dependent.</td>
+      <td>Multi-hop QA, web tasks, agents.</td>
+    </tr>
+    <tr>
+      <td><b>Function Calling</b></td>
+      <td>Fine-tuned models output JSON for tool calls, without explicit reasoning.</td>
+      <td>Fast, structured; efficient for predictable tasks.</td>
+      <td>Less adaptable; opaque reasoning.</td>
+      <td>API integrations, simple tools.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct + CoT</b></td>
+      <td>Hybrid: Uses ReAct for actions and CoT for pure reasoning switches.</td>
+      <td>Optimal performance; flexible.</td>
+      <td>Complex implementation.</td>
+      <td>Advanced agents, hybrid tasks.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+<p>ReAct often outperforms baselines on benchmarks like HotpotQA, Fever, ALFWorld, and WebShop, with gains in accuracy and efficiency when combined with CoT.</p>
+
+<a name="Building-a-Sample-ReAct-Application-in-Python"></a>
+<h2>Building a Sample ReAct Application in Python</h2>
+
+<p>A basic ReAct agent can be built using Python libraries like LangChain. The sample below creates an agent that searches the web and performs math, demonstrating the loop in action. You&rsquo;ll need API keys for an LLM (e.g., OpenAI) and tools (e.g., Google Serper for search). For full code and setup, see the detailed survey below. This sample creates an agent that answers questions by searching the web (via Tavily) and performing calculations. It demonstrates the full loop and includes conversational memory for multi-turn interactions.</p>
+
+<a name="Prerequisites"></a>
+<h3>Prerequisites</h3>
+
+<ul>
+<li>Python 3.10+.</li>
+<li>Install dependencies: <code>pip install -U langgraph langchain-tavily langgraph-checkpoint-sqlite langchain-openai</code>.</li>
+<li>API Keys: Obtain OpenAI (for the LLM) and Tavily (for search) keys. Set them as environment variables:
+<code>python
+import os
+import getpass
+os.environ["OPENAI_API_KEY"] = getpass.getpass("OpenAI API Key: ")
+os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
+</code></li>
+<li>For tracing (optional): Set LangSmith keys.</li>
+</ul>
+
+
+<a name="Code-Implementation"></a>
+<h3>Code Implementation</h3>
+
+<p>The application uses LangGraph&rsquo;s <code>create_react_agent</code> for the ReAct logic. Here&rsquo;s the complete code:</p>
+
+<pre><code class="python"># Import necessary modules
+from langchain_tavily import TavilySearchResults
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
+from langgraph.checkpointer import MemorySaver
+from langchain_core.messages import HumanMessage
+
+# Define tools
+tool = TavilySearchResults(max_results=2)
+tools = [tool]
+
+# Initialize the LLM (using OpenAI's GPT-4o-mini for efficiency)
+model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+# Bind tools to the model
+model_with_tools = model.bind_tools(tools)
+
+# Create the agent with memory (using MemorySaver for conversational state)
+memory = MemorySaver()
+agent_executor = create_react_agent(model_with_tools, tools, checkpointer=memory)
+
+# Configuration for conversational thread (use a unique ID for each conversation)
+config = {"configurable": {"thread_id": "conversation-1"}}
+
+# Function to run the agent
+def run_agent(query):
+    print(f"User Query: {query}")
+    for chunk in agent_executor.stream(
+        {"messages": [HumanMessage(content=query)]}, config
+    ):
+        print(chunk)
+        print("----")
+    # Extract final response
+    response = chunk.get("agent", {}).get("messages", [{}])[0].content
+    return response
+
+# Example usage
+query = "Who is the current CEO of xAI? What is their age squared?"
+response = run_agent(query)
+print(f"Final Answer: {response}")
+</code></pre>
+
+<a name="Detailed-Explanation"></a>
+<h3>Detailed Explanation</h3>
+
+<ol>
+<li><strong>Tools Definition</strong>: <code>TavilySearchResults</code> is a web search tool returning up to 2 results. It&rsquo;s added to <code>tools</code> for the agent to use.</li>
+<li><strong>LLM Setup</strong>: <code>ChatOpenAI</code> initializes the model (e.g., GPT-4o-mini for cost-effectiveness). <code>bind_tools</code> informs the model about available actions.</li>
+<li><strong>Agent Creation</strong>: <code>create_react_agent</code> builds the ReAct loop, with <code>MemorySaver</code> enabling state persistence for follow-ups (e.g., &ldquo;Tell me more about them&rdquo;).</li>
+<li><strong>Execution</strong>: The <code>stream</code> method runs the agent, printing intermediate thoughts, actions, and observations. For the example query:
+
+<ul>
+<li>Thought: Reason about searching for xAI CEO.</li>
+<li>Action: Invoke Tavily search.</li>
+<li>Observation: Retrieve CEO (e.g., Elon Musk) and age.</li>
+<li>Thought: Calculate age squared.</li>
+<li>Final Answer: Output the result (e.g., &ldquo;Elon Musk, age 54 squared is 2916&rdquo;).</li>
+</ul>
+</li>
+<li><strong>Extensions</strong>: Add more tools (e.g., math via <code>LLMMathChain</code>) or integrate with databases for custom applications.</li>
+</ol>
+
+
+<a name="Testing-and-Output"></a>
+<h3>Testing and Output</h3>
+
+<p>Running the code might yield:</p>
+
+<ul>
+<li>Intermediate: Thought → Action (search) → Observation → Thought (calculate) → Answer.
+This ensures factual grounding, e.g., verifying current data as of 2025.</li>
+</ul>
+
+
+<a name="Advanced-Variations-and-Best-Practices"></a>
+<h2>Advanced Variations and Best Practices</h2>
+
+<ul>
+<li><strong>Simple Non-LangChain Implementation</strong>: For a lightweight version, use a custom loop with OpenAI&rsquo;s API, as in Simon Willison&rsquo;s example. Define actions like <code>wikipedia</code> and parse responses with regex.</li>
+<li><strong>With LangGraph</strong>: For production, use LangGraph for visual workflows and error handling.</li>
+<li><strong>Best Practices</strong>: Limit iterations (e.g., max_turns=5), use verbose mode for debugging, and combine with CoT for hybrid prompting. Monitor token usage, as ReAct can be resource-intensive.</li>
+<li><strong>2025 Updates</strong>: Recent integrations include multimodal support (e.g., image analysis tools) and edge deployment for low-latency agents.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>ReAct represents a pivotal shift toward agentic AI, empowering LLMs to not just generate text but actively engage with the world. By implementing the sample above, developers can experiment and scale to real-world applications like automated research or virtual assistants.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Deep Dive into Context: MCP, A2A and RAG]]></title>
@@ -905,416 +1151,6 @@ that power cloud computing, web services, and data-intensive applications. In th
 <h2>Conclusion</h2>
 
 <p>The AI revolution, driven by hyperscalers like Microsoft, Google, Meta, Amazon, and OpenAI, is pushing energy demands to unprecedented levels, with current U.S. data center consumption at 4.4% of national electricity and projected to reach 11-12% by 2030. Schmidt’s estimate of an additional 92 GW by 2035 underscores the scale of the challenge, requiring investments in renewables, nuclear power, and grid upgrades. While innovations in efficiency and flexible grid management offer hope, the risk of cost increases, environmental impacts, and geopolitical shifts looms large. To maintain AI leadership and sustainability, the U.S. must prioritize energy infrastructure development, transparency, and strategic policy interventions to balance growth with environmental and economic stability.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[From Text to Tokens: The Complete Guide to Tokenization in LLMs]]></title>
-        <link href="https://rishijeet.github.io/blog/from-text-to-tokens-the-complete-guide-to-tokenization-in-llms/"/>
-        <updated>2025-06-28T08:55:51+05:30</updated>
-        <id>https://rishijeet.github.io/blog/from-text-to-tokens-the-complete-guide-to-tokenization-in-llms</id>
-        <content type="html"><![CDATA[<p>In the ever-evolving field of artificial intelligence, large language models (LLMs) like GPT-4, Claude, Gemini, and LLaMA have reshaped how machines understand and generate human language. Behind the impressive capabilities of these models lies a deceptively simple but foundational step: <strong>tokenization</strong>.</p>
-
-<p>In this blog, we will dive deep into the concept of tokenization, understand its types, why it&rsquo;s needed, the challenges it solves, how it works under the hood, and where it’s headed in the future. This is a one-stop technical deep-dive for anyone looking to fully grasp the backbone of language understanding in LLMs.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-What-is-Tokenization-3f--3c--2f-strong-3e-"></a>
-<h2><strong>What is Tokenization?</strong></h2>
-
-<p>At its core, tokenization is the process of converting raw text into smaller units called <strong>tokens</strong> that a language model can understand and process. These tokens can be:</p>
-
-<ul>
-<li>Characters</li>
-<li>Words</li>
-<li>Subwords</li>
-<li>Byte-pair sequences</li>
-<li>WordPieces</li>
-<li>SentencePieces</li>
-<li>Byte-level representations</li>
-</ul>
-
-
-<p>Each model has its own strategy, depending on design goals like efficiency, vocabulary size, multilingual handling, and memory constraints.</p>
-
-<!--more-->
-
-
-<p>For example, the sentence:</p>
-
-<pre><code>"Tokenization is crucial for LLMs."
-</code></pre>
-
-<p>May be tokenized as:</p>
-
-<ul>
-<li>Word-level: <code>["Tokenization", "is", "crucial", "for", "LLMs", "."]</code></li>
-<li>Character-level: <code>["T", "o", "k", ..., "L", "L", "M", "s", "."]</code></li>
-<li>Subword (BPE): <code>["Token", "ization", "is", "cru", "cial", "for", "LL", "Ms", "."]</code></li>
-</ul>
-
-
-<a name="Tokens"></a>
-<h4>Tokens</h4>
-
-<p><img src="/images/2025/token.png" height="300" width="900" alt="Alt text" /></p>
-
-<a name="Token-IDs"></a>
-<h4>Token IDs</h4>
-
-<p><img src="/images/2025/tokenid.png" height="300" width="900" alt="Alt text" /></p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Why-Tokenization-is-Needed-in-LLMs-3c--2f-strong-3e-"></a>
-<h2><strong>Why Tokenization is Needed in LLMs</strong></h2>
-
-<p>Language models operate over numbers (tensors), not raw strings. Before any neural network processes your prompt, the words must be:</p>
-
-<ol>
-<li><strong>Split into atomic units (tokens)</strong></li>
-<li><strong>Mapped to numerical IDs (vocabulary embedding)</strong></li>
-<li><strong>Fed into the model as vectors</strong></li>
-</ol>
-
-
-<p>Without tokenization:</p>
-
-<ul>
-<li>Models would struggle with infinite vocabulary.</li>
-<li>Multilingual text and compound words would explode the vocabulary.</li>
-<li>There would be no efficient way to control sequence length or positional encoding.</li>
-</ul>
-
-
-<hr />
-
-<a name="L-3c-strong-3e-Types-of-Tokenization-Strategies-3c--2f-strong-3e-"></a>
-<h2><strong>Types of Tokenization Strategies</strong></h2>
-
-<a name="L-3c-strong-3e-Word-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Word-Level Tokenization</strong></h3>
-
-<p>Each word is a token. Simple but inefficient for:</p>
-
-<ul>
-<li>Unknown words (out-of-vocabulary issues)</li>
-<li>Morphologically rich languages</li>
-<li>Compound words</li>
-</ul>
-
-
-<p><strong>Example:</strong>
-&ldquo;unhappiness&rdquo; → 1 token → [“unhappiness”]
-If unseen during training, this is a problem.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Character-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Character-Level Tokenization</strong></h3>
-
-<p>Each character is a token. Solves OOV issues but leads to longer sequences and loss of semantic granularity.</p>
-
-<p><strong>Example:</strong>
-&ldquo;unhappiness&rdquo; → [“u”, “n”, “h”, “a”, “p”, …]</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Subword-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Subword Tokenization</strong></h3>
-
-<p>Breaks words into frequent subword units using statistical techniques like:</p>
-
-<ul>
-<li><strong>Byte Pair Encoding (BPE)</strong> – used by GPT-2, GPT-3</li>
-<li><strong>WordPiece</strong> – used by BERT</li>
-<li><strong>Unigram Language Model</strong> – used by SentencePiece (T5, LLaMA)</li>
-</ul>
-
-
-<p><strong>Example (BPE):</strong>
-&ldquo;unhappiness&rdquo; → [“un”, “happi”, “ness”]</p>
-
-<p><strong>Benefits:</strong></p>
-
-<ul>
-<li>Handles unknown words gracefully</li>
-<li>Reduces vocabulary size</li>
-<li>Efficient for multilingual models</li>
-</ul>
-
-
-<hr />
-
-<a name="L-3c-strong-3e-Byte-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Byte-Level Tokenization</strong></h3>
-
-<p>Tokenizes text at the byte level, including UTF-8 encodings.</p>
-
-<p>Used by models like GPT-3.5/4 to handle raw binary inputs and emojis robustly.</p>
-
-<p><strong>Example:</strong>
-“🔥” → byte sequence → [240, 159, 148, 165]</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-SentencePiece-3c--2f-strong-3e-"></a>
-<h3><strong>SentencePiece</strong></h3>
-
-<p>A library that trains subword models using BPE or Unigram LM on raw text. Used in multilingual LLMs like T5, mT5.</p>
-
-<p>It allows training on raw text without pre-tokenization (no need for whitespace-based splitting).</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-How-Tokenization-Works:-Under-the-Hood-3c--2f-strong-3e-"></a>
-<h2><strong>How Tokenization Works: Under the Hood</strong></h2>
-
-<a name="L-3c-strong-3e-Training-a-Tokenizer-3c--2f-strong-3e-"></a>
-<h3><strong>Training a Tokenizer</strong></h3>
-
-<p>During tokenizer training, the process involves:</p>
-
-<ul>
-<li>Reading a large corpus</li>
-<li>Building frequency tables of substrings</li>
-<li>Iteratively merging the most frequent substrings</li>
-<li>Forming a vocabulary of tokens</li>
-<li>Saving a tokenizer model (vocab + merge rules)</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Encoding-3c--2f-strong-3e-"></a>
-<h3><strong>Encoding</strong></h3>
-
-<p>At inference or training:</p>
-
-<ul>
-<li>Input string → split into substrings based on learned merges</li>
-<li>Tokens → mapped to numerical IDs via the vocabulary</li>
-</ul>
-
-
-<pre><code class="python">from transformers import GPT2Tokenizer
-
-tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-tokens = tokenizer.tokenize("Tokenization is powerful.")
-print(tokens)
-# Output: ['Token', 'ization', 'Ġis', 'Ġpowerful', '.']
-</code></pre>
-
-<p><code>Ġ</code> indicates a space in GPT-2 tokenizers.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Tokenization-and-Model-Limits-3c--2f-strong-3e-"></a>
-<h2><strong>Tokenization and Model Limits</strong></h2>
-
-<p>Most LLMs have a context window defined in <strong>tokens</strong>, not characters. For instance:</p>
-
-<ul>
-<li>GPT-3.5: 4,096 tokens</li>
-<li>GPT-4 (o4): 128,000 tokens</li>
-<li>Claude 3 Opus: \~200,000 tokens</li>
-</ul>
-
-
-<p>So, 1000 words of English ≈ 750 tokens.</p>
-
-<p>This is crucial for prompt design, summarization, RAG (Retrieval Augmented Generation), and efficient inference.</p>
-
-<a name="L-3c-strong-3e-Challenges-and-Trade-2d-offs-3c--2f-strong-3e-"></a>
-<h2><strong>Challenges and Trade-offs</strong></h2>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Challenge</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>OOV (Out-of-Vocabulary)</td>
-        <td>Especially for word-level tokenization</td>
-      </tr>
-      <tr>
-        <td>Token inflation</td>
-        <td>Some languages (e.g., Chinese, Japanese) produce more tokens</td>
-      </tr>
-      <tr>
-        <td>Inconsistency</td>
-        <td>Subword boundaries may not align with morphemes</td>
-      </tr>
-      <tr>
-        <td>Efficiency vs Accuracy</td>
-        <td>Smaller tokens = longer sequences = more compute</td>
-      </tr>
-      <tr>
-        <td>Encoding Bias</td>
-        <td>Tokenizers trained on certain scripts or corpora may underperform on others</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="L-3c-strong-3e-Tokenization-in-Multilingual-and-Code-Models-3c--2f-strong-3e-"></a>
-<h2><strong>Tokenization in Multilingual and Code Models</strong></h2>
-
-<a name="L-3c-strong-3e-Multilingual-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Multilingual Tokenization</strong></h3>
-
-<ul>
-<li>Unicode-aware models must handle multiple scripts (Latin, Devanagari, Arabic, etc.)</li>
-<li>Token inflation can disadvantage languages like Hindi and Tamil</li>
-<li>SentencePiece helps standardize across languages</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Code-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Code Tokenization</strong></h3>
-
-<ul>
-<li>Code models (e.g., Codex, CodeBERT) often use language-specific tokenizers</li>
-<li>Must preserve syntax, spacing, indentation, and even comments</li>
-</ul>
-
-
-<p>Example:</p>
-
-<pre><code class="python">def say_hello():
-    print("Hello")
-</code></pre>
-
-<p>→ <code>[‘def’, ‘Ġsay’, ‘_’, ‘hello’, ‘()’, ‘:’, ‘Ġ’, ‘print’, ‘(”, ‘Hello’, ‘”)’]</code></p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Compression-2c--Prompt-Engineering-2c--and-Token-Optimization-3c--2f-strong-3e-"></a>
-<h2><strong>Compression, Prompt Engineering, and Token Optimization</strong></h2>
-
-<p>Tokenization also directly affects:</p>
-
-<ul>
-<li><strong>Prompt length limits</strong> (compressed prompts → more room for data)</li>
-<li><strong>Token cost in inference/billing</strong></li>
-<li><strong>RAG performance</strong> (chunking based on tokens)</li>
-<li><strong>Training data deduplication</strong> (token-based hashing)</li>
-</ul>
-
-
-<p>Optimizing prompts for fewer tokens can reduce cost and latency.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Tokenization-vs.-Embeddings-3c--2f-strong-3e-"></a>
-<h2><strong>Tokenization vs. Embeddings</strong></h2>
-
-<p>It’s important to note:</p>
-
-<ul>
-<li><strong>Tokenization</strong> comes before embedding.</li>
-<li>Token → token ID → embedding vector</li>
-</ul>
-
-
-<p>A poor tokenization scheme = noisy embeddings = reduced model performance.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-The-Future-of-Tokenization-in-LLMs-3c--2f-strong-3e-"></a>
-<h2><strong>The Future of Tokenization in LLMs</strong></h2>
-
-<a name="L-3c-strong-3e-Token-2d-Free-Models-3c--2f-strong-3e-"></a>
-<h3><strong>Token-Free Models</strong></h3>
-
-<p>Efforts like <strong>Charformer</strong> and <strong>Byte-level transformers</strong> aim to bypass static tokenization and learn from raw bytes or characters.</p>
-
-<a name="L-3c-strong-3e-Neural-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Neural Tokenization</strong></h3>
-
-<p>Trainable tokenizers using neural nets to learn optimal segmentation dynamically.</p>
-
-<a name="L-3c-strong-3e-Universal-Tokenizers-3c--2f-strong-3e-"></a>
-<h3><strong>Universal Tokenizers</strong></h3>
-
-<p>Tokenizers trained across modalities (text, image, code) using a common vocabulary to unify multimodal models.</p>
-
-<a name="L-3c-strong-3e-Efficient-Context-Windows-3c--2f-strong-3e-"></a>
-<h3><strong>Efficient Context Windows</strong></h3>
-
-<p>With sliding-window and compression-based methods (e.g., Mamba, Hyena), token overhead may reduce for long contexts.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Major-LLMs-and-Their-Tokenization-3c--2f-strong-3e-"></a>
-<h2><strong>Major LLMs and Their Tokenization</strong></h2>
-
-<div class="scrollable-table-container">
-  <h2>Model Tokenizers</h2>
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Model</th>
-        <th>Tokenizer</th>
-        <th>Type</th>
-        <th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>GPT-3/4</td>
-        <td>GPT2Tokenizer</td>
-        <td>BPE + byte</td>
-        <td>Handles Unicode well</td>
-      </tr>
-      <tr>
-        <td>BERT</td>
-        <td>WordPiece</td>
-        <td>Subword</td>
-        <td>Requires pre-tokenization</td>
-      </tr>
-      <tr>
-        <td>RoBERTa</td>
-        <td>BPE (FairSeq)</td>
-        <td>Subword</td>
-        <td>Custom vocabulary</td>
-      </tr>
-      <tr>
-        <td>T5</td>
-        <td>SentencePiece</td>
-        <td>Unigram LM</td>
-        <td>Whitespace-free tokenization</td>
-      </tr>
-      <tr>
-        <td>LLaMA 2/3/4</td>
-        <td>SentencePiece</td>
-        <td>Unigram LM</td>
-        <td>Supports multiple languages</td>
-      </tr>
-      <tr>
-        <td>Claude</td>
-        <td>Byte-level BPE</td>
-        <td>Proprietary</td>
-        <td>Handles emojis and long context</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<hr />
-
-<a name="L-3c-strong-3e-Conclusion-3c--2f-strong-3e-"></a>
-<h2><strong>Conclusion</strong></h2>
-
-<p>Tokenization may appear trivial at first glance, but it&rsquo;s the hidden workhorse powering the language capabilities of every modern LLM. From enabling multilingual understanding to compressing long documents into tight prompts, tokenization determines what the model sees, learns, and generates.</p>
-
-<p>As we step into an era of 1M+ token context windows, modality fusion, and instruction-following agents, tokenization will either evolve or be replaced by more fluid, learned representations.</p>
-
-<p>But for now—and the foreseeable future—it remains a vital piece of the LLM puzzle.</p>
 ]]></content>
     </entry>
     
