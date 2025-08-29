@@ -1,0 +1,565 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: cot | Rishijeet Mishra]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/cot/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2025-08-29T13:35:19+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[Supercharge Reasoning in AI: Hands-On Chain of Thought Builds]]></title>
+        <link href="https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds/"/>
+        <updated>2025-08-29T13:26:07+05:30</updated>
+        <id>https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds</id>
+        <content type="html"><![CDATA[<p>Chain of Thought (CoT) is a prompting technique introduced in a 2022 paper by Google researchers (Wei et al., &ldquo;Chain-of-Thought Prompting Elicits Reasoning in Large Language Models&rdquo;). The core idea is simple: instead of asking an LLM for a direct answer, you instruct it to <strong>reason step by step</strong>. This elicits better performance on tasks requiring logic, math, commonsense, or multi-step planning.</p>
+
+<p><img src="/images/2025/cot.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<p>For example:</p>
+
+<ul>
+<li><strong>Direct Prompt</strong>: &ldquo;What is 15% of 200?&rdquo;</li>
+<li><strong>CoT Prompt</strong>: &ldquo;What is 15% of 200? Let&rsquo;s think step by step.&rdquo;</li>
+</ul>
+
+
+<p>The LLM might respond:</p>
+
+<ul>
+<li>&ldquo;Step 1: 15% means 15 per 100, so 15/100 = 0.15.</li>
+<li>Step 2: Multiply by 200: 0.15 * 200 = 30. So, the answer is 30.&#8221;</li>
+</ul>
+
+
+<!--more-->
+
+
+<p>This &ldquo;thinking&rdquo; process isn&rsquo;t magic—it&rsquo;s emergent from the model&rsquo;s training on vast datasets where step-by-step explanations are common. CoT shines in zero-shot (no examples) or few-shot (with examples) scenarios, and variants like <strong>Tree of Thoughts</strong> or <strong>Self-Consistency</strong> build on it for even more robustness.</p>
+
+<a name="Why-Does-CoT-Work-3f-"></a>
+<h3>Why Does CoT Work?</h3>
+
+<ul>
+<li><strong>Decomposes Complexity</strong>: Breaks problems into manageable sub-steps, reducing error rates.</li>
+<li><strong>Transparency</strong>: Users see the &ldquo;thought process,&rdquo; building trust and allowing debugging.</li>
+<li><strong>Scalability</strong>: Works with any LLM API; no need for fine-tuning.</li>
+<li><strong>Applications</strong>: Math solvers, code debuggers, decision-making tools, chatbots that explain reasoning.</li>
+</ul>
+
+
+<p>Research shows CoT improves accuracy by 10-50% on benchmarks like GSM8K (math) or CommonsenseQA. In interactive apps, it can stream thoughts progressively, giving users a &ldquo;processing&rdquo; indicator.</p>
+
+<a name="Evolution-and-Variants-of-CoT"></a>
+<h2>Evolution and Variants of CoT</h2>
+
+<p>CoT has evolved rapidly:</p>
+
+<ul>
+<li><strong>Zero-Shot CoT</strong>: Just add &ldquo;Let&rsquo;s think step by step&rdquo; to the prompt.</li>
+<li><strong>Few-Shot CoT</strong>: Provide 2-5 examples of step-by-step reasoning before the query.</li>
+<li><strong>Automatic CoT</strong>: Use LLMs to generate CoT examples dynamically.</li>
+<li><strong>Tree of Thoughts (ToT)</strong>: Explores multiple reasoning paths like a tree search.</li>
+<li><strong>Graph of Thoughts</strong>: Models reasoning as a graph for non-linear problems.</li>
+</ul>
+
+
+<p>In 2025, with models like Grok 4, CoT is often combined with tools (e.g., code execution or web search) for agentic systems—AI agents that plan, act, and reflect.</p>
+
+<a name="Building-a-Chain-of-Thought-Application:-Step-2d-by-2d-Step-Guide"></a>
+<h2>Building a Chain of Thought Application: Step-by-Step Guide</h2>
+
+<p>To build a CoT application, we&rsquo;ll create a Python-based tool that:</p>
+
+<ol>
+<li>Takes user input.</li>
+<li>Applies CoT prompting via an LLM API.</li>
+<li>Streams the response to show &ldquo;thinking&rdquo; in real-time (using API streaming features).</li>
+<li>Parses the final answer for clarity.</li>
+</ol>
+
+
+<p>We&rsquo;ll use OpenAI&rsquo;s API as an example. Assumptions:</p>
+
+<ul>
+<li>You have an API key.</li>
+<li>Focus on a math/word problem solver, but extensible to any domain.</li>
+</ul>
+
+
+<a name="Step-1:-Set-Up-Your-Environment"></a>
+<h3>Step 1: Set Up Your Environment</h3>
+
+<p>Install required libraries:
+<code>bash
+pip install openai requests
+</code></p>
+
+<a name="Step-2:-Basic-CoT-Implementation"></a>
+<h3>Step 2: Basic CoT Implementation</h3>
+
+<p>Start with a simple non-streaming version. This script prompts the LLM with CoT and prints the full response.</p>
+
+<pre><code class="python">import openai
+
+# Set your API key
+openai.api_key = "your-openai-api-key"  # Replace with actual key
+
+def cot_reasoning(query, model="gpt-4o"):
+    """
+    Applies Chain of Thought prompting to a query.
+
+    Args:
+    - query (str): The user's question.
+    - model (str): LLM model to use.
+
+    Returns:
+    - str: The reasoned response.
+    """
+    # CoT Prompt Template (Few-Shot for better results)
+    prompt = """
+    Solve the following problem step by step.
+
+    Example 1:
+    Question: If a car travels 60 miles in 1.5 hours, what is its speed?
+    Step 1: Speed is distance divided by time.
+    Step 2: Distance = 60 miles, Time = 1.5 hours.
+    Step 3: Speed = 60 / 1.5 = 40 mph.
+    Answer: 40 mph.
+
+    Example 2:
+    Question: What is the next number in the sequence: 2, 4, 8, 16?
+    Step 1: Observe the pattern: each number is doubled.
+    Step 2: 2 * 2 = 4, 4 * 2 = 8, 8 * 2 = 16.
+    Step 3: Next is 16 * 2 = 32.
+    Answer: 32.
+
+    Now, your question:
+    Question: {query}
+    """
+
+    formatted_prompt = prompt.format(query=query)
+
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "user", "content": formatted_prompt}]
+    )
+
+    return response.choices[0].message.content
+
+# Usage
+query = "What is 25% of 400?"
+result = cot_reasoning(query)
+print(result)
+</code></pre>
+
+<p><strong>Expected Output</strong>:
+<code>
+Step 1: 25% means 25 per 100, so 0.25.
+Step 2: Multiply by 400: 0.25 * 400 = 100.
+Answer: 100.
+</code></p>
+
+<p>This shows the &ldquo;thinking&rdquo; steps. To make it interactive, add a loop for multiple queries.</p>
+
+<a name="Step-3:-Adding-Real-2d-Time-Processing-Feedback"></a>
+<h3>Step 3: Adding Real-Time Processing Feedback</h3>
+
+<p>To &ldquo;let you know that it is processing these steps,&rdquo; use streaming. OpenAI supports response streaming, printing tokens as they arrive—simulating thinking.</p>
+
+<p>Modify the function:</p>
+
+<pre><code class="python">import openai
+import sys
+
+openai.api_key = "your-openai-api-key"
+
+def cot_streaming_reasoning(query, model="gpt-4o"):
+    """
+    Streams Chain of Thought reasoning in real-time.
+    """
+    prompt = """
+    Solve the following problem step by step. Think out loud.
+
+    # Few-shot examples here (same as above)
+
+    Question: {query}
+    """
+    formatted_prompt = prompt.format(query=query)
+
+    stream = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "user", "content": formatted_prompt}],
+        stream=True  # Enable streaming
+    )
+
+    print("Thinking...")
+    full_response = ""
+    for chunk in stream:
+        if chunk.choices[0].delta.get("content"):
+            content = chunk.choices[0].delta.content
+            sys.stdout.write(content)  # Print incrementally
+            sys.stdout.flush()
+            full_response += content
+    print("\nDone!")
+
+    return full_response
+
+# Usage
+query = "If I have 3 apples and eat 2, how many are left?"
+cot_streaming_reasoning(query)
+</code></pre>
+
+<p><strong>How It Works</strong>:</p>
+
+<ul>
+<li>The <code>stream=True</code> parameter yields partial responses.</li>
+<li>We print each chunk, showing steps like &ldquo;Step 1: &hellip;&rdquo; as they generate.</li>
+<li>This creates a &ldquo;processing&rdquo; effect—users see thoughts unfolding.</li>
+</ul>
+
+
+<p>For a web app, use Flask or Streamlit to stream via WebSockets.</p>
+
+<a name="Step-4:-Advanced-Features--e2--80--93--Parsing-and-Error-Handling"></a>
+<h3>Step 4: Advanced Features – Parsing and Error Handling</h3>
+
+<p>To extract the final answer reliably, parse the response. Add self-consistency by generating multiple CoTs and voting.</p>
+
+<pre><code class="python">def parse_final_answer(response):
+    """
+    Extracts the final answer from CoT response.
+    """
+    lines = response.split("\n")
+    for line in reversed(lines):
+        if line.startswith("Answer:"):
+            return line.split("Answer:")[1].strip()
+    return "No clear answer found."
+
+# In your main function:
+result = cot_streaming_reasoning(query)
+final_answer = parse_final_answer(result)
+print(f"Final Answer: {final_answer}")
+</code></pre>
+
+<p>For robustness (Self-Consistency CoT):</p>
+
+<ul>
+<li>Run 3-5 CoT generations.</li>
+<li>Use majority vote on answers.</li>
+</ul>
+
+
+<pre><code class="python">def self_consistent_cot(query, num_samples=3):
+    answers = []
+    for _ in range(num_samples):
+        response = cot_reasoning(query)  # Or streaming version
+        answer = parse_final_answer(response)
+        answers.append(answer)
+
+    # Simple majority vote
+    from collections import Counter
+    most_common = Counter(answers).most_common(1)
+    return most_common[0][0] if most_common else "Inconsistent results"
+
+# Usage
+consistent_answer = self_consistent_cot("A bat and ball cost $1.10 total. The bat costs $1 more than the ball. How much is the ball?")
+print(consistent_answer)  # Should be $0.05
+</code></pre>
+
+<a name="Step-5:-Building-a-Full-Application"></a>
+<h3>Step 5: Building a Full Application</h3>
+
+<p>For a complete app, use Streamlit for a UI:</p>
+
+<pre><code class="python">import streamlit as st
+import openai
+
+openai.api_key = "your-openai-api-key"
+
+st.title("Chain of Thought Reasoner")
+
+query = st.text_input("Enter your question:")
+
+if st.button("Reason"):
+    with st.spinner("Thinking step by step..."):
+        response = cot_streaming_reasoning(query)  # Use non-streaming for simplicity, or adapt
+        st.write(response)
+        final = parse_final_answer(response)
+        st.success(f"Final Answer: {final}")
+</code></pre>
+
+<p>Run with <code>streamlit run app.py</code>. This creates a web interface where users input queries and see the CoT process.</p>
+
+<a name="Challenges-and-Best-Practices"></a>
+<h2>Challenges and Best Practices</h2>
+
+<ul>
+<li><strong>Token Limits</strong>: CoT increases prompt length; use efficient models.</li>
+<li><strong>Bias in Reasoning</strong>: LLMs can hallucinate steps—validate with tools (e.g., code execution for math).</li>
+<li><strong>Customization</strong>: For domains like code generation, add &ldquo;Step 1: Understand requirements. Step 2: Plan code structure.&rdquo;</li>
+<li><strong>Integration with Agents</strong>: Combine CoT with ReAct (Reason + Act) for tool-using agents.</li>
+<li><strong>Ethics</strong>: Ensure transparency; CoT doesn&rsquo;t make AI infallible.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>Chain of Thought applications transform LLMs from black boxes into transparent reasoners. By building step-by-step processing into your prompts and code, you create tools that not only solve problems but explain how.</p>
+]]></content>
+    </entry>
+    
+    <entry>
+        <title type="html"><![CDATA[Understanding ReAct in Large Language Models]]></title>
+        <link href="https://rishijeet.github.io/blog/understanding-react-in-large-language-models/"/>
+        <updated>2025-08-28T08:48:16+05:30</updated>
+        <id>https://rishijeet.github.io/blog/understanding-react-in-large-language-models</id>
+        <content type="html"><![CDATA[<p>ReAct, short for Reasoning and Acting, is a paradigm for enhancing large language models (LLMs) by integrating verbal reasoning traces with task-specific actions. Introduced in a 2022 paper, it addresses limitations in chain-of-thought (CoT) prompting by allowing models to interact with external environments, such as APIs or databases, to gather real-time data. This makes LLMs more reliable for tasks requiring factual accuracy or multi-step planning.</p>
+
+<p>In the evolving field of artificial intelligence, large language models (LLMs) have transformed how we approach problem-solving, but they often struggle with hallucinations—generating plausible but incorrect information—or handling tasks requiring real-world interaction. Enter ReAct (Reasoning and Acting), a prompting framework that synergizes reasoning traces with actionable steps, enabling LLMs to behave more like intelligent agents. This detailed blog explores ReAct&rsquo;s foundations, mechanics, advantages, and practical implementation, culminating in a sample Python application using LangChain. We&rsquo;ll draw on established research and code examples to provide a comprehensive guide, updated with insights as of 2025.</p>
+
+<a name="How-ReAct-Works"></a>
+<h2>How ReAct Works</h2>
+
+<p>In ReAct, the LLM generates a &ldquo;thought&rdquo; to plan, selects an &ldquo;action&rdquo; from available tools, observes the outcome, and iterates. This loop continues until the model outputs a final answer. For example, answering &ldquo;What is Olivia Wilde&rsquo;s boyfriend&rsquo;s age raised to the 0.23 power?&rdquo; might involve searching for the boyfriend, then calculating the power.</p>
+
+<p><img src="/images/2025/reAct.gif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Key-Points"></a>
+<h2>Key Points</h2>
+
+<ul>
+<li><strong>ReAct Framework</strong>: It seems likely that ReAct is a prompting technique enabling LLMs to alternate between reasoning (thinking step-by-step) and acting (using tools like searches or calculations), improving accuracy on complex tasks by reducing hallucinations and incorporating external information.</li>
+<li><strong>Core Process</strong>: Evidence leans toward a loop of Thought (reasoning), Action (tool invocation), Observation (results), repeating until a final answer, mimicking human problem-solving.</li>
+<li><strong>Benefits and Limitations</strong>: Research suggests ReAct enhances interpretability and performance on knowledge-intensive and decision-making tasks, though it may increase computational costs and rely on well-defined tools; it&rsquo;s particularly useful for dynamic environments but less so for simple queries.</li>
+</ul>
+
+
+<!--more-->
+
+
+<a name="Foundations-of-ReAct"></a>
+<h2>Foundations of ReAct</h2>
+
+<p>ReAct was introduced in the 2022 paper &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; by Shunyu Yao et al. It builds on chain-of-thought (CoT) prompting, where LLMs break down problems into intermediate reasoning steps for better performance on tasks like arithmetic or commonsense reasoning. However, CoT relies solely on the model&rsquo;s internal knowledge, leading to issues like factual errors or outdated information.</p>
+
+<p>ReAct addresses this by interleaving reasoning (&ldquo;thoughts&rdquo;) with actions, allowing the model to query external sources (e.g., search engines, calculators, or databases) and incorporate observations back into its reasoning process. This creates a feedback loop inspired by human cognition: think, act, observe, and adjust. As of 2025, ReAct remains a cornerstone for building LLM agents, integrated into frameworks like LangChain and LangGraph, with enhancements for multi-agent systems and reduced latency.</p>
+
+<p>Key components include:</p>
+
+<ul>
+<li><strong>Thought</strong>: A verbalized reasoning step where the LLM plans or reflects.</li>
+<li><strong>Action</strong>: Invocation of a tool, such as searching Wikipedia or running a calculation.</li>
+<li><strong>Observation</strong>: The result from the action, fed back to the LLM.</li>
+<li><strong>Final Answer</strong>: Output when the loop concludes, often after several iterations.</li>
+</ul>
+
+
+<p>This structure improves trustworthiness by making the process interpretable—users can trace how the model arrived at an answer.</p>
+
+<a name="How-ReAct-Works:-A-Step-2d-by-2d-Step-Breakdown"></a>
+<h2>How ReAct Works: A Step-by-Step Breakdown</h2>
+
+<p>ReAct operates in an iterative loop, typically capped at a maximum number of turns to control costs and latency. Here&rsquo;s the flow:</p>
+
+<ol>
+<li><strong>Initialization</strong>: The LLM receives a prompt outlining the ReAct format (e.g., &ldquo;You run in a loop of Thought, Action, PAUSE, Observation&rdquo;).</li>
+<li><strong>Thought Generation</strong>: The model reasons about the query, deciding on the next action.</li>
+<li><strong>Action Execution</strong>: If an action is needed, the system pauses, executes the tool, and returns an observation.</li>
+<li><strong>Observation Integration</strong>: The observation is appended to the prompt, and the loop repeats.</li>
+<li><strong>Termination</strong>: The model outputs &ldquo;Answer&rdquo; when confident, or hits the iteration limit.</li>
+</ol>
+
+
+<p>For instance, in a knowledge-intensive task like HotpotQA (multi-hop question answering), ReAct might search for &ldquo;Colorado orogeny,&rdquo; observe the result, reason about the eastern sector, and lookup further details until answering the elevation range.</p>
+
+<p>ReAct excels in domains like:</p>
+
+<ul>
+<li><strong>Knowledge Tasks</strong>: Outperforms CoT by accessing external info, reducing hallucinations.</li>
+<li><strong>Decision-Making</strong>: Handles interactive environments (e.g., games or web navigation) via tools.</li>
+<li><strong>Agentic Workflows</strong>: Integrates with RAG or multi-agent systems for complex automation.</li>
+</ul>
+
+
+<p>However, challenges include dependency on tool quality, potential for infinite loops without safeguards, and higher token usage compared to simpler prompts.</p>
+
+<a name="Comparisons:-ReAct-vs.-Other-LLM-Techniques"></a>
+<h2>Comparisons: ReAct vs. Other LLM Techniques</h2>
+
+<p>To contextualize ReAct, consider this comparison table:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Description</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+      <th>Use Cases</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Chain-of-Thought (CoT)</b></td>
+      <td>Prompts LLMs to reason step-by-step without external actions.</td>
+      <td>Simple, low-cost; good for internal logic.</td>
+      <td>Prone to hallucinations; no real-world interaction.</td>
+      <td>Arithmetic, commonsense QA.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct</b></td>
+      <td>Interleaves reasoning with tool-based actions and observations.</td>
+      <td>Dynamic, factual; interpretable loop.</td>
+      <td>Higher latency; tool-dependent.</td>
+      <td>Multi-hop QA, web tasks, agents.</td>
+    </tr>
+    <tr>
+      <td><b>Function Calling</b></td>
+      <td>Fine-tuned models output JSON for tool calls, without explicit reasoning.</td>
+      <td>Fast, structured; efficient for predictable tasks.</td>
+      <td>Less adaptable; opaque reasoning.</td>
+      <td>API integrations, simple tools.</td>
+    </tr>
+    <tr>
+      <td><b>ReAct + CoT</b></td>
+      <td>Hybrid: Uses ReAct for actions and CoT for pure reasoning switches.</td>
+      <td>Optimal performance; flexible.</td>
+      <td>Complex implementation.</td>
+      <td>Advanced agents, hybrid tasks.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+<p>ReAct often outperforms baselines on benchmarks like HotpotQA, Fever, ALFWorld, and WebShop, with gains in accuracy and efficiency when combined with CoT.</p>
+
+<a name="Building-a-Sample-ReAct-Application-in-Python"></a>
+<h2>Building a Sample ReAct Application in Python</h2>
+
+<p>A basic ReAct agent can be built using Python libraries like LangChain. The sample below creates an agent that searches the web and performs math, demonstrating the loop in action. You&rsquo;ll need API keys for an LLM (e.g., OpenAI) and tools (e.g., Google Serper for search). For full code and setup, see the detailed survey below. This sample creates an agent that answers questions by searching the web (via Tavily) and performing calculations. It demonstrates the full loop and includes conversational memory for multi-turn interactions.</p>
+
+<a name="Prerequisites"></a>
+<h3>Prerequisites</h3>
+
+<ul>
+<li>Python 3.10+.</li>
+<li>Install dependencies: <code>pip install -U langgraph langchain-tavily langgraph-checkpoint-sqlite langchain-openai</code>.</li>
+<li>API Keys: Obtain OpenAI (for the LLM) and Tavily (for search) keys. Set them as environment variables:
+<code>python
+import os
+import getpass
+os.environ["OPENAI_API_KEY"] = getpass.getpass("OpenAI API Key: ")
+os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
+</code></li>
+<li>For tracing (optional): Set LangSmith keys.</li>
+</ul>
+
+
+<a name="Code-Implementation"></a>
+<h3>Code Implementation</h3>
+
+<p>The application uses LangGraph&rsquo;s <code>create_react_agent</code> for the ReAct logic. Here&rsquo;s the complete code:</p>
+
+<pre><code class="python"># Import necessary modules
+from langchain_tavily import TavilySearchResults
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
+from langgraph.checkpointer import MemorySaver
+from langchain_core.messages import HumanMessage
+
+# Define tools
+tool = TavilySearchResults(max_results=2)
+tools = [tool]
+
+# Initialize the LLM (using OpenAI's GPT-4o-mini for efficiency)
+model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+# Bind tools to the model
+model_with_tools = model.bind_tools(tools)
+
+# Create the agent with memory (using MemorySaver for conversational state)
+memory = MemorySaver()
+agent_executor = create_react_agent(model_with_tools, tools, checkpointer=memory)
+
+# Configuration for conversational thread (use a unique ID for each conversation)
+config = {"configurable": {"thread_id": "conversation-1"}}
+
+# Function to run the agent
+def run_agent(query):
+    print(f"User Query: {query}")
+    for chunk in agent_executor.stream(
+        {"messages": [HumanMessage(content=query)]}, config
+    ):
+        print(chunk)
+        print("----")
+    # Extract final response
+    response = chunk.get("agent", {}).get("messages", [{}])[0].content
+    return response
+
+# Example usage
+query = "Who is the current CEO of xAI? What is their age squared?"
+response = run_agent(query)
+print(f"Final Answer: {response}")
+</code></pre>
+
+<a name="Detailed-Explanation"></a>
+<h3>Detailed Explanation</h3>
+
+<ol>
+<li><strong>Tools Definition</strong>: <code>TavilySearchResults</code> is a web search tool returning up to 2 results. It&rsquo;s added to <code>tools</code> for the agent to use.</li>
+<li><strong>LLM Setup</strong>: <code>ChatOpenAI</code> initializes the model (e.g., GPT-4o-mini for cost-effectiveness). <code>bind_tools</code> informs the model about available actions.</li>
+<li><strong>Agent Creation</strong>: <code>create_react_agent</code> builds the ReAct loop, with <code>MemorySaver</code> enabling state persistence for follow-ups (e.g., &ldquo;Tell me more about them&rdquo;).</li>
+<li><strong>Execution</strong>: The <code>stream</code> method runs the agent, printing intermediate thoughts, actions, and observations. For the example query:
+
+<ul>
+<li>Thought: Reason about searching for xAI CEO.</li>
+<li>Action: Invoke Tavily search.</li>
+<li>Observation: Retrieve CEO (e.g., Elon Musk) and age.</li>
+<li>Thought: Calculate age squared.</li>
+<li>Final Answer: Output the result (e.g., &ldquo;Elon Musk, age 54 squared is 2916&rdquo;).</li>
+</ul>
+</li>
+<li><strong>Extensions</strong>: Add more tools (e.g., math via <code>LLMMathChain</code>) or integrate with databases for custom applications.</li>
+</ol>
+
+
+<a name="Testing-and-Output"></a>
+<h3>Testing and Output</h3>
+
+<p>Running the code might yield:</p>
+
+<ul>
+<li>Intermediate: Thought → Action (search) → Observation → Thought (calculate) → Answer.
+This ensures factual grounding, e.g., verifying current data as of 2025.</li>
+</ul>
+
+
+<a name="Advanced-Variations-and-Best-Practices"></a>
+<h2>Advanced Variations and Best Practices</h2>
+
+<ul>
+<li><strong>Simple Non-LangChain Implementation</strong>: For a lightweight version, use a custom loop with OpenAI&rsquo;s API, as in Simon Willison&rsquo;s example. Define actions like <code>wikipedia</code> and parse responses with regex.</li>
+<li><strong>With LangGraph</strong>: For production, use LangGraph for visual workflows and error handling.</li>
+<li><strong>Best Practices</strong>: Limit iterations (e.g., max_turns=5), use verbose mode for debugging, and combine with CoT for hybrid prompting. Monitor token usage, as ReAct can be resource-intensive.</li>
+<li><strong>2025 Updates</strong>: Recent integrations include multimodal support (e.g., image analysis tools) and edge deployment for low-latency agents.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>ReAct represents a pivotal shift toward agentic AI, empowering LLMs to not just generate text but actively engage with the world. By implementing the sample above, developers can experiment and scale to real-world applications like automated research or virtual assistants.</p>
+]]></content>
+    </entry>
+    
+</feed>

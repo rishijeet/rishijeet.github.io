@@ -4,7 +4,7 @@
     <title><![CDATA[Category: ml | Rishijeet Mishra]]></title>
     <link href="https://rishijeet.github.io/blog/categories/ml/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-08-28T09:03:28+05:30</updated>
+    <updated>2025-08-29T13:35:19+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,309 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Supercharge Reasoning in AI: Hands-On Chain of Thought Builds]]></title>
+        <link href="https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds/"/>
+        <updated>2025-08-29T13:26:07+05:30</updated>
+        <id>https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds</id>
+        <content type="html"><![CDATA[<p>Chain of Thought (CoT) is a prompting technique introduced in a 2022 paper by Google researchers (Wei et al., &ldquo;Chain-of-Thought Prompting Elicits Reasoning in Large Language Models&rdquo;). The core idea is simple: instead of asking an LLM for a direct answer, you instruct it to <strong>reason step by step</strong>. This elicits better performance on tasks requiring logic, math, commonsense, or multi-step planning.</p>
+
+<p><img src="/images/2025/cot.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<p>For example:</p>
+
+<ul>
+<li><strong>Direct Prompt</strong>: &ldquo;What is 15% of 200?&rdquo;</li>
+<li><strong>CoT Prompt</strong>: &ldquo;What is 15% of 200? Let&rsquo;s think step by step.&rdquo;</li>
+</ul>
+
+
+<p>The LLM might respond:</p>
+
+<ul>
+<li>&ldquo;Step 1: 15% means 15 per 100, so 15/100 = 0.15.</li>
+<li>Step 2: Multiply by 200: 0.15 * 200 = 30. So, the answer is 30.&#8221;</li>
+</ul>
+
+
+<!--more-->
+
+
+<p>This &ldquo;thinking&rdquo; process isn&rsquo;t magic—it&rsquo;s emergent from the model&rsquo;s training on vast datasets where step-by-step explanations are common. CoT shines in zero-shot (no examples) or few-shot (with examples) scenarios, and variants like <strong>Tree of Thoughts</strong> or <strong>Self-Consistency</strong> build on it for even more robustness.</p>
+
+<a name="Why-Does-CoT-Work-3f-"></a>
+<h3>Why Does CoT Work?</h3>
+
+<ul>
+<li><strong>Decomposes Complexity</strong>: Breaks problems into manageable sub-steps, reducing error rates.</li>
+<li><strong>Transparency</strong>: Users see the &ldquo;thought process,&rdquo; building trust and allowing debugging.</li>
+<li><strong>Scalability</strong>: Works with any LLM API; no need for fine-tuning.</li>
+<li><strong>Applications</strong>: Math solvers, code debuggers, decision-making tools, chatbots that explain reasoning.</li>
+</ul>
+
+
+<p>Research shows CoT improves accuracy by 10-50% on benchmarks like GSM8K (math) or CommonsenseQA. In interactive apps, it can stream thoughts progressively, giving users a &ldquo;processing&rdquo; indicator.</p>
+
+<a name="Evolution-and-Variants-of-CoT"></a>
+<h2>Evolution and Variants of CoT</h2>
+
+<p>CoT has evolved rapidly:</p>
+
+<ul>
+<li><strong>Zero-Shot CoT</strong>: Just add &ldquo;Let&rsquo;s think step by step&rdquo; to the prompt.</li>
+<li><strong>Few-Shot CoT</strong>: Provide 2-5 examples of step-by-step reasoning before the query.</li>
+<li><strong>Automatic CoT</strong>: Use LLMs to generate CoT examples dynamically.</li>
+<li><strong>Tree of Thoughts (ToT)</strong>: Explores multiple reasoning paths like a tree search.</li>
+<li><strong>Graph of Thoughts</strong>: Models reasoning as a graph for non-linear problems.</li>
+</ul>
+
+
+<p>In 2025, with models like Grok 4, CoT is often combined with tools (e.g., code execution or web search) for agentic systems—AI agents that plan, act, and reflect.</p>
+
+<a name="Building-a-Chain-of-Thought-Application:-Step-2d-by-2d-Step-Guide"></a>
+<h2>Building a Chain of Thought Application: Step-by-Step Guide</h2>
+
+<p>To build a CoT application, we&rsquo;ll create a Python-based tool that:</p>
+
+<ol>
+<li>Takes user input.</li>
+<li>Applies CoT prompting via an LLM API.</li>
+<li>Streams the response to show &ldquo;thinking&rdquo; in real-time (using API streaming features).</li>
+<li>Parses the final answer for clarity.</li>
+</ol>
+
+
+<p>We&rsquo;ll use OpenAI&rsquo;s API as an example. Assumptions:</p>
+
+<ul>
+<li>You have an API key.</li>
+<li>Focus on a math/word problem solver, but extensible to any domain.</li>
+</ul>
+
+
+<a name="Step-1:-Set-Up-Your-Environment"></a>
+<h3>Step 1: Set Up Your Environment</h3>
+
+<p>Install required libraries:
+<code>bash
+pip install openai requests
+</code></p>
+
+<a name="Step-2:-Basic-CoT-Implementation"></a>
+<h3>Step 2: Basic CoT Implementation</h3>
+
+<p>Start with a simple non-streaming version. This script prompts the LLM with CoT and prints the full response.</p>
+
+<pre><code class="python">import openai
+
+# Set your API key
+openai.api_key = "your-openai-api-key"  # Replace with actual key
+
+def cot_reasoning(query, model="gpt-4o"):
+    """
+    Applies Chain of Thought prompting to a query.
+
+    Args:
+    - query (str): The user's question.
+    - model (str): LLM model to use.
+
+    Returns:
+    - str: The reasoned response.
+    """
+    # CoT Prompt Template (Few-Shot for better results)
+    prompt = """
+    Solve the following problem step by step.
+
+    Example 1:
+    Question: If a car travels 60 miles in 1.5 hours, what is its speed?
+    Step 1: Speed is distance divided by time.
+    Step 2: Distance = 60 miles, Time = 1.5 hours.
+    Step 3: Speed = 60 / 1.5 = 40 mph.
+    Answer: 40 mph.
+
+    Example 2:
+    Question: What is the next number in the sequence: 2, 4, 8, 16?
+    Step 1: Observe the pattern: each number is doubled.
+    Step 2: 2 * 2 = 4, 4 * 2 = 8, 8 * 2 = 16.
+    Step 3: Next is 16 * 2 = 32.
+    Answer: 32.
+
+    Now, your question:
+    Question: {query}
+    """
+
+    formatted_prompt = prompt.format(query=query)
+
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "user", "content": formatted_prompt}]
+    )
+
+    return response.choices[0].message.content
+
+# Usage
+query = "What is 25% of 400?"
+result = cot_reasoning(query)
+print(result)
+</code></pre>
+
+<p><strong>Expected Output</strong>:
+<code>
+Step 1: 25% means 25 per 100, so 0.25.
+Step 2: Multiply by 400: 0.25 * 400 = 100.
+Answer: 100.
+</code></p>
+
+<p>This shows the &ldquo;thinking&rdquo; steps. To make it interactive, add a loop for multiple queries.</p>
+
+<a name="Step-3:-Adding-Real-2d-Time-Processing-Feedback"></a>
+<h3>Step 3: Adding Real-Time Processing Feedback</h3>
+
+<p>To &ldquo;let you know that it is processing these steps,&rdquo; use streaming. OpenAI supports response streaming, printing tokens as they arrive—simulating thinking.</p>
+
+<p>Modify the function:</p>
+
+<pre><code class="python">import openai
+import sys
+
+openai.api_key = "your-openai-api-key"
+
+def cot_streaming_reasoning(query, model="gpt-4o"):
+    """
+    Streams Chain of Thought reasoning in real-time.
+    """
+    prompt = """
+    Solve the following problem step by step. Think out loud.
+
+    # Few-shot examples here (same as above)
+
+    Question: {query}
+    """
+    formatted_prompt = prompt.format(query=query)
+
+    stream = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "user", "content": formatted_prompt}],
+        stream=True  # Enable streaming
+    )
+
+    print("Thinking...")
+    full_response = ""
+    for chunk in stream:
+        if chunk.choices[0].delta.get("content"):
+            content = chunk.choices[0].delta.content
+            sys.stdout.write(content)  # Print incrementally
+            sys.stdout.flush()
+            full_response += content
+    print("\nDone!")
+
+    return full_response
+
+# Usage
+query = "If I have 3 apples and eat 2, how many are left?"
+cot_streaming_reasoning(query)
+</code></pre>
+
+<p><strong>How It Works</strong>:</p>
+
+<ul>
+<li>The <code>stream=True</code> parameter yields partial responses.</li>
+<li>We print each chunk, showing steps like &ldquo;Step 1: &hellip;&rdquo; as they generate.</li>
+<li>This creates a &ldquo;processing&rdquo; effect—users see thoughts unfolding.</li>
+</ul>
+
+
+<p>For a web app, use Flask or Streamlit to stream via WebSockets.</p>
+
+<a name="Step-4:-Advanced-Features--e2--80--93--Parsing-and-Error-Handling"></a>
+<h3>Step 4: Advanced Features – Parsing and Error Handling</h3>
+
+<p>To extract the final answer reliably, parse the response. Add self-consistency by generating multiple CoTs and voting.</p>
+
+<pre><code class="python">def parse_final_answer(response):
+    """
+    Extracts the final answer from CoT response.
+    """
+    lines = response.split("\n")
+    for line in reversed(lines):
+        if line.startswith("Answer:"):
+            return line.split("Answer:")[1].strip()
+    return "No clear answer found."
+
+# In your main function:
+result = cot_streaming_reasoning(query)
+final_answer = parse_final_answer(result)
+print(f"Final Answer: {final_answer}")
+</code></pre>
+
+<p>For robustness (Self-Consistency CoT):</p>
+
+<ul>
+<li>Run 3-5 CoT generations.</li>
+<li>Use majority vote on answers.</li>
+</ul>
+
+
+<pre><code class="python">def self_consistent_cot(query, num_samples=3):
+    answers = []
+    for _ in range(num_samples):
+        response = cot_reasoning(query)  # Or streaming version
+        answer = parse_final_answer(response)
+        answers.append(answer)
+
+    # Simple majority vote
+    from collections import Counter
+    most_common = Counter(answers).most_common(1)
+    return most_common[0][0] if most_common else "Inconsistent results"
+
+# Usage
+consistent_answer = self_consistent_cot("A bat and ball cost $1.10 total. The bat costs $1 more than the ball. How much is the ball?")
+print(consistent_answer)  # Should be $0.05
+</code></pre>
+
+<a name="Step-5:-Building-a-Full-Application"></a>
+<h3>Step 5: Building a Full Application</h3>
+
+<p>For a complete app, use Streamlit for a UI:</p>
+
+<pre><code class="python">import streamlit as st
+import openai
+
+openai.api_key = "your-openai-api-key"
+
+st.title("Chain of Thought Reasoner")
+
+query = st.text_input("Enter your question:")
+
+if st.button("Reason"):
+    with st.spinner("Thinking step by step..."):
+        response = cot_streaming_reasoning(query)  # Use non-streaming for simplicity, or adapt
+        st.write(response)
+        final = parse_final_answer(response)
+        st.success(f"Final Answer: {final}")
+</code></pre>
+
+<p>Run with <code>streamlit run app.py</code>. This creates a web interface where users input queries and see the CoT process.</p>
+
+<a name="Challenges-and-Best-Practices"></a>
+<h2>Challenges and Best Practices</h2>
+
+<ul>
+<li><strong>Token Limits</strong>: CoT increases prompt length; use efficient models.</li>
+<li><strong>Bias in Reasoning</strong>: LLMs can hallucinate steps—validate with tools (e.g., code execution for math).</li>
+<li><strong>Customization</strong>: For domains like code generation, add &ldquo;Step 1: Understand requirements. Step 2: Plan code structure.&rdquo;</li>
+<li><strong>Integration with Agents</strong>: Combine CoT with ReAct (Reason + Act) for tool-using agents.</li>
+<li><strong>Ethics</strong>: Ensure transparency; CoT doesn&rsquo;t make AI infallible.</li>
+</ul>
+
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>Chain of Thought applications transform LLMs from black boxes into transparent reasoners. By building step-by-step processing into your prompts and code, you create tools that not only solve problems but explain how.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Efficient Fine-Tuning of Large Language Models: A Deep Dive into LoRA and QLoRA]]></title>
