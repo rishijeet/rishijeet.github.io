@@ -85,6 +85,94 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/using-broadcast-state-pattern-in-flink-for-fraud-detection/">Using Broadcast State Pattern in Flink for Fraud Detection</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-05-19T19:47:48+05:30" pubdate><i class="fa fa-calendar"></i> May 19th, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/apache-flink/'>apache-flink</a></li>
+            
+                <li><a class='category' href='/blog/categories/fraud/'>fraud</a></li>
+            
+                <li><a class='category' href='/blog/categories/streaming-data/'>streaming-data</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <p>The Broadcast State Pattern in Apache Flink is a powerful feature for real-time stream processing, particularly useful for scenarios like fraud detection. This pattern allows you to maintain a shared state that can be updated and accessed by multiple parallel instances of a stream processing operator. Here&rsquo;s how it can be applied to fraud detection:</p>
+
+<a name="Key-Concepts-of-the-Broadcast-State-Pattern"></a>
+<h2>Key Concepts of the Broadcast State Pattern</h2>
+
+<p><strong>Broadcast State</strong>: This is a state that is shared across all parallel instances of an operator. It is used to store information that needs to be accessible to all instances, such as configuration data or rules for fraud detection.</p>
+
+<p><strong>Regular (Non-Broadcast) Streams</strong>: These streams carry the main data that needs to be processed, such as transaction events.</p>
+
+<p><strong>Broadcast Streams</strong>: These streams carry the state updates, such as new fraud detection rules or updates to existing rules.</p>
+
+<a name="Steps-to-Implement-Fraud-Detection-Using-Broadcast-State-Pattern"></a>
+<h2>Steps to Implement Fraud Detection Using Broadcast State Pattern</h2>
+
+<p><strong>Define the Broadcast State</strong>:</p>
+
+<ul>
+<li> Define the data structure that will hold the fraud detection rules.</li>
+<li> For example, a map where the key is a rule identifier and the value is the rule details.</li>
+</ul>
+
+
+<p><strong>Create the Broadcast Stream</strong>:</p>
+
+<ul>
+<li> This stream will carry the updates to the fraud detection rules.</li>
+<li> Use <code>BroadcastStream</code> to broadcast this stream to all parallel instances of the operator that processes the transactions.</li>
+</ul>
+
+
+
+        <a class="btn pull-right" href="/blog/using-broadcast-state-pattern-in-flink-for-fraud-detection/">Read on &rarr;</a>
+    </div>
+
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/efficient-thread-handling-in-rust-a-deep-dive/">Efficient Thread Handling in Rust: A Deep Dive</a>
         </h1>
     
@@ -385,81 +473,6 @@
 
 
         <a class="btn pull-right" href="/blog/vector-database-transforming-data-storage-and-retrieval-in-the-ai-era/">Read on &rarr;</a>
-    </div>
-
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/building-innovative-genai-applications-with-the-genai-stack-unleashing-the-power-of-docker/">Building Innovative GenAI Applications with the GenAI Stack: Unleashing the Power of Docker</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2023-11-04T22:49:05+05:30" pubdate><i class="fa fa-calendar"></i> Nov 4th, 2023</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/genai/'>genai</a></li>
-            
-                <li><a class='category' href='/blog/categories/ai/'>ai</a></li>
-            
-                <li><a class='category' href='/blog/categories/llm/'>llm</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <p>In the fast-evolving landscape of artificial intelligence, Generative AI (GenAI) is at the forefront, opening up exciting opportunities for developers and businesses. One of the most significant challenges in GenAI development is creating a robust, efficient, and scalable infrastructure that harnesses the power of AI models. To address this challenge, the GenAI Stack has emerged as a game-changer, combining cutting-edge technologies like Docker, LangChain, Neo4j, and Ollama. In this article, we will delve into the intricacies of these technologies and explore how they work together to build innovative GenAI applications.</p>
-
-<a name="Understanding-the-GenAI-Stack"></a>
-<h2>Understanding the GenAI Stack</h2>
-
-<p>Before we dive into the technical details, let&rsquo;s establish a clear understanding of what the GenAI Stack is and what it aims to achieve.</p>
-
-<p>The GenAI Stack is a comprehensive environment designed to facilitate the development and deployment of GenAI applications. It provides a seamless integration of various components, including a management tool for local Large Language Models (LLMs), a database for grounding, and GenAI apps powered by LangChain. Here&rsquo;s a breakdown of these components and their roles:</p>
-
-<ol>
-<li><p><strong>Docker:</strong> Docker is a containerization platform that allows developers to package applications and their dependencies into containers. These containers are lightweight, portable, and provide consistent runtime environments, making them an ideal choice for deploying GenAI applications.</p></li>
-<li><p><strong>LangChain:</strong> LangChain is a powerful tool that orchestrates GenAI applications. It&rsquo;s the brains behind the application logic and ensures that the various components of the GenAI Stack work harmoniously together. LangChain simplifies the process of building and orchestrating GenAI applications.</p></li>
-<li><p><strong>Neo4j:</strong> Neo4j is a highly versatile graph database that serves as the backbone of GenAI applications. It provides a robust foundation for building knowledge graph-based applications. Neo4j&rsquo;s graph database capabilities are instrumental in managing and querying complex relationships and data structures.</p></li>
-<li><p><strong>Ollama:</strong> Ollama represents the core of the GenAI Stack. It is a local LLM container that brings the power of large language models to your GenAI applications. Ollama enables you to run LLMs on your infrastructure or even on your local machine, providing more control and flexibility over your GenAI models.</p></li>
-</ol>
-
-
-
-        <a class="btn pull-right" href="/blog/building-innovative-genai-applications-with-the-genai-stack-unleashing-the-power-of-docker/">Read on &rarr;</a>
     </div>
 
 
