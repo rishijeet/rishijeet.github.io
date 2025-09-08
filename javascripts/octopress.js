@@ -1,16 +1,1 @@
-function renderDeliciousLinks(items) {
-    var output = '<ul class="divided">';
-    for (var i = 0, l = items.length; i < l; i++) {
-        output += '<li><a href="' + items[i].u + '" title="Tags: ' + (items[i].t == "" ? "" : items[i].t.join(', ')) + '">' + items[i].d + '</a></li>';
-    }
-    output += '</ul>';
-    jQuery('#delicious').html(output);
-}
-
-jQuery(function(){
-    var gravatarImage = jQuery('img.hero__gravatar'),
-        email         = jQuery(gravatarImage).data('gravatar');
-    if (email) {
-        jQuery(gravatarImage).attr({src: 'http://www.gravatar.com/avatar/' + CryptoJS.MD5(email) + '?s=250'}).removeAttr('data-gravatar');
-    }
-});
+function renderDeliciousLinks(a){for(var r='<ul class="divided">',t=0,e=a.length;t<e;t++)r+='<li><a href="'+a[t].u+'" title="Tags: '+(""==a[t].t?"":a[t].t.join(", "))+'">'+a[t].d+"</a></li>";r+="</ul>",jQuery("#delicious").html(r)}jQuery((function(){var a=jQuery("img.hero__gravatar"),r=jQuery(a).data("gravatar");r&&jQuery(a).attr({src:"http://www.gravatar.com/avatar/"+CryptoJS.MD5(r)+"?s=250"}).removeAttr("data-gravatar")}));
