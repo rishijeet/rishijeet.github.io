@@ -4,7 +4,7 @@
     <title><![CDATA[Category: ml | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/ml/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-09-09T10:12:01+05:30</updated>
+    <updated>2025-10-11T16:55:39+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,691 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Attention Is All You Need: The Paper That Revolutionized AI]]></title>
+        <link href="https://rishijeet.github.io/blog/attention-is-all-you-need-the-paper-that-revolutionized-ai/"/>
+        <updated>2025-10-11T16:26:05+05:30</updated>
+        <id>https://rishijeet.github.io/blog/attention-is-all-you-need-the-paper-that-revolutionized-ai</id>
+        <content type="html"><![CDATA[<p>In June 2017, eight researchers from Google Brain and Google Research published a paper that would fundamentally reshape artificial intelligence. Titled &ldquo;Attention Is All You Need,&rdquo; it introduced the Transformer architecture—a model that discarded the conventional wisdom of sequence processing and replaced it with something elegantly simple: pure attention.</p>
+
+<p>The numbers tell the story. As of 2025, this single paper has been cited over 173,000 times, making it one of the most influential works in machine learning history. Today, nearly every large language model you interact with—ChatGPT, Google Gemini, Claude, Meta&rsquo;s Llama—traces its lineage directly back to this architecture.</p>
+
+<p>But here&rsquo;s what makes this achievement remarkable: it wasn&rsquo;t about adding more layers, more parameters, or more complexity. It was about removing what had been considered essential for decades.</p>
+
+<a name="The-Problem:-Sequential-Processing"></a>
+<h2>The Problem: Sequential Processing</h2>
+
+<a name="Why-RNNs-Were-Dominant--28-And-Problematic-29-"></a>
+<h3>Why RNNs Were Dominant (And Problematic)</h3>
+
+<p>Before 2017, the dominant approach for sequence tasks used Recurrent Neural Networks (RNNs), particularly Long Short-Term Memory (LSTM) networks and Gated Recurrent Units (GRUs). The idea was intuitive: process sequences one element at a time, maintaining a hidden state that captures information from previous steps.</p>
+
+<p>Think of it like reading a book word by word, keeping a mental summary as you go.</p>
+
+<p><strong>The Fundamental Bottleneck</strong>: RNNs have an inherent constraint—they must process sequentially. The output at step t depends on the hidden state h_t, which depends on the previous state h<em>{t-1}, which depends on h</em>{t-2}, and so on. This creates an unbreakable chain.</p>
+
+<p>From the paper:</p>
+
+<blockquote><p>&ldquo;Recurrent models typically factor computation along the symbol positions of the input and output sequences. Aligning the positions to steps in computation time, they generate a sequence of hidden states h_t, as a function of the previous hidden state h_{t-1} and the input for position t.&rdquo;</p></blockquote>
+
+<!--more-->
+
+
+<p><strong>What this meant in practice:</strong></p>
+
+<ul>
+<li><strong>Training Speed</strong>: On a typical machine translation task with 4.5 million sentence pairs (WMT 2014 English-German), even the best RNN models took 5-6 days to train on powerful hardware.</li>
+<li><strong>Parallelization Nightmare</strong>: You cannot process word 10 before processing word 9, even if you have 1,000 GPUs. It&rsquo;s like a single-lane highway—no matter how many resources you add, the throughput is limited by the sequential dependency.</li>
+<li><strong>Memory Dilution</strong>: The longer your sequence, the harder it is for the model to remember important information from the beginning. This is called the &ldquo;vanishing gradient problem.&rdquo; Information from position 1 gets progressively diluted by the time you reach position 100.</li>
+<li><strong>Long-Range Dependencies</strong>: If you want to understand how word 2 relates to word 95, the signal has to travel through 93 intermediate steps. Each step is an opportunity for information loss.</li>
+</ul>
+
+
+<a name="Attempted-Solutions-Before-Transformers"></a>
+<h3>Attempted Solutions Before Transformers</h3>
+
+<p>Researchers had tried other approaches:</p>
+
+<p><strong>Convolutional Sequence-to-Sequence (ConvS2S)</strong>: Used convolutional networks instead of RNNs. Problem: To connect distant positions, you need O(n/k) convolutional layers (where n is sequence length and k is kernel size). This means more layers and longer &ldquo;path lengths&rdquo; for information to travel.
+<strong>Extended Neural GPU &amp; ByteNet</strong>: Other convolutional approaches with similar trade-offs.</p>
+
+<p>The paper notes these approaches attempted to parallelize, but all had significant limitations. ConvS2S was faster than RNNs, but still limited. And none could match the quality of attention-augmented RNNs.</p>
+
+<a name="The-Solution:-Self-2d-Attention"></a>
+<h2>The Solution: Self-Attention</h2>
+
+<a name="What-is-Attention-3f-"></a>
+<h3>What is Attention?</h3>
+
+<p>Imagine you&rsquo;re in a crowded coffee shop. Many conversations are happening, but you can focus your listening attention on one person. You&rsquo;re not ignoring others, but you&rsquo;re weighting your perception toward one source.</p>
+
+<p>In neural networks, attention is a mechanism that learns which parts of the input are most important for the task at hand. It&rsquo;s learned, dynamic, and task-specific.</p>
+
+<p>The paper defines it simply:</p>
+
+<blockquote><p>&ldquo;An attention function can be described as mapping a query and a set of key-value pairs to an output, where the query, keys, values, and output are all vectors. The output is computed as a weighted sum of the values, where the weight assigned to each value is computed by a compatibility function of the query with the corresponding key.&rdquo;</p></blockquote>
+
+<p><img src="/images/2025/single-multi-head.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<a name="Scaled-Dot-2d-Product-Attention:-The-Core-Formula"></a>
+<h3>Scaled Dot-Product Attention: The Core Formula</h3>
+
+<p>The paper introduces &ldquo;Scaled Dot-Product Attention,&rdquo; which is the building block of everything:</p>
+
+<pre><code>Attention(Q, K, V) = softmax(QK^T / √d_k) V
+</code></pre>
+
+<p>Let&rsquo;s break this down step by step:</p>
+
+<p><strong>Step 1: Inputs</strong></p>
+
+<ul>
+<li><strong>Q (Query)</strong>: &ldquo;What am I looking for?&rdquo; Shape: (batch, seq_len, d_k)</li>
+<li><strong>K (Key)</strong>: &ldquo;What could I match?&rdquo; Shape: (batch, seq_len, d_k)</li>
+<li><strong>V (Value)</strong>: &ldquo;What information do I contain?&rdquo; Shape: (batch, seq_len, d_v)</li>
+</ul>
+
+
+<p>For self-attention, all three come from the same source (the output of the previous layer).</p>
+
+<p><strong>Step 2: Compute Compatibility Scores</strong>
+<code>QK^T</code> produces a matrix showing how much each query relates to each key. If you have a sequence of 10 words, this creates a 10×10 matrix.</p>
+
+<p><strong>Step 3: Scaling</strong>
+The scores are divided by √d_k. Why? The paper explains:</p>
+
+<blockquote><p>&ldquo;While for small values of d_k the two mechanisms perform similarly, additive attention outperforms dot product attention without scaling for larger values of d_k. We suspect that for large values of d_k, the dot products grow large in magnitude, pushing the softmax function into regions where it has extremely small gradients.&rdquo;</p></blockquote>
+
+<p>In practice, they use d_k = 64, so the scaling factor is 1/√64 = 1/8.</p>
+
+<p><strong>Step 4: Softmax for Weights</strong>
+<code>softmax()</code> converts the scores into weights that sum to 1. Each weight represents &ldquo;how much attention to pay&rdquo; to each position.</p>
+
+<p><strong>Step 5: Combine Values</strong>
+Multiply by V and sum. Positions with high attention weights contribute more to the output.</p>
+
+<p><strong>The Beauty</strong>: All n words can be processed in parallel. Position 10 doesn&rsquo;t wait for position 9.</p>
+
+<a name="Why-Multiple-Heads-Matter"></a>
+<h3>Why Multiple Heads Matter</h3>
+
+<p>Here&rsquo;s where it gets powerful. The paper found that a single attention function isn&rsquo;t enough. They introduced <strong>Multi-Head Attention</strong>:</p>
+
+<pre><code>MultiHead(Q, K, V) = Concat(head_1, ..., head_h) W^O
+
+where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)
+</code></pre>
+
+<p>What does this mean? The model learns <strong>h different linear projections</strong> of Q, K, and V, performs attention on each separately, and concatenates the results.</p>
+
+<p><strong>From the paper:</strong></p>
+
+<blockquote><p>&ldquo;Multi-head attention allows the model to jointly attend to information from different representation subspaces at different positions. With a single attention head, averaging inhibits this.&rdquo;</p></blockquote>
+
+<p>In the original Transformer:</p>
+
+<ul>
+<li><strong>h = 8</strong> parallel attention heads</li>
+<li><strong>d_k = d_v = 512/8 = 64</strong> for each head</li>
+<li>Total computation is similar to single-head attention, but you get 8 different learned representations</li>
+</ul>
+
+
+<p><strong>Practical interpretation</strong>: Different heads learn different patterns:</p>
+
+<ul>
+<li>Head 1 might focus on verb-object relationships</li>
+<li>Head 2 might focus on adjective-noun relationships</li>
+<li>Head 3 might track pronouns back to their referents</li>
+<li>And so on&hellip;</li>
+</ul>
+
+
+<p>The attention visualizations in the paper (Figures 3-5) show this beautifully. Head 5 in layer 5 learns to capture the phrase &ldquo;making&hellip;more difficult&rdquo; by connecting distant words. Other heads perform anaphora resolution (connecting &ldquo;its&rdquo; to &ldquo;Law&rdquo;).</p>
+
+<a name="Transformer-Architecture"></a>
+<h2>Transformer Architecture</h2>
+
+<a name="Overview"></a>
+<h3>Overview</h3>
+
+<p>The Transformer has a classic encoder-decoder structure:</p>
+
+<ul>
+<li><strong>Encoder</strong>: Transforms input sequence into rich representations</li>
+<li><strong>Decoder</strong>: Generates output sequence using encoder representations</li>
+</ul>
+
+
+<p><img src="/images/2025/attention_arch.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<p>But unlike previous encoder-decoder models, it uses <em>only</em> attention (and feed-forward networks) for both.</p>
+
+<a name="The-Encoder:-6-Identical-Layers"></a>
+<h3>The Encoder: 6 Identical Layers</h3>
+
+<p>Each encoder layer contains:</p>
+
+<ul>
+<li><strong>Multi-Head Self-Attention</strong>: All 8 heads process simultaneously</li>
+<li><strong>Feed-Forward Network</strong>: Applied to each position separately</li>
+<li><strong>Residual Connections &amp; Layer Normalization</strong> around each sub-layer</li>
+</ul>
+
+
+<p>The output of each sub-layer is:
+<code>
+LayerNorm(x + Sublayer(x))
+</code></p>
+
+<p><strong>Key specifications</strong>:</p>
+
+<ul>
+<li><strong>N = 6</strong> stacked layers</li>
+<li><strong>d_model = 512</strong> (dimension of all outputs)</li>
+<li><strong>h = 8</strong> attention heads</li>
+<li><strong>d_k = d_v = 64</strong> per head</li>
+</ul>
+
+
+<a name="The-Decoder:-6-Identical-Layers-with-Masking"></a>
+<h3>The Decoder: 6 Identical Layers with Masking</h3>
+
+<p>The decoder has the same 6 layers, plus one crucial difference:</p>
+
+<ul>
+<li><strong>Masked Multi-Head Self-Attention</strong> on decoder positions</li>
+<li><strong>Encoder-Decoder Attention</strong>: Queries from decoder, Keys/Values from encoder</li>
+<li><strong>Feed-Forward Network</strong></li>
+</ul>
+
+
+<p><strong>The Masking</strong>: The paper states:</p>
+
+<blockquote><p>&ldquo;We also modify the self-attention sub-layer in the decoder stack to prevent positions from attending to subsequent positions. This masking, combined with fact that the output embeddings are offset by one position, ensures that the predictions for position i can depend only on the known outputs at positions less than i.&rdquo;</p></blockquote>
+
+<p>In practice, this means setting future positions to -∞ in the softmax. This maintains the &ldquo;auto-regressive&rdquo; property—you generate one word at a time, without cheating by looking ahead.</p>
+
+<a name="Position-2d-Wise-Feed-2d-Forward-Networks"></a>
+<h3>Position-Wise Feed-Forward Networks</h3>
+
+<p>Between attention layers sits a feed-forward network:</p>
+
+<pre><code>FFN(x) = max(0, xW_1 + b_1)W_2 + b_2
+</code></pre>
+
+<p>This is applied to each position separately and identically. Specifications:</p>
+
+<ul>
+<li><strong>d_model = 512</strong> (input/output dimension)</li>
+<li><strong>d_ff = 2048</strong> (inner layer dimension)</li>
+<li>ReLU activation in between</li>
+</ul>
+
+
+<p>Interestingly, this is equivalent to two 1×1 convolutions.</p>
+
+<a name="Positional-Encoding:-Telling-the-Model-About-Order"></a>
+<h3>Positional Encoding: Telling the Model About Order</h3>
+
+<p>Here&rsquo;s a subtle but critical detail: attention mechanisms don&rsquo;t inherently understand word order. &ldquo;Dog bites man&rdquo; and &ldquo;man bites dog&rdquo; would be processed the same without additional information.</p>
+
+<p>The solution: <strong>Positional Encodings</strong> (sinusoidal):</p>
+
+<pre><code>PE_(pos, 2i) = sin(pos / 10000^(2i/d_model))
+PE_(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+</code></pre>
+
+<p>Where:</p>
+
+<ul>
+<li><strong>pos</strong> is the position in the sequence (0, 1, 2, &hellip;)</li>
+<li><strong>i</strong> is the dimension index (0 to 255 for d_model=512)</li>
+</ul>
+
+
+<p>Each dimension gets a sinusoid at different frequencies. The wavelengths form a geometric progression from 2π to 10,000·2π.</p>
+
+<p><strong>Why sine and cosine?</strong> The paper hypothesized this allows the model to easily learn relative position offsets since for any fixed offset k, PE<em>{pos+k} can be represented as a linear function of PE</em>{pos}.</p>
+
+<p>The paper tested learned positional embeddings (Table 3, row E) and found nearly identical results, so the sinusoidal choice is more theoretical. But sinusoids have an advantage: they can extrapolate to longer sequences than seen during training.</p>
+
+<a name="The-Three-Applications-of-Attention"></a>
+<h3>The Three Applications of Attention</h3>
+
+<p>The paper explicitly lists three ways attention is used:</p>
+
+<ol>
+<li><p><strong>Encoder-Decoder Attention</strong>: Queries from decoder layer, Keys/Values from encoder output. Allows each decoder position to see all input positions.</p></li>
+<li><p><strong>Encoder Self-Attention</strong>: All of Q, K, V from the same encoder layer. Each position attends to all positions in the previous encoder layer.</p></li>
+<li><p><strong>Decoder Self-Attention</strong>: Self-attention with masking. Each position can only attend to previous positions (and itself).</p></li>
+</ol>
+
+
+<a name="Why-Attention-Works-Better"></a>
+<h2>Why Attention Works Better</h2>
+
+<p>The paper provides a systematic comparison in Table 1, examining three criteria:</p>
+
+<a name="L1.-Computational-Complexity-Per-Layer"></a>
+<h3>1. Computational Complexity Per Layer</h3>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Layer Type</th>
+        <th>Complexity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Self-Attention</td>
+        <td>O(n² · d)</td>
+      </tr>
+      <tr>
+        <td>Recurrent</td>
+        <td>O(n · d²)</td>
+      </tr>
+      <tr>
+        <td>Convolutional</td>
+        <td>O(k · n · d²)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>When sequence length n &lt; representation dimension d (common with word-piece encoding), self-attention is faster than recurrent layers.</p>
+
+<p>For WMT translation tasks using byte-pair encoding:</p>
+
+<ul>
+<li><strong>n</strong> (sequence length) ≈ 50-200 tokens</li>
+<li><strong>d</strong> (dimension) = 512</li>
+</ul>
+
+
+<p>So n &lt; d, making self-attention win.</p>
+
+<a name="L2.-Sequential-Operations-Required"></a>
+<h3>2. Sequential Operations Required</h3>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Layer Type</th>
+        <th>Sequential Operations</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Self-Attention</td>
+        <td>O(1)</td>
+      </tr>
+      <tr>
+        <td>Recurrent</td>
+        <td>O(n)</td>
+      </tr>
+      <tr>
+        <td>Convolutional</td>
+        <td>O(1) for normal, O(log<sub>k</sub>(n)) for dilated</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>This is the parallelization advantage. Self-attention can process all positions simultaneously. RNNs must process sequentially.</p>
+
+<a name="L3.-Path-Length-for-Long-2d-Range-Dependencies"></a>
+<h3>3. Path Length for Long-Range Dependencies</h3>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Layer Type</th>
+        <th>Maximum Path Length</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Self-Attention</td>
+        <td>O(1)</td>
+      </tr>
+      <tr>
+        <td>Recurrent</td>
+        <td>O(n)</td>
+      </tr>
+      <tr>
+        <td>Convolutional</td>
+        <td>O(log<sub>k</sub>(n)) or O(n/k)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>This is critical. To learn that position 1 relates to position 100:</p>
+
+<ul>
+<li><strong>Self-Attention</strong>: Direct connection in one step</li>
+<li><strong>RNN</strong>: Must travel through 99 intermediate steps</li>
+<li><strong>CNN</strong>: Must stack multiple layers</li>
+</ul>
+
+
+<p>Shorter paths → easier to learn long-range dependencies.</p>
+
+<a name="Results--26-amp-3b--Impact"></a>
+<h2>Results &amp; Impact</h2>
+
+<a name="Machine-Translation-Performance"></a>
+<h3>Machine Translation Performance</h3>
+
+<p>The paper evaluated on two benchmarks: WMT 2014 English-German (EN-DE) and English-French (EN-FR).</p>
+
+<p><strong>English-to-German (EN-DE):</strong></p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>BLEU</th>
+        <th>Training Cost (FLOPs)</th>
+        <th>Training Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GNMT + RL (prev. best)</td>
+        <td>24.6</td>
+        <td>2.3 × 10<sup>19</sup></td>
+        <td>~5 days</td>
+      </tr>
+      <tr>
+        <td>ConvS2S (ensemble)</td>
+        <td>26.36</td>
+        <td>7.7 × 10<sup>19</sup></td>
+        <td>Higher</td>
+      </tr>
+      <tr>
+        <td><strong>Transformer (base)</strong></td>
+        <td><strong>27.3</strong></td>
+        <td><strong>3.3 × 10<sup>18</sup></strong></td>
+        <td><strong>12 hours</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Transformer (big)</strong></td>
+        <td><strong>28.4</strong></td>
+        <td><strong>2.3 × 10<sup>19</sup></strong></td>
+        <td><strong>3.5 days</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Improvement</strong>: +2.0 BLEU over previous best (including ensembles), at a fraction of training cost.</p>
+
+<p><strong>English-to-French (EN-FR):</strong></p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>BLEU</th>
+        <th>Training Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Deep-Att + PosUnk Ensemble</td>
+        <td>40.4</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>GNMT + RL Ensemble</td>
+        <td>41.16</td>
+        <td>~6 days</td>
+      </tr>
+      <tr>
+        <td><strong>Transformer (big)</strong></td>
+        <td><strong>41.8</strong></td>
+        <td><strong>3.5 days</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Improvement</strong>: Beats all previous models with less than &frac14; training cost.</p>
+
+<a name="Key-Numbers"></a>
+<h3>Key Numbers</h3>
+
+<ul>
+<li><strong>Hardware</strong>: 8 NVIDIA P100 GPUs</li>
+<li><strong>Base model training time</strong>: 100,000 steps = 12 hours (0.4 seconds per step)</li>
+<li><strong>Big model training time</strong>: 300,000 steps = 3.5 days (1.0 seconds per step)</li>
+<li><strong>Dataset (EN-DE)</strong>: 4.5 million sentence pairs</li>
+<li><strong>Dataset (EN-FR)</strong>: 36 million sentences</li>
+<li><strong>Vocabulary (EN-DE)</strong>: 37,000 tokens (byte-pair encoding)</li>
+<li><strong>Vocabulary (EN-FR)</strong>: 32,000 tokens (word-piece)</li>
+</ul>
+
+
+<a name="Generalization-Beyond-Translation"></a>
+<h3>Generalization Beyond Translation</h3>
+
+<p>The paper also tested English constituency parsing (Penn Treebank):</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>WSJ Only</th>
+        <th>Semi-Supervised</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Previous best (discriminative)</td>
+        <td>91.7</td>
+        <td>92.1</td>
+      </tr>
+      <tr>
+        <td><strong>Transformer (4 layers)</strong></td>
+        <td><strong>91.3</strong></td>
+        <td><strong>92.7</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Despite no task-specific tuning, the Transformer achieved state-of-the-art on semi-supervised parsing and competitive results on WSJ-only. This proved the architecture was generalizable.</p>
+
+<a name="Technical-Deep-Dive"></a>
+<h2>Technical Deep Dive</h2>
+
+<a name="Model-Variants--26-amp-3b--Ablation-Study"></a>
+<h3>Model Variants &amp; Ablation Study</h3>
+
+<p>The paper conducted extensive ablations (Table 3) to understand which components matter:</p>
+
+<p><strong>Multi-Head Variations (Rows A)</strong>:</p>
+
+<ul>
+<li>1 head: -0.9 BLEU</li>
+<li>4 heads with h=128: No degradation</li>
+<li>8 heads with h=64: Best (baseline)</li>
+<li>16 heads with h=32: -0.4 BLEU</li>
+<li>32 heads with h=16: -0.4 BLEU</li>
+</ul>
+
+
+<p>Finding: Single-head attention hurts, but too many heads also degrades performance. Eight is optimal.</p>
+
+<p><strong>Attention Key Dimension (Rows B)</strong>:</p>
+
+<ul>
+<li>d_k = 256/32 = 8: Worse</li>
+<li>d_k = 64 (baseline): Best</li>
+</ul>
+
+
+<p>Finding: Smaller keys hurt model quality. The compatibility function needs sufficient dimensionality.</p>
+
+<p><strong>Model Size (Rows C, D)</strong>:</p>
+
+<ul>
+<li>d_model = 256: Much worse</li>
+<li>d_model = 1024: Better but slower</li>
+<li>d_ff = 1024: Better</li>
+<li>d_ff = 4096: Even better (but more compute)</li>
+</ul>
+
+
+<p>Finding: Larger models are better, as expected.</p>
+
+<p><strong>Regularization (Rows D)</strong>:</p>
+
+<ul>
+<li>P_drop = 0.0: Severe overfitting</li>
+<li>P_drop = 0.1: Best for base model</li>
+<li>P_drop = 0.3: Better for larger models</li>
+</ul>
+
+
+<p><strong>Positional Encoding (Row E)</strong>:</p>
+
+<ul>
+<li>Sinusoidal: 25.8 BLEU</li>
+<li>Learned embedding: 25.7 BLEU</li>
+</ul>
+
+
+<p>Finding: Nearly identical, validating sinusoidal choice.</p>
+
+<a name="Training-Details"></a>
+<h3>Training Details</h3>
+
+<p><strong>Optimizer</strong>: Adam with β₁ = 0.9, β₂ = 0.98, ε = 10⁻⁹</p>
+
+<p><strong>Learning Rate Schedule</strong>:
+<code>
+lrate = d_model^(-0.5) · min(step_num^(-0.5), step_num · warmup_steps^(-1.5))
+</code></p>
+
+<p>With warmup_steps = 4000. This increases learning rate linearly for first 4000 steps, then decreases proportionally to step<sup>-0.5</sup>.</p>
+
+<p><strong>Regularization Techniques</strong>:</p>
+
+<ul>
+<li><strong>Residual Dropout</strong>: Applied to all sub-layer outputs before adding residual connection. P_drop = 0.1 for base model.</li>
+<li><strong>Label Smoothing</strong>: ε_ls = 0.1. This prevents model from becoming overconfident in predictions.</li>
+</ul>
+
+
+<p><strong>Inference</strong>: Beam search with beam size = 4, length penalty α = 0.6. Model parameters averaged over last 5-20 checkpoints.</p>
+
+<a name="Understanding-the-Impact"></a>
+<h2>Understanding the Impact</h2>
+
+<a name="Why-This-Mattered"></a>
+<h3>Why This Mattered</h3>
+
+<p>The Transformer&rsquo;s success opened new possibilities:</p>
+
+<ul>
+<li><strong>Massive Scale</strong>: Without sequential constraints, you could train enormous models. GPT-1 (2018) had 117 million
+parameters. GPT-3 (2020) had 175 billion. Each could train faster due to Transformer parallelization.</li>
+<li><strong>Transfer Learning</strong>: BERT (2018) showed you could pre-train Transformers on massive unlabeled text, then
+fine-tune for specific tasks. This revolutionized NLP.</li>
+<li><p><strong>Generality</strong>: The same architecture worked for:</p>
+
+<ul>
+<li>Machine translation</li>
+<li>Text summarization</li>
+<li>Question answering</li>
+<li>Parsing</li>
+<li>(Later) Computer vision (Vision Transformers, 2020)</li>
+<li>(Later) Protein folding (AlphaFold, 2020)</li>
+<li>(Later) Speech, audio, multimodal tasks</li>
+</ul>
+</li>
+<li><p><strong>Efficiency</strong>: Training became faster and cheaper, democratizing AI research.</p></li>
+</ul>
+
+
+<a name="Modern-Descendants"></a>
+<h3>Modern Descendants</h3>
+
+<p>Every major language model today uses Transformer variants:</p>
+
+<ul>
+<li><strong>GPT series</strong> (OpenAI): Decoder-only Transformer</li>
+<li><strong>BERT</strong> (Google): Encoder-only Transformer</li>
+<li><strong>T5</strong> (Google): Full encoder-decoder</li>
+<li><strong>GPT-4, Gemini, Claude, Llama</strong>: All Transformer-based</li>
+</ul>
+
+
+<a name="Limitations--26-amp-3b--Future-Directions"></a>
+<h2>Limitations &amp; Future Directions</h2>
+
+<p>The paper acknowledges limitations:</p>
+
+<ul>
+<li><strong>Quadratic Complexity</strong>: Self-attention is O(n² · d). Long documents become expensive. The paper suggests sparse
+attention for very long sequences.</li>
+<li><strong>Effective Resolution</strong>: Attention averaging can lose fine-grained information in long sequences.</li>
+<li><strong>Generation Speed</strong>: Decoding is still sequential (generates one word at a time).</li>
+</ul>
+
+
+<p>Future work suggested:</p>
+
+<ul>
+<li>Restricted self-attention to handle images, audio, video</li>
+<li>Local attention mechanisms</li>
+<li>Making generation less sequential</li>
+</ul>
+
+
+<p>(Later work addressed these: Sparse Transformers, Longformer, Flash Attention, etc.)</p>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>&ldquo;Attention Is All You Need&rdquo; presented a deceptively simple idea: replace recurrence and convolution with pure attention. But this simplicity masked profound consequences.</p>
+
+<p>The paper proved that:</p>
+
+<ul>
+<li>Sequential processing isn&rsquo;t necessary for sequence understanding</li>
+<li>Parallelization matters in practice for training speed</li>
+<li>Simpler architectures can outperform complex ones</li>
+<li>Elegant solutions often beat engineered complexity</li>
+</ul>
+
+
+<p>The eight authors—Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan Gomez, Łukasz Kaiser, and Illia Polosukhin—changed AI forever.</p>
+
+<p>Nearly a decade later, we&rsquo;re still discovering applications and improvements based on their core insight. Every conversation with ChatGPT, every Google search result, every code completion in your IDE—all trace back to this paper&rsquo;s ideas.</p>
+
+<p>The lesson transcends AI research: sometimes the breakthrough isn&rsquo;t in complexity. It&rsquo;s in finding the right abstraction that reveals hidden simplicity in what seemed complex before.</p>
+
+<blockquote><p>&ldquo;Attention, after all, might be all we need.&rdquo;</p></blockquote>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Generative AI in 2025: Global Trends, Breakthroughs and Future Horizons]]></title>
