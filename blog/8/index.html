@@ -83,6 +83,91 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components/">Advanced Apache Kafka Anatomy: Delving Deep into the Core Components</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-06-27T09:55:12+05:30" pubdate><i class="fa fa-calendar"></i> Jun 27th, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/kafka/'>kafka</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <p>Apache Kafka has become a cornerstone of modern data architectures, renowned for its ability to handle high-throughput, low-latency data streams. While its fundamental concepts are widely understood, a deeper dive into Kafka’s advanced components and features reveals the true power and flexibility of this distributed event streaming platform. This blog aims to unravel the advanced anatomy of Apache Kafka, offering insights into its core components, configurations, and best practices for optimizing performance.</p>
+
+<a name="Core-Components-of-Kafka"></a>
+<h2>Core Components of Kafka</h2>
+
+<a name="Brokers"></a>
+<h3>Brokers</h3>
+
+<p><strong>Brokers</strong> are the backbone of a Kafka cluster, responsible for managing data storage, processing requests from clients, and replicating data to ensure fault tolerance.</p>
+
+<p><img src="/images/2024/kafka_broker.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<ul>
+<li><strong>Leader and Follower Roles</strong>: Each topic partition has a leader broker that handles all read and write requests for that partition, while follower brokers replicate the leader’s data to ensure high availability.</li>
+<li><strong>Scalability</strong>: Kafka’s design allows for easy scaling by adding more brokers to distribute the load and improve throughput.</li>
+</ul>
+
+
+<a name="Topics-and-Partitions"></a>
+<h3>Topics and Partitions</h3>
+
+<p><strong>Topics</strong> are categories to which records are published. Each topic can be divided into multiple partitions, which are the basic unit of parallelism and scalability in Kafka.</p>
+
+<ul>
+<li><strong>Partitioning Strategy</strong>: Proper partitioning is crucial for load balancing and ensuring efficient data distribution across the cluster. Common strategies include key-based partitioning and round-robin distribution.</li>
+<li><strong>Replication</strong>: Partitions can be replicated across multiple brokers to provide redundancy and high availability. The replication factor determines the number of copies of a partition in the cluster.</li>
+</ul>
+
+
+
+        <a class="btn pull-right" href="/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components/">Read on &rarr;</a>
+    </div>
+
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/exploring-grpc-the-next-generation-of-remote-procedure-calls/">Exploring gRPC: The Next Generation of Remote Procedure Calls</a>
         </h1>
     
@@ -468,77 +553,6 @@ positions in the bit array uniformly at random.</li>
 
 
         <a class="btn pull-right" href="/blog/cassandra-under-the-hood/">Read on &rarr;</a>
-    </div>
-
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/advantages-of-enable-checkpointing-in-apache-flink/">Advantages of Enable Checkpointing in Apache Flink</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2024-05-19T21:32:50+05:30" pubdate><i class="fa fa-calendar"></i> May 19th, 2024</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/apache-flink/'>apache-flink</a></li>
-            
-                <li><a class='category' href='/blog/categories/streaming-data/'>streaming-data</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <p>Enabling checkpointing in Apache Flink provides significant advantages for ensuring the reliability, consistency, and fault-tolerance of stream processing applications. Below, I detail the benefits and provide a code example.</p>
-
-<a name="Advantages-of-Checkpointing"></a>
-<h2>Advantages of Checkpointing</h2>
-
-<ul>
-<li><p><strong>Fault Tolerance</strong> Checkpointing ensures that the state of your Flink application can be recovered in case of a failure. Flink periodically saves snapshots of the entire distributed data stream and state to a persistent storage. If a failure occurs, Flink can restart the application and restore the state from the latest checkpoint, minimizing data loss and downtime.</p></li>
-<li><p><strong>Exactly-Once Processing Semantics</strong> With checkpointing, Flink guarantees exactly-once processing semantics. This means that each event in the stream is processed exactly once, even in the face of failures. This is crucial for applications where accuracy is paramount, such as financial transaction processing or data analytics.</p></li>
-<li><p><strong>Consistent State Management</strong> Checkpointing provides consistent snapshots of the application state. This consistency ensures that all parts of the state are in sync and correspond to the same point in the input stream, avoiding issues like partial updates or inconsistent results.</p></li>
-<li><p><strong>Efficient State Recovery</strong> Checkpointing allows efficient recovery of the application state. Instead of reprocessing the entire data stream from the beginning, Flink can resume processing from the last checkpoint, saving computational resources and reducing recovery time.</p></li>
-<li><p><strong>Backpressure Handling</strong> Flink’s checkpointing mechanism can help manage backpressure in the system by ensuring that the system processes data at a rate that matches the checkpointing intervals, preventing data overloads.</p></li>
-<li><p><strong>State Evolution</strong> Checkpointing supports state evolution, allowing updates to the state schema without losing data. This is useful for applications that need to update their state representation over time while maintaining historical consistency.</p></li>
-</ul>
-
-
-
-        <a class="btn pull-right" href="/blog/advantages-of-enable-checkpointing-in-apache-flink/">Read on &rarr;</a>
     </div>
 
 
