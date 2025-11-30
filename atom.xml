@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-10-19T10:37:19+05:30</updated>
+    <updated>2025-11-30T20:04:27+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,138 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[When Size Isn’t Everything: Why Sapient’s 27M-Parameter HRM Matters for Small Models & AGI]]></title>
+        <link href="https://rishijeet.github.io/blog/why-sapients-27m-parameter-hrm-matters-for-small-models-and-agi/"/>
+        <updated>2025-11-30T19:29:17+05:30</updated>
+        <id>https://rishijeet.github.io/blog/why-sapients-27m-parameter-hrm-matters-for-small-models-and-agi</id>
+        <content type="html"><![CDATA[<a name="What-is-HRM--28-and-why-we-should-care-29-"></a>
+<h2>What is HRM (and why we should care)</h2>
+
+<p>Singapore’s Sapient Intelligence introduced the <strong>Hierarchical Reasoning Model (HRM)</strong> — a <strong>27M-parameter</strong>, brain-inspired, multi-timescale recurrent architecture trained with <strong>just 1,000 examples</strong> and <strong>no pre-training</strong>. According to the authors (<a href="https://arxiv.org/abs/2506.21734">arxiv.org</a>), HRM outperforms GPT-o3-mini and Claude on the <strong>ARC-AGI</strong> benchmark, a test designed to measure genuine inductive reasoning rather than pattern replication.</p>
+
+<p>The design mirrors cognitive neuroscience: the brain separates slow, global planning from fast, fine-grained execution. HRM encodes these separate timescales directly into its architecture.</p>
+
+<p><img src="https://rishijeet.github.io/images/2025/hrm.png" height="300" width="900" alt="Alt text" /></p>
+
+<a name="Empirical-Results"></a>
+<h2>Empirical Results</h2>
+
+<p>Sapient reports:</p>
+
+<ul>
+<li><strong>ARC-AGI</strong>: HRM surpasses o3-mini-high, Claude 3.7 (8K), and DeepSeek R1 on Sapient’s internal ARC-AGI evaluations (<a href="https://www.barchart.com/story/news/33533425/sapient-intelligence-open-sources-hierarchical-reasoning-model-a-brain-inspired-architecture-that-solves-complex-reasoning-tasks-with-27-million-parameters">coverage</a>).</li>
+<li><strong>Structured reasoning tasks</strong>: Near-perfect results on Sudoku-Extreme and 30×30 Maze-Hard, where chain-of-thought-dependent LLMs typically break down.</li>
+<li><strong>Efficiency profile</strong>:
+
+<ul>
+<li>~1,000 labeled examples</li>
+<li>Zero pre-training</li>
+<li>No chain-of-thought supervision</li>
+<li>Single-pass inference</li>
+<li>Over <strong>90% reduction in compute</strong> relative to typical LLM reasoning pipelines (<a href="https://en.acnnewswire.com/press-release/english/101155/">ACN Newswire</a>)</li>
+</ul>
+</li>
+</ul>
+
+
+<p>The data suggests that architectural inductive bias can outperform sheer parameter scale.</p>
+
+<!--more-->
+
+
+<a name="How-HRM-Works"></a>
+<h2>How HRM Works</h2>
+
+<a name="Hierarchical-2c--Multi-2d-Timescale-Architecture"></a>
+<h3>Hierarchical, Multi-Timescale Architecture</h3>
+
+<p>HRM is composed of two interconnected recurrent modules:
+<img src="https://rishijeet.github.io/images/2025/llm_arc.png" height="300" width="900" alt="Alt text" /></p>
+
+<ul>
+<li><p><strong>High-Level Planner</strong><br/>
+Slow, abstract reasoning. Responsible for decomposing tasks and constructing coarse strategies.</p></li>
+<li><p><strong>Low-Level Executor</strong><br/>
+Fast, detail-oriented operations. Executes logical steps required to satisfy the planner’s subgoals.</p></li>
+</ul>
+
+
+<p>This coupled dynamic creates effective depth similar to a deep transformer stack, but with orders of magnitude fewer parameters.</p>
+
+<a name="No-Chain-2d-of-2d-Thought-2c--No-Pre-2d-Training"></a>
+<h3>No Chain-of-Thought, No Pre-Training</h3>
+
+<p>HRM does not rely on chain-of-thought prompting, large-scale text corpora, or instruction tuning. It performs all reasoning internally and outputs only the final answer.</p>
+
+<p>Benefits include:</p>
+
+<ul>
+<li>Lower latency</li>
+<li>Lower memory footprint</li>
+<li>Fewer multi-step hallucination/error cascades</li>
+<li>Simplified deployment on constrained hardware</li>
+</ul>
+
+
+<a name="Data--26-amp-3b--Compute-Efficiency"></a>
+<h3>Data &amp; Compute Efficiency</h3>
+
+<p>By learning directly from end-to-end examples, HRM avoids:</p>
+
+<ul>
+<li>Billion-token pre-training cycles</li>
+<li>Long-context inference costs</li>
+<li>Model distillation or supervised CoT pipelines</li>
+</ul>
+
+
+<a name="Limitations-and-Open-Questions"></a>
+<h2>Limitations and Open Questions</h2>
+
+<p>Although compelling, HRM is not a general-purpose language model:</p>
+
+<ul>
+<li><strong>Domain narrowness</strong>: Designed for puzzles and abstract reasoning, not open-domain tasks.</li>
+<li><strong>Reproducibility</strong>: Independent results are still sparse.</li>
+<li><strong>Generalization</strong>: Unclear whether this architecture scales to real-world, noisy environments.</li>
+<li><strong>Opacity</strong>: No emitted reasoning trace makes interpretation and debugging harder.</li>
+</ul>
+
+
+<p>A recent study argues that a <strong>7M-parameter Tiny Recursive Model (TRM)</strong> can surpass HRM on ARC-AGI (<a href="https://arxiv.org/abs/2510.04871">arxiv.org</a>), hinting that recursion, not hierarchy, may be the core enabler.</p>
+
+<a name="Implications:-Are-Small-Models-Catching-Up-3f-"></a>
+<h2>Implications: Are Small Models Catching Up?</h2>
+
+<p>HRM signals a possible shift in how we think about reasoning systems:</p>
+
+<ul>
+<li><strong>Compute accessibility</strong>: A 27M-parameter reasoning engine can run on laptops, edge devices, and mid-tier servers.</li>
+<li><strong>Sparse-data advantages</strong>: Scientific reasoning, robotics, and rare-event domains may benefit from models that do not require massive corpora.</li>
+<li><strong>Hybrid architectures</strong>: A small HRM-like module for symbolic reasoning paired with a large LLM for language grounding and world knowledge.</li>
+</ul>
+
+
+<p><img src="https://rishijeet.github.io/images/2025/hrm_bm.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>Architectural bias may matter as much as — or more than — raw parameter count.</p>
+
+<a name="What-to-Watch"></a>
+<h2>What to Watch</h2>
+
+<ul>
+<li>Independent replications of ARC-AGI results</li>
+<li>Extensions to messy real-world domains</li>
+<li>LLMs adopting multi-timescale planning modules</li>
+<li>New interpretability techniques for non-CoT models</li>
+</ul>
+
+
+<p>HRM doesn’t replace large LLMs, but it questions the assumption that scale alone produces genuine reasoning. The next advances may come from architectural choices rather than parameter inflation.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[The $1.5 Trillion Question: Is AI Investment a Bubble or the Future?]]></title>
@@ -5267,141 +5399,6 @@ ensuring a diverse conversational scope.</li>
 <h2>Conclusion</h2>
 
 <p>Coca-Cola’s longevity can be attributed to <strong>strong branding, global expansion, adaptability, and crisis management</strong>. Despite facing significant challenges, the company remains a market leader due to its ability to evolve and stay relevant in a changing world.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Case Study: The Collapse of Silicon Valley Bank]]></title>
-        <link href="https://rishijeet.github.io/blog/case-study-the-collapse-of-silicon-valley-bank/"/>
-        <updated>2025-03-09T11:48:11+05:30</updated>
-        <id>https://rishijeet.github.io/blog/case-study-the-collapse-of-silicon-valley-bank</id>
-        <content type="html"><![CDATA[<p>Silicon Valley Bank (SVB) was one of the largest banks catering to the startup and venture capital ecosystem in the United States. Its sudden collapse in March 2023 sent shockwaves through the financial sector, prompting government intervention and raising concerns about the stability of other regional banks. This case study explores the factors that led to SVB&rsquo;s failure, its impact, and key lessons learned.</p>
-
-<p><img src="https://rishijeet.github.io/images/2025/svb.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Background-of-Silicon-Valley-Bank"></a>
-<h2>Background of Silicon Valley Bank</h2>
-
-<p>Founded in 1983, SVB grew into the 16th largest bank in the U.S., with assets exceeding $209 billion by the end of 2022. It specialized in serving technology startups, venture capital (VC) firms, and innovation-driven companies. SVB&rsquo;s business model relied heavily on deposit funding from these clients and investments in long-duration U.S. government bonds.</p>
-
-<!--more-->
-
-
-<a name="Growth-and-Success"></a>
-<h3>Growth and Success</h3>
-
-<ul>
-<li>By 2021, SVB’s total assets grew by 215% compared to 2019.</li>
-<li>It controlled nearly <strong>50% of all venture-backed startups’ deposits</strong> in the U.S.</li>
-<li>A key player in the tech boom, SVB benefited from rising valuations, strong venture funding, and low interest rates.</li>
-</ul>
-
-
-<a name="The-Downfall:-Key-Factors-Leading-to-the-Collapse"></a>
-<h2>The Downfall: Key Factors Leading to the Collapse</h2>
-
-<a name="L-3c-strong-3e-Overreliance-on-Long-2d-Term-Bonds-3c--2f-strong-3e-"></a>
-<h3><strong>Overreliance on Long-Term Bonds</strong></h3>
-
-<p>SVB invested heavily in long-term U.S. Treasury bonds and mortgage-backed securities (MBS) to generate returns. However, these investments carried significant interest rate risk.</p>
-
-<ul>
-<li>By 2022, nearly <strong>57% of SVB’s total assets ($120 billion)</strong> were invested in securities, primarily long-duration bonds.</li>
-<li>When interest rates rise, bond values fall, creating unrealized losses.</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Federal-Reserve-e2--80--99-s-Interest-Rate-Hikes-3c--2f-strong-3e-"></a>
-<h3><strong>Federal Reserve’s Interest Rate Hikes</strong></h3>
-
-<ul>
-<li>The Federal Reserve raised interest rates <strong>11 times from March 2022 to March 2023</strong>, increasing the federal funds rate from <strong>0.25% to 4.75%</strong>.</li>
-<li>The sharp rise in rates led to a <strong>$17 billion unrealized loss</strong> on SVB’s bond portfolio.</li>
-<li>This devalued SVB’s assets, making it more vulnerable to liquidity pressures.</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Tech-Industry-Slowdown-and-Deposit-Flight-3c--2f-strong-3e-"></a>
-<h3><strong>Tech Industry Slowdown and Deposit Flight</strong></h3>
-
-<ul>
-<li>As interest rates rose, venture capital funding declined <strong>by 31% in 2022</strong>, leading startups to withdraw deposits.</li>
-<li>SVB’s deposits dropped from <strong>$198 billion in March 2022 to $165 billion by the end of 2022</strong>.</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Panic-and-Bank-Run--28-March-2023-29--3c--2f-strong-3e-"></a>
-<h3><strong>Panic and Bank Run (March 2023)</strong></h3>
-
-<ul>
-<li>On <strong>March 8, 2023</strong>, SVB announced it had sold $21 billion worth of securities at a <strong>$1.8 billion loss</strong> and planned to raise $2.25 billion in new capital.</li>
-<li>This triggered panic among VC firms and startups, leading to mass withdrawals of <strong>$42 billion in a single day</strong> (March 9).</li>
-<li>On <strong>March 10, 2023</strong>, regulators shut down SVB, marking the <strong>largest U.S. bank failure since 2008</strong>.</li>
-</ul>
-
-
-<a name="Government-and-Market-Response"></a>
-<h2>Government and Market Response</h2>
-
-<a name="L-3c-strong-3e-FDIC-Intervention-3c--2f-strong-3e-"></a>
-<h3><strong>FDIC Intervention</strong></h3>
-
-<ul>
-<li>The <strong>Federal Deposit Insurance Corporation (FDIC)</strong> took control of SVB, ensuring deposits up to <strong>$250,000</strong>.</li>
-<li>On <strong>March 12, 2023</strong>, the U.S. government guaranteed all deposits, preventing wider contagion.</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Stock-Market-and-Banking-Sector-Impact-3c--2f-strong-3e-"></a>
-<h3><strong>Stock Market and Banking Sector Impact</strong></h3>
-
-<ul>
-<li>Bank stocks plummeted, with <strong>First Republic Bank losing 70%</strong> of its value within days.</li>
-<li>The <strong>KBW Bank Index</strong> (measuring U.S. bank performance) dropped <strong>18% in March 2023</strong>.</li>
-<li>Global financial markets reacted sharply, fearing systemic risks.</li>
-</ul>
-
-
-<p><img src="https://rishijeet.github.io/images/2025/svb_stock.avif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Key-Lessons-and-Takeaways"></a>
-<h2>Key Lessons and Takeaways</h2>
-
-<ul>
-<li><p><strong>The Risk of Asset-Liability Mismatch</strong></p>
-
-<ul>
-<li>SVB’s heavy reliance on long-duration bonds while serving short-term depositors created a major mismatch, exposing
-it to liquidity risk.</li>
-</ul>
-</li>
-<li><p><strong>Interest Rate Sensitivity in Banking</strong></p>
-
-<ul>
-<li>Banks must proactively hedge against interest rate fluctuations, especially in a rising-rate environment.</li>
-</ul>
-</li>
-<li><p><strong>The Power of Panic and Social Media</strong></p>
-
-<ul>
-<li>SVB’s collapse was exacerbated by rapid digital bank runs, fueled by panic-driven withdrawals coordinated through
-social media and VC networks.</li>
-</ul>
-</li>
-<li><p><strong>Regulatory and Risk Management Gaps</strong></p>
-
-<ul>
-<li>SVB was exempt from <strong>Dodd-Frank stress testing</strong> due to relaxed regulations in 2018.</li>
-<li>Stricter oversight on regional banks could have mitigated risks.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>The collapse of Silicon Valley Bank exposed vulnerabilities in the financial system, particularly for banks with concentrated deposit bases and interest rate exposure. While the FDIC’s intervention prevented a broader crisis, the incident underscored the need for robust risk management, diversified banking strategies, and stronger regulatory frameworks. SVB’s downfall serves as a cautionary tale for financial institutions navigating uncertain economic conditions.</p>
 ]]></content>
     </entry>
     
