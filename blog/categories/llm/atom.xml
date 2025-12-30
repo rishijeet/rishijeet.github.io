@@ -4,7 +4,7 @@
     <title><![CDATA[Category: llm | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/llm/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2025-11-30T20:04:27+05:30</updated>
+    <updated>2025-12-30T13:46:04+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,118 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[The Code That Bit Back: Surviving AI's Jagged Frontier in Code Reviews]]></title>
+        <link href="https://rishijeet.github.io/blog/the-code-that-bit-back-surviving-ais-jagged-frontier-in-code-reviews/"/>
+        <updated>2025-12-30T13:37:50+05:30</updated>
+        <id>https://rishijeet.github.io/blog/the-code-that-bit-back-surviving-ais-jagged-frontier-in-code-reviews</id>
+        <content type="html"><![CDATA[<p>I remember the day our shiny new AI code reviewer went live like it was yesterday. It was a Tuesday in early 2025, and our team at EchoSoft—a mid-sized dev shop cranking out enterprise apps—had just pushed the button on integrating GPT-4o into our GitHub Actions pipeline. We&rsquo;d spent weeks fine-tuning prompts, benchmarking against human reviewers, and celebrating how it slashed review times from hours to minutes. &ldquo;This is it,&rdquo; I told the devs over Slack. &ldquo;No more blocking PRs on nitpicks.&rdquo; We high-fived virtually, popped a bottle of virtual champagne, and watched the first few PRs sail through with glowing approvals.</p>
+
+<p>Then came PR #478 from junior dev Alex. A simple refactor of our auth module—nothing fancy, just swapping out a deprecated hash function for Argon2. The AI scanned it in seconds: &ldquo;LGTM! Solid upgrade, no security flags.&rdquo; Alex merged it. By Friday, our staging server was compromised. Attackers exploited a buffer overflow the AI had glossed over because, in its infinite wisdom, it hallucinated that our input sanitization was &ldquo;enterprise-grade&rdquo; based on a snippet from some outdated Stack Overflow thread it pulled from thin air. We lost a weekend scrubbing logs, notifying users, and patching the hole. The client? They bailed, citing &ldquo;unreliable tooling.&rdquo; That stung. We&rsquo;d bet the farm on AI being our force multiplier, but it turned out to be a loaded gun.</p>
+
+<p>Why did this happen? Not because we picked a bad model—GPT-4o was crushing benchmarks left and right. No, it was the jaggedness. That term had been buzzing in AI circles for months, ever since Ethan Mollick&rsquo;s piece laid it out clear as day: AI doesn&rsquo;t progress smoothly like a rising tide; it advances in fits and starts, acing PhD-level theorem proving one minute and fumbling basic if-else logic the next. Our code reviewer was a poster child for it—flawless on boilerplate CRUD ops, but a disaster on edge-case vulns that humans spot with a coffee-fueled squint. We&rsquo;d ignored the warning signs during our proof-of-concept phase, too dazzled by the 95% accuracy on synthetic datasets. In production, though? The cracks showed fast.</p>
+
+<!--more-->
+
+
+<p>The breach wasn&rsquo;t just embarrassing; it cost us $150K in incident response and lost revenue. But more than that, it forced us to confront how we&rsquo;d romanticized AI. We&rsquo;d treated it like a senior engineer, not a quirky intern who occasionally sets the break room on fire. As I pored over the post-mortem with our CTO, Sarah, she leaned back and said, &ldquo;This isn&rsquo;t about the model. It&rsquo;s about expecting consistency where there isn&rsquo;t any.&rdquo; She was right. Jagged intelligence isn&rsquo;t a bug; it&rsquo;s the architecture. LLMs scale parameters into the trillions, gobbling up patterns from the internet&rsquo;s firehose, but they don&rsquo;t &ldquo;understand&rdquo; in the human sense. They predict tokens probabilistically, which means they&rsquo;re probabilistic gamblers at heart—great odds on the favorites, but they&rsquo;ll bet the house on long shots and lose.</p>
+
+<p>That night, I couldn&rsquo;t sleep. I fired up my laptop and started digging, not just into our logs, but into the broader mess of AI reliability. What I found was a horror show of uneven performance that made our fiasco feel almost pedestrian.</p>
+
+<a name="Digging-into-the-Dirt:-What-the-Data-Told-Us"></a>
+<h2>Digging into the Dirt: What the Data Told Us</h2>
+
+<p>Monday morning, I rallied the team for an all-hands autopsy. We pulled every PR from the past three months—about 2,300 in total—and ran them through a custom eval script I&rsquo;d hacked together overnight. It cross-referenced AI approvals against human audits and static analyzers like SonarQube. The results? A brutal wake-up.</p>
+
+<p>On straightforward changes—think variable renames or adding a new endpoint—our AI nailed it 98% of the time. Faster than any human, too; reviews clocked in at 12 seconds versus 45 minutes for a senior dev. But zoom in on anything remotely tricky, like concurrency bugs or crypto mishandlings, and the accuracy plummeted to 42%. Worse, in 28% of those cases, it didn&rsquo;t just miss the issue—it fabricated fixes. &ldquo;Your mutex lock looks good here,&rdquo; it&rsquo;d say, when the code was wide open to race conditions. Hallucinations, plain and simple.</p>
+
+<p>I wasn&rsquo;t shocked, exactly, but the numbers hit hard. We&rsquo;d benchmarked against public datasets like HumanEval, where GPT-4o scores 85% on coding tasks. But those are toy problems, sanitized for academia. In the wild? A 2025 Vectara leaderboard pegged hallucination rates for top LLMs at 6.3% for Gemini 2.5 Flash on grounded queries, but spiking to 16% for Claude 3.7 Sonnet—and that&rsquo;s in controlled settings. Our production logs showed worse: 35% overall, ballooning to 65% on security-sensitive PRs. Why the delta? Jaggedness rears its head in domain specificity. Models trained on vast corpora excel at general syntax but choke on niche patterns like zero-day vuln signatures, where the training data thins out.</p>
+
+<p>We sliced the data further. Using pandas in a Jupyter notebook, I grouped failures by code complexity (measured via cyclomatic score) and query type. Here&rsquo;s a snippet of what that looked like:</p>
+
+<pre><code class="python">import pandas as pd
+from radon.complexity import cc_visit
+
+df = pd.read_csv('pr_logs.csv')
+df['complexity'] = df['code_snippet'].apply(lambda x: cc_visit(x)[0] if x else 0)
+df['hallucinated'] = df['ai_response'].str.contains('fabricated', na=False)
+
+high_complex = df[df['complexity'] &gt; 10]
+print(high_complex['hallucinated'].mean())  # Output: 0.65
+</code></pre>
+
+<p>That 65%? It correlated with low-confidence tokens in the model&rsquo;s output—stuff below 0.7 probability, which we could&rsquo;ve flagged but didn&rsquo;t. Broader industry stats backed this up. Stanford&rsquo;s HAI crew dropped a bomb in mid-2025: LLMs hallucinate 69% to 88% on legal queries, a proxy for precision-heavy domains like code security. And in a Nature study from August, multi-model tests clocked hallucination at 50% to 82% across prompting strategies. Even the shiny new ones aren&rsquo;t immune; AIMultiple&rsquo;s 2026 preview (yeah, they jump the gun) shows latest models hovering above 15% on statement analysis.</p>
+
+<p>Then there&rsquo;s the DevOps angle. The 2025 DORA report— that bible for us pipeline jockeys—hammered home how AI amplifies your org&rsquo;s chaos. Elite teams using AI-assisted tools saw 2.5x faster deployments, but low performers? They tanked reliability by 40%, thanks to unchecked jagged outputs eroding trust. Our shop was mid-tier at best; we&rsquo;d leaned on AI to punch above our weight, but without guardrails, it exposed our gaps. Rhetorical question: If even Google&rsquo;s Gemini flashes a 0.7% hallucination rate in ideal conditions, what hope do we mortals have in the trenches?</p>
+
+<p>The investigation stretched two weeks. We interviewed users (devs griping about &ldquo;ghost suggestions&rdquo;), audited training data (too generic, missing our React-Native stack), and even spun up A/B tests routing half our PRs through the AI, half manual. The verdict? Jaggedness isn&rsquo;t random—it&rsquo;s predictable if you look for bottlenecks like sparse data or over-reliance on autoregression. By week&rsquo;s end, we had a heatmap of failure modes: red blobs on async patterns, crypto, and third-party integrations. It wasn&rsquo;t despair; it was clarity. Time to fix this beast.</p>
+
+<a name="Wrangling-the-Beast:-Building-a-Jagged-2d-Proof-Pipeline"></a>
+<h2>Wrangling the Beast: Building a Jagged-Proof Pipeline</h2>
+
+<p>Sarah greenlit a war chest for the rebuild: $80K budget, two engineers reassigned, and me leading the charge. No more blind faith in black-box APIs. We needed a hybrid system—AI for the grunt work, humans and rules for the sharp edges. The core pivot? Retrieval-Augmented Generation, or RAG, to ground the model&rsquo;s wild guesses in our own knowledge base.</p>
+
+<p>First, we stood up a vector store with Pinecone, indexing our entire repo history, past vulns from OWASP, and synthetic edge cases generated via a fine-tuned Llama 3.1. The idea: Before the AI opines on a PR diff, it queries the store for similar snippets, injecting relevant context into the prompt. Trade-off? Latency jumped from 12 seconds to 28, but accuracy? We&rsquo;d see.</p>
+
+<p>Here&rsquo;s the meat of it, in Python with LangChain:</p>
+
+<pre><code class="python">from langchain_openai import ChatOpenAI
+from langchain_pinecone import PineconeVectorStore
+from langchain.chains import RetrievalQA
+from langchain.prompts import PromptTemplate
+
+# Load vector store with our indexed code/vulns
+vectorstore = PineconeVectorStore.from_existing_index(
+    index_name="code-vulns", embedding=OpenAIEmbeddings()
+)
+
+# Custom prompt to enforce grounding
+prompt = PromptTemplate(
+    template="""Based solely on the following context: {context}
+Review this code diff: {diff}
+Flag any security issues with evidence from context. If unsure, defer to human.""",
+    input_variables=["context", "diff"]
+)
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0.1)  # Low temp for determinism
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm, chain_type="stuff", retriever=vectorstore.as_retriever(search_kwargs={"k": 5})
+)
+
+# In pipeline: response = qa_chain.run(diff=pr_diff)
+</code></pre>
+
+<p>This wasn&rsquo;t plug-and-play. Indexing 500K lines of code took a weekend, and tuning the retriever&rsquo;s k (top-k matches) meant balancing recall versus noise—too many chunks, and the prompt hit token limits; too few, and we missed analogs. We iterated with A/B: Version 1 used cosine similarity; switched to Euclidean after it favored syntactic fluff over semantic risks.</p>
+
+<p>Layer two: Guardrails. Pure RAG trusts the LLM too much, so we bolted on rule-based checks via Semgrep for static patterns (e.g., SQL injection regexes) and a confidence scorer. If the AI&rsquo;s output had >20% low-prob tokens or contradicted the retrieved context, it&rsquo;d flag for human review. Architectural hurdle? Integrating this into GitHub Actions without bloating CI times. We offloaded heavy lifts to a sidecar Lambda, async-ing the RAG query. Cost? Peaked at $0.02 per PR, peanuts compared to breach fallout.</p>
+
+<p>Skeptical as ever, I pushed for ablation tests. Strip RAG? Hallucinations back to 35%. Ditch guardrails? False approvals spike 22%. The combo? Preliminary evals showed 78% accuracy on our high-complexity set—better, but not bulletproof. We also fine-tuned a smaller model (Mistral 7B) on 10K labeled PRs, distilling GPT&rsquo;s knowledge into something lighter. Transfer learning shaved 15% off inference costs, per our AWS bills.</p>
+
+<p>Rollout was cautious: Canary to 20% of PRs, monitor for a sprint. Bugs? Plenty—like the retriever pulling irrelevant Node.js snippets for our Python monorepo. Fixed with metadata filtering: <code>filter={"language": "python"}</code>. By month two, it was humming.</p>
+
+<a name="The-Smoke-Clears:-Metrics-2c--Mayhem-2c--and-One-Big-Takeaway"></a>
+<h2>The Smoke Clears: Metrics, Mayhem, and One Big Takeaway</h2>
+
+<p>Three months post-rebuild, and the pipeline&rsquo;s a different animal. PR throughput? Up 40%, from 15 to 21 merges per dev per week. Human review tickets? Down 62%, freeing seniors for architecture instead of bike-shedding. On security, the win was stark: Zero hallucinated approvals in 1,200 PRs, versus four breaches (minor, thank god) in the prior quarter. Our custom benchmark—mirroring that Nature study&rsquo;s hallucination gauntlet—clocked the hybrid at 12% error rate, a 70% drop from vanilla GPT. Client satisfaction? Back to 92%, per NPS surveys, and we clawed back that lost account with a demo of the &ldquo;fortified&rdquo; reviewer.</p>
+
+<p>The DORA metrics tell a fuller story. Pre-jagged fix, we were laggards: 45-day lead times, 12% change failure rate. Post? Elite territory—18 days, 4% failures—thanks to AI amplifying our disciplined bits, not the sloppy ones. But here&rsquo;s the rub: It took engineering sweat to get here. RAG maintenance? Ongoing, as code evolves. Guardrails evolve too, or they ossify.</p>
+
+<p>Looking back, that Tuesday merge wasn&rsquo;t a failure; it was the forge. Jaggedness taught us AI&rsquo;s no panacea—it&rsquo;s a tool with teeth, sharp in spots, dull in others. Like Helen Toner put it, models &ldquo;keep sucking&rdquo; at the weird stuff, and pretending otherwise bites you. Our lesson? Don&rsquo;t chase smoothness; map the frontier. Probe the jags with data, hybridize ruthlessly, and remember: In code or cognition, consistency trumps brilliance every time. We&rsquo;ve got battle scars, sure, but now our AI&rsquo;s a partner, not a wildcard. And that&rsquo;s worth every debugged line.</p>
+
+<blockquote><a name="Author-27-s-Note:-A-Tale-from-the-Trenches"></a>
+<h3>Author&rsquo;s Note: A Tale from the Trenches</h3></blockquote>
+
+<p>Look, this isn&rsquo;t some dry whitepaper dissecting LLM token probabilities or benchmarking Grok-4 against o1-preview.
+It&rsquo;s a story—ripped from a real (anonymized) postmortem at a dev shop. Why the narrative spin? Because AI jaggedness
+isn&rsquo;t an abstract curve on a graph; it&rsquo;s the gut punch when your &ldquo;smart&rdquo; code reviewer greenlights a vuln that tanks
+production. We dressed it up as fiction to make the jagged edges feel sharp: the 65% hallucination spike on crypto
+diffs, the RAG pipeline that traded 16 seconds of speed for 70% fewer false positives. If it hooks you into probing
+your own tools for those hidden cliffs—mission accomplished. Jaggedness won&rsquo;t smooth out overnight; it&rsquo;ll keep
+biting until we stop treating AIs like omniscient oracles and start mapping their quirks like we&rsquo;d debug a flaky API.
+Thoughts? Start the discussion below&hellip;</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[When Size Isn’t Everything: Why Sapient’s 27M-Parameter HRM Matters for Small Models & AGI]]></title>
@@ -1697,309 +1809,6 @@ least one function as of 2025, up from 65% in early 2024, driven by investments 
 <h2>Conclusion</h2>
 
 <p>In summary, 2025 marks GenAI&rsquo;s maturation phase, with global adoption accelerating amid innovation and caution. The path forward promises economic trillions but demands responsible stewardship to mitigate risks and maximize benefits.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Supercharge Reasoning in AI: Hands-On Chain of Thought Builds]]></title>
-        <link href="https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds/"/>
-        <updated>2025-08-29T13:26:07+05:30</updated>
-        <id>https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds</id>
-        <content type="html"><![CDATA[<p>Chain of Thought (CoT) is a prompting technique introduced in a 2022 paper by Google researchers (Wei et al., &ldquo;Chain-of-Thought Prompting Elicits Reasoning in Large Language Models&rdquo;). The core idea is simple: instead of asking an LLM for a direct answer, you instruct it to <strong>reason step by step</strong>. This elicits better performance on tasks requiring logic, math, commonsense, or multi-step planning.</p>
-
-<p><img src="/images/2025/cot.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<p>For example:</p>
-
-<ul>
-<li><strong>Direct Prompt</strong>: &ldquo;What is 15% of 200?&rdquo;</li>
-<li><strong>CoT Prompt</strong>: &ldquo;What is 15% of 200? Let&rsquo;s think step by step.&rdquo;</li>
-</ul>
-
-
-<p>The LLM might respond:</p>
-
-<ul>
-<li>&ldquo;Step 1: 15% means 15 per 100, so 15/100 = 0.15.</li>
-<li>Step 2: Multiply by 200: 0.15 * 200 = 30. So, the answer is 30.&#8221;</li>
-</ul>
-
-
-<!--more-->
-
-
-<p>This &ldquo;thinking&rdquo; process isn&rsquo;t magic—it&rsquo;s emergent from the model&rsquo;s training on vast datasets where step-by-step explanations are common. CoT shines in zero-shot (no examples) or few-shot (with examples) scenarios, and variants like <strong>Tree of Thoughts</strong> or <strong>Self-Consistency</strong> build on it for even more robustness.</p>
-
-<a name="Why-Does-CoT-Work-3f-"></a>
-<h3>Why Does CoT Work?</h3>
-
-<ul>
-<li><strong>Decomposes Complexity</strong>: Breaks problems into manageable sub-steps, reducing error rates.</li>
-<li><strong>Transparency</strong>: Users see the &ldquo;thought process,&rdquo; building trust and allowing debugging.</li>
-<li><strong>Scalability</strong>: Works with any LLM API; no need for fine-tuning.</li>
-<li><strong>Applications</strong>: Math solvers, code debuggers, decision-making tools, chatbots that explain reasoning.</li>
-</ul>
-
-
-<p>Research shows CoT improves accuracy by 10-50% on benchmarks like GSM8K (math) or CommonsenseQA. In interactive apps, it can stream thoughts progressively, giving users a &ldquo;processing&rdquo; indicator.</p>
-
-<a name="Evolution-and-Variants-of-CoT"></a>
-<h2>Evolution and Variants of CoT</h2>
-
-<p>CoT has evolved rapidly:</p>
-
-<ul>
-<li><strong>Zero-Shot CoT</strong>: Just add &ldquo;Let&rsquo;s think step by step&rdquo; to the prompt.</li>
-<li><strong>Few-Shot CoT</strong>: Provide 2-5 examples of step-by-step reasoning before the query.</li>
-<li><strong>Automatic CoT</strong>: Use LLMs to generate CoT examples dynamically.</li>
-<li><strong>Tree of Thoughts (ToT)</strong>: Explores multiple reasoning paths like a tree search.</li>
-<li><strong>Graph of Thoughts</strong>: Models reasoning as a graph for non-linear problems.</li>
-</ul>
-
-
-<p>In 2025, with models like Grok 4, CoT is often combined with tools (e.g., code execution or web search) for agentic systems—AI agents that plan, act, and reflect.</p>
-
-<a name="Building-a-Chain-of-Thought-Application:-Step-2d-by-2d-Step-Guide"></a>
-<h2>Building a Chain of Thought Application: Step-by-Step Guide</h2>
-
-<p>To build a CoT application, we&rsquo;ll create a Python-based tool that:</p>
-
-<ol>
-<li>Takes user input.</li>
-<li>Applies CoT prompting via an LLM API.</li>
-<li>Streams the response to show &ldquo;thinking&rdquo; in real-time (using API streaming features).</li>
-<li>Parses the final answer for clarity.</li>
-</ol>
-
-
-<p>We&rsquo;ll use OpenAI&rsquo;s API as an example. Assumptions:</p>
-
-<ul>
-<li>You have an API key.</li>
-<li>Focus on a math/word problem solver, but extensible to any domain.</li>
-</ul>
-
-
-<a name="Step-1:-Set-Up-Your-Environment"></a>
-<h3>Step 1: Set Up Your Environment</h3>
-
-<p>Install required libraries:
-<code>bash
-pip install openai requests
-</code></p>
-
-<a name="Step-2:-Basic-CoT-Implementation"></a>
-<h3>Step 2: Basic CoT Implementation</h3>
-
-<p>Start with a simple non-streaming version. This script prompts the LLM with CoT and prints the full response.</p>
-
-<pre><code class="python">import openai
-
-# Set your API key
-openai.api_key = "your-openai-api-key"  # Replace with actual key
-
-def cot_reasoning(query, model="gpt-4o"):
-    """
-    Applies Chain of Thought prompting to a query.
-
-    Args:
-    - query (str): The user's question.
-    - model (str): LLM model to use.
-
-    Returns:
-    - str: The reasoned response.
-    """
-    # CoT Prompt Template (Few-Shot for better results)
-    prompt = """
-    Solve the following problem step by step.
-
-    Example 1:
-    Question: If a car travels 60 miles in 1.5 hours, what is its speed?
-    Step 1: Speed is distance divided by time.
-    Step 2: Distance = 60 miles, Time = 1.5 hours.
-    Step 3: Speed = 60 / 1.5 = 40 mph.
-    Answer: 40 mph.
-
-    Example 2:
-    Question: What is the next number in the sequence: 2, 4, 8, 16?
-    Step 1: Observe the pattern: each number is doubled.
-    Step 2: 2 * 2 = 4, 4 * 2 = 8, 8 * 2 = 16.
-    Step 3: Next is 16 * 2 = 32.
-    Answer: 32.
-
-    Now, your question:
-    Question: {query}
-    """
-
-    formatted_prompt = prompt.format(query=query)
-
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=[{"role": "user", "content": formatted_prompt}]
-    )
-
-    return response.choices[0].message.content
-
-# Usage
-query = "What is 25% of 400?"
-result = cot_reasoning(query)
-print(result)
-</code></pre>
-
-<p><strong>Expected Output</strong>:
-<code>
-Step 1: 25% means 25 per 100, so 0.25.
-Step 2: Multiply by 400: 0.25 * 400 = 100.
-Answer: 100.
-</code></p>
-
-<p>This shows the &ldquo;thinking&rdquo; steps. To make it interactive, add a loop for multiple queries.</p>
-
-<a name="Step-3:-Adding-Real-2d-Time-Processing-Feedback"></a>
-<h3>Step 3: Adding Real-Time Processing Feedback</h3>
-
-<p>To &ldquo;let you know that it is processing these steps,&rdquo; use streaming. OpenAI supports response streaming, printing tokens as they arrive—simulating thinking.</p>
-
-<p>Modify the function:</p>
-
-<pre><code class="python">import openai
-import sys
-
-openai.api_key = "your-openai-api-key"
-
-def cot_streaming_reasoning(query, model="gpt-4o"):
-    """
-    Streams Chain of Thought reasoning in real-time.
-    """
-    prompt = """
-    Solve the following problem step by step. Think out loud.
-
-    # Few-shot examples here (same as above)
-
-    Question: {query}
-    """
-    formatted_prompt = prompt.format(query=query)
-
-    stream = openai.ChatCompletion.create(
-        model=model,
-        messages=[{"role": "user", "content": formatted_prompt}],
-        stream=True  # Enable streaming
-    )
-
-    print("Thinking...")
-    full_response = ""
-    for chunk in stream:
-        if chunk.choices[0].delta.get("content"):
-            content = chunk.choices[0].delta.content
-            sys.stdout.write(content)  # Print incrementally
-            sys.stdout.flush()
-            full_response += content
-    print("\nDone!")
-
-    return full_response
-
-# Usage
-query = "If I have 3 apples and eat 2, how many are left?"
-cot_streaming_reasoning(query)
-</code></pre>
-
-<p><strong>How It Works</strong>:</p>
-
-<ul>
-<li>The <code>stream=True</code> parameter yields partial responses.</li>
-<li>We print each chunk, showing steps like &ldquo;Step 1: &hellip;&rdquo; as they generate.</li>
-<li>This creates a &ldquo;processing&rdquo; effect—users see thoughts unfolding.</li>
-</ul>
-
-
-<p>For a web app, use Flask or Streamlit to stream via WebSockets.</p>
-
-<a name="Step-4:-Advanced-Features--e2--80--93--Parsing-and-Error-Handling"></a>
-<h3>Step 4: Advanced Features – Parsing and Error Handling</h3>
-
-<p>To extract the final answer reliably, parse the response. Add self-consistency by generating multiple CoTs and voting.</p>
-
-<pre><code class="python">def parse_final_answer(response):
-    """
-    Extracts the final answer from CoT response.
-    """
-    lines = response.split("\n")
-    for line in reversed(lines):
-        if line.startswith("Answer:"):
-            return line.split("Answer:")[1].strip()
-    return "No clear answer found."
-
-# In your main function:
-result = cot_streaming_reasoning(query)
-final_answer = parse_final_answer(result)
-print(f"Final Answer: {final_answer}")
-</code></pre>
-
-<p>For robustness (Self-Consistency CoT):</p>
-
-<ul>
-<li>Run 3-5 CoT generations.</li>
-<li>Use majority vote on answers.</li>
-</ul>
-
-
-<pre><code class="python">def self_consistent_cot(query, num_samples=3):
-    answers = []
-    for _ in range(num_samples):
-        response = cot_reasoning(query)  # Or streaming version
-        answer = parse_final_answer(response)
-        answers.append(answer)
-
-    # Simple majority vote
-    from collections import Counter
-    most_common = Counter(answers).most_common(1)
-    return most_common[0][0] if most_common else "Inconsistent results"
-
-# Usage
-consistent_answer = self_consistent_cot("A bat and ball cost $1.10 total. The bat costs $1 more than the ball. How much is the ball?")
-print(consistent_answer)  # Should be $0.05
-</code></pre>
-
-<a name="Step-5:-Building-a-Full-Application"></a>
-<h3>Step 5: Building a Full Application</h3>
-
-<p>For a complete app, use Streamlit for a UI:</p>
-
-<pre><code class="python">import streamlit as st
-import openai
-
-openai.api_key = "your-openai-api-key"
-
-st.title("Chain of Thought Reasoner")
-
-query = st.text_input("Enter your question:")
-
-if st.button("Reason"):
-    with st.spinner("Thinking step by step..."):
-        response = cot_streaming_reasoning(query)  # Use non-streaming for simplicity, or adapt
-        st.write(response)
-        final = parse_final_answer(response)
-        st.success(f"Final Answer: {final}")
-</code></pre>
-
-<p>Run with <code>streamlit run app.py</code>. This creates a web interface where users input queries and see the CoT process.</p>
-
-<a name="Challenges-and-Best-Practices"></a>
-<h2>Challenges and Best Practices</h2>
-
-<ul>
-<li><strong>Token Limits</strong>: CoT increases prompt length; use efficient models.</li>
-<li><strong>Bias in Reasoning</strong>: LLMs can hallucinate steps—validate with tools (e.g., code execution for math).</li>
-<li><strong>Customization</strong>: For domains like code generation, add &ldquo;Step 1: Understand requirements. Step 2: Plan code structure.&rdquo;</li>
-<li><strong>Integration with Agents</strong>: Combine CoT with ReAct (Reason + Act) for tool-using agents.</li>
-<li><strong>Ethics</strong>: Ensure transparency; CoT doesn&rsquo;t make AI infallible.</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>Chain of Thought applications transform LLMs from black boxes into transparent reasoners. By building step-by-step processing into your prompts and code, you create tools that not only solve problems but explain how.</p>
 ]]></content>
     </entry>
     

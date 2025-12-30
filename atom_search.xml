@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2025-11-30T20:04:27+05:30</updated>
+  <updated>2025-12-30T13:46:04+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,121 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[The Code That Bit Back: Surviving AI's Jagged Frontier in Code Reviews]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/the-code-that-bit-back-surviving-ais-jagged-frontier-in-code-reviews/"/>
+    <updated>2025-12-30T13:37:50+05:30</updated>
+    <id>https://rishijeet.github.io/blog/the-code-that-bit-back-surviving-ais-jagged-frontier-in-code-reviews</id>
+    <content type="html"><![CDATA[<p>I remember the day our shiny new AI code reviewer went live like it was yesterday. It was a Tuesday in early 2025, and our team at EchoSoft—a mid-sized dev shop cranking out enterprise apps—had just pushed the button on integrating GPT-4o into our GitHub Actions pipeline. We&rsquo;d spent weeks fine-tuning prompts, benchmarking against human reviewers, and celebrating how it slashed review times from hours to minutes. &ldquo;This is it,&rdquo; I told the devs over Slack. &ldquo;No more blocking PRs on nitpicks.&rdquo; We high-fived virtually, popped a bottle of virtual champagne, and watched the first few PRs sail through with glowing approvals.</p>
+
+<p>Then came PR #478 from junior dev Alex. A simple refactor of our auth module—nothing fancy, just swapping out a deprecated hash function for Argon2. The AI scanned it in seconds: &ldquo;LGTM! Solid upgrade, no security flags.&rdquo; Alex merged it. By Friday, our staging server was compromised. Attackers exploited a buffer overflow the AI had glossed over because, in its infinite wisdom, it hallucinated that our input sanitization was &ldquo;enterprise-grade&rdquo; based on a snippet from some outdated Stack Overflow thread it pulled from thin air. We lost a weekend scrubbing logs, notifying users, and patching the hole. The client? They bailed, citing &ldquo;unreliable tooling.&rdquo; That stung. We&rsquo;d bet the farm on AI being our force multiplier, but it turned out to be a loaded gun.</p>
+
+<p>Why did this happen? Not because we picked a bad model—GPT-4o was crushing benchmarks left and right. No, it was the jaggedness. That term had been buzzing in AI circles for months, ever since Ethan Mollick&rsquo;s piece laid it out clear as day: AI doesn&rsquo;t progress smoothly like a rising tide; it advances in fits and starts, acing PhD-level theorem proving one minute and fumbling basic if-else logic the next. Our code reviewer was a poster child for it—flawless on boilerplate CRUD ops, but a disaster on edge-case vulns that humans spot with a coffee-fueled squint. We&rsquo;d ignored the warning signs during our proof-of-concept phase, too dazzled by the 95% accuracy on synthetic datasets. In production, though? The cracks showed fast.</p>
+
+<!--more-->
+
+
+<p>The breach wasn&rsquo;t just embarrassing; it cost us $150K in incident response and lost revenue. But more than that, it forced us to confront how we&rsquo;d romanticized AI. We&rsquo;d treated it like a senior engineer, not a quirky intern who occasionally sets the break room on fire. As I pored over the post-mortem with our CTO, Sarah, she leaned back and said, &ldquo;This isn&rsquo;t about the model. It&rsquo;s about expecting consistency where there isn&rsquo;t any.&rdquo; She was right. Jagged intelligence isn&rsquo;t a bug; it&rsquo;s the architecture. LLMs scale parameters into the trillions, gobbling up patterns from the internet&rsquo;s firehose, but they don&rsquo;t &ldquo;understand&rdquo; in the human sense. They predict tokens probabilistically, which means they&rsquo;re probabilistic gamblers at heart—great odds on the favorites, but they&rsquo;ll bet the house on long shots and lose.</p>
+
+<p>That night, I couldn&rsquo;t sleep. I fired up my laptop and started digging, not just into our logs, but into the broader mess of AI reliability. What I found was a horror show of uneven performance that made our fiasco feel almost pedestrian.</p>
+
+<a name="Digging-into-the-Dirt:-What-the-Data-Told-Us"></a>
+<h2>Digging into the Dirt: What the Data Told Us</h2>
+
+<p>Monday morning, I rallied the team for an all-hands autopsy. We pulled every PR from the past three months—about 2,300 in total—and ran them through a custom eval script I&rsquo;d hacked together overnight. It cross-referenced AI approvals against human audits and static analyzers like SonarQube. The results? A brutal wake-up.</p>
+
+<p>On straightforward changes—think variable renames or adding a new endpoint—our AI nailed it 98% of the time. Faster than any human, too; reviews clocked in at 12 seconds versus 45 minutes for a senior dev. But zoom in on anything remotely tricky, like concurrency bugs or crypto mishandlings, and the accuracy plummeted to 42%. Worse, in 28% of those cases, it didn&rsquo;t just miss the issue—it fabricated fixes. &ldquo;Your mutex lock looks good here,&rdquo; it&rsquo;d say, when the code was wide open to race conditions. Hallucinations, plain and simple.</p>
+
+<p>I wasn&rsquo;t shocked, exactly, but the numbers hit hard. We&rsquo;d benchmarked against public datasets like HumanEval, where GPT-4o scores 85% on coding tasks. But those are toy problems, sanitized for academia. In the wild? A 2025 Vectara leaderboard pegged hallucination rates for top LLMs at 6.3% for Gemini 2.5 Flash on grounded queries, but spiking to 16% for Claude 3.7 Sonnet—and that&rsquo;s in controlled settings. Our production logs showed worse: 35% overall, ballooning to 65% on security-sensitive PRs. Why the delta? Jaggedness rears its head in domain specificity. Models trained on vast corpora excel at general syntax but choke on niche patterns like zero-day vuln signatures, where the training data thins out.</p>
+
+<p>We sliced the data further. Using pandas in a Jupyter notebook, I grouped failures by code complexity (measured via cyclomatic score) and query type. Here&rsquo;s a snippet of what that looked like:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">radon.complexity</span> <span class="kn">import</span> <span class="n">cc_visit</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s">&#39;pr_logs.csv&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="n">df</span><span class="p">[</span><span class="s">&#39;complexity&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s">&#39;code_snippet&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">cc_visit</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+</span><span class='line'><span class="n">df</span><span class="p">[</span><span class="s">&#39;hallucinated&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s">&#39;ai_response&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s">&#39;fabricated&#39;</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">high_complex</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s">&#39;complexity&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">]</span>
+</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">high_complex</span><span class="p">[</span><span class="s">&#39;hallucinated&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>  <span class="c"># Output: 0.65</span>
+</span></code></pre></div></figure>
+
+
+<p>That 65%? It correlated with low-confidence tokens in the model&rsquo;s output—stuff below 0.7 probability, which we could&rsquo;ve flagged but didn&rsquo;t. Broader industry stats backed this up. Stanford&rsquo;s HAI crew dropped a bomb in mid-2025: LLMs hallucinate 69% to 88% on legal queries, a proxy for precision-heavy domains like code security. And in a Nature study from August, multi-model tests clocked hallucination at 50% to 82% across prompting strategies. Even the shiny new ones aren&rsquo;t immune; AIMultiple&rsquo;s 2026 preview (yeah, they jump the gun) shows latest models hovering above 15% on statement analysis.</p>
+
+<p>Then there&rsquo;s the DevOps angle. The 2025 DORA report— that bible for us pipeline jockeys—hammered home how AI amplifies your org&rsquo;s chaos. Elite teams using AI-assisted tools saw 2.5x faster deployments, but low performers? They tanked reliability by 40%, thanks to unchecked jagged outputs eroding trust. Our shop was mid-tier at best; we&rsquo;d leaned on AI to punch above our weight, but without guardrails, it exposed our gaps. Rhetorical question: If even Google&rsquo;s Gemini flashes a 0.7% hallucination rate in ideal conditions, what hope do we mortals have in the trenches?</p>
+
+<p>The investigation stretched two weeks. We interviewed users (devs griping about &ldquo;ghost suggestions&rdquo;), audited training data (too generic, missing our React-Native stack), and even spun up A/B tests routing half our PRs through the AI, half manual. The verdict? Jaggedness isn&rsquo;t random—it&rsquo;s predictable if you look for bottlenecks like sparse data or over-reliance on autoregression. By week&rsquo;s end, we had a heatmap of failure modes: red blobs on async patterns, crypto, and third-party integrations. It wasn&rsquo;t despair; it was clarity. Time to fix this beast.</p>
+
+<a name="Wrangling-the-Beast:-Building-a-Jagged-2d-Proof-Pipeline"></a>
+<h2>Wrangling the Beast: Building a Jagged-Proof Pipeline</h2>
+
+<p>Sarah greenlit a war chest for the rebuild: $80K budget, two engineers reassigned, and me leading the charge. No more blind faith in black-box APIs. We needed a hybrid system—AI for the grunt work, humans and rules for the sharp edges. The core pivot? Retrieval-Augmented Generation, or RAG, to ground the model&rsquo;s wild guesses in our own knowledge base.</p>
+
+<p>First, we stood up a vector store with Pinecone, indexing our entire repo history, past vulns from OWASP, and synthetic edge cases generated via a fine-tuned Llama 3.1. The idea: Before the AI opines on a PR diff, it queries the store for similar snippets, injecting relevant context into the prompt. Trade-off? Latency jumped from 12 seconds to 28, but accuracy? We&rsquo;d see.</p>
+
+<p>Here&rsquo;s the meat of it, in Python with LangChain:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">langchain_openai</span> <span class="kn">import</span> <span class="n">ChatOpenAI</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_pinecone</span> <span class="kn">import</span> <span class="n">PineconeVectorStore</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain.chains</span> <span class="kn">import</span> <span class="n">RetrievalQA</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">langchain.prompts</span> <span class="kn">import</span> <span class="n">PromptTemplate</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Load vector store with our indexed code/vulns</span>
+</span><span class='line'><span class="n">vectorstore</span> <span class="o">=</span> <span class="n">PineconeVectorStore</span><span class="o">.</span><span class="n">from_existing_index</span><span class="p">(</span>
+</span><span class='line'>    <span class="n">index_name</span><span class="o">=</span><span class="s">&quot;code-vulns&quot;</span><span class="p">,</span> <span class="n">embedding</span><span class="o">=</span><span class="n">OpenAIEmbeddings</span><span class="p">()</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Custom prompt to enforce grounding</span>
+</span><span class='line'><span class="n">prompt</span> <span class="o">=</span> <span class="n">PromptTemplate</span><span class="p">(</span>
+</span><span class='line'>    <span class="n">template</span><span class="o">=</span><span class="s">&quot;&quot;&quot;Based solely on the following context: {context}</span>
+</span><span class='line'><span class="s">Review this code diff: {diff}</span>
+</span><span class='line'><span class="s">Flag any security issues with evidence from context. If unsure, defer to human.&quot;&quot;&quot;</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;context&quot;</span><span class="p">,</span> <span class="s">&quot;diff&quot;</span><span class="p">]</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">llm</span> <span class="o">=</span> <span class="n">ChatOpenAI</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s">&quot;gpt-4o&quot;</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>  <span class="c"># Low temp for determinism</span>
+</span><span class='line'><span class="n">qa_chain</span> <span class="o">=</span> <span class="n">RetrievalQA</span><span class="o">.</span><span class="n">from_chain_type</span><span class="p">(</span>
+</span><span class='line'>    <span class="n">llm</span><span class="o">=</span><span class="n">llm</span><span class="p">,</span> <span class="n">chain_type</span><span class="o">=</span><span class="s">&quot;stuff&quot;</span><span class="p">,</span> <span class="n">retriever</span><span class="o">=</span><span class="n">vectorstore</span><span class="o">.</span><span class="n">as_retriever</span><span class="p">(</span><span class="n">search_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s">&quot;k&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">})</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># In pipeline: response = qa_chain.run(diff=pr_diff)</span>
+</span></code></pre></div></figure>
+
+
+<p>This wasn&rsquo;t plug-and-play. Indexing 500K lines of code took a weekend, and tuning the retriever&rsquo;s k (top-k matches) meant balancing recall versus noise—too many chunks, and the prompt hit token limits; too few, and we missed analogs. We iterated with A/B: Version 1 used cosine similarity; switched to Euclidean after it favored syntactic fluff over semantic risks.</p>
+
+<p>Layer two: Guardrails. Pure RAG trusts the LLM too much, so we bolted on rule-based checks via Semgrep for static patterns (e.g., SQL injection regexes) and a confidence scorer. If the AI&rsquo;s output had >20% low-prob tokens or contradicted the retrieved context, it&rsquo;d flag for human review. Architectural hurdle? Integrating this into GitHub Actions without bloating CI times. We offloaded heavy lifts to a sidecar Lambda, async-ing the RAG query. Cost? Peaked at $0.02 per PR, peanuts compared to breach fallout.</p>
+
+<p>Skeptical as ever, I pushed for ablation tests. Strip RAG? Hallucinations back to 35%. Ditch guardrails? False approvals spike 22%. The combo? Preliminary evals showed 78% accuracy on our high-complexity set—better, but not bulletproof. We also fine-tuned a smaller model (Mistral 7B) on 10K labeled PRs, distilling GPT&rsquo;s knowledge into something lighter. Transfer learning shaved 15% off inference costs, per our AWS bills.</p>
+
+<p>Rollout was cautious: Canary to 20% of PRs, monitor for a sprint. Bugs? Plenty—like the retriever pulling irrelevant Node.js snippets for our Python monorepo. Fixed with metadata filtering: <code>filter={"language": "python"}</code>. By month two, it was humming.</p>
+
+<a name="The-Smoke-Clears:-Metrics-2c--Mayhem-2c--and-One-Big-Takeaway"></a>
+<h2>The Smoke Clears: Metrics, Mayhem, and One Big Takeaway</h2>
+
+<p>Three months post-rebuild, and the pipeline&rsquo;s a different animal. PR throughput? Up 40%, from 15 to 21 merges per dev per week. Human review tickets? Down 62%, freeing seniors for architecture instead of bike-shedding. On security, the win was stark: Zero hallucinated approvals in 1,200 PRs, versus four breaches (minor, thank god) in the prior quarter. Our custom benchmark—mirroring that Nature study&rsquo;s hallucination gauntlet—clocked the hybrid at 12% error rate, a 70% drop from vanilla GPT. Client satisfaction? Back to 92%, per NPS surveys, and we clawed back that lost account with a demo of the &ldquo;fortified&rdquo; reviewer.</p>
+
+<p>The DORA metrics tell a fuller story. Pre-jagged fix, we were laggards: 45-day lead times, 12% change failure rate. Post? Elite territory—18 days, 4% failures—thanks to AI amplifying our disciplined bits, not the sloppy ones. But here&rsquo;s the rub: It took engineering sweat to get here. RAG maintenance? Ongoing, as code evolves. Guardrails evolve too, or they ossify.</p>
+
+<p>Looking back, that Tuesday merge wasn&rsquo;t a failure; it was the forge. Jaggedness taught us AI&rsquo;s no panacea—it&rsquo;s a tool with teeth, sharp in spots, dull in others. Like Helen Toner put it, models &ldquo;keep sucking&rdquo; at the weird stuff, and pretending otherwise bites you. Our lesson? Don&rsquo;t chase smoothness; map the frontier. Probe the jags with data, hybridize ruthlessly, and remember: In code or cognition, consistency trumps brilliance every time. We&rsquo;ve got battle scars, sure, but now our AI&rsquo;s a partner, not a wildcard. And that&rsquo;s worth every debugged line.</p>
+
+<blockquote><a name="Author-27-s-Note:-A-Tale-from-the-Trenches"></a>
+<h3>Author&rsquo;s Note: A Tale from the Trenches</h3></blockquote>
+
+<p>Look, this isn&rsquo;t some dry whitepaper dissecting LLM token probabilities or benchmarking Grok-4 against o1-preview.
+It&rsquo;s a story—ripped from a real (anonymized) postmortem at a dev shop. Why the narrative spin? Because AI jaggedness
+isn&rsquo;t an abstract curve on a graph; it&rsquo;s the gut punch when your &ldquo;smart&rdquo; code reviewer greenlights a vuln that tanks
+production. We dressed it up as fiction to make the jagged edges feel sharp: the 65% hallucination spike on crypto
+diffs, the RAG pipeline that traded 16 seconds of speed for 70% fewer false positives. If it hooks you into probing
+your own tools for those hidden cliffs—mission accomplished. Jaggedness won&rsquo;t smooth out overnight; it&rsquo;ll keep
+biting until we stop treating AIs like omniscient oracles and start mapping their quirks like we&rsquo;d debug a flaky API.
+Thoughts? Start the discussion below&hellip;</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[When Size Isn’t Everything: Why Sapient’s 27M-Parameter HRM Matters for Small Models & AGI]]></title>
