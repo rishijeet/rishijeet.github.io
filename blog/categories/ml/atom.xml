@@ -4,7 +4,7 @@
     <title><![CDATA[Category: ml | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/ml/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-01-02T10:47:34+05:30</updated>
+    <updated>2026-01-09T09:38:39+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,192 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[DeepSeek mHC: Fixing the Hidden Chaos in Giant AIs]]></title>
+        <link href="https://rishijeet.github.io/blog/deepseek-mhc-fixing-the-hidden-chaos-in-giant-ais/"/>
+        <updated>2026-01-08T10:31:38+05:30</updated>
+        <id>https://rishijeet.github.io/blog/deepseek-mhc-fixing-the-hidden-chaos-in-giant-ais</id>
+        <content type="html"><![CDATA[<p>If you&rsquo;re anything like me, you&rsquo;ve probably spent the last few years glued to the whirlwind of AI advancements. From ChatGPT blowing our minds to models getting bigger and smarter by the day, it&rsquo;s been a wild ride. But every now and then, something comes along that feels like a real paradigm shift – not just more parameters or fancier training data, but a fundamental rethink of how these beasts work under the hood. That&rsquo;s exactly what DeepSeek&rsquo;s latest innovation, mHC (short for Manifold-Constrained Hyper-Connections), feels like to me. I stumbled upon their paper right at the start of 2026, and man, it got me excited. It&rsquo;s not just another incremental tweak; it&rsquo;s a clever fix to a problem that&rsquo;s been lurking in neural networks for over a decade.</p>
+
+<a name="What-the-Heck-is-DeepSeek-and-Why-Should-You-Care-About-mHC-3f-"></a>
+<h2>What the Heck is DeepSeek and Why Should You Care About mHC?</h2>
+
+<p>First off, a quick intro to DeepSeek for those who might not be as deep in the AI weeds. DeepSeek is a Chinese AI lab that&rsquo;s been punching way above its weight class. They&rsquo;re the folks behind models like DeepSeek-V2 and DeepSeek-Coder, which have consistently outperformed bigger names from OpenAI or Google on certain benchmarks, often at a fraction of the cost. They&rsquo;re all about efficiency and open-source vibes, which is refreshing in an industry that&rsquo;s sometimes too secretive.</p>
+
+<p>Now, mHC? It&rsquo;s their fresh-out-of-the-oven framework, detailed in a paper released on December 31, 2025. The full name is Manifold-Constrained Hyper-Connections, and it&rsquo;s basically a smarter way to handle the &ldquo;connections&rdquo; inside neural networks. If you&rsquo;ve ever wondered why training massive models can be so unstable – like, why do gradients explode or vanish, causing the whole thing to crash? – mHC tackles that head-on. It&rsquo;s built on top of something called Hyper-Connections (HC), which was a cool idea from ByteDance in 2025, but HC had some serious flaws. DeepSeek fixed them by adding mathematical &ldquo;constraints&rdquo; that keep things stable without sacrificing performance.</p>
+
+<!--more-->
+
+
+<p>In simple terms, imagine a neural network as a massive highway system where data flows like traffic. Traditional setups have single lanes with occasional skips (that&rsquo;s residual connections, a staple since ResNets in 2015). HC tried to add multiple lanes for better flow, but without traffic rules, it led to pile-ups and chaos. mHC adds guardrails – specifically, it forces the connections to follow a &ldquo;manifold&rdquo; (a fancy math term for a curved space with rules), ensuring smooth, predictable traffic. The result? Models that train faster, more stably, and perform better, with just a tiny bit more compute overhead (around 6-7%).</p>
+
+<p>Why is this exciting? Because as AI models scale to trillions of parameters, stability becomes the bottleneck. mHC could be the key to unlocking even bigger, smarter AIs without needing insane hardware upgrades. It&rsquo;s like finding a way to make your car engine more efficient instead of just slapping on a bigger gas tank.</p>
+
+<a name="A-Layman-27-s-Guide-to-Neural-Network-Connections:-From-Residuals-to-Hyper-2d-Connections"></a>
+<h2>A Layman&rsquo;s Guide to Neural Network Connections: From Residuals to Hyper-Connections</h2>
+
+<p>Okay, let&rsquo;s ease into the technical side with some analogies. If you&rsquo;re new to this, think of a neural network as a stack of layers, each processing data a bit more. Data goes in at the bottom (input), gets transformed layer by layer, and pops out at the top (output, like a generated sentence).</p>
+
+<p>The big innovation back in 2015 was <strong>residual connections</strong> (from the ResNet paper). Without them, deep networks suffered from &ldquo;vanishing gradients&rdquo; – basically, as signals pass through many layers, they get weaker and weaker, like whispering a message in a long chain of people until it&rsquo;s garbled. Residuals fix this by adding &ldquo;skip connections&rdquo;: the output of a layer is the input plus some transformation. Mathematically, it&rsquo;s:</p>
+
+<p>\[ x_{l+1} = x_l + F(x_l, W_l) \]</p>
+
+<p>Here, \( x_l \) is the input to layer l, F is the transformation (like attention or feed-forward), and \( W_l \) are weights. The &ldquo;+ \( x_l \)&rdquo; is the skip, preserving the original signal. It&rsquo;s like having a direct express lane alongside the twisty roads.</p>
+
+<p>This &ldquo;identity mapping&rdquo; (where the skip is just the identity function) keeps things stable. But as models got huge, researchers realized single-lane skips might not be enough. Enter <strong>Hyper-Connections (HC)</strong>, which expands the residual stream into multiple &ldquo;streams&rdquo; (say, n=4 times wider). Instead of one skip, you have matrices that mix and match signals across streams. It&rsquo;s like turning that single express lane into a multi-lane interchange.</p>
+
+<p>But here&rsquo;s the catch: HC breaks the identity mapping. Those mixing matrices can amplify or dampen signals wildly, leading to instability. In experiments, signal gains could spike to 3000x – imagine traffic suddenly multiplying out of control! Training losses spike, gradients explode, and the model crashes. Plus, widening streams means more memory and compute overhead, making it impractical for giant models.</p>
+
+<p>mHC steps in like a traffic engineer. It constrains those mixing matrices to a &ldquo;manifold&rdquo; – specifically, the Birkhoff polytope, which is a set of doubly stochastic matrices (non-negative, rows and columns sum to 1). Think of it as rules: traffic must balance out (no net gain/loss), stay positive, and mix in a controlled way. To enforce this, they use the Sinkhorn-Knopp algorithm, a iterative method to project unruly matrices back onto this manifold.</p>
+
+<p>In everyday terms, it&rsquo;s like adding speed limits and lane-balancing tech to prevent jams. The result? Stability restored, with signals amplifying by at most 1.6x instead of 3000x. And it only adds about 6.7% to training time thanks to clever optimizations like kernel fusion (merging operations into one efficient GPU kernel).</p>
+
+<p><img src="/images/2026/mhc.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<p>This diagram shows the core architecture of mHC compared to standard residuals and plain HC. You can see how mHC adds the manifold projection step to keep things in check.</p>
+
+<a name="Diving-Deeper:-The-Math-Behind-mHC"></a>
+<h2>Diving Deeper: The Math Behind mHC</h2>
+
+<p>In HC, the residual update becomes:</p>
+
+<div class="math-wrap">
+&#92;[ x_{l+1} = H_{&#92;text{res}}^l x_l + H_{&#92;text{post}}^{&#92;top l} F(H_{&#92;text{pre}}^l x_l, W_l) &#92;]
+
+Where  &#92;( H_{&#92;text{pre}}, H_{&#92;text{post}}, H_{&#92;text{res}} &#92;) are learnable matrices 
+(could be static or dynamic). 
+For dynamic ones, they&#8217;re computed from the input:
+
+&#92;[ &#92;tilde{H}^l = &#92;alpha &#92;cdot &#92;tanh(&#92;Theta &#92;cdot &#92;tilde{x}_l^&#92;top) + b &#92;]
+
+But without constraints, &#92;( H_{&#92;text{res}} &#92;) can go haywire. Over many layers, the composite mapping &#92;( &#92;prod H_{&#92;text{res}}^l &#92;) deviates far from identity, causing explosion.
+
+mHC fixes this by projecting &#92;( H_{&#92;text{res}} &#92;) onto the manifold &#92;( &#92;mathcal{M}_{&#92;text{res}} = &#92;{ H &#92;mid H &#92;mathbf{1}_n = &#92;mathbf{1}_n^&#92;top, H &#92;geq 0 &#92;} &#92;). This ensures:
+</div>
+
+
+<ul>
+<li><p><strong>Norm preservation</strong>: Spectral norm ≤1, preventing amplification.</p></li>
+<li><p><strong>Closure</strong>: Products stay on the manifold.</p></li>
+<li><p><strong>Mixing</strong>: Like soft permutations.</p></li>
+</ul>
+
+
+<p>The projection uses Sinkhorn-Knopp:</p>
+
+<div class="math-wrap">
+Start with &#92;( M = &#92;exp(&#92;tilde{H}_{&#92;text{res}} / &#92;tau) &#92;) (softmax-like), then iterate row/column normalization:
+
+&#92;[ M^{(t)} = T_r(T_c(M^{(t-1)})) &#92;]
+
+For 20 iterations. Tau is a temperature parameter.
+
+For pre/post, they use sigmoid for non-negativity: &#92;( H_{&#92;text{pre}} = &#92;sigma(&#92;tilde{H}_{&#92;text{pre}}) &#92;), etc.
+</div>
+
+
+<p>They also optimize infrastructure:</p>
+
+<ul>
+<li>Fuse RMSNorm, projections, and sigmoids into one kernel using TileLang.</li>
+<li>Use activation recomputation every <div class="math-wrap"> \( L_r \approx \sqrt{\frac{nL}{n+2}} \) layers to
+save memory.</div></li>
+<li>In pipeline parallelism, overlap comms with compute.</li>
+</ul>
+
+
+<p>This keeps overhead low – only 6.7% more FLOPs for n=4.</p>
+
+<p><img src="/images/2026/deepseek_mhc.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Check out this graph illustrating training stability. The blue line (mHC) stays smooth, while HC (red) spikes all over – clear visual proof of the fix.</p>
+
+<a name="The-Proof-is-in-the-Data:-Benchmarks-and-Experiments"></a>
+<h2>The Proof is in the Data: Benchmarks and Experiments</h2>
+
+<p>Now, let&rsquo;s talk numbers. DeepSeek tested mHC on models inspired by their DeepSeek-V3 architecture: 3B, 9B, and 27B parameters, all with Mixture-of-Experts (MoE) layers. They used n=4 expansion, trained on datasets proportional to size (e.g., 1T tokens for extended 3B runs).</p>
+
+<p>Key metrics from the paper:</p>
+
+<ul>
+<li><p><strong>Stability</strong>: Loss gap reduced by 0.021 vs. baseline. Gradients stay steady.</p></li>
+<li><p><strong>Amax Gain Magnitude</strong>: HC hits 3000; mHC caps at ~1.6.</p></li>
+<li><p><strong>Performance</strong>: On zero-shot benchmarks for the 27B model:</p></li>
+</ul>
+
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Benchmark</th>
+        <th>Baseline</th>
+        <th>HC (unstable)</th>
+        <th>mHC</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>BIG-Bench Hard (BBH)</td>
+        <td>43.8</td>
+        <td>~45–47 (est.)</td>
+        <td>51.0 (+7.2)</td>
+      </tr>
+      <tr>
+        <td>DROP</td>
+        <td>47.0</td>
+        <td>Lower due to instability</td>
+        <td>53.9 (+6.9)</td>
+      </tr>
+      <tr>
+        <td>GSM8K</td>
+        <td>46.7</td>
+        <td>Similar</td>
+        <td>53.8 (+7.1)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>They also beat baselines on other tasks like TriviaQA and Natural Questions. Scaling experiments show the edge holds as compute increases from 3B to 27B, and with more tokens (Fig. 6).</p>
+
+<p>In a Reddit deep dive, users noted mHC&rsquo;s 2.1% lift on BBH overall, with stability improvements of three orders of magnitude.</p>
+
+<p>To visualize, here&rsquo;s a bar chart I whipped up based on the 27B results:</p>
+
+<p><img src="/images/2026/deepmhc.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>See how mHC consistently outperforms? That&rsquo;s not just marginal; in AI terms, 7% jumps on reasoning tasks like GSM8K (math problems) are huge.</p>
+
+<p>Another cool vis from sources:</p>
+
+<p><img src="/images/2026/deepseek_R1.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
+
+<p>This chart from DeepSeek&rsquo;s R1 review (their likely mHC-powered model) shows broader benchmarks, reinforcing the gains.</p>
+
+<a name="Why-mHC-Feels-Like-a-Breakthrough--e2--80--93--And-What-It-Means-for-AI-27-s-Future"></a>
+<h2>Why mHC Feels Like a Breakthrough – And What It Means for AI&rsquo;s Future</h2>
+
+<p>What I love about mHC is how it questions sacred cows. Residual connections have been untouchable since 2015, but DeepSeek shows they&rsquo;re not optimal. By widening internal flows while keeping stability, mHC enables better &ldquo;feature mixing&rdquo; – the model can juggle more ideas per layer without losing track.</p>
+
+<p>Implications? For one, cheaper training for big models. With only 6.7% overhead, labs like DeepSeek (or even hobbyists) can push boundaries without Meta-level budgets. It might accelerate open-source AI, as seen with their paper&rsquo;s open release.</p>
+
+<p>On the flip side, it highlights a split in AI: Big Tech chases agents and apps, while outfits like DeepSeek and Moonshot (with their Muon optimizer) tinker at the foundations. This self-doubt – &ldquo;Is this really the best way?&rdquo; – is how progress happens.</p>
+
+<p>Potential downsides? The Sinkhorn iterations add compute, though optimized. And while tested up to 27B, trillion-param monsters might need tweaks. But early signs are promising; rumors say DeepSeek&rsquo;s next flagship (maybe R1) incorporates it.</p>
+
+<p>In layman speak, mHC is like upgrading from a single-core CPU to multi-core, but with software that prevents overheating. It could lead to AIs that reason better on complex tasks – think solving multi-step math or parsing dense docs – without exploding your electric bill.</p>
+
+<a name="Wrapping-It-Up:-mHC-as-AI-27-s-Next-Big-Leap"></a>
+<h2>Wrapping It Up: mHC as AI&rsquo;s Next Big Leap</h2>
+
+<p>If there&rsquo;s one takeaway, it&rsquo;s that mHC isn&rsquo;t just a patch; it&rsquo;s a rethink that could scale AI further than we thought possible. DeepSeek&rsquo;s work reminds me why I got into this field: the thrill of peeling back layers (pun intended) to find smarter ways forward.</p>
+
+<p>If you&rsquo;re inspired, check out the paper yourself or experiment with their models. Who knows? Maybe mHC will be in the next Grok update or something. Drop your thoughts in the comments – is this the breakthrough we&rsquo;ve been waiting for, or just another hype cycle? Either way, I&rsquo;m stoked for what&rsquo;s next.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Attention Is All You Need: The Paper That Revolutionized AI]]></title>
@@ -1309,141 +1495,6 @@ gemma_lm.backbone.enable_lora(rank=4)</p>
 <h2>Conclusion</h2>
 
 <p>LoRA and QLoRA revolutionize LLM fine-tuning by making it accessible, efficient, and scalable. LoRA&rsquo;s low-rank decomposition minimizes parameters, while QLoRA&rsquo;s quantization pushes boundaries further, enabling massive models on modest hardware. As AI evolves, these techniques will be pivotal for customizing foundation models. Experiment with Hugging Face tools to harness their power in your projects.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[MLX vs CUDA: A Detailed Technical Comparison]]></title>
-        <link href="https://rishijeet.github.io/blog/mlx-vs-cuda-a-detailed-technical-comparison/"/>
-        <updated>2025-01-21T07:45:30+05:30</updated>
-        <id>https://rishijeet.github.io/blog/mlx-vs-cuda-a-detailed-technical-comparison</id>
-        <content type="html"><![CDATA[<p>Machine learning frameworks and technologies continue to evolve, leading to the rise of competing platforms designed to maximize performance, flexibility, and ease of use for modern AI workloads. Two prominent frameworks, MLX (Machine Learning Exchange) and CUDA (Compute Unified Device Architecture), are often compared in terms of performance and functionality. This article provides a detailed exploration of the differences between MLX and CUDA, focusing on their architecture, usability, and benchmarking scores.</p>
-
-<a name="L-3c-strong-3e-What-is-CUDA-3f--3c--2f-strong-3e-"></a>
-<h3><strong>What is CUDA?</strong></h3>
-
-<p>CUDA is a parallel computing platform and programming model developed by NVIDIA, specifically designed for NVIDIA GPUs. It allows developers to use C, C++, Fortran, and Python to write applications that can leverage GPU acceleration. CUDA provides low-level access to the GPU hardware, enabling high performance for applications like deep learning, scientific computing, and high-performance simulations.</p>
-
-<p><img src="/images/2025/cuda.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<p>Key features of CUDA:</p>
-
-<ul>
-<li><strong>Low-level optimization</strong>: Offers direct control over GPU memory and thread management.</li>
-<li><strong>Rich ecosystem</strong>: Integrated with libraries like cuDNN, NCCL, and TensorRT.</li>
-<li><strong>Highly mature</strong>: Over a decade of optimizations and wide industry adoption.</li>
-</ul>
-
-
-<!--more-->
-
-
-<a name="L-3c-strong-3e-What-is-MLX-3f--3c--2f-strong-3e-"></a>
-<h3><strong>What is MLX?</strong></h3>
-
-<p>MLX (Machine Learning Exchange) is an emerging platform that abstracts machine learning and deep learning workflows. It supports heterogeneous hardware, including GPUs, CPUs, and specialized accelerators. MLX often integrates high-level APIs, enabling users to optimize workloads without deep knowledge of hardware architecture.</p>
-
-<p><img src="/images/2025/mlx.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<p>Key features of MLX:</p>
-
-<ul>
-<li><strong>Cross-platform support</strong>: Runs on multiple hardware types.</li>
-<li><strong>High-level abstraction</strong>: Simplifies model training and deployment.</li>
-<li><strong>Integration-friendly</strong>: Works well with TensorFlow, PyTorch, and ONNX.</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Architecture-3c--2f-strong-3e-"></a>
-<h2><strong>Architecture</strong></h2>
-
-<ul>
-<li><p><strong>CUDA</strong>:</p>
-
-<ul>
-<li>CUDA provides fine-grained control over GPU execution.</li>
-<li>Thread and memory management are handled explicitly, giving developers the ability to maximize performance through detailed tuning.</li>
-<li>Works exclusively on NVIDIA GPUs, leveraging specialized hardware like Tensor Cores.</li>
-</ul>
-</li>
-<li><p><strong>MLX</strong>:</p>
-
-<ul>
-<li>MLX abstracts the underlying hardware, making it easier for developers to build models without focusing on device-specific optimizations.</li>
-<li>Supports a variety of hardware, including GPUs (NVIDIA, AMD), CPUs, and emerging accelerators like TPUs.</li>
-<li>Focuses on portability over deep hardware-specific optimizations.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Performance-Benchmarks-3c--2f-strong-3e-"></a>
-<h2><strong>Performance Benchmarks</strong></h2>
-
-<p>Benchmarking was conducted to evaluate the performance of MLX and CUDA on several machine learning workloads. The results are based on tests using an NVIDIA A100 GPU (for CUDA) and the same GPU running MLX (where applicable).</p>
-
-<p><img src="/images/2025/cuda_mlx_benchmark.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>The performance benchmark chart above highlights the comparison between CUDA and MLX for training throughput and inference latency across three tasks: Image Classification, Object Detection, and Transformer Models.</p>
-
-<ul>
-<li>Training Throughput: CUDA consistently achieves higher throughput (bars on the left for each task), demonstrating
-its fine-grained optimization for NVIDIA GPUs.</li>
-<li>Inference Latency: CUDA also exhibits lower latency (lines with green markers) compared to MLX (lines with red
-markers), showcasing its efficiency in real-time workloads.
-This visualization emphasizes CUDA&rsquo;s advantage in both raw performance and latency, particularly on NVIDIA GPUs, while MLX offers competitive results with a broader hardware compatibility.
-
-<a name="L-3c-strong-3e-Key-Observations-3c--2f-strong-3e-"></a>
-<h3><strong>Key Observations</strong></h3></li>
-<li>CUDA consistently outperformed MLX in raw throughput and latency due to its hardware-specific optimizations and direct access to NVIDIA GPU architecture.</li>
-<li>MLX’s performance was competitive, particularly for workflows prioritizing hardware-agnostic support.</li>
-<li>The performance gap was more pronounced in tasks involving fine-grained GPU operations, such as training BERT or running YOLOv5.</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Energy-Efficiency-3c--2f-strong-3e-"></a>
-<h3><strong>Energy Efficiency</strong></h3>
-
-<p>Energy consumption was measured for both frameworks during the benchmarks.
-<img src="/images/2025/cuda_mlx_efficiency.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>Here is the graphical representation of the energy efficiency comparison between CUDA and MLX. It highlights:</p>
-
-<ul>
-<li>The average power consumption (W) for each framework (shown as bars).</li>
-<li>The energy efficiency (images/sec/W) (shown as a line plot).</li>
-</ul>
-
-
-<p>CUDA demonstrated better energy efficiency due to optimized GPU utilization and reduced overhead.</p>
-
-<a name="L-3c-strong-3e-Use-Cases-3c--2f-strong-3e-"></a>
-<h2><strong>Use Cases</strong></h2>
-
-<ul>
-<li><p><strong>CUDA</strong>:</p>
-
-<ul>
-<li>Ideal for applications requiring peak performance, such as autonomous vehicles, financial modeling, and real-time simulations.</li>
-<li>Suitable for research and production environments where NVIDIA GPUs are the standard.</li>
-</ul>
-</li>
-<li><p><strong>MLX</strong>:</p>
-
-<ul>
-<li>Best suited for teams working across heterogeneous hardware environments or those prioritizing ease of use.</li>
-<li>Effective for organizations building portable machine learning solutions for diverse infrastructure.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Conclusion-3c--2f-strong-3e-"></a>
-<h2><strong>Conclusion</strong></h2>
-
-<p>CUDA remains the gold standard for GPU-accelerated machine learning, offering unparalleled performance and efficiency. However, MLX provides a compelling alternative for developers seeking hardware-agnostic solutions and ease of use. While CUDA is better suited for NVIDIA-specific workflows, MLX’s flexibility makes it ideal for broader deployment scenarios.</p>
-
-<p>Ultimately, the choice between MLX and CUDA depends on your specific requirements: if peak performance on NVIDIA GPUs is critical, CUDA is the clear choice. For portability and simplicity, MLX offers significant advantages.</p>
 ]]></content>
     </entry>
     
