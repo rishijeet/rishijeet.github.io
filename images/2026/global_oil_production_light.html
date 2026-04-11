@@ -1,0 +1,135 @@
+
+<style>
+  .wrap { background: #ffffff; border-radius: 16px; padding: 24px; border: 1px solid #e8e6df; }
+  .top-cards { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: #f7f5f0; border-radius: 10px; padding: 14px 16px; text-align: center; border: 1px solid #e8e6df; }
+  .card-label { font-size: 11px; color: #888780; margin: 0 0 4px; letter-spacing: .04em; text-transform: uppercase; }
+  .card-val { font-size: 24px; font-weight: 500; color: #1a1a18; margin: 0; }
+  .card-sub { font-size: 11px; color: #b4b2a9; margin: 4px 0 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; font-size: 12px; color: #5f5e5a; align-items: center; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .chart-title { font-size: 15px; font-weight: 500; color: #1a1a18; margin: 0 0 4px; }
+  .chart-sub { font-size: 12px; color: #888780; margin: 0 0 18px; }
+</style>
+
+<div class="wrap">
+  <p class="chart-title">Global oil production by country</p>
+  <p class="chart-sub">Approximate barrels per day, mid-2020s estimates</p>
+
+  <div class="top-cards">
+    <div class="card">
+      <p class="card-label">Top producer</p>
+      <p class="card-val">13M</p>
+      <p class="card-sub">USA bbl/day</p>
+    </div>
+    <div class="card">
+      <p class="card-label">Combined total</p>
+      <p class="card-val">64M</p>
+      <p class="card-sub">bbl/day tracked</p>
+    </div>
+    <div class="card">
+      <p class="card-label">USA share</p>
+      <p class="card-val">20%</p>
+      <p class="card-sub">of this group</p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span style="display:flex;align-items:center;gap:5px;"><span class="leg-dot" style="background:#2563a8;"></span>Americas</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span class="leg-dot" style="background:#1a7a5e;"></span>Middle East</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span class="leg-dot" style="background:#b84c2a;"></span>Russia</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span class="leg-dot" style="background:#6b5fc7;"></span>Asia</span>
+  </div>
+
+  <div style="position:relative;width:100%;height:460px;">
+    <canvas id="oilChartLight"></canvas>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const flags  = ['🇺🇸','🇸🇦','🇷🇺','🇨🇦','🇮🇶','🇨🇳','🇦🇪','🇮🇷','🇧🇷','🇰🇼'];
+const labels = ['United States','Saudi Arabia','Russia','Canada','Iraq','China','UAE','Iran','Brazil','Kuwait'];
+const values = [13, 9.5, 9.5, 5, 4.5, 4, 3.5, 3.5, 3.5, 2.5];
+const display = ['~13M','~9–10M','~9–10M','~5M','~4.5M','~4M','~3.5M','~3.5M','~3.5M','~2.5M'];
+
+const barColors = [
+  '#2563a8','#1a7a5e','#b84c2a','#2563a8','#1a7a5e',
+  '#6b5fc7','#1a7a5e','#1a7a5e','#2563a8','#1a7a5e'
+];
+const barHover = [
+  '#1a4f8c','#115c47','#8f3a1e','#1a4f8c','#115c47',
+  '#4e449e','#115c47','#115c47','#1a4f8c','#115c47'
+];
+
+new Chart(document.getElementById('oilChartLight'), {
+  type: 'bar',
+  data: {
+    labels: labels.map((l, i) => flags[i] + '  ' + l),
+    datasets: [{
+      data: values,
+      backgroundColor: barColors,
+      hoverBackgroundColor: barHover,
+      borderRadius: 7,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => '  ' + ctx.parsed.x.toFixed(1) + ' million bbl/day'
+        },
+        backgroundColor: '#1a1a18',
+        titleColor: '#ffffff',
+        bodyColor: '#d3d1c7',
+        padding: 12,
+        cornerRadius: 8,
+        titleFont: { size: 13, weight: '500' },
+        bodyFont: { size: 12 }
+      }
+    },
+    scales: {
+      x: {
+        max: 15,
+        grid: { color: '#eeece6' },
+        border: { display: false },
+        ticks: {
+          color: '#b4b2a9',
+          font: { size: 12 },
+          callback: v => v + 'M'
+        }
+      },
+      y: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: {
+          color: '#2c2c2a',
+          font: { size: 13, weight: '500' },
+          padding: 6
+        }
+      }
+    },
+    layout: { padding: { right: 20 } },
+    animation: { duration: 1000, easing: 'easeOutQuart' }
+  },
+  plugins: [{
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      values.forEach((val, i) => {
+        const meta = chart.getDatasetMeta(0);
+        const bar  = meta.data[i];
+        ctx.fillStyle = '#888780';
+        ctx.font = '500 12px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(display[i], bar.x + 8, bar.y);
+      });
+    }
+  }]
+});
+</script>
