@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: system_design | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/system-design/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2026-05-02T10:10:42+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[How WhatsApp Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-whatsapp-works/"/>
+        <updated>2026-05-01T22:30:48+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-whatsapp-works</id>
+        <content type="html"><![CDATA[<a name="The-Insane-Scale-of-WhatsApp"></a>
+<h2>The Insane Scale of WhatsApp</h2>
+
+<p>Let&rsquo;s start with numbers, because they&rsquo;re genuinely mind-blowing. WhatsApp isn&rsquo;t just a chat app — it&rsquo;s one of the largest distributed systems ever built by humans.</p>
+
+<p><img src="/images/system_design/whatsapp.png" height="300" width="900" alt="Alt text" /></p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Number</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Monthly Active Users</td>
+        <td>2 billion+</td>
+      </tr>
+      <tr>
+        <td>Messages sent per day</td>
+        <td>100 billion</td>
+      </tr>
+      <tr>
+        <td>Peak messages per second</td>
+        <td>1 million+</td>
+      </tr>
+      <tr>
+        <td>Photos shared daily</td>
+        <td>60 billion</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>And here&rsquo;s the kicker — in 2012, when WhatsApp hit 27 billion messages per day, they had only <strong>32 engineers</strong>. That&rsquo;s the kind of engineering efficiency that makes the rest of the tech world jealous.</p>
+
+<!--more-->
+
+
+<blockquote><p><em>&ldquo;WhatsApp is proof that you don&rsquo;t need thousands of engineers to build something used by billions — you need brilliant architecture.&rdquo;</em></p></blockquote>
+
+<a name="Bird-27-s-2d-Eye-Architecture"></a>
+<h2>Bird&rsquo;s-Eye Architecture</h2>
+
+<p>At the highest level, WhatsApp is built around a few key ideas: keep the servers as dumb as possible, push logic to the clients, store as little as possible centrally, and make delivery fast and reliable.</p>
+
+<p>Here&rsquo;s how the major layers stack up:</p>
+
+<p><img src="/images/system_design/whatsapp-architecture.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>WhatsApp originally built on <strong>XMPP</strong> (Extensible Messaging and Presence Protocol) — an open standard for real-time messaging. They heavily modified it over the years to fit their scale, but the core idea remains: a protocol designed for real-time, push-based communication.</p>
+
+<a name="The-Journey-of-a-Single-Message"></a>
+<h2>The Journey of a Single Message</h2>
+
+<p>You tap send. What happens next? Let&rsquo;s trace the path of a single &ldquo;Hey! 👋&rdquo; from your phone to your friend&rsquo;s screen.</p>
+
+<ul>
+<li><strong>Step 1 — You hit send</strong>
+
+<ul>
+<li>Your app <strong>encrypts the message on-device</strong> using the Signal Protocol (more on this below). The raw text never leaves your phone unencrypted.</li>
+</ul>
+</li>
+<li><strong>Step 2 — Sent to WhatsApp&rsquo;s chat server</strong>
+
+<ul>
+<li>The encrypted blob travels over a persistent <strong>WebSocket connection</strong> (or TCP connection) that your app keeps open with the nearest WhatsApp data center. This is why WhatsApp feels instant — there&rsquo;s no &ldquo;dialing in&rdquo; every time you send a message.</li>
+</ul>
+</li>
+<li><strong>Step 3 — Server acknowledges receipt</strong>
+
+<ul>
+<li>The server sends back an acknowledgement to your app — this is when you see the <strong>single grey tick ✓</strong>. The server received it. Job done on your side.</li>
+</ul>
+</li>
+<li><strong>Step 4 — Server looks up the recipient</strong>
+
+<ul>
+<li>WhatsApp checks if your friend is online (has an active connection). If yes, it pushes the message immediately. If not, it queues the message and waits.</li>
+</ul>
+</li>
+<li><strong>Step 5 — Message delivered to the recipient&rsquo;s device</strong>
+
+<ul>
+<li>The encrypted message arrives on your friend&rsquo;s phone. Their app decrypts it locally. You see the <strong>double grey tick ✓✓</strong> — delivered.</li>
+</ul>
+</li>
+<li><strong>Step 6 — Read receipt fires back</strong>
+
+<ul>
+<li>When your friend opens the chat and the message is displayed, their app fires a &ldquo;read&rdquo; event back to the server, which relays it to you — turning those ticks <strong>blue ✓✓</strong>.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="End-2d-to-2d-End-Encryption--e2--80--94--The-Signal-Protocol"></a>
+<h2>End-to-End Encryption — The Signal Protocol</h2>
+
+<p>This is one of WhatsApp&rsquo;s most impressive engineering decisions. Every message is end-to-end encrypted, meaning <strong>even WhatsApp cannot read your messages</strong>. Not even if a government asks nicely.</p>
+
+<p>They use the <strong>Signal Protocol</strong> — the same protocol built by Open Whisper Systems. Here&rsquo;s how it works at a conceptual level.</p>
+
+<a name="Key-Exchange--e2--80--94--The-Double-Ratchet-Algorithm"></a>
+<h3>Key Exchange — The Double Ratchet Algorithm</h3>
+
+<p>When you first message someone, your apps do a cryptographic handshake — they exchange <strong>public keys</strong> without ever revealing private keys. Think of it like passing padlocks through the mail. Anyone can lock something with your padlock, but only you have the key to open it.</p>
+
+<p>WhatsApp uses a mechanism called the <strong>Double Ratchet Algorithm</strong>, which does something clever: every single message gets its own unique encryption key. Even if a hacker somehow got the key for message #47, they still can&rsquo;t decrypt message #48. This is called <strong>forward secrecy</strong>.</p>
+
+<blockquote><p><strong>Why this matters for system design:</strong> WhatsApp&rsquo;s servers are essentially routing encrypted blobs they cannot understand. This massively simplifies their legal liability and trust model — they genuinely cannot be a surveillance back-door, because the math makes it impossible.</p></blockquote>
+
+<a name="What-Happens-When-You-27-re-Offline-3f-"></a>
+<h2>What Happens When You&rsquo;re Offline?</h2>
+
+<p>This is where <strong>message queuing</strong> comes in. If your friend is offline when you send a message, WhatsApp&rsquo;s server holds onto it — encrypted — in a message store.</p>
+
+<p>The moment your friend&rsquo;s phone reconnects (opens the app, comes back online), their device establishes a persistent connection to WhatsApp&rsquo;s servers. The server notices the connection, looks up any queued messages, and pushes them all immediately.</p>
+
+<p>One important detail: <strong>WhatsApp only stores messages on their servers until delivery.</strong> Once a message is delivered to your device, it&rsquo;s deleted from the server. Your chat history lives on your phone, not in a central WhatsApp database. This is a deliberate design choice — it&rsquo;s cheaper to store, more private, and reduces liability.</p>
+
+<a name="Push-Notifications"></a>
+<h3>Push Notifications</h3>
+
+<p>If your app is killed in the background, WhatsApp uses:
+- <strong>APNs</strong> (Apple Push Notification Service) for iOS
+- <strong>Firebase Cloud Messaging (FCM)</strong> for Android</p>
+
+<p>&hellip;to wake up your app when a message arrives. This is how you see notifications even when the app isn&rsquo;t running.</p>
+
+<a name="How-Media-Works--e2--80--94--Photos-2c--Videos--26-amp-3b--Documents"></a>
+<h2>How Media Works — Photos, Videos &amp; Documents</h2>
+
+<p>Text messages are tiny. A photo is 2–5 MB. A video might be 50 MB. You can&rsquo;t run these through the same messaging pipeline without everything grinding to a halt. So WhatsApp separates the two completely.</p>
+
+<p>When you send a photo, here&rsquo;s what actually happens:</p>
+
+<ul>
+<li><strong>Step 1 — Compress and encrypt on-device</strong>
+
+<ul>
+<li>Your app compresses the image and encrypts it with a one-time key generated just for this file.</li>
+</ul>
+</li>
+<li><strong>Step 2 — Upload to WhatsApp&rsquo;s media servers</strong>
+
+<ul>
+<li>The encrypted file is uploaded to blob storage (backed by data centers globally). You get back a URL.</li>
+</ul>
+</li>
+<li><strong>Step 3 — Send a tiny text message</strong>
+
+<ul>
+<li>Instead of sending the photo through the chat server, WhatsApp sends a small text message containing:</li>
+<li>The URL of the encrypted file</li>
+<li>The decryption key</li>
+<li>Metadata (thumbnail, dimensions, file size)</li>
+<li>The chat server only ever sees tiny, fast-moving messages.</li>
+</ul>
+</li>
+<li><strong>Step 4 — Recipient downloads &amp; decrypts</strong>
+
+<ul>
+<li>Your friend&rsquo;s app receives the message, fetches the encrypted file from the CDN, decrypts it with the embedded key, and shows you the photo. Clean separation of concerns.</li>
+</ul>
+</li>
+</ul>
+
+
+<a name="Read-Receipts--26-amp-3b--Presence--e2--80--94--The-Ticks-Explained"></a>
+<h2>Read Receipts &amp; Presence — The Ticks Explained</h2>
+
+<p>The humble tick is one of the most data-efficient features in WhatsApp. Here&rsquo;s what each state actually represents in system terms:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Status</th>
+        <th>What it means technically</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>🕐</td>
+        <td>Sending</td>
+        <td>Message is in the outgoing queue on your device, not yet sent to server</td>
+      </tr>
+      <tr>
+        <td>✓</td>
+        <td>Sent</td>
+        <td>Server received and acknowledged the message</td>
+      </tr>
+      <tr>
+        <td>✓✓</td>
+        <td>Delivered</td>
+        <td>Message pushed to recipient&#8217;s device; their app sent a delivery ack</td>
+      </tr>
+      <tr>
+        <td>✓✓ (blue)</td>
+        <td>Read</td>
+        <td>Recipient opened the chat; their app fired a &#8220;seen&#8221; event</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="L-22-Last-Seen-22---e2--80--94--How-Presence-Works"></a>
+<h3>&ldquo;Last Seen&rdquo; — How Presence Works</h3>
+
+<p>When you open WhatsApp, your client tells the server you&rsquo;re <strong>online</strong>. When you close it, it sends an offline event with a timestamp. That timestamp becomes your <strong>last seen</strong> time. WhatsApp stores this in a fast in-memory store (like Redis) so it can serve it to your contacts instantly.</p>
+
+<a name="Group-Chats--e2--80--94--The-Fan-2d-Out-Problem"></a>
+<h2>Group Chats — The Fan-Out Problem</h2>
+
+<p>Here&rsquo;s where things get tricky. When you send a message to a group of 256 people, WhatsApp needs to deliver that message to 255 other devices — each with their own encryption key, potentially on different servers, with different online/offline states.</p>
+
+<p>This is called the <strong>fan-out problem</strong>: one message needs to branch out to many recipients.</p>
+
+<a name="WhatsApp-27-s-Solution--e2--80--94--Sender-Key"></a>
+<h3>WhatsApp&rsquo;s Solution — Sender Key</h3>
+
+<p>Instead of encrypting the message separately 255 times (once for each recipient), the sender encrypts the message <strong>once</strong> with a group key. This group key is then distributed to all members using individual encrypted sessions.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Scenario</th>
+        <th>Breakdown</th>
+        <th>Result</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Without Sender Key</td>
+        <td>1 message × 255 encryptions</td>
+        <td>= 255 encrypt operations</td>
+      </tr>
+      <tr>
+        <td>With Sender Key</td>
+        <td>1 message × 1 encryption + 255 small key deliveries</td>
+        <td>= Much cheaper at scale</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The result? Sending a group message requires roughly the same server-side effort whether you&rsquo;re sending to 5 people or 256.</p>
+
+<blockquote><p><strong>Group metadata vs. message content:</strong> Group membership info, admin roles, and settings are stored on WhatsApp&rsquo;s servers. But the actual message content is end-to-end encrypted — the server routes the encrypted blob without reading it.</p></blockquote>
+
+<a name="Why-WhatsApp-Runs-on-Erlang"></a>
+<h2>Why WhatsApp Runs on Erlang</h2>
+
+<p>Most startups reach for Node.js or Go. WhatsApp chose <strong>Erlang</strong> — a 1986 language designed by Ericsson for telecom switches. This sounds like a weird choice until you understand what Erlang was built for: handling millions of concurrent connections with incredibly high reliability.</p>
+
+<a name="What-makes-Erlang-special"></a>
+<h3>What makes Erlang special</h3>
+
+<p><strong>Lightweight processes</strong>
+Erlang can run millions of tiny concurrent &ldquo;processes&rdquo; (not OS threads). Each user connection gets its own process — this maps perfectly to WhatsApp&rsquo;s model where every user session is stateful and persistent.</p>
+
+<p><strong>&ldquo;Let it crash&rdquo; philosophy</strong>
+Erlang&rsquo;s approach is to write simple code and let the runtime handle failures gracefully. Processes crash, supervisors restart them automatically, the user never notices. This is how WhatsApp achieves high uptime without heroic error handling.</p>
+
+<p><strong>Hot code reloading</strong>
+You can deploy new code to a running Erlang system <strong>without restarting it</strong>. Zero-downtime deployments are built into the language itself.</p>
+
+<p>The modified Ejabberd XMPP server WhatsApp runs could handle <strong>2 million TCP connections per server</strong> — a number that would make most Java developers weep.</p>
+
+<a name="Key-Takeaways-for-System-Designers"></a>
+<h2>Key Takeaways for System Designers</h2>
+
+<p>If you&rsquo;re studying system design or building your own messaging feature, here&rsquo;s what WhatsApp teaches us:</p>
+
+<ul>
+<li><strong>Use persistent connections, not polling</strong>
+
+<ul>
+<li>WebSockets/TCP keep-alive connections are why WhatsApp feels instant. HTTP polling at scale would be catastrophically expensive.</li>
+</ul>
+</li>
+<li><strong>Separate text from binary data</strong>
+
+<ul>
+<li>Never run large files through your messaging pipeline. Upload to blob storage, pass a reference. Keep your message broker handling only small, fast-moving messages.</li>
+</ul>
+</li>
+<li><strong>Message queues are your offline strategy</strong>
+
+<ul>
+<li>Assume recipients are offline. Queue messages server-side and push on reconnect. This is more reliable than any &ldquo;retry from client&rdquo; approach.</li>
+</ul>
+</li>
+<li><strong>Store as little centrally as possible</strong>
+
+<ul>
+<li>WhatsApp deletes messages from servers after delivery. Less data = lower cost, simpler architecture, and better privacy by default.</li>
+</ul>
+</li>
+<li><strong>Pick your tech for the problem, not the hype</strong>
+
+<ul>
+<li>Erlang was 30 years old when WhatsApp picked it. It was simply the right tool. Be boring, be reliable, be scalable.</li>
+</ul>
+</li>
+</ul>
+
+
+<blockquote><p><em>&ldquo;The best system design is usually the one with the fewest moving parts that still solves the problem reliably at scale.&rdquo;</em></p></blockquote>
+
+<p>WhatsApp is a masterclass in restraint — minimal central state, maximum client responsibility, clever use of encryption to simplify the trust model, and a language ecosystem built for exactly this kind of concurrent, fault-tolerant problem.</p>
+
+<p>Not bad for an app that started as a simple status update tool.</p>
+]]></content>
+    </entry>
+    
+</feed>
