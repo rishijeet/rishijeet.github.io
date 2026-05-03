@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-02T10:10:42+05:30</updated>
+    <updated>2026-05-03T22:26:54+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,1099 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Reddit Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-reddit-works/"/>
+        <updated>2026-05-03T19:28:52+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-reddit-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>If you&rsquo;ve ever refreshed your Reddit feed at midnight, upvoted a post, or gone down a rabbit hole in a subreddit — you&rsquo;ve touched a system that serves hundreds of millions of users every day. But have you ever wondered what&rsquo;s actually happening under the hood? Let&rsquo;s find out.</em></p></blockquote>
+
+<p><img src="https://rishijeet.github.io/images/system_design/reddit.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Reddit calls itself &ldquo;the front page of the internet,&rdquo; and honestly, that&rsquo;s not far off. At its core, Reddit is a massive, community-driven link aggregator and discussion platform — think of it as a giant bulletin board broken into thousands of topic-specific rooms called <strong>subreddits</strong>.</p>
+
+<p>As of 2024, Reddit had:</p>
+
+<ul>
+<li><strong>~1.5 billion monthly active users</strong> visiting the site</li>
+<li><strong>~100,000 active subreddits</strong></li>
+<li>Over <strong>~500 million posts</strong> and billions of comments</li>
+<li>Multiple <strong>millions of concurrent users</strong> at peak times</li>
+</ul>
+
+
+<p>What makes Reddit an interesting system design problem is the <strong>combination of scale, real-time interaction, and community-specific complexity.</strong> You have users browsing feeds, posting content, voting, commenting in real-time, getting notifications, and all of this happening across extremely diverse communities with completely different moderation rules.</p>
+
+<p>It&rsquo;s not as real-time as Twitter (where every tweet needs instant fan-out). It&rsquo;s not as media-heavy as YouTube. But it&rsquo;s arguably more complex than both because it combines a <strong>social graph, content ranking, tree-structured comments, moderation tools, and real-time interactions</strong> all in one platform.</p>
+
+<p>Let&rsquo;s break it all down.</p>
+
+<!--more-->
+
+
+<a name="Core-Features"></a>
+<h2>Core Features</h2>
+
+<p>Before we get into architecture, let&rsquo;s quickly nail down what Reddit actually does. These features will drive every design decision we make.</p>
+
+<a name="Posts"></a>
+<h3>Posts</h3>
+
+<p>A post is the atomic unit of Reddit. It can be:</p>
+
+<ul>
+<li>A <strong>link</strong> pointing to an external URL</li>
+<li>A <strong>text post</strong> (also called a self-post)</li>
+<li>An <strong>image or video</strong></li>
+</ul>
+
+
+<p>Each post lives inside a subreddit, has an author, a title, a score (upvotes minus downvotes), and a timestamp.</p>
+
+<a name="Comments--28-Tree-Structure-29-"></a>
+<h3>Comments (Tree Structure)</h3>
+
+<p>This is one of Reddit&rsquo;s most distinctive features. Comments form a <strong>tree</strong> — you can reply to a post directly, or reply to another comment, and that reply can have replies, and so on infinitely deep.</p>
+
+<div class="mermaid">
+flowchart TB;
+
+%% Nodes
+A[Post];
+B[Comment A];
+C[Reply A1];
+D[Reply A1a];
+E[Reply A2];
+F[Comment B];
+G[Reply B1];
+
+%% Tree Structure
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+B &#8211;> E;
+
+A &#8211;> F;
+F &#8211;> G;
+
+</div>
+
+
+<p>This nested tree structure needs special thought when it comes to storage and retrieval, which we&rsquo;ll cover later.</p>
+
+<a name="Upvotes--2f--Downvotes"></a>
+<h3>Upvotes / Downvotes</h3>
+
+<p>Every post and every comment can be upvoted or downvoted. The <strong>net score</strong> (upvotes - downvotes) combined with the <strong>time of posting</strong> feeds into the ranking algorithm that determines where content appears in feeds.</p>
+
+<p>Vote counts are <strong>approximate by design</strong> — Reddit intentionally &ldquo;fuzzes&rdquo; the exact count to prevent vote manipulation. You&rsquo;ll see a score of &ldquo;1.2k&rdquo; rather than an exact number.</p>
+
+<a name="Subreddits"></a>
+<h3>Subreddits</h3>
+
+<p>Subreddits are topic-based communities: r/programming, r/worldnews, r/funny. Each one has its own:</p>
+
+<ul>
+<li>Set of moderators</li>
+<li>Custom rules and flairs</li>
+<li>Moderation tools</li>
+<li>Posting history</li>
+</ul>
+
+
+<p>Users can <strong>subscribe</strong> to subreddits, and their home feed is built from those subscriptions.</p>
+
+<a name="User-Profiles"></a>
+<h3>User Profiles</h3>
+
+<p>Each user has a profile with their post history, comment history, karma score (a rough measure of community contribution), and account settings.</p>
+
+<a name="Feed-Generation"></a>
+<h3>Feed Generation</h3>
+
+<p>The home feed is the magic. When you open Reddit, you see a curated list of posts from all the subreddits you follow, ranked by relevance and popularity. This is the hardest part to get right at scale.</p>
+
+<a name="High-2d-Level-Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>Let&rsquo;s start with the big picture before drilling into specifics.</p>
+
+<div class="mermaid">
+flowchart TB
+
+%% Client Layer
+subgraph Client[&#8220;CLIENT LAYER&#8221;]
+    A[&#8220;Web Browser / iOS App / Android&#8221;]
+end
+
+%% CDN
+subgraph CDN[&#8220;CDN (CloudFront / Fastly / Akamai)&#8221;]
+    B[&#8220;Static Assets, Images, Videos&#8221;]
+end
+
+%% Load Balancer
+subgraph LB[&#8220;LOAD BALANCER (L7)&#8221;]
+    C[&#8220;HAProxy / AWS ALB / Nginx&#8221;]
+end
+
+%% Core Services
+subgraph Services[&#8220;CORE SERVICES&#8221;]
+    D[&#8220;Auth Service&#8221;]
+    E[&#8220;Post Service&#8221;]
+    F[&#8220;Feed Service&#8221;]
+    G[&#8220;Comment Service&#8221;]
+end
+
+%% Message Bus
+subgraph Kafka[&#8220;MESSAGE BUS (Kafka)&#8221;]
+    H[&#8220;Event Streaming&#8221;]
+end
+
+%% Async Services
+subgraph Async[&#8220;ASYNC SERVICES&#8221;]
+    I[&#8220;Voting Service&#8221;]
+    J[&#8220;Search Service&#8221;]
+    K[&#8220;Notification Service&#8221;]
+end
+
+%% Data Layer
+subgraph Data[&#8220;DATA LAYER&#8221;]
+    L[&#8220;PostgreSQL (Users, Subs)&#8221;]
+    M[&#8220;Cassandra (Votes, Activity)&#8221;]
+    N[&#8220;Redis (Cache, Sessions)&#8221;]
+end
+
+%% Connections
+A &#8211;>|HTTPS| B
+B &#8211;>|Cache Miss| C
+
+C &#8211;> D
+C &#8211;> E
+C &#8211;> F
+C &#8211;> G
+
+E &#8211;> H
+F &#8211;> H
+G &#8211;> H
+
+H &#8211;> I
+H &#8211;> J
+H &#8211;> K
+
+I &#8211;> L
+I &#8211;> M
+J &#8211;> L
+J &#8211;> N
+K &#8211;> N
+</div>
+
+
+<blockquote><p>💡 <strong>Image suggestion</strong>: Replace this ASCII diagram with a clean HD architecture diagram showing the service mesh, data flow arrows, and database layers.</p></blockquote>
+
+<p>Let me explain each piece:</p>
+
+<p><strong>CDN (Content Delivery Network):</strong> The first layer that intercepts requests. It serves static content — images, JavaScript bundles, CSS — from edge servers close to the user. No reason to hit your origin server for a Reddit logo.</p>
+
+<p><strong>Load Balancer:</strong> Distributes incoming traffic across multiple server instances. Uses Layer 7 (HTTP-aware) routing so it can send <code>/api/posts</code> requests to the Post Service and <code>/api/auth</code> requests to the Auth Service.</p>
+
+<p><strong>Microservices:</strong> Reddit evolved from a Python monolith (built on Pylons framework in the early days) into a set of microservices. Each service owns a specific domain — posts, comments, votes, feeds, notifications, etc.</p>
+
+<p><strong>Message Bus (Kafka):</strong> The nervous system of the backend. Events like &ldquo;new vote cast,&rdquo; &ldquo;new comment posted,&rdquo; or &ldquo;post created&rdquo; are published as messages on Kafka topics. Other services subscribe and react asynchronously. This decouples the services and allows the system to absorb spikes.</p>
+
+<p><strong>Data Layer:</strong> Multiple databases for different needs, which we&rsquo;ll explore in detail.</p>
+
+<a name="Deep-Dive:-Core-Services"></a>
+<h2>Deep Dive: Core Services</h2>
+
+<a name="Authentication-Service"></a>
+<h3>Authentication Service</h3>
+
+<p>The auth service handles login, session management, and OAuth flows (for third-party app access via Reddit&rsquo;s API).</p>
+
+<p><strong>How it works:</strong></p>
+
+<ul>
+<li>User logs in → auth service validates credentials → issues a <strong>JWT (JSON Web Token)</strong> or <strong>session cookie</strong></li>
+<li>Every subsequent request carries this token</li>
+<li>The token is verified at the API gateway level before routing to any service</li>
+</ul>
+
+
+<p>Reddit also supports OAuth 2.0, which is why apps like Apollo or third-party Reddit clients can authenticate on your behalf.</p>
+
+<p><strong>Session Storage:</strong> Sessions are stored in Redis — it&rsquo;s fast and supports TTL (time-to-live) out of the box, so expired sessions are automatically cleaned up.</p>
+
+<a name="Post-Service"></a>
+<h3>Post Service</h3>
+
+<p>This service handles CRUD operations for posts — creation, retrieval, editing, deletion.</p>
+
+<p><strong>When a user submits a post:</strong></p>
+
+<ol>
+<li>Validation (is the content within rules? Is the user banned from this subreddit?)</li>
+<li>Store the post in the primary database (PostgreSQL)</li>
+<li>Publish a <code>post.created</code> event to Kafka</li>
+<li>Other services (feed service, notification service, search indexer) listen to this event and react</li>
+</ol>
+
+
+<p><strong>Schema (simplified):</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">posts</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>          <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">author_id</span>   <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">subreddit_id</span> <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">subreddits</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">title</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">300</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">url</span>         <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">body</span>        <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>    <span class="k">type</span>        <span class="n">ENUM</span><span class="p">(</span><span class="s1">&#39;link&#39;</span><span class="p">,</span> <span class="s1">&#39;text&#39;</span><span class="p">,</span> <span class="s1">&#39;image&#39;</span><span class="p">,</span> <span class="s1">&#39;video&#39;</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">score</span>       <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">upvotes</span>     <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">downvotes</span>   <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_at</span>  <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">is_deleted</span>  <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">is_nsfw</span>     <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<a name="Comment-Service"></a>
+<h3>Comment Service</h3>
+
+<p>Comments are the most complex data structure in Reddit. They form an <strong>unbounded tree</strong> and need to be:</p>
+
+<ul>
+<li>Retrieved efficiently for a given post</li>
+<li>Sorted (by &ldquo;best,&rdquo; &ldquo;new,&rdquo; &ldquo;top,&rdquo; &ldquo;controversial&rdquo;)</li>
+<li>Collapsible (hide a branch of replies)</li>
+</ul>
+
+
+<p><strong>Two common approaches to storing trees in a relational DB:</strong></p>
+
+<p><strong>Option 1: Adjacency List (Simple)</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">comments</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>          <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">post_id</span>     <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">parent_id</span>   <span class="n">UUID</span> <span class="k">REFERENCES</span> <span class="n">comments</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>  <span class="c1">-- NULL if top-level</span>
+</span><span class='line'>    <span class="n">author_id</span>   <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">body</span>        <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">score</span>       <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_at</span>  <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">()</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p>Simple but fetching an entire comment tree requires recursive queries or multiple round-trips.</p>
+
+<p><strong>Option 2: Materialized Path</strong>
+Store the full path from root to each node as a string:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- path: &quot;root_id.child_id.grandchild_id&quot;</span>
+</span><span class='line'><span class="n">id</span><span class="p">:</span> <span class="ss">&quot;comment_abc&quot;</span>
+</span><span class='line'><span class="n">path</span><span class="p">:</span> <span class="ss">&quot;comment_xyz.comment_abc&quot;</span>
+</span></code></pre></div></figure>
+
+
+<p>This makes it trivially fast to fetch all descendants with a <code>LIKE 'root_id%'</code> query, at the cost of slightly more storage.</p>
+
+<p>Reddit actually uses a <strong>hybrid approach</strong> — storing the parent ID in PostgreSQL for writes, but caching fully assembled comment trees in Redis for reads. When you load a post page, Reddit fetches the pre-built tree from cache rather than reassembling it from the DB every time.</p>
+
+<a name="Voting-System"></a>
+<h3>Voting System</h3>
+
+<p>Voting is <strong>one of the highest-write-volume operations</strong> on Reddit. Every thumb press is a write. At scale, this needs to be handled carefully.</p>
+
+<p><strong>The naive approach</strong> — directly updating the <code>score</code> column on the post row — would destroy your database. You&rsquo;d have thousands of concurrent writes to the same row, causing lock contention.</p>
+
+<p><strong>Reddit&rsquo;s approach:</strong></p>
+
+<ol>
+<li>Write votes to a fast write-optimized store first (Redis sorted sets or Cassandra)</li>
+<li>Periodically batch-aggregate votes and update the main score in PostgreSQL</li>
+<li>The score displayed to users is read from cache, not the database</li>
+</ol>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="c"># Pseudo-code for handling a vote</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">handle_vote</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">post_id</span><span class="p">,</span> <span class="n">vote_direction</span><span class="p">):</span>  <span class="c"># +1 or -1</span>
+</span><span class='line'>    <span class="c"># Check if user has already voted</span>
+</span><span class='line'>    <span class="n">existing</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;vote:{user_id}:{post_id}&quot;</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="n">existing</span> <span class="o">==</span> <span class="n">vote_direction</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span>  <span class="c"># Same vote, no-op (toggle off would be another case)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Store user&#39;s vote in Redis</span>
+</span><span class='line'>    <span class="n">redis</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;vote:{user_id}:{post_id}&quot;</span><span class="p">,</span> <span class="n">vote_direction</span><span class="p">,</span> <span class="n">ex</span><span class="o">=</span><span class="mi">86400</span><span class="o">*</span><span class="mi">30</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Increment score in Redis sorted set</span>
+</span><span class='line'>    <span class="n">redis</span><span class="o">.</span><span class="n">zincrby</span><span class="p">(</span><span class="s">&quot;post_scores&quot;</span><span class="p">,</span> <span class="n">vote_direction</span><span class="p">,</span> <span class="n">post_id</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Publish to Kafka for async persistence</span>
+</span><span class='line'>    <span class="n">kafka</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s">&quot;votes&quot;</span><span class="p">,</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&quot;user_id&quot;</span><span class="p">:</span> <span class="n">user_id</span><span class="p">,</span>
+</span><span class='line'>        <span class="s">&quot;post_id&quot;</span><span class="p">:</span> <span class="n">post_id</span><span class="p">,</span>
+</span><span class='line'>        <span class="s">&quot;direction&quot;</span><span class="p">:</span> <span class="n">vote_direction</span><span class="p">,</span>
+</span><span class='line'>        <span class="s">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">now</span><span class="p">()</span>
+</span><span class='line'>    <span class="p">})</span>
+</span></code></pre></div></figure>
+
+
+<p>A background consumer reads from the Kafka <code>votes</code> topic and periodically flushes aggregated vote counts to PostgreSQL. This is a classic <strong>write-behind caching</strong> pattern.</p>
+
+<a name="Subreddit-Service"></a>
+<h3>Subreddit Service</h3>
+
+<p>Handles subreddit creation, subscription management, moderation settings, and rules.</p>
+
+<p>A <strong>subscription</strong> is a many-to-many relationship between users and subreddits:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">subscriptions</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">user_id</span>      <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">subreddit_id</span> <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">subscribed_at</span> <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">(),</span>
+</span><span class='line'>    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">subreddit_id</span><span class="p">)</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p>The list of subreddits a user follows is small enough to be cached in Redis as a set: <code>SMEMBERS user:12345:subscriptions</code>.</p>
+
+<a name="Notification-System"></a>
+<h3>Notification System</h3>
+
+<p>Notifications are <strong>event-driven by nature</strong>. When something happens (your comment got a reply, you got a mention, a mod action was taken), a notification needs to reach the right user.</p>
+
+<p><strong>Flow:</strong></p>
+
+<ol>
+<li>Event published to Kafka (e.g., <code>comment.created</code>)</li>
+<li>Notification service consumes the event</li>
+<li>Checks who needs to be notified (post author, parent comment author, mentioned users)</li>
+<li>Stores notification in DB + pushes via WebSocket or Firebase Cloud Messaging (FCM) for mobile</li>
+</ol>
+
+
+<p>The notification service maintains a user notification inbox — essentially a list of notification records with read/unread status.</p>
+
+<a name="Moderation-System"></a>
+<h3>Moderation System</h3>
+
+<p>This is often overlooked in system design interviews but it&rsquo;s genuinely one of Reddit&rsquo;s hardest problems. Reddit has:</p>
+
+<ul>
+<li>Volunteer moderators (subreddit-specific)</li>
+<li>Reddit admins (site-wide)</li>
+<li>Automated moderation bots (e.g., AutoModerator)</li>
+<li>ML-based spam detection</li>
+</ul>
+
+
+<p><strong>Tools in the moderation toolkit:</strong></p>
+
+<ul>
+<li><strong>AutoModerator:</strong> A rule engine that runs on every post/comment. Rules are YAML-based and can match on keywords, account age, karma thresholds, etc.</li>
+<li><strong>Spam detection:</strong> ML models trained on known spam patterns</li>
+<li><strong>Shadow banning / Content filtering:</strong> Soft-banning users (they think their posts are public, but they&rsquo;re hidden from others)</li>
+<li><strong>Report queue:</strong> User reports flow into a moderation queue. High-volume subreddits use tools to triage these at scale.</li>
+</ul>
+
+
+<a name="Database-Design"></a>
+<h2>Database Design</h2>
+
+<p>Reddit uses a <strong>polyglot persistence</strong> approach — different data stores for different access patterns.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Data Type</th>
+        <th>Database</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Users, Posts, Subreddits</td>
+        <td>PostgreSQL</td>
+        <td>Strong ACID guarantees, rich querying</td>
+      </tr>
+      <tr>
+        <td>Votes (raw events)</td>
+        <td>Cassandra</td>
+        <td>High write throughput, append-only</td>
+      </tr>
+      <tr>
+        <td>Sessions, Cache</td>
+        <td>Redis</td>
+        <td>Sub-millisecond reads, TTL support</td>
+      </tr>
+      <tr>
+        <td>Full-text search</td>
+        <td>Elasticsearch</td>
+        <td>Complex query patterns, relevance ranking</td>
+      </tr>
+      <tr>
+        <td>Media (images, videos)</td>
+        <td>S3 + CDN</td>
+        <td>Blob storage at scale</td>
+      </tr>
+      <tr>
+        <td>Time-series metrics</td>
+        <td>InfluxDB / Prometheus</td>
+        <td>High-cardinality time-series data</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Key-Schema-Examples"></a>
+<h3>Key Schema Examples</h3>
+
+<p><strong>Users Table:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">username</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">email</span>           <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">password_hash</span>   <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">post_karma</span>      <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">comment_karma</span>   <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_at</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">is_verified</span>     <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">is_suspended</span>    <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p><strong>Subreddits Table:</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">subreddits</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">name</span>            <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">21</span><span class="p">)</span> <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>  <span class="c1">-- max r/ name length</span>
+</span><span class='line'>    <span class="n">description</span>     <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">subscriber_count</span> <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_by</span>      <span class="n">UUID</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">created_at</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">is_nsfw</span>         <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">is_quarantined</span>  <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<a name="SQL-vs-NoSQL:-The-Tradeoff"></a>
+<h3>SQL vs NoSQL: The Tradeoff</h3>
+
+<p>The big question in any system design is: relational or not?</p>
+
+<p><strong>For Reddit&rsquo;s core data (posts, comments, users):</strong> PostgreSQL makes sense. These are highly relational, need transactions, and benefit from complex joins (e.g., &ldquo;fetch all posts by user X in subreddit Y that have score > 100&rdquo;).</p>
+
+<p><strong>For votes:</strong> You don&rsquo;t need ACID guarantees for an upvote. You need <strong>high write throughput and eventual consistency</strong>. Cassandra wins here — it&rsquo;s designed for append-heavy, time-series-like data.</p>
+
+<p><strong>The key tradeoff:</strong></p>
+
+<ul>
+<li><strong>Consistency vs. Availability:</strong> If Cassandra is temporarily unavailable, your vote might not be counted immediately — but that&rsquo;s acceptable. Users won&rsquo;t notice a 2-second delay in vote count updates.</li>
+<li><strong>Normalization vs. Denormalization:</strong> Relational DBs normalize (one source of truth). NoSQL often denormalizes (duplicate data for read performance). Reddit&rsquo;s feed, for example, stores pre-computed post data so reads are fast.</li>
+</ul>
+
+
+<a name="Feed-Generation"></a>
+<h2>Feed Generation</h2>
+
+<p>This is the most interesting and most debated part of Reddit&rsquo;s design. The home feed is a ranked list of posts from all subreddits you follow. How do you build this efficiently for hundreds of millions of users?</p>
+
+<a name="The-Two-Models"></a>
+<h3>The Two Models</h3>
+
+<p><strong>Option 1: Pull Model (Fan-in on Read)</strong></p>
+
+<p>When a user opens their feed, the server:</p>
+
+<ol>
+<li>Fetches the list of subreddits the user follows</li>
+<li>Queries for top posts from each subreddit</li>
+<li>Merges and re-ranks everything</li>
+<li>Returns the sorted feed</li>
+</ol>
+
+
+<p><strong>Pros:</strong> Simple to implement. No storage overhead. Always fresh.</p>
+
+<p><strong>Cons:</strong> Very slow at scale. If you follow 500 subreddits, that&rsquo;s potentially 500 database queries per feed load. Unacceptable latency.</p>
+
+<p><strong>Option 2: Push Model (Fan-out on Write)</strong></p>
+
+<p>When a new post is created:</p>
+
+<ol>
+<li>Find all subscribers of that subreddit</li>
+<li>Insert the post ID into each subscriber&rsquo;s &ldquo;feed queue&rdquo;</li>
+</ol>
+
+
+<p>When a user loads their feed, just read from their pre-built queue.</p>
+
+<p><strong>Pros:</strong> Feed reads are O(1) — just fetch from the user&rsquo;s queue.</p>
+
+<p><strong>Cons:</strong> Writing a post to r/AskReddit (30M+ subscribers) means 30 million writes. Fan-out on write is a nightmare for large subreddits.</p>
+
+<a name="Reddit-27-s-Hybrid-Approach"></a>
+<h3>Reddit&rsquo;s Hybrid Approach</h3>
+
+<p>Reddit (like most platforms at this scale) uses a <strong>hybrid model:</strong></p>
+
+<ul>
+<li>For <strong>small subreddits</strong> (&lt; X subscribers): Fan-out on write. When a post is created, push it to all subscriber feeds.</li>
+<li>For <strong>large subreddits</strong> (> X subscribers, like r/funny or r/worldnews): Pull model at read time. These posts are fetched separately and merged into the feed.</li>
+<li>User feeds are <strong>cached in Redis</strong> with a short TTL (a few minutes). Stale feeds are invalidated and rebuilt on the next load.</li>
+</ul>
+
+
+<div class="mermaid">
+flowchart TB;
+
+A[User Request] &#8211;> B;
+B{Cache Check Redis};
+
+B &#8211;>|HIT sub-10ms| C[Return Cached Feed];
+B &#8211;>|MISS| D[Build Feed];
+
+D &#8211;> E[Fetch Followed Subreddits Redis Set];
+E &#8211;> F[Small Subs Prebuilt Feed Queue];
+E &#8211;> G[Large Subs Top Posts Directly];
+
+F &#8211;> H[Merge and Rank];
+G &#8211;> H;
+
+H &#8211;> I[Write to Cache TTL 5-10 min];
+I &#8211;> J[Return to User];
+
+</div>
+
+
+<a name="Personalization"></a>
+<h3>Personalization</h3>
+
+<p>Reddit also personalizes feeds based on:</p>
+
+<ul>
+<li>Your <strong>vote history</strong> (if you consistently upvote posts in r/golang, more Go content bubbles up)</li>
+<li><strong>Time of day</strong> (people consume different content at night vs. morning)</li>
+<li><strong>Flagged preferences</strong> (you can mark certain flairs to filter out)</li>
+</ul>
+
+
+<p>This personalization layer sits on top of the base ranked feed and re-scores posts before returning results.</p>
+
+<a name="Caching--26-amp-3b--Performance"></a>
+<h2>Caching &amp; Performance</h2>
+
+<p>Reddit is <strong>read-heavy by a wide margin.</strong> For every 1 person posting, thousands are reading. Every caching decision should optimize for read performance.</p>
+
+<a name="Redis-for-Hot-Data"></a>
+<h3>Redis for Hot Data</h3>
+
+<p>Redis is used everywhere:</p>
+
+<ul>
+<li><strong>Session storage</strong> — JWT → session data lookup</li>
+<li><strong>Vote counts</strong> — current score of a post/comment</li>
+<li><strong>Subscriber counts</strong> — number of members in a subreddit</li>
+<li><strong>Comment trees</strong> — fully assembled JSON trees for hot posts</li>
+<li><strong>User feeds</strong> — pre-built feed lists with TTL</li>
+<li><strong>Rate limiting</strong> — sliding window counters to throttle API abuse</li>
+</ul>
+
+
+<div class="mermaid">
+flowchart TB;
+
+%% Nodes
+A[user:user_id:subscriptions SET of subreddit IDs];
+B[post:post_id:score STRING integer score];
+C[post:post_id:comments JSON comment tree];
+D[feed:user_id:home LIST of post IDs];
+E[subreddit:sub_id:hot_posts ZSET sorted by score];
+F[ratelimit:user_id:endpoint STRING counter];
+
+%% Grouping
+subgraph UserData
+A;
+D;
+F;
+end;
+
+subgraph PostData
+B;
+C;
+end;
+
+subgraph SubredditData
+E;
+end;
+
+</div>
+
+
+<a name="CDN-for-Static-Content"></a>
+<h3>CDN for Static Content</h3>
+
+<p>All images, videos, and static assets go through a CDN (Reddit uses Fastly). This means:</p>
+
+<ul>
+<li>User-uploaded images are stored in S3</li>
+<li>Served through CDN edge servers globally</li>
+<li>Cache headers are set aggressively for immutable content</li>
+</ul>
+
+
+<a name="Read-Replicas"></a>
+<h3>Read Replicas</h3>
+
+<p>For database reads, Reddit routes traffic to <strong>read replicas</strong> of PostgreSQL. Writes go to the primary, reads are distributed across multiple replicas. This multiplies read capacity without increasing write complexity.</p>
+
+<a name="Approximate-Counts"></a>
+<h3>Approximate Counts</h3>
+
+<p>Displaying exact vote counts requires precise aggregation. Instead, Reddit uses <strong>approximate counting</strong> with HyperLogLog or similar probabilistic data structures. This trades a tiny margin of error for enormous performance gains on high-cardinality counts.</p>
+
+<a name="Scaling-the-System"></a>
+<h2>Scaling the System</h2>
+
+<a name="How-Reddit-Scaled-Over-Time"></a>
+<h3>How Reddit Scaled Over Time</h3>
+
+<p>Reddit started as a <strong>Python monolith</strong> in 2005. As traffic grew, they hit walls repeatedly. Here&rsquo;s roughly how the evolution went:</p>
+
+<ol>
+<li><strong>Vertical scaling</strong> — bigger servers. Temporary fix.</li>
+<li><strong>Read replicas</strong> — separated reads from writes.</li>
+<li><strong>Caching (Memcached, then Redis)</strong> — kept hot data in memory.</li>
+<li><strong>Service extraction</strong> — broke out search, media, etc. into separate services.</li>
+<li><strong>Full microservices</strong> — by the early 2020s, most features run as independent services.</li>
+</ol>
+
+
+<a name="Horizontal-Scaling"></a>
+<h3>Horizontal Scaling</h3>
+
+<p>Every service is stateless — no local state is stored on the server. All state lives in Redis, Postgres, or Kafka. This means you can add more instances of any service behind the load balancer without coordination.</p>
+
+<div class="mermaid">
+flowchart TB;
+
+%% Nodes
+A[Load Balancer];
+B[Post Service Instance 1];
+C[Post Service Instance 2];
+D[Post Service Instance 3];
+E[Post Service Instance N];
+
+%% Connections
+A &#8211;> B;
+A &#8211;> C;
+A &#8211;> D;
+A &#8211;> E;
+
+</div>
+
+
+<p>Auto-scaling groups (in AWS or GCP) spin up new instances under load and tear them down when traffic subsides.</p>
+
+<a name="Kafka-as-the-Backbone"></a>
+<h3>Kafka as the Backbone</h3>
+
+<p>Kafka is used for <strong>event-driven communication</strong> between services. Instead of Service A calling Service B directly (synchronous, tightly coupled), Service A publishes an event and Service B (or C, D, E) can consume it independently.</p>
+
+<p>Real-world event topics in Reddit&rsquo;s system might look like:</p>
+
+<div class="mermaid">
+flowchart TB;
+
+%% Topics
+T1[posts.created];
+T2[comments.created];
+T3[votes.cast];
+T4[users.banned];
+T5[reports.filed];
+
+%% Consumers
+A[Search Indexer];
+B[Feed Service];
+C[Notification Service];
+D[Moderation Queue];
+E[Vote Aggregator];
+F[Ranking Service];
+G[Content Visibility Service];
+H[Auth Service];
+
+%% Connections
+T1 &#8211;> A;
+T1 &#8211;> B;
+T1 &#8211;> C;
+
+T2 &#8211;> C;
+T2 &#8211;> B;
+T2 &#8211;> D;
+
+T3 &#8211;> E;
+T3 &#8211;> F;
+
+T4 &#8211;> G;
+T4 &#8211;> H;
+
+T5 &#8211;> D;
+
+</div>
+
+
+<p>This design makes the system <strong>fault-tolerant</strong> — if the notification service goes down, events pile up in Kafka and are processed when the service recovers. Nothing is lost.</p>
+
+<a name="Database-Sharding"></a>
+<h3>Database Sharding</h3>
+
+<p>For tables that grow extremely large (like <code>votes</code> or <code>comments</code>), you can <strong>shard</strong> the data. Sharding means splitting a table across multiple database instances based on some key (often user ID or post ID).</p>
+
+<p>For example, vote records can be sharded by <code>post_id % N</code> where N is the number of shards. All votes for a given post live on the same shard, making aggregation fast.</p>
+
+<a name="Real-2d-Time-Features"></a>
+<h2>Real-Time Features</h2>
+
+<a name="Live-Comment-Updates"></a>
+<h3>Live Comment Updates</h3>
+
+<p>When you&rsquo;re reading a popular post, new comments sometimes appear without you refreshing. This is done via <strong>WebSockets</strong>.</p>
+
+<p>Flow:</p>
+
+<ol>
+<li>Browser opens a WebSocket connection to Reddit&rsquo;s real-time service when viewing a post</li>
+<li>When a new comment is submitted, it&rsquo;s published to Kafka</li>
+<li>The real-time service consumes from Kafka and pushes the new comment to all WebSocket clients subscribed to that post ID</li>
+</ol>
+
+
+<div class="mermaid">
+flowchart TB;
+
+%% Nodes
+A[Comment Service];
+B[comments.created Topic];
+C[Kafka Consumer];
+D[Real-time Service];
+E[Client Web App];
+F[WebSocket Connection];
+
+%% Forward Flow
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+
+%% Real-time Push (reverse direction concept)
+D &#8211;> F;
+F &#8211;> E;
+
+</div>
+
+
+<p>For lower-priority updates (like notification badges), Reddit may fall back to <strong>Server-Sent Events (SSE)</strong> or even <strong>long polling</strong> — simpler, lower overhead alternatives to WebSockets.</p>
+
+<a name="Push-Notifications"></a>
+<h3>Push Notifications</h3>
+
+<p>Mobile notifications go through platform-specific push systems:</p>
+
+<ul>
+<li><strong>Apple Push Notification Service (APNs)</strong> for iOS</li>
+<li><strong>Firebase Cloud Messaging (FCM)</strong> for Android</li>
+</ul>
+
+
+<p>Reddit&rsquo;s notification service formats the notification payload and sends it to the appropriate push gateway based on the user&rsquo;s device type.</p>
+
+<a name="The-Ranking-Algorithm"></a>
+<h2>The Ranking Algorithm</h2>
+
+<p>Reddit&rsquo;s ranking algorithm is what makes the front page feel useful rather than just chronological. Let&rsquo;s break it down.</p>
+
+<a name="The--22-Hot-22--Algorithm"></a>
+<h3>The &ldquo;Hot&rdquo; Algorithm</h3>
+
+<p>Reddit&rsquo;s hot ranking is based on a formula originally developed by Randall Munroe (yes, the xkcd guy). Here&rsquo;s a simplified version:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">import</span> <span class="nn">math</span>
+</span><span class='line'><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">EPOCH</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">epoch_seconds</span><span class="p">(</span><span class="n">date</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">td</span> <span class="o">=</span> <span class="n">date</span> <span class="o">-</span> <span class="n">EPOCH</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">td</span><span class="o">.</span><span class="n">days</span> <span class="o">*</span> <span class="mi">86400</span> <span class="o">+</span> <span class="n">td</span><span class="o">.</span><span class="n">seconds</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">score</span><span class="p">(</span><span class="n">ups</span><span class="p">,</span> <span class="n">downs</span><span class="p">):</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">ups</span> <span class="o">-</span> <span class="n">downs</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">hot</span><span class="p">(</span><span class="n">ups</span><span class="p">,</span> <span class="n">downs</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">s</span> <span class="o">=</span> <span class="n">score</span><span class="p">(</span><span class="n">ups</span><span class="p">,</span> <span class="n">downs</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">order</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">10</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">sign</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">s</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">seconds</span> <span class="o">=</span> <span class="n">epoch_seconds</span><span class="p">(</span><span class="n">date</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1134028003</span>  <span class="c"># Reddit&#39;s epoch</span>
+</span><span class='line'>    <span class="k">return</span> <span class="nb">round</span><span class="p">(</span><span class="n">sign</span> <span class="o">*</span> <span class="n">order</span> <span class="o">+</span> <span class="n">seconds</span> <span class="o">/</span> <span class="mi">45000</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+</span></code></pre></div></figure>
+
+
+<p>The key insight is this: <strong>the ranking combines score with time</strong>, and <strong>time decays the score</strong>. A post with 1,000 upvotes an hour ago beats a post with 10,000 upvotes from yesterday. The <code>45000</code> constant controls how fast posts decay — roughly every 12.5 hours, a post needs 10x more votes to stay at the same rank.</p>
+
+<a name="Other-Sort-Modes"></a>
+<h3>Other Sort Modes</h3>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Mode</th>
+        <th>Logic</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>New</strong></td>
+        <td>Simple chronological sort by <code>created_at DESC</code></td>
+      </tr>
+      <tr>
+        <td><strong>Top</strong></td>
+        <td>Sort by raw score (upvotes - downvotes) within a time window</td>
+      </tr>
+      <tr>
+        <td><strong>Controversial</strong></td>
+        <td>High votes but nearly equal upvotes and downvotes</td>
+      </tr>
+      <tr>
+        <td><strong>Rising</strong></td>
+        <td>Posts gaining velocity quickly — score increasing faster than expected</td>
+      </tr>
+      <tr>
+        <td><strong>Best</strong></td>
+        <td>Wilson score interval — accounts for post age and vote confidence</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Controversial</strong> posts are particularly interesting. The formula roughly computes posts where the ratio of upvotes to total votes is close to 0.5, and the total vote count is high:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="k">def</span> <span class="nf">controversial</span><span class="p">(</span><span class="n">ups</span><span class="p">,</span> <span class="n">downs</span><span class="p">):</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">ups</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">downs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="mi">0</span>
+</span><span class='line'>    <span class="n">magnitude</span> <span class="o">=</span> <span class="n">ups</span> <span class="o">+</span> <span class="n">downs</span>
+</span><span class='line'>    <span class="n">balance</span> <span class="o">=</span> <span class="n">downs</span> <span class="o">/</span> <span class="n">ups</span> <span class="k">if</span> <span class="n">ups</span> <span class="o">&gt;</span> <span class="n">downs</span> <span class="k">else</span> <span class="n">ups</span> <span class="o">/</span> <span class="n">downs</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">magnitude</span> <span class="o">**</span> <span class="n">balance</span>
+</span></code></pre></div></figure>
+
+
+<p>The higher the magnitude and the closer to 50/50 the split, the higher the controversial score.</p>
+
+<a name="Challenges--26-amp-3b--Tradeoffs"></a>
+<h2>Challenges &amp; Tradeoffs</h2>
+
+<a name="L1.-Consistency-vs.-Availability"></a>
+<h3>1. Consistency vs. Availability</h3>
+
+<p>When you upvote a post, you don&rsquo;t get an error — you get an optimistic UI update. But behind the scenes, that vote might take a few seconds to fully propagate. Reddit chooses <strong>availability over strict consistency</strong> for votes (following the CAP theorem, when you&rsquo;re distributed, you pick two of three: Consistency, Availability, Partition Tolerance).</p>
+
+<p>For things like bans and moderation actions, however, Reddit needs <strong>stronger consistency</strong> — you don&rsquo;t want a banned user to keep posting because one replica didn&rsquo;t get the update. This is why different parts of the system use different consistency models.</p>
+
+<a name="L2.-Spam--26-amp-3b--Vote-Manipulation"></a>
+<h3>2. Spam &amp; Vote Manipulation</h3>
+
+<p>Vote manipulation is a constant battle. Bad actors create armies of accounts to upvote their own posts or downvote competitors. Reddit counters this with:</p>
+
+<ul>
+<li><strong>IP-based rate limiting</strong> on vote actions</li>
+<li><strong>ML models</strong> trained to detect coordinated voting patterns</li>
+<li><strong>Vote fuzzing</strong> — slightly obscuring the exact vote count makes it harder to confirm if manipulation is working</li>
+<li><strong>Account age and karma requirements</strong> — new or low-karma accounts have their votes weighted less</li>
+</ul>
+
+
+<a name="L3.-Moderation-at-Scale"></a>
+<h3>3. Moderation at Scale</h3>
+
+<p>Reddit has ~100,000 subreddits, each moderated by volunteers. The quality and consistency of moderation varies wildly. Reddit&rsquo;s technical approach includes:</p>
+
+<ul>
+<li>AutoModerator (rules engine built on YAML configs)</li>
+<li>Site-wide spam detection feeding into mod queues</li>
+<li>Quarantine system for problematic communities</li>
+<li>Improved reporting UX to surface actionable reports</li>
+</ul>
+
+
+<p>The challenge isn&rsquo;t the technology — it&rsquo;s the <strong>policy and human coordination</strong> at scale.</p>
+
+<a name="L4.-The-Thundering-Herd"></a>
+<h3>4. The Thundering Herd</h3>
+
+<p>When a mega-popular post goes viral, suddenly millions of people request the same resource simultaneously. A <strong>cache miss</strong> on that resource causes every request to hit the database — causing what&rsquo;s known as the &ldquo;thundering herd&rdquo; problem.</p>
+
+<p>Mitigation strategies:</p>
+
+<ul>
+<li><strong>Cache locking:</strong> Only one request rebuilds the cache; others wait briefly</li>
+<li><strong>Short TTLs with background refresh:</strong> Cache is refreshed before expiry in background, so users never hit a cold cache</li>
+<li><strong>Request coalescing:</strong> Multiple identical requests in-flight are coalesced into one database query</li>
+</ul>
+
+
+<a name="L5.-Cold-Start-for-New-Users"></a>
+<h3>5. Cold Start for New Users</h3>
+
+<p>New users have no history. Their feeds are empty. Reddit handles this with:</p>
+
+<ul>
+<li>Default subscriptions to popular subreddits (r/announcements, r/popular)</li>
+<li>Onboarding flow that asks for interests</li>
+<li>Trending/popular content as fallback when personalized feed is sparse</li>
+</ul>
+
+
+<a name="System-Design-Interview-Tips"></a>
+<h2>System Design Interview Tips</h2>
+
+<p>If you&rsquo;re asked to design Reddit in an interview, here&rsquo;s how I&rsquo;d approach it:</p>
+
+<a name="Step-1:-Clarify-Requirements--28-5-minutes-29-"></a>
+<h3>Step 1: Clarify Requirements (5 minutes)</h3>
+
+<p>Don&rsquo;t start coding or drawing. Ask:</p>
+
+<ul>
+<li>&ldquo;Are we focusing on the feed? Post creation? Voting?&rdquo;</li>
+<li>&ldquo;What&rsquo;s the scale? 1M users? 100M?&rdquo;</li>
+<li>&ldquo;Should we handle real-time features like live comment updates?&rdquo;</li>
+<li>&ldquo;Is media upload in scope?&rdquo;</li>
+</ul>
+
+
+<p>Interviewers reward candidates who <strong>scope properly</strong> before diving in.</p>
+
+<a name="Step-2:-Estimate-Scale--28-5-minutes-29-"></a>
+<h3>Step 2: Estimate Scale (5 minutes)</h3>
+
+<p>Do quick back-of-envelope math:</p>
+
+<div class="mermaid">
+flowchart TB;
+
+%% Assumptions
+subgraph Assumptions
+A[500M daily active users];
+B[Avg 20 posts per user per day];
+C[10 percent users create content];
+D[50M actions per day];
+end;
+
+%% Traffic
+subgraph Traffic
+E[Read QPS about 115k per sec];
+F[Write QPS about 580 per sec];
+end;
+
+%% Storage
+subgraph Storage
+G[1M posts per day];
+H[1.8B posts over 5 years];
+I[2KB per post];
+J[Approx 3.6 TB total storage];
+end;
+
+%% Logical Flow
+A &#8211;> B;
+A &#8211;> C;
+C &#8211;> D;
+
+B &#8211;> E;
+D &#8211;> F;
+
+G &#8211;> H;
+H &#8211;> J;
+I &#8211;> J;
+
+</div>
+
+
+<p>This math tells you: this is a <strong>read-heavy system</strong> that needs aggressive caching.</p>
+
+<a name="Step-3:-High-2d-Level-Design--28-10-minutes-29-"></a>
+<h3>Step 3: High-Level Design (10 minutes)</h3>
+
+<p>Draw the big boxes: client → CDN → load balancer → services → databases. Don&rsquo;t get lost in details yet. Make sure your interviewer nods along.</p>
+
+<a name="Step-4:-Deep-Dive--28-15-2d-20-minutes-29-"></a>
+<h3>Step 4: Deep Dive (15-20 minutes)</h3>
+
+<p>Pick 2-3 components and go deep. The interviewer will often guide you. Good candidates for deep dives:</p>
+
+<ul>
+<li><strong>Feed generation</strong> (pull vs. push vs. hybrid)</li>
+<li><strong>Voting system</strong> (write-heavy, eventual consistency)</li>
+<li><strong>Comment tree storage and retrieval</strong></li>
+<li><strong>Ranking algorithm</strong></li>
+</ul>
+
+
+<a name="Step-5:-Address-Non-2d-Functional-Requirements"></a>
+<h3>Step 5: Address Non-Functional Requirements</h3>
+
+<p>Always cover:</p>
+
+<ul>
+<li><strong>Scalability</strong>: How does it handle 10x traffic?</li>
+<li><strong>Availability</strong>: What happens if one service goes down?</li>
+<li><strong>Consistency</strong>: Where do you accept eventual consistency?</li>
+<li><strong>Performance</strong>: What are your p99 latency targets?</li>
+</ul>
+
+
+<a name="Common-Mistakes-to-Avoid"></a>
+<h3>Common Mistakes to Avoid</h3>
+
+<ul>
+<li><strong>Jumping straight to microservices</strong> without justification. Start with a sensible monolith, then explain where you&rsquo;d split.</li>
+<li><strong>Ignoring caching</strong> in a read-heavy system. This is a red flag.</li>
+<li><strong>Using a single database</strong> for everything. Show awareness of different workload patterns.</li>
+<li><strong>Forgetting about failures.</strong> What if Kafka goes down? What if a cache goes cold? Good engineers design for failure.</li>
+</ul>
+
+
+<a name="Final-Thoughts"></a>
+<h2>Final Thoughts</h2>
+
+<p>The best part about learning from real systems like Reddit is that the solutions aren&rsquo;t magic. Every design choice is a tradeoff — consistency vs. speed, simplicity vs. scale, real-time vs. eventual consistency. The job of a good engineer isn&rsquo;t to find the &ldquo;right&rdquo; answer — it&rsquo;s to understand the tradeoffs and pick the one that fits the problem.</p>
+
+<p>Next time you&rsquo;re scrolling through Reddit at midnight, remember: somewhere, a Kafka consumer is chugging through vote events, a Redis sorted set is keeping your feed in order, and a Python service is running Wilson score calculations on millions of posts. All so you can find out whether cats or dogs are better.</p>
+
+<p><em>Thanks for reading. If this was helpful, share it with someone preparing for their next system design interview. And if you have corrections or additions, I&rsquo;d genuinely love to hear them.</em></p>
+
+<a name="Further-Reading"></a>
+<h3>Further Reading</h3>
+
+<ul>
+<li><a href="https://www.reddit.com/r/RedditEng/">Reddit&rsquo;s Engineering Blog</a></li>
+<li><a href="https://www.evanmiller.org/how-not-to-sort-by-average-rating.html">Evan Miller&rsquo;s &ldquo;How Not To Sort By Average Rating&rdquo;</a> — explains the Wilson score</li>
+<li><a href="https://dataintensive.net/">Designing Data-Intensive Applications</a> by Martin Kleppmann — required reading for any engineer working at scale</li>
+<li><a href="https://github.com/reddit-archive/reddit">The original Reddit source code (2008)</a> — worth a look if you want to see where it all started</li>
+</ul>
+
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How WhatsApp Works?]]></title>
@@ -5051,418 +6144,6 @@ that power cloud computing, web services, and data-intensive applications. In th
 <h2>Conclusion</h2>
 
 <p>The AI revolution, driven by hyperscalers like Microsoft, Google, Meta, Amazon, and OpenAI, is pushing energy demands to unprecedented levels, with current U.S. data center consumption at 4.4% of national electricity and projected to reach 11-12% by 2030. Schmidt’s estimate of an additional 92 GW by 2035 underscores the scale of the challenge, requiring investments in renewables, nuclear power, and grid upgrades. While innovations in efficiency and flexible grid management offer hope, the risk of cost increases, environmental impacts, and geopolitical shifts looms large. To maintain AI leadership and sustainability, the U.S. must prioritize energy infrastructure development, transparency, and strategic policy interventions to balance growth with environmental and economic stability.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[From Text to Tokens: The Complete Guide to Tokenization in LLMs]]></title>
-        <link href="https://rishijeet.github.io/blog/from-text-to-tokens-the-complete-guide-to-tokenization-in-llms/"/>
-        <updated>2025-06-28T08:55:51+05:30</updated>
-        <id>https://rishijeet.github.io/blog/from-text-to-tokens-the-complete-guide-to-tokenization-in-llms</id>
-        <content type="html"><![CDATA[<p>In the ever-evolving field of artificial intelligence, large language models (LLMs) like GPT-4, Claude, Gemini, and LLaMA have reshaped how machines understand and generate human language. Behind the impressive capabilities of these models lies a deceptively simple but foundational step: <strong>tokenization</strong>.</p>
-
-<p>In this blog, we will dive deep into the concept of tokenization, understand its types, why it&rsquo;s needed, the challenges it solves, how it works under the hood, and where it’s headed in the future. This is a one-stop technical deep-dive for anyone looking to fully grasp the backbone of language understanding in LLMs.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-What-is-Tokenization-3f--3c--2f-strong-3e-"></a>
-<h2><strong>What is Tokenization?</strong></h2>
-
-<p>At its core, tokenization is the process of converting raw text into smaller units called <strong>tokens</strong> that a language model can understand and process. These tokens can be:</p>
-
-<ul>
-<li>Characters</li>
-<li>Words</li>
-<li>Subwords</li>
-<li>Byte-pair sequences</li>
-<li>WordPieces</li>
-<li>SentencePieces</li>
-<li>Byte-level representations</li>
-</ul>
-
-
-<p>Each model has its own strategy, depending on design goals like efficiency, vocabulary size, multilingual handling, and memory constraints.</p>
-
-<!--more-->
-
-
-<p>For example, the sentence:</p>
-
-<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>"Tokenization is crucial for LLMs."</span></code></pre></div></figure>
-
-
-<p>May be tokenized as:</p>
-
-<ul>
-<li>Word-level: <code>["Tokenization", "is", "crucial", "for", "LLMs", "."]</code></li>
-<li>Character-level: <code>["T", "o", "k", ..., "L", "L", "M", "s", "."]</code></li>
-<li>Subword (BPE): <code>["Token", "ization", "is", "cru", "cial", "for", "LL", "Ms", "."]</code></li>
-</ul>
-
-
-<a name="Tokens"></a>
-<h4>Tokens</h4>
-
-<p><img src="https://rishijeet.github.io/images/2025/token.png" height="300" width="900" alt="Alt text" /></p>
-
-<a name="Token-IDs"></a>
-<h4>Token IDs</h4>
-
-<p><img src="https://rishijeet.github.io/images/2025/tokenid.png" height="300" width="900" alt="Alt text" /></p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Why-Tokenization-is-Needed-in-LLMs-3c--2f-strong-3e-"></a>
-<h2><strong>Why Tokenization is Needed in LLMs</strong></h2>
-
-<p>Language models operate over numbers (tensors), not raw strings. Before any neural network processes your prompt, the words must be:</p>
-
-<ol>
-<li><strong>Split into atomic units (tokens)</strong></li>
-<li><strong>Mapped to numerical IDs (vocabulary embedding)</strong></li>
-<li><strong>Fed into the model as vectors</strong></li>
-</ol>
-
-
-<p>Without tokenization:</p>
-
-<ul>
-<li>Models would struggle with infinite vocabulary.</li>
-<li>Multilingual text and compound words would explode the vocabulary.</li>
-<li>There would be no efficient way to control sequence length or positional encoding.</li>
-</ul>
-
-
-<hr />
-
-<a name="L-3c-strong-3e-Types-of-Tokenization-Strategies-3c--2f-strong-3e-"></a>
-<h2><strong>Types of Tokenization Strategies</strong></h2>
-
-<a name="L-3c-strong-3e-Word-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Word-Level Tokenization</strong></h3>
-
-<p>Each word is a token. Simple but inefficient for:</p>
-
-<ul>
-<li>Unknown words (out-of-vocabulary issues)</li>
-<li>Morphologically rich languages</li>
-<li>Compound words</li>
-</ul>
-
-
-<p><strong>Example:</strong>
-&ldquo;unhappiness&rdquo; → 1 token → [“unhappiness”]
-If unseen during training, this is a problem.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Character-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Character-Level Tokenization</strong></h3>
-
-<p>Each character is a token. Solves OOV issues but leads to longer sequences and loss of semantic granularity.</p>
-
-<p><strong>Example:</strong>
-&ldquo;unhappiness&rdquo; → [“u”, “n”, “h”, “a”, “p”, …]</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Subword-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Subword Tokenization</strong></h3>
-
-<p>Breaks words into frequent subword units using statistical techniques like:</p>
-
-<ul>
-<li><strong>Byte Pair Encoding (BPE)</strong> – used by GPT-2, GPT-3</li>
-<li><strong>WordPiece</strong> – used by BERT</li>
-<li><strong>Unigram Language Model</strong> – used by SentencePiece (T5, LLaMA)</li>
-</ul>
-
-
-<p><strong>Example (BPE):</strong>
-&ldquo;unhappiness&rdquo; → [“un”, “happi”, “ness”]</p>
-
-<p><strong>Benefits:</strong></p>
-
-<ul>
-<li>Handles unknown words gracefully</li>
-<li>Reduces vocabulary size</li>
-<li>Efficient for multilingual models</li>
-</ul>
-
-
-<hr />
-
-<a name="L-3c-strong-3e-Byte-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Byte-Level Tokenization</strong></h3>
-
-<p>Tokenizes text at the byte level, including UTF-8 encodings.</p>
-
-<p>Used by models like GPT-3.5/4 to handle raw binary inputs and emojis robustly.</p>
-
-<p><strong>Example:</strong>
-“🔥” → byte sequence → [240, 159, 148, 165]</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-SentencePiece-3c--2f-strong-3e-"></a>
-<h3><strong>SentencePiece</strong></h3>
-
-<p>A library that trains subword models using BPE or Unigram LM on raw text. Used in multilingual LLMs like T5, mT5.</p>
-
-<p>It allows training on raw text without pre-tokenization (no need for whitespace-based splitting).</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-How-Tokenization-Works:-Under-the-Hood-3c--2f-strong-3e-"></a>
-<h2><strong>How Tokenization Works: Under the Hood</strong></h2>
-
-<a name="L-3c-strong-3e-Training-a-Tokenizer-3c--2f-strong-3e-"></a>
-<h3><strong>Training a Tokenizer</strong></h3>
-
-<p>During tokenizer training, the process involves:</p>
-
-<ul>
-<li>Reading a large corpus</li>
-<li>Building frequency tables of substrings</li>
-<li>Iteratively merging the most frequent substrings</li>
-<li>Forming a vocabulary of tokens</li>
-<li>Saving a tokenizer model (vocab + merge rules)</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Encoding-3c--2f-strong-3e-"></a>
-<h3><strong>Encoding</strong></h3>
-
-<p>At inference or training:</p>
-
-<ul>
-<li>Input string → split into substrings based on learned merges</li>
-<li>Tokens → mapped to numerical IDs via the vocabulary</li>
-</ul>
-
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">GPT2Tokenizer</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">GPT2Tokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s">&quot;gpt2&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="n">tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="s">&quot;Tokenization is powerful.&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
-</span><span class='line'><span class="c"># Output: [&#39;Token&#39;, &#39;ization&#39;, &#39;Ġis&#39;, &#39;Ġpowerful&#39;, &#39;.&#39;]</span>
-</span></code></pre></div></figure>
-
-
-<p><code>Ġ</code> indicates a space in GPT-2 tokenizers.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Tokenization-and-Model-Limits-3c--2f-strong-3e-"></a>
-<h2><strong>Tokenization and Model Limits</strong></h2>
-
-<p>Most LLMs have a context window defined in <strong>tokens</strong>, not characters. For instance:</p>
-
-<ul>
-<li>GPT-3.5: 4,096 tokens</li>
-<li>GPT-4 (o4): 128,000 tokens</li>
-<li>Claude 3 Opus: \~200,000 tokens</li>
-</ul>
-
-
-<p>So, 1000 words of English ≈ 750 tokens.</p>
-
-<p>This is crucial for prompt design, summarization, RAG (Retrieval Augmented Generation), and efficient inference.</p>
-
-<a name="L-3c-strong-3e-Challenges-and-Trade-2d-offs-3c--2f-strong-3e-"></a>
-<h2><strong>Challenges and Trade-offs</strong></h2>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Challenge</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>OOV (Out-of-Vocabulary)</td>
-        <td>Especially for word-level tokenization</td>
-      </tr>
-      <tr>
-        <td>Token inflation</td>
-        <td>Some languages (e.g., Chinese, Japanese) produce more tokens</td>
-      </tr>
-      <tr>
-        <td>Inconsistency</td>
-        <td>Subword boundaries may not align with morphemes</td>
-      </tr>
-      <tr>
-        <td>Efficiency vs Accuracy</td>
-        <td>Smaller tokens = longer sequences = more compute</td>
-      </tr>
-      <tr>
-        <td>Encoding Bias</td>
-        <td>Tokenizers trained on certain scripts or corpora may underperform on others</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="L-3c-strong-3e-Tokenization-in-Multilingual-and-Code-Models-3c--2f-strong-3e-"></a>
-<h2><strong>Tokenization in Multilingual and Code Models</strong></h2>
-
-<a name="L-3c-strong-3e-Multilingual-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Multilingual Tokenization</strong></h3>
-
-<ul>
-<li>Unicode-aware models must handle multiple scripts (Latin, Devanagari, Arabic, etc.)</li>
-<li>Token inflation can disadvantage languages like Hindi and Tamil</li>
-<li>SentencePiece helps standardize across languages</li>
-</ul>
-
-
-<a name="L-3c-strong-3e-Code-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Code Tokenization</strong></h3>
-
-<ul>
-<li>Code models (e.g., Codex, CodeBERT) often use language-specific tokenizers</li>
-<li>Must preserve syntax, spacing, indentation, and even comments</li>
-</ul>
-
-
-<p>Example:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="k">def</span> <span class="nf">say_hello</span><span class="p">():</span>
-</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Hello&quot;</span><span class="p">)</span>
-</span></code></pre></div></figure>
-
-
-<p>→ <code>[‘def’, ‘Ġsay’, ‘_’, ‘hello’, ‘()’, ‘:’, ‘Ġ’, ‘print’, ‘(”, ‘Hello’, ‘”)’]</code></p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Compression-2c--Prompt-Engineering-2c--and-Token-Optimization-3c--2f-strong-3e-"></a>
-<h2><strong>Compression, Prompt Engineering, and Token Optimization</strong></h2>
-
-<p>Tokenization also directly affects:</p>
-
-<ul>
-<li><strong>Prompt length limits</strong> (compressed prompts → more room for data)</li>
-<li><strong>Token cost in inference/billing</strong></li>
-<li><strong>RAG performance</strong> (chunking based on tokens)</li>
-<li><strong>Training data deduplication</strong> (token-based hashing)</li>
-</ul>
-
-
-<p>Optimizing prompts for fewer tokens can reduce cost and latency.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Tokenization-vs.-Embeddings-3c--2f-strong-3e-"></a>
-<h2><strong>Tokenization vs. Embeddings</strong></h2>
-
-<p>It’s important to note:</p>
-
-<ul>
-<li><strong>Tokenization</strong> comes before embedding.</li>
-<li>Token → token ID → embedding vector</li>
-</ul>
-
-
-<p>A poor tokenization scheme = noisy embeddings = reduced model performance.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-The-Future-of-Tokenization-in-LLMs-3c--2f-strong-3e-"></a>
-<h2><strong>The Future of Tokenization in LLMs</strong></h2>
-
-<a name="L-3c-strong-3e-Token-2d-Free-Models-3c--2f-strong-3e-"></a>
-<h3><strong>Token-Free Models</strong></h3>
-
-<p>Efforts like <strong>Charformer</strong> and <strong>Byte-level transformers</strong> aim to bypass static tokenization and learn from raw bytes or characters.</p>
-
-<a name="L-3c-strong-3e-Neural-Tokenization-3c--2f-strong-3e-"></a>
-<h3><strong>Neural Tokenization</strong></h3>
-
-<p>Trainable tokenizers using neural nets to learn optimal segmentation dynamically.</p>
-
-<a name="L-3c-strong-3e-Universal-Tokenizers-3c--2f-strong-3e-"></a>
-<h3><strong>Universal Tokenizers</strong></h3>
-
-<p>Tokenizers trained across modalities (text, image, code) using a common vocabulary to unify multimodal models.</p>
-
-<a name="L-3c-strong-3e-Efficient-Context-Windows-3c--2f-strong-3e-"></a>
-<h3><strong>Efficient Context Windows</strong></h3>
-
-<p>With sliding-window and compression-based methods (e.g., Mamba, Hyena), token overhead may reduce for long contexts.</p>
-
-<hr />
-
-<a name="L-3c-strong-3e-Major-LLMs-and-Their-Tokenization-3c--2f-strong-3e-"></a>
-<h2><strong>Major LLMs and Their Tokenization</strong></h2>
-
-<div class="scrollable-table-container">
-  <h2>Model Tokenizers</h2>
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Model</th>
-        <th>Tokenizer</th>
-        <th>Type</th>
-        <th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>GPT-3/4</td>
-        <td>GPT2Tokenizer</td>
-        <td>BPE + byte</td>
-        <td>Handles Unicode well</td>
-      </tr>
-      <tr>
-        <td>BERT</td>
-        <td>WordPiece</td>
-        <td>Subword</td>
-        <td>Requires pre-tokenization</td>
-      </tr>
-      <tr>
-        <td>RoBERTa</td>
-        <td>BPE (FairSeq)</td>
-        <td>Subword</td>
-        <td>Custom vocabulary</td>
-      </tr>
-      <tr>
-        <td>T5</td>
-        <td>SentencePiece</td>
-        <td>Unigram LM</td>
-        <td>Whitespace-free tokenization</td>
-      </tr>
-      <tr>
-        <td>LLaMA 2/3/4</td>
-        <td>SentencePiece</td>
-        <td>Unigram LM</td>
-        <td>Supports multiple languages</td>
-      </tr>
-      <tr>
-        <td>Claude</td>
-        <td>Byte-level BPE</td>
-        <td>Proprietary</td>
-        <td>Handles emojis and long context</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<hr />
-
-<a name="L-3c-strong-3e-Conclusion-3c--2f-strong-3e-"></a>
-<h2><strong>Conclusion</strong></h2>
-
-<p>Tokenization may appear trivial at first glance, but it&rsquo;s the hidden workhorse powering the language capabilities of every modern LLM. From enabling multilingual understanding to compressing long documents into tight prompts, tokenization determines what the model sees, learns, and generates.</p>
-
-<p>As we step into an era of 1M+ token context windows, modality fusion, and instruction-following agents, tokenization will either evolve or be replaced by more fluid, learned representations.</p>
-
-<p>But for now—and the foreseeable future—it remains a vital piece of the LLM puzzle.</p>
 ]]></content>
     </entry>
     

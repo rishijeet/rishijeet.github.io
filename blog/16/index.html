@@ -86,6 +86,69 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/vmware-player-and-hyper-v-are-not-compatible/">VMware Player and Hyper-V are not compatible</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2015-04-12T11:28:34+05:30" pubdate><i class="fa fa-calendar"></i> Apr 12th, 2015</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/vmware/'>vmware</a></li>
+            
+                <li><a class='category' href='/blog/categories/windows/'>windows</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <p>I run my VMs using vmware player for multiple operating system like Ubuntu, CentOS, Fedora, Suse,
+Mint Linux. One fine day I noticed this error &ldquo;VMware Player and Hyper-V are not compatible&rdquo; from the vmplayer while
+starting Ubuntu. This was bit surprising for me as I had run the same vm couple of times.</p>
+
+<p>I realized that disabling the hyper-V could fix this problem, but I was still curious,
+as of why could this start all of sudden?</p>
+
+
+        <a class="btn pull-right" href="/blog/vmware-player-and-hyper-v-are-not-compatible/">Read on &rarr;</a>
+    </div>
+
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/jekyll-simply-so-simple/">Jekyll Simply So Simple</a>
         </h1>
     
@@ -324,6 +387,37 @@ the epoch time was in milli sec, and I was getting all sort of <code>python Valu
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
 </script>
 
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
