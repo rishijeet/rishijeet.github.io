@@ -103,6 +103,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -111,7 +112,13 @@
 
 
 
-    <a name="The-Insane-Scale-of-WhatsApp"></a>
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
+    <a name="The.Insane.Scale.of.WhatsApp"></a>
 <h2>The Insane Scale of WhatsApp</h2>
 
 <p>Let&rsquo;s start with numbers, because they&rsquo;re genuinely mind-blowing. WhatsApp isn&rsquo;t just a chat app — it&rsquo;s one of the largest distributed systems ever built by humans.</p>
@@ -155,7 +162,7 @@
 
 <blockquote><p><em>&ldquo;WhatsApp is proof that you don&rsquo;t need thousands of engineers to build something used by billions — you need brilliant architecture.&rdquo;</em></p></blockquote>
 
-<a name="Bird-27-s-2d-Eye-Architecture"></a>
+<a name="Bird.s-Eye.Architecture"></a>
 <h2>Bird&rsquo;s-Eye Architecture</h2>
 
 <p>At the highest level, WhatsApp is built around a few key ideas: keep the servers as dumb as possible, push logic to the clients, store as little as possible centrally, and make delivery fast and reliable.</p>
@@ -166,7 +173,7 @@
 
 <p>WhatsApp originally built on <strong>XMPP</strong> (Extensible Messaging and Presence Protocol) — an open standard for real-time messaging. They heavily modified it over the years to fit their scale, but the core idea remains: a protocol designed for real-time, push-based communication.</p>
 
-<a name="The-Journey-of-a-Single-Message"></a>
+<a name="The.Journey.of.a.Single.Message"></a>
 <h2>The Journey of a Single Message</h2>
 
 <p>You tap send. What happens next? Let&rsquo;s trace the path of a single &ldquo;Hey! 👋&rdquo; from your phone to your friend&rsquo;s screen.</p>
@@ -211,14 +218,14 @@
 </ul>
 
 
-<a name="End-2d-to-2d-End-Encryption--e2--80--94--The-Signal-Protocol"></a>
+<a name="End-to-End.Encryption.....The.Signal.Protocol"></a>
 <h2>End-to-End Encryption — The Signal Protocol</h2>
 
 <p>This is one of WhatsApp&rsquo;s most impressive engineering decisions. Every message is end-to-end encrypted, meaning <strong>even WhatsApp cannot read your messages</strong>. Not even if a government asks nicely.</p>
 
 <p>They use the <strong>Signal Protocol</strong> — the same protocol built by Open Whisper Systems. Here&rsquo;s how it works at a conceptual level.</p>
 
-<a name="Key-Exchange--e2--80--94--The-Double-Ratchet-Algorithm"></a>
+<a name="Key.Exchange.....The.Double.Ratchet.Algorithm"></a>
 <h3>Key Exchange — The Double Ratchet Algorithm</h3>
 
 <p>When you first message someone, your apps do a cryptographic handshake — they exchange <strong>public keys</strong> without ever revealing private keys. Think of it like passing padlocks through the mail. Anyone can lock something with your padlock, but only you have the key to open it.</p>
@@ -227,7 +234,7 @@
 
 <blockquote><p><strong>Why this matters for system design:</strong> WhatsApp&rsquo;s servers are essentially routing encrypted blobs they cannot understand. This massively simplifies their legal liability and trust model — they genuinely cannot be a surveillance back-door, because the math makes it impossible.</p></blockquote>
 
-<a name="What-Happens-When-You-27-re-Offline-3f-"></a>
+<a name="What.Happens.When.You.re.Offline."></a>
 <h2>What Happens When You&rsquo;re Offline?</h2>
 
 <p>This is where <strong>message queuing</strong> comes in. If your friend is offline when you send a message, WhatsApp&rsquo;s server holds onto it — encrypted — in a message store.</p>
@@ -236,7 +243,7 @@
 
 <p>One important detail: <strong>WhatsApp only stores messages on their servers until delivery.</strong> Once a message is delivered to your device, it&rsquo;s deleted from the server. Your chat history lives on your phone, not in a central WhatsApp database. This is a deliberate design choice — it&rsquo;s cheaper to store, more private, and reduces liability.</p>
 
-<a name="Push-Notifications"></a>
+<a name="Push.Notifications"></a>
 <h3>Push Notifications</h3>
 
 <p>If your app is killed in the background, WhatsApp uses:
@@ -245,7 +252,7 @@
 
 <p>&hellip;to wake up your app when a message arrives. This is how you see notifications even when the app isn&rsquo;t running.</p>
 
-<a name="How-Media-Works--e2--80--94--Photos-2c--Videos--26-amp-3b--Documents"></a>
+<a name="How.Media.Works.....Photos..Videos..amp..Documents"></a>
 <h2>How Media Works — Photos, Videos &amp; Documents</h2>
 
 <p>Text messages are tiny. A photo is 2–5 MB. A video might be 50 MB. You can&rsquo;t run these through the same messaging pipeline without everything grinding to a halt. So WhatsApp separates the two completely.</p>
@@ -284,7 +291,7 @@
 </ul>
 
 
-<a name="Read-Receipts--26-amp-3b--Presence--e2--80--94--The-Ticks-Explained"></a>
+<a name="Read.Receipts..amp..Presence.....The.Ticks.Explained"></a>
 <h2>Read Receipts &amp; Presence — The Ticks Explained</h2>
 
 <p>The humble tick is one of the most data-efficient features in WhatsApp. Here&rsquo;s what each state actually represents in system terms:</p>
@@ -324,19 +331,19 @@
 </div>
 
 
-<a name="L-22-Last-Seen-22---e2--80--94--How-Presence-Works"></a>
+<a name="L.Last.Seen......How.Presence.Works"></a>
 <h3>&ldquo;Last Seen&rdquo; — How Presence Works</h3>
 
 <p>When you open WhatsApp, your client tells the server you&rsquo;re <strong>online</strong>. When you close it, it sends an offline event with a timestamp. That timestamp becomes your <strong>last seen</strong> time. WhatsApp stores this in a fast in-memory store (like Redis) so it can serve it to your contacts instantly.</p>
 
-<a name="Group-Chats--e2--80--94--The-Fan-2d-Out-Problem"></a>
+<a name="Group.Chats.....The.Fan-Out.Problem"></a>
 <h2>Group Chats — The Fan-Out Problem</h2>
 
 <p>Here&rsquo;s where things get tricky. When you send a message to a group of 256 people, WhatsApp needs to deliver that message to 255 other devices — each with their own encryption key, potentially on different servers, with different online/offline states.</p>
 
 <p>This is called the <strong>fan-out problem</strong>: one message needs to branch out to many recipients.</p>
 
-<a name="WhatsApp-27-s-Solution--e2--80--94--Sender-Key"></a>
+<a name="WhatsApp.s.Solution.....Sender.Key"></a>
 <h3>WhatsApp&rsquo;s Solution — Sender Key</h3>
 
 <p>Instead of encrypting the message separately 255 times (once for each recipient), the sender encrypts the message <strong>once</strong> with a group key. This group key is then distributed to all members using individual encrypted sessions.</p>
@@ -370,12 +377,12 @@
 
 <blockquote><p><strong>Group metadata vs. message content:</strong> Group membership info, admin roles, and settings are stored on WhatsApp&rsquo;s servers. But the actual message content is end-to-end encrypted — the server routes the encrypted blob without reading it.</p></blockquote>
 
-<a name="Why-WhatsApp-Runs-on-Erlang"></a>
+<a name="Why.WhatsApp.Runs.on.Erlang"></a>
 <h2>Why WhatsApp Runs on Erlang</h2>
 
 <p>Most startups reach for Node.js or Go. WhatsApp chose <strong>Erlang</strong> — a 1986 language designed by Ericsson for telecom switches. This sounds like a weird choice until you understand what Erlang was built for: handling millions of concurrent connections with incredibly high reliability.</p>
 
-<a name="What-makes-Erlang-special"></a>
+<a name="What.makes.Erlang.special"></a>
 <h3>What makes Erlang special</h3>
 
 <p><strong>Lightweight processes</strong>
@@ -389,7 +396,7 @@ You can deploy new code to a running Erlang system <strong>without restarting it
 
 <p>The modified Ejabberd XMPP server WhatsApp runs could handle <strong>2 million TCP connections per server</strong> — a number that would make most Java developers weep.</p>
 
-<a name="Key-Takeaways-for-System-Designers"></a>
+<a name="Key.Takeaways.for.System.Designers"></a>
 <h2>Key Takeaways for System Designers</h2>
 
 <p>If you&rsquo;re studying system design or building your own messaging feature, here&rsquo;s what WhatsApp teaches us:</p>
@@ -497,7 +504,68 @@ You can deploy new code to a running Erlang system <strong>without restarting it
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

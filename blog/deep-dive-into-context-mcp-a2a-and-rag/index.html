@@ -111,6 +111,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -118,6 +119,12 @@
 
 
 
+
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
 
     <p>RAG combines retrieval from external sources with LLM generation to produce informed responses. For instance, it
 retrieves documents from a vector store before prompting the model.</p>
@@ -133,7 +140,7 @@ retrieves documents from a vector store before prompting the model.</p>
 <!--more-->
 
 
-<a name="Key-Points"></a>
+<a name="Key.Points"></a>
 <h3>Key Points</h3>
 
 <ul>
@@ -145,7 +152,7 @@ retrieves documents from a vector store before prompting the model.</p>
 </ul>
 
 
-<a name="Key-Differences"></a>
+<a name="Key.Differences"></a>
 <h2>Key Differences</h2>
 
 <div class="scrollable-table-container">
@@ -194,7 +201,7 @@ retrieves documents from a vector store before prompting the model.</p>
 </div>
 
 
-<a name="Python-Code-Examples"></a>
+<a name="Python.Code.Examples"></a>
 <h3>Python Code Examples</h3>
 
 <p>Here&rsquo;s how to implement basic versions of each.</p>
@@ -301,10 +308,10 @@ retrieves documents from a vector store before prompting the model.</p>
 
 <p>In the evolving landscape of AI, techniques like Retrieval-Augmented Generation (RAG), Model Context Protocol (MCP), and Agent-to-Agent (A2A) represent foundational advancements in making large language models (LLMs) more capable, interactive, and collaborative. These methods address key limitations of standalone LLMs, such as outdated knowledge, isolation from tools, and lack of multi-entity coordination. Below, we delve into detailed explanations, architectural insights, comparisons, real-world applications, and implementation guidance, expanding on the core concepts introduced earlier. This comprehensive overview incorporates practical considerations, potential challenges, and synergies among these techniques, drawing from established sources and best practices.</p>
 
-<a name="In-2d-Depth-Explanations-of-Core-Terms"></a>
+<a name="In-Depth.Explanations.of.Core.Terms"></a>
 <h2>In-Depth Explanations of Core Terms</h2>
 
-<a name="Retrieval-2d-Augmented-Generation--28-RAG-29-"></a>
+<a name="Retrieval-Augmented.Generation..RAG."></a>
 <h3>Retrieval-Augmented Generation (RAG)</h3>
 
 <p>RAG is a hybrid approach that combines information retrieval with generative AI to produce more accurate and contextually grounded responses. Introduced as a way to mitigate LLM hallucinations—where models generate plausible but incorrect information—RAG works by first querying an external knowledge base (e.g., a vector database) for relevant documents, then feeding these into the LLM&rsquo;s prompt for generation.</p>
@@ -326,7 +333,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Model-Context-Protocol--28-MCP-29-"></a>
+<a name="Model.Context.Protocol..MCP."></a>
 <h3>Model Context Protocol (MCP)</h3>
 
 <p>MCP is an open-source protocol from Anthropic (released in 2024) designed to standardize how AI agents access external context, including tools, data, and prompts. It acts as a bridge between LLMs and real-world systems, enabling dynamic, secure interactions without custom integrations.</p>
@@ -353,7 +360,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Agent-2d-to-2d-Agent--28-A2A-29-"></a>
+<a name="Agent-to-Agent..A2A."></a>
 <h3>Agent-to-Agent (A2A)</h3>
 
 <p>A2A is Google&rsquo;s 2025 open protocol for enabling AI agents to communicate and collaborate across frameworks and vendors. It treats agents as interoperable services, allowing task delegation in multi-agent systems.</p>
@@ -380,7 +387,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Other-Related-Terms"></a>
+<a name="Other.Related.Terms"></a>
 <h3>Other Related Terms</h3>
 
 <ul>
@@ -390,7 +397,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Detailed-Comparisons-and-Synergies"></a>
+<a name="Detailed.Comparisons.and.Synergies"></a>
 <h2>Detailed Comparisons and Synergies</h2>
 
 <p>While RAG, MCP, and A2A address LLM limitations, they differ in scope and application:</p>
@@ -453,7 +460,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Real-2d-World-Applications-and-Case-Studies"></a>
+<a name="Real-World.Applications.and.Case.Studies"></a>
 <h2>Real-World Applications and Case Studies</h2>
 
 <ul>
@@ -464,7 +471,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Advanced-Implementation-with-Python-Code"></a>
+<a name="Advanced.Implementation.with.Python.Code"></a>
 <h2>Advanced Implementation with Python Code</h2>
 
 <p>Building on basic examples, here&rsquo;s an integrated system using all three.</p>
@@ -509,7 +516,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Potential-Challenges-and-Best-Practices"></a>
+<a name="Potential.Challenges.and.Best.Practices"></a>
 <h2>Potential Challenges and Best Practices</h2>
 
 <ul>
@@ -585,7 +592,68 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

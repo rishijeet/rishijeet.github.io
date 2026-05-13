@@ -113,6 +113,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -120,6 +121,12 @@
 
 
 
+
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
 
     <p>I remember the day our shiny new AI code reviewer went live like it was yesterday. It was a Tuesday in early 2025, and our team at EchoSoft—a mid-sized dev shop cranking out enterprise apps—had just pushed the button on integrating GPT-4o into our GitHub Actions pipeline. We&rsquo;d spent weeks fine-tuning prompts, benchmarking against human reviewers, and celebrating how it slashed review times from hours to minutes. &ldquo;This is it,&rdquo; I told the devs over Slack. &ldquo;No more blocking PRs on nitpicks.&rdquo; We high-fived virtually, popped a bottle of virtual champagne, and watched the first few PRs sail through with glowing approvals.</p>
 
@@ -134,7 +141,7 @@
 
 <p>That night, I couldn&rsquo;t sleep. I fired up my laptop and started digging, not just into our logs, but into the broader mess of AI reliability. What I found was a horror show of uneven performance that made our fiasco feel almost pedestrian.</p>
 
-<a name="Digging-into-the-Dirt:-What-the-Data-Told-Us"></a>
+<a name="Digging.into.the.Dirt:.What.the.Data.Told.Us"></a>
 <h2>Digging into the Dirt: What the Data Told Us</h2>
 
 <p>Monday morning, I rallied the team for an all-hands autopsy. We pulled every PR from the past three months—about 2,300 in total—and ran them through a custom eval script I&rsquo;d hacked together overnight. It cross-referenced AI approvals against human audits and static analyzers like SonarQube. The results? A brutal wake-up.</p>
@@ -163,7 +170,7 @@
 
 <p>The investigation stretched two weeks. We interviewed users (devs griping about &ldquo;ghost suggestions&rdquo;), audited training data (too generic, missing our React-Native stack), and even spun up A/B tests routing half our PRs through the AI, half manual. The verdict? Jaggedness isn&rsquo;t random—it&rsquo;s predictable if you look for bottlenecks like sparse data or over-reliance on autoregression. By week&rsquo;s end, we had a heatmap of failure modes: red blobs on async patterns, crypto, and third-party integrations. It wasn&rsquo;t despair; it was clarity. Time to fix this beast.</p>
 
-<a name="Wrangling-the-Beast:-Building-a-Jagged-2d-Proof-Pipeline"></a>
+<a name="Wrangling.the.Beast:.Building.a.Jagged-Proof.Pipeline"></a>
 <h2>Wrangling the Beast: Building a Jagged-Proof Pipeline</h2>
 
 <p>Sarah greenlit a war chest for the rebuild: $80K budget, two engineers reassigned, and me leading the charge. No more blind faith in black-box APIs. We needed a hybrid system—AI for the grunt work, humans and rules for the sharp edges. The core pivot? Retrieval-Augmented Generation, or RAG, to ground the model&rsquo;s wild guesses in our own knowledge base.</p>
@@ -207,7 +214,7 @@
 
 <p>Rollout was cautious: Canary to 20% of PRs, monitor for a sprint. Bugs? Plenty—like the retriever pulling irrelevant Node.js snippets for our Python monorepo. Fixed with metadata filtering: <code>filter={"language": "python"}</code>. By month two, it was humming.</p>
 
-<a name="The-Smoke-Clears:-Metrics-2c--Mayhem-2c--and-One-Big-Takeaway"></a>
+<a name="The.Smoke.Clears:.Metrics..Mayhem..and.One.Big.Takeaway"></a>
 <h2>The Smoke Clears: Metrics, Mayhem, and One Big Takeaway</h2>
 
 <p>Three months post-rebuild, and the pipeline&rsquo;s a different animal. PR throughput? Up 40%, from 15 to 21 merges per dev per week. Human review tickets? Down 62%, freeing seniors for architecture instead of bike-shedding. On security, the win was stark: Zero hallucinated approvals in 1,200 PRs, versus four breaches (minor, thank god) in the prior quarter. Our custom benchmark—mirroring that Nature study&rsquo;s hallucination gauntlet—clocked the hybrid at 12% error rate, a 70% drop from vanilla GPT. Client satisfaction? Back to 92%, per NPS surveys, and we clawed back that lost account with a demo of the &ldquo;fortified&rdquo; reviewer.</p>
@@ -216,7 +223,7 @@
 
 <p>Looking back, that Tuesday merge wasn&rsquo;t a failure; it was the forge. Jaggedness taught us AI&rsquo;s no panacea—it&rsquo;s a tool with teeth, sharp in spots, dull in others. Like Helen Toner put it, models &ldquo;keep sucking&rdquo; at the weird stuff, and pretending otherwise bites you. Our lesson? Don&rsquo;t chase smoothness; map the frontier. Probe the jags with data, hybridize ruthlessly, and remember: In code or cognition, consistency trumps brilliance every time. We&rsquo;ve got battle scars, sure, but now our AI&rsquo;s a partner, not a wildcard. And that&rsquo;s worth every debugged line.</p>
 
-<blockquote><a name="Author-27-s-Note:-A-Tale-from-the-Trenches"></a>
+<blockquote><a name="Author.s.Note:.A.Tale.from.the.Trenches"></a>
 <h3>Author&rsquo;s Note: A Tale from the Trenches</h3></blockquote>
 
 <p>Look, this isn&rsquo;t some dry whitepaper dissecting LLM token probabilities or benchmarking Grok-4 against o1-preview.
@@ -291,7 +298,68 @@ Thoughts? Start the discussion below&hellip;</p>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

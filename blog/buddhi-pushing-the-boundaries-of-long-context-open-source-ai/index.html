@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,11 +116,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>AI Planet has introduced Buddhi-128K-Chat-7B, an open-source chat model distinguished by its expansive 128,000-token context window. This advancement enables the model to process and retain extensive contextual information, enhancing its performance in tasks requiring deep context understanding.</p>
 
 <p><img src="/images/2025/buddhi.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Model-Architecture"></a>
+<a name="Model.Architecture"></a>
 <h2>Model Architecture</h2>
 
 <p>Buddhi-128K-Chat-7B is fine-tuned from the Mistral-7B Instruct v0.2 base model, selected for its superior reasoning capabilities. The Mistral-7B architecture incorporates features such as Grouped-Query Attention and a Byte-fallback BPE tokenizer, originally supporting a maximum of 32,768 position embeddings. To extend this to 128K, the Yet another Rope Extension (YaRN) technique was employed, modifying positional embeddings to accommodate the increased context length.</p>
@@ -127,7 +134,7 @@
 <!--more-->
 
 
-<a name="Dataset-Composition"></a>
+<a name="Dataset.Composition"></a>
 <h2>Dataset Composition</h2>
 
 <p>The training dataset comprises three sections tailored for chat model development:</p>
@@ -144,7 +151,7 @@ ensuring a diverse conversational scope.</li>
 
 <p>This strategic composition ensures comprehensive coverage of dialogue scenarios, optimizing the model&rsquo;s performance across various contexts.</p>
 
-<a name="Benchmark-Performance"></a>
+<a name="Benchmark.Performance"></a>
 <h2>Benchmark Performance</h2>
 
 <p>Buddhi-128K-Chat-7B has been evaluated using both short and long context benchmarks:</p>
@@ -159,7 +166,7 @@ ensuring a diverse conversational scope.</li>
 
 <p>These benchmarks indicate that Buddhi-128K-Chat-7B matches or surpasses other models in its size class, particularly in handling long-context scenarios.</p>
 
-<a name="Inference-and-Hardware-Requirements"></a>
+<a name="Inference.and.Hardware.Requirements"></a>
 <h2>Inference and Hardware Requirements</h2>
 
 <p>To utilize the full 128K context length, the following hardware specifications are recommended:</p>
@@ -174,7 +181,7 @@ ensuring a diverse conversational scope.</li>
 
 <p>For optimized inference, integrating vLLM, which employs Paged Attention to reduce memory footprint, is advisable. Additionally, bitsandbytes quantization can enable the model to run on GPUs with lower VRAM, such as T4 GPUs.</p>
 
-<a name="Use-Cases-and-Applications"></a>
+<a name="Use.Cases.and.Applications"></a>
 <h2>Use Cases and Applications</h2>
 
 <p>The extended context window of Buddhi-128K-Chat-7B unlocks several practical applications:</p>
@@ -258,7 +265,68 @@ ensuring a diverse conversational scope.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

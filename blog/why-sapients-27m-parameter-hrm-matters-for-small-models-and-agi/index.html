@@ -113,6 +113,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -121,7 +122,13 @@
 
 
 
-    <a name="What-is-HRM--28-and-why-we-should-care-29-"></a>
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
+    <a name="What.is.HRM..and.why.we.should.care."></a>
 <h2>What is HRM (and why we should care)</h2>
 
 <p>Singapore’s Sapient Intelligence introduced the <strong>Hierarchical Reasoning Model (HRM)</strong> — a <strong>27M-parameter</strong>, brain-inspired, multi-timescale recurrent architecture trained with <strong>just 1,000 examples</strong> and <strong>no pre-training</strong>. According to the authors (<a href="https://arxiv.org/abs/2506.21734">arxiv.org</a>), HRM outperforms GPT-o3-mini and Claude on the <strong>ARC-AGI</strong> benchmark, a test designed to measure genuine inductive reasoning rather than pattern replication.</p>
@@ -130,7 +137,7 @@
 
 <p><img src="/images/2025/hrm.png" height="300" width="900" alt="Alt text" /></p>
 
-<a name="Empirical-Results"></a>
+<a name="Empirical.Results"></a>
 <h2>Empirical Results</h2>
 
 <p>Sapient reports:</p>
@@ -156,10 +163,10 @@
 <!--more-->
 
 
-<a name="How-HRM-Works"></a>
+<a name="How.HRM.Works"></a>
 <h2>How HRM Works</h2>
 
-<a name="Hierarchical-2c--Multi-2d-Timescale-Architecture"></a>
+<a name="Hierarchical..Multi-Timescale.Architecture"></a>
 <h3>Hierarchical, Multi-Timescale Architecture</h3>
 
 <p>HRM is composed of two interconnected recurrent modules:
@@ -175,7 +182,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 
 <p>This coupled dynamic creates effective depth similar to a deep transformer stack, but with orders of magnitude fewer parameters.</p>
 
-<a name="No-Chain-2d-of-2d-Thought-2c--No-Pre-2d-Training"></a>
+<a name="No.Chain-of-Thought..No.Pre-Training"></a>
 <h3>No Chain-of-Thought, No Pre-Training</h3>
 
 <p>HRM does not rely on chain-of-thought prompting, large-scale text corpora, or instruction tuning. It performs all reasoning internally and outputs only the final answer.</p>
@@ -190,7 +197,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 </ul>
 
 
-<a name="Data--26-amp-3b--Compute-Efficiency"></a>
+<a name="Data..amp..Compute.Efficiency"></a>
 <h3>Data &amp; Compute Efficiency</h3>
 
 <p>By learning directly from end-to-end examples, HRM avoids:</p>
@@ -202,7 +209,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 </ul>
 
 
-<a name="Limitations-and-Open-Questions"></a>
+<a name="Limitations.and.Open.Questions"></a>
 <h2>Limitations and Open Questions</h2>
 
 <p>Although compelling, HRM is not a general-purpose language model:</p>
@@ -217,7 +224,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 
 <p>A recent study argues that a <strong>7M-parameter Tiny Recursive Model (TRM)</strong> can surpass HRM on ARC-AGI (<a href="https://arxiv.org/abs/2510.04871">arxiv.org</a>), hinting that recursion, not hierarchy, may be the core enabler.</p>
 
-<a name="Implications:-Are-Small-Models-Catching-Up-3f-"></a>
+<a name="Implications:.Are.Small.Models.Catching.Up."></a>
 <h2>Implications: Are Small Models Catching Up?</h2>
 
 <p>HRM signals a possible shift in how we think about reasoning systems:</p>
@@ -233,7 +240,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 
 <p>Architectural bias may matter as much as — or more than — raw parameter count.</p>
 
-<a name="What-to-Watch"></a>
+<a name="What.to.Watch"></a>
 <h2>What to Watch</h2>
 
 <ul>
@@ -309,7 +316,68 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

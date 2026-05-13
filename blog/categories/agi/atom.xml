@@ -4,7 +4,7 @@
     <title><![CDATA[Category: agi | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/agi/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-03T22:26:54+05:30</updated>
+    <updated>2026-05-13T15:55:12+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -31,7 +31,7 @@
 
 <p>That night, I couldn&rsquo;t sleep. I fired up my laptop and started digging, not just into our logs, but into the broader mess of AI reliability. What I found was a horror show of uneven performance that made our fiasco feel almost pedestrian.</p>
 
-<a name="Digging-into-the-Dirt:-What-the-Data-Told-Us"></a>
+<a name="Digging.into.the.Dirt:.What.the.Data.Told.Us"></a>
 <h2>Digging into the Dirt: What the Data Told Us</h2>
 
 <p>Monday morning, I rallied the team for an all-hands autopsy. We pulled every PR from the past three months—about 2,300 in total—and ran them through a custom eval script I&rsquo;d hacked together overnight. It cross-referenced AI approvals against human audits and static analyzers like SonarQube. The results? A brutal wake-up.</p>
@@ -59,7 +59,7 @@ print(high_complex['hallucinated'].mean())  # Output: 0.65
 
 <p>The investigation stretched two weeks. We interviewed users (devs griping about &ldquo;ghost suggestions&rdquo;), audited training data (too generic, missing our React-Native stack), and even spun up A/B tests routing half our PRs through the AI, half manual. The verdict? Jaggedness isn&rsquo;t random—it&rsquo;s predictable if you look for bottlenecks like sparse data or over-reliance on autoregression. By week&rsquo;s end, we had a heatmap of failure modes: red blobs on async patterns, crypto, and third-party integrations. It wasn&rsquo;t despair; it was clarity. Time to fix this beast.</p>
 
-<a name="Wrangling-the-Beast:-Building-a-Jagged-2d-Proof-Pipeline"></a>
+<a name="Wrangling.the.Beast:.Building.a.Jagged-Proof.Pipeline"></a>
 <h2>Wrangling the Beast: Building a Jagged-Proof Pipeline</h2>
 
 <p>Sarah greenlit a war chest for the rebuild: $80K budget, two engineers reassigned, and me leading the charge. No more blind faith in black-box APIs. We needed a hybrid system—AI for the grunt work, humans and rules for the sharp edges. The core pivot? Retrieval-Augmented Generation, or RAG, to ground the model&rsquo;s wild guesses in our own knowledge base.</p>
@@ -102,7 +102,7 @@ qa_chain = RetrievalQA.from_chain_type(
 
 <p>Rollout was cautious: Canary to 20% of PRs, monitor for a sprint. Bugs? Plenty—like the retriever pulling irrelevant Node.js snippets for our Python monorepo. Fixed with metadata filtering: <code>filter={"language": "python"}</code>. By month two, it was humming.</p>
 
-<a name="The-Smoke-Clears:-Metrics-2c--Mayhem-2c--and-One-Big-Takeaway"></a>
+<a name="The.Smoke.Clears:.Metrics..Mayhem..and.One.Big.Takeaway"></a>
 <h2>The Smoke Clears: Metrics, Mayhem, and One Big Takeaway</h2>
 
 <p>Three months post-rebuild, and the pipeline&rsquo;s a different animal. PR throughput? Up 40%, from 15 to 21 merges per dev per week. Human review tickets? Down 62%, freeing seniors for architecture instead of bike-shedding. On security, the win was stark: Zero hallucinated approvals in 1,200 PRs, versus four breaches (minor, thank god) in the prior quarter. Our custom benchmark—mirroring that Nature study&rsquo;s hallucination gauntlet—clocked the hybrid at 12% error rate, a 70% drop from vanilla GPT. Client satisfaction? Back to 92%, per NPS surveys, and we clawed back that lost account with a demo of the &ldquo;fortified&rdquo; reviewer.</p>
@@ -111,7 +111,7 @@ qa_chain = RetrievalQA.from_chain_type(
 
 <p>Looking back, that Tuesday merge wasn&rsquo;t a failure; it was the forge. Jaggedness taught us AI&rsquo;s no panacea—it&rsquo;s a tool with teeth, sharp in spots, dull in others. Like Helen Toner put it, models &ldquo;keep sucking&rdquo; at the weird stuff, and pretending otherwise bites you. Our lesson? Don&rsquo;t chase smoothness; map the frontier. Probe the jags with data, hybridize ruthlessly, and remember: In code or cognition, consistency trumps brilliance every time. We&rsquo;ve got battle scars, sure, but now our AI&rsquo;s a partner, not a wildcard. And that&rsquo;s worth every debugged line.</p>
 
-<blockquote><a name="Author-27-s-Note:-A-Tale-from-the-Trenches"></a>
+<blockquote><a name="Author.s.Note:.A.Tale.from.the.Trenches"></a>
 <h3>Author&rsquo;s Note: A Tale from the Trenches</h3></blockquote>
 
 <p>Look, this isn&rsquo;t some dry whitepaper dissecting LLM token probabilities or benchmarking Grok-4 against o1-preview.
@@ -130,7 +130,7 @@ Thoughts? Start the discussion below&hellip;</p>
         <link href="https://rishijeet.github.io/blog/why-sapients-27m-parameter-hrm-matters-for-small-models-and-agi/"/>
         <updated>2025-11-30T19:29:17+05:30</updated>
         <id>https://rishijeet.github.io/blog/why-sapients-27m-parameter-hrm-matters-for-small-models-and-agi</id>
-        <content type="html"><![CDATA[<a name="What-is-HRM--28-and-why-we-should-care-29-"></a>
+        <content type="html"><![CDATA[<a name="What.is.HRM..and.why.we.should.care."></a>
 <h2>What is HRM (and why we should care)</h2>
 
 <p>Singapore’s Sapient Intelligence introduced the <strong>Hierarchical Reasoning Model (HRM)</strong> — a <strong>27M-parameter</strong>, brain-inspired, multi-timescale recurrent architecture trained with <strong>just 1,000 examples</strong> and <strong>no pre-training</strong>. According to the authors (<a href="https://arxiv.org/abs/2506.21734">arxiv.org</a>), HRM outperforms GPT-o3-mini and Claude on the <strong>ARC-AGI</strong> benchmark, a test designed to measure genuine inductive reasoning rather than pattern replication.</p>
@@ -139,7 +139,7 @@ Thoughts? Start the discussion below&hellip;</p>
 
 <p><img src="/images/2025/hrm.png" height="300" width="900" alt="Alt text" /></p>
 
-<a name="Empirical-Results"></a>
+<a name="Empirical.Results"></a>
 <h2>Empirical Results</h2>
 
 <p>Sapient reports:</p>
@@ -165,10 +165,10 @@ Thoughts? Start the discussion below&hellip;</p>
 <!--more-->
 
 
-<a name="How-HRM-Works"></a>
+<a name="How.HRM.Works"></a>
 <h2>How HRM Works</h2>
 
-<a name="Hierarchical-2c--Multi-2d-Timescale-Architecture"></a>
+<a name="Hierarchical..Multi-Timescale.Architecture"></a>
 <h3>Hierarchical, Multi-Timescale Architecture</h3>
 
 <p>HRM is composed of two interconnected recurrent modules:
@@ -184,7 +184,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 
 <p>This coupled dynamic creates effective depth similar to a deep transformer stack, but with orders of magnitude fewer parameters.</p>
 
-<a name="No-Chain-2d-of-2d-Thought-2c--No-Pre-2d-Training"></a>
+<a name="No.Chain-of-Thought..No.Pre-Training"></a>
 <h3>No Chain-of-Thought, No Pre-Training</h3>
 
 <p>HRM does not rely on chain-of-thought prompting, large-scale text corpora, or instruction tuning. It performs all reasoning internally and outputs only the final answer.</p>
@@ -199,7 +199,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 </ul>
 
 
-<a name="Data--26-amp-3b--Compute-Efficiency"></a>
+<a name="Data..amp..Compute.Efficiency"></a>
 <h3>Data &amp; Compute Efficiency</h3>
 
 <p>By learning directly from end-to-end examples, HRM avoids:</p>
@@ -211,7 +211,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 </ul>
 
 
-<a name="Limitations-and-Open-Questions"></a>
+<a name="Limitations.and.Open.Questions"></a>
 <h2>Limitations and Open Questions</h2>
 
 <p>Although compelling, HRM is not a general-purpose language model:</p>
@@ -226,7 +226,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 
 <p>A recent study argues that a <strong>7M-parameter Tiny Recursive Model (TRM)</strong> can surpass HRM on ARC-AGI (<a href="https://arxiv.org/abs/2510.04871">arxiv.org</a>), hinting that recursion, not hierarchy, may be the core enabler.</p>
 
-<a name="Implications:-Are-Small-Models-Catching-Up-3f-"></a>
+<a name="Implications:.Are.Small.Models.Catching.Up."></a>
 <h2>Implications: Are Small Models Catching Up?</h2>
 
 <p>HRM signals a possible shift in how we think about reasoning systems:</p>
@@ -242,7 +242,7 @@ Fast, detail-oriented operations. Executes logical steps required to satisfy the
 
 <p>Architectural bias may matter as much as — or more than — raw parameter count.</p>
 
-<a name="What-to-Watch"></a>
+<a name="What.to.Watch"></a>
 <h2>What to Watch</h2>
 
 <ul>

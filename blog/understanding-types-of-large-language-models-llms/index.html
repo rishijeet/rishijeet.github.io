@@ -105,6 +105,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -113,9 +114,15 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Large Language Models (LLMs) have revolutionized the field of natural language processing (NLP) with their ability to understand, generate, and interact with human language. These models are built using deep learning techniques and have been trained on vast amounts of text data. In this blog, we will explore the different types of LLMs, their architectures, and their applications.</p>
 
-<a name="L-3c-strong-3e-Generative-Pre-2d-trained-Transformers--28-GPT-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Generative.Pre-trained.Transformers..GPT...strong."></a>
 <h3><strong>Generative Pre-trained Transformers (GPT)</strong></h3>
 
 <a name="Overview"></a>
@@ -125,7 +132,7 @@
 
 <p><img src="/images/2024/gpt.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Features"></a>
+<a name="Key.Features"></a>
 <h4>Key Features</h4>
 
 <ul>
@@ -148,7 +155,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Bidirectional-Encoder-Representations-from-Transformers--28-BERT-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Bidirectional.Encoder.Representations.from.Transformers..BERT...strong."></a>
 <h3><strong>Bidirectional Encoder Representations from Transformers (BERT)</strong></h3>
 
 <a name="Overview"></a>
@@ -158,7 +165,7 @@
 
 <p><img src="/images/2024/bert.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Features"></a>
+<a name="Key.Features"></a>
 <h4>Key Features</h4>
 
 <ul>
@@ -178,7 +185,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-T5--28-Text-2d-to-2d-Text-Transfer-Transformer-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.T5..Text-to-Text.Transfer.Transformer...strong."></a>
 <h3><strong>T5 (Text-to-Text Transfer Transformer)</strong></h3>
 
 <a name="Overview"></a>
@@ -188,7 +195,7 @@
 
 <p><img src="/images/2024/t5.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Features"></a>
+<a name="Key.Features"></a>
 <h4>Key Features</h4>
 
 <ul>
@@ -208,7 +215,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-XLNet-3c--2f-strong-3e-"></a>
+<a name="L.strong.XLNet..strong."></a>
 <h3><strong>XLNet</strong></h3>
 
 <a name="Overview"></a>
@@ -218,7 +225,7 @@
 
 <p><img src="/images/2024/xlnet.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Features"></a>
+<a name="Key.Features"></a>
 <h4>Key Features</h4>
 
 <ul>
@@ -238,7 +245,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Robustly-Optimized-BERT-Pretraining-Approach--28-RoBERTa-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Robustly.Optimized.BERT.Pretraining.Approach..RoBERTa...strong."></a>
 <h3><strong>Robustly Optimized BERT Pretraining Approach (RoBERTa)</strong></h3>
 
 <a name="Overview"></a>
@@ -248,7 +255,7 @@
 
 <p><img src="/images/2024/roberta.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Features"></a>
+<a name="Key.Features"></a>
 <h4>Key Features</h4>
 
 <ul>
@@ -338,7 +345,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

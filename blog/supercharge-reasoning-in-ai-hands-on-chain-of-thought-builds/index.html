@@ -111,6 +111,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -118,6 +119,12 @@
 
 
 
+
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
 
     <p>Chain of Thought (CoT) is a prompting technique introduced in a 2022 paper by Google researchers (Wei et al., &ldquo;Chain-of-Thought Prompting Elicits Reasoning in Large Language Models&rdquo;). The core idea is simple: instead of asking an LLM for a direct answer, you instruct it to <strong>reason step by step</strong>. This elicits better performance on tasks requiring logic, math, commonsense, or multi-step planning.</p>
 
@@ -144,7 +151,7 @@
 
 <p>This &ldquo;thinking&rdquo; process isn&rsquo;t magic—it&rsquo;s emergent from the model&rsquo;s training on vast datasets where step-by-step explanations are common. CoT shines in zero-shot (no examples) or few-shot (with examples) scenarios, and variants like <strong>Tree of Thoughts</strong> or <strong>Self-Consistency</strong> build on it for even more robustness.</p>
 
-<a name="Why-Does-CoT-Work-3f-"></a>
+<a name="Why.Does.CoT.Work."></a>
 <h3>Why Does CoT Work?</h3>
 
 <ul>
@@ -157,7 +164,7 @@
 
 <p>Research shows CoT improves accuracy by 10-50% on benchmarks like GSM8K (math) or CommonsenseQA. In interactive apps, it can stream thoughts progressively, giving users a &ldquo;processing&rdquo; indicator.</p>
 
-<a name="Evolution-and-Variants-of-CoT"></a>
+<a name="Evolution.and.Variants.of.CoT"></a>
 <h2>Evolution and Variants of CoT</h2>
 
 <p>CoT has evolved rapidly:</p>
@@ -173,7 +180,7 @@
 
 <p>In 2025, with models like Grok 4, CoT is often combined with tools (e.g., code execution or web search) for agentic systems—AI agents that plan, act, and reflect.</p>
 
-<a name="Building-a-Chain-of-Thought-Application:-Step-2d-by-2d-Step-Guide"></a>
+<a name="Building.a.Chain.of.Thought.Application:.Step-by-Step.Guide"></a>
 <h2>Building a Chain of Thought Application: Step-by-Step Guide</h2>
 
 <p>To build a CoT application, we&rsquo;ll create a Python-based tool that:</p>
@@ -194,7 +201,7 @@
 </ul>
 
 
-<a name="Step-1:-Set-Up-Your-Environment"></a>
+<a name="Step.1:.Set.Up.Your.Environment"></a>
 <h3>Step 1: Set Up Your Environment</h3>
 
 <p>Install required libraries:</p>
@@ -203,7 +210,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Step-2:-Basic-CoT-Implementation"></a>
+<a name="Step.2:.Basic.CoT.Implementation"></a>
 <h3>Step 2: Basic CoT Implementation</h3>
 
 <p>Start with a simple non-streaming version. This script prompts the LLM with CoT and prints the full response.</p>
@@ -272,7 +279,7 @@
 
 <p>This shows the &ldquo;thinking&rdquo; steps. To make it interactive, add a loop for multiple queries.</p>
 
-<a name="Step-3:-Adding-Real-2d-Time-Processing-Feedback"></a>
+<a name="Step.3:.Adding.Real-Time.Processing.Feedback"></a>
 <h3>Step 3: Adding Real-Time Processing Feedback</h3>
 
 <p>To &ldquo;let you know that it is processing these steps,&rdquo; use streaming. OpenAI supports response streaming, printing tokens as they arrive—simulating thinking.</p>
@@ -332,7 +339,7 @@
 
 <p>For a web app, use Flask or Streamlit to stream via WebSockets.</p>
 
-<a name="Step-4:-Advanced-Features--e2--80--93--Parsing-and-Error-Handling"></a>
+<a name="Step.4:.Advanced.Features.....Parsing.and.Error.Handling"></a>
 <h3>Step 4: Advanced Features – Parsing and Error Handling</h3>
 
 <p>To extract the final answer reliably, parse the response. Add self-consistency by generating multiple CoTs and voting.</p>
@@ -380,7 +387,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Step-5:-Building-a-Full-Application"></a>
+<a name="Step.5:.Building.a.Full.Application"></a>
 <h3>Step 5: Building a Full Application</h3>
 
 <p>For a complete app, use Streamlit for a UI:</p>
@@ -405,7 +412,7 @@
 
 <p>Run with <code>streamlit run app.py</code>. This creates a web interface where users input queries and see the CoT process.</p>
 
-<a name="Challenges-and-Best-Practices"></a>
+<a name="Challenges.and.Best.Practices"></a>
 <h2>Challenges and Best Practices</h2>
 
 <ul>
@@ -485,7 +492,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

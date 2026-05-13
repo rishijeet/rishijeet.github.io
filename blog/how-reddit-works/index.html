@@ -103,6 +103,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -110,6 +111,12 @@
 
 
 
+
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
 
     <blockquote><p><em>If you&rsquo;ve ever refreshed your Reddit feed at midnight, upvoted a post, or gone down a rabbit hole in a subreddit — you&rsquo;ve touched a system that serves hundreds of millions of users every day. But have you ever wondered what&rsquo;s actually happening under the hood? Let&rsquo;s find out.</em></p></blockquote>
 
@@ -136,7 +143,7 @@
 <!--more-->
 
 
-<a name="Core-Features"></a>
+<a name="Core.Features"></a>
 <h2>Core Features</h2>
 
 <p>Before we get into architecture, let&rsquo;s quickly nail down what Reddit actually does. These features will drive every design decision we make.</p>
@@ -155,7 +162,7 @@
 
 <p>Each post lives inside a subreddit, has an author, a title, a score (upvotes minus downvotes), and a timestamp.</p>
 
-<a name="Comments--28-Tree-Structure-29-"></a>
+<a name="Comments..Tree.Structure."></a>
 <h3>Comments (Tree Structure)</h3>
 
 <p>This is one of Reddit&rsquo;s most distinctive features. Comments form a <strong>tree</strong> — you can reply to a post directly, or reply to another comment, and that reply can have replies, and so on infinitely deep.</p>
@@ -186,7 +193,7 @@ F &#8211;> G;
 
 <p>This nested tree structure needs special thought when it comes to storage and retrieval, which we&rsquo;ll cover later.</p>
 
-<a name="Upvotes--2f--Downvotes"></a>
+<a name="Upvotes...Downvotes"></a>
 <h3>Upvotes / Downvotes</h3>
 
 <p>Every post and every comment can be upvoted or downvoted. The <strong>net score</strong> (upvotes - downvotes) combined with the <strong>time of posting</strong> feeds into the ranking algorithm that determines where content appears in feeds.</p>
@@ -208,17 +215,17 @@ F &#8211;> G;
 
 <p>Users can <strong>subscribe</strong> to subreddits, and their home feed is built from those subscriptions.</p>
 
-<a name="User-Profiles"></a>
+<a name="User.Profiles"></a>
 <h3>User Profiles</h3>
 
 <p>Each user has a profile with their post history, comment history, karma score (a rough measure of community contribution), and account settings.</p>
 
-<a name="Feed-Generation"></a>
+<a name="Feed.Generation"></a>
 <h3>Feed Generation</h3>
 
 <p>The home feed is the magic. When you open Reddit, you see a curated list of posts from all the subreddits you follow, ranked by relevance and popularity. This is the hardest part to get right at scale.</p>
 
-<a name="High-2d-Level-Architecture"></a>
+<a name="High-Level.Architecture"></a>
 <h2>High-Level Architecture</h2>
 
 <p>Let&rsquo;s start with the big picture before drilling into specifics.</p>
@@ -307,10 +314,10 @@ K &#8211;> N
 
 <p><strong>Data Layer:</strong> Multiple databases for different needs, which we&rsquo;ll explore in detail.</p>
 
-<a name="Deep-Dive:-Core-Services"></a>
+<a name="Deep.Dive:.Core.Services"></a>
 <h2>Deep Dive: Core Services</h2>
 
-<a name="Authentication-Service"></a>
+<a name="Authentication.Service"></a>
 <h3>Authentication Service</h3>
 
 <p>The auth service handles login, session management, and OAuth flows (for third-party app access via Reddit&rsquo;s API).</p>
@@ -328,7 +335,7 @@ K &#8211;> N
 
 <p><strong>Session Storage:</strong> Sessions are stored in Redis — it&rsquo;s fast and supports TTL (time-to-live) out of the box, so expired sessions are automatically cleaned up.</p>
 
-<a name="Post-Service"></a>
+<a name="Post.Service"></a>
 <h3>Post Service</h3>
 
 <p>This service handles CRUD operations for posts — creation, retrieval, editing, deletion.</p>
@@ -363,7 +370,7 @@ K &#8211;> N
 </span></code></pre></div></figure>
 
 
-<a name="Comment-Service"></a>
+<a name="Comment.Service"></a>
 <h3>Comment Service</h3>
 
 <p>Comments are the most complex data structure in Reddit. They form an <strong>unbounded tree</strong> and need to be:</p>
@@ -406,7 +413,7 @@ Store the full path from root to each node as a string:</p>
 
 <p>Reddit actually uses a <strong>hybrid approach</strong> — storing the parent ID in PostgreSQL for writes, but caching fully assembled comment trees in Redis for reads. When you load a post page, Reddit fetches the pre-built tree from cache rather than reassembling it from the DB every time.</p>
 
-<a name="Voting-System"></a>
+<a name="Voting.System"></a>
 <h3>Voting System</h3>
 
 <p>Voting is <strong>one of the highest-write-volume operations</strong> on Reddit. Every thumb press is a write. At scale, this needs to be handled carefully.</p>
@@ -448,7 +455,7 @@ Store the full path from root to each node as a string:</p>
 
 <p>A background consumer reads from the Kafka <code>votes</code> topic and periodically flushes aggregated vote counts to PostgreSQL. This is a classic <strong>write-behind caching</strong> pattern.</p>
 
-<a name="Subreddit-Service"></a>
+<a name="Subreddit.Service"></a>
 <h3>Subreddit Service</h3>
 
 <p>Handles subreddit creation, subscription management, moderation settings, and rules.</p>
@@ -466,7 +473,7 @@ Store the full path from root to each node as a string:</p>
 
 <p>The list of subreddits a user follows is small enough to be cached in Redis as a set: <code>SMEMBERS user:12345:subscriptions</code>.</p>
 
-<a name="Notification-System"></a>
+<a name="Notification.System"></a>
 <h3>Notification System</h3>
 
 <p>Notifications are <strong>event-driven by nature</strong>. When something happens (your comment got a reply, you got a mention, a mod action was taken), a notification needs to reach the right user.</p>
@@ -483,7 +490,7 @@ Store the full path from root to each node as a string:</p>
 
 <p>The notification service maintains a user notification inbox — essentially a list of notification records with read/unread status.</p>
 
-<a name="Moderation-System"></a>
+<a name="Moderation.System"></a>
 <h3>Moderation System</h3>
 
 <p>This is often overlooked in system design interviews but it&rsquo;s genuinely one of Reddit&rsquo;s hardest problems. Reddit has:</p>
@@ -506,7 +513,7 @@ Store the full path from root to each node as a string:</p>
 </ul>
 
 
-<a name="Database-Design"></a>
+<a name="Database.Design"></a>
 <h2>Database Design</h2>
 
 <p>Reddit uses a <strong>polyglot persistence</strong> approach — different data stores for different access patterns.</p>
@@ -556,7 +563,7 @@ Store the full path from root to each node as a string:</p>
 </div>
 
 
-<a name="Key-Schema-Examples"></a>
+<a name="Key.Schema.Examples"></a>
 <h3>Key Schema Examples</h3>
 
 <p><strong>Users Table:</strong></p>
@@ -590,7 +597,7 @@ Store the full path from root to each node as a string:</p>
 </span></code></pre></div></figure>
 
 
-<a name="SQL-vs-NoSQL:-The-Tradeoff"></a>
+<a name="SQL.vs.NoSQL:.The.Tradeoff"></a>
 <h3>SQL vs NoSQL: The Tradeoff</h3>
 
 <p>The big question in any system design is: relational or not?</p>
@@ -607,12 +614,12 @@ Store the full path from root to each node as a string:</p>
 </ul>
 
 
-<a name="Feed-Generation"></a>
+<a name="Feed.Generation"></a>
 <h2>Feed Generation</h2>
 
 <p>This is the most interesting and most debated part of Reddit&rsquo;s design. The home feed is a ranked list of posts from all subreddits you follow. How do you build this efficiently for hundreds of millions of users?</p>
 
-<a name="The-Two-Models"></a>
+<a name="The.Two.Models"></a>
 <h3>The Two Models</h3>
 
 <p><strong>Option 1: Pull Model (Fan-in on Read)</strong></p>
@@ -647,7 +654,7 @@ Store the full path from root to each node as a string:</p>
 
 <p><strong>Cons:</strong> Writing a post to r/AskReddit (30M+ subscribers) means 30 million writes. Fan-out on write is a nightmare for large subreddits.</p>
 
-<a name="Reddit-27-s-Hybrid-Approach"></a>
+<a name="Reddit.s.Hybrid.Approach"></a>
 <h3>Reddit&rsquo;s Hybrid Approach</h3>
 
 <p>Reddit (like most platforms at this scale) uses a <strong>hybrid model:</strong></p>
@@ -695,12 +702,12 @@ I &#8211;> J[Return to User];
 
 <p>This personalization layer sits on top of the base ranked feed and re-scores posts before returning results.</p>
 
-<a name="Caching--26-amp-3b--Performance"></a>
+<a name="Caching..amp..Performance"></a>
 <h2>Caching &amp; Performance</h2>
 
 <p>Reddit is <strong>read-heavy by a wide margin.</strong> For every 1 person posting, thousands are reading. Every caching decision should optimize for read performance.</p>
 
-<a name="Redis-for-Hot-Data"></a>
+<a name="Redis.for.Hot.Data"></a>
 <h3>Redis for Hot Data</h3>
 
 <p>Redis is used everywhere:</p>
@@ -745,7 +752,7 @@ end;
 </div>
 
 
-<a name="CDN-for-Static-Content"></a>
+<a name="CDN.for.Static.Content"></a>
 <h3>CDN for Static Content</h3>
 
 <p>All images, videos, and static assets go through a CDN (Reddit uses Fastly). This means:</p>
@@ -757,20 +764,20 @@ end;
 </ul>
 
 
-<a name="Read-Replicas"></a>
+<a name="Read.Replicas"></a>
 <h3>Read Replicas</h3>
 
 <p>For database reads, Reddit routes traffic to <strong>read replicas</strong> of PostgreSQL. Writes go to the primary, reads are distributed across multiple replicas. This multiplies read capacity without increasing write complexity.</p>
 
-<a name="Approximate-Counts"></a>
+<a name="Approximate.Counts"></a>
 <h3>Approximate Counts</h3>
 
 <p>Displaying exact vote counts requires precise aggregation. Instead, Reddit uses <strong>approximate counting</strong> with HyperLogLog or similar probabilistic data structures. This trades a tiny margin of error for enormous performance gains on high-cardinality counts.</p>
 
-<a name="Scaling-the-System"></a>
+<a name="Scaling.the.System"></a>
 <h2>Scaling the System</h2>
 
-<a name="How-Reddit-Scaled-Over-Time"></a>
+<a name="How.Reddit.Scaled.Over.Time"></a>
 <h3>How Reddit Scaled Over Time</h3>
 
 <p>Reddit started as a <strong>Python monolith</strong> in 2005. As traffic grew, they hit walls repeatedly. Here&rsquo;s roughly how the evolution went:</p>
@@ -784,7 +791,7 @@ end;
 </ol>
 
 
-<a name="Horizontal-Scaling"></a>
+<a name="Horizontal.Scaling"></a>
 <h3>Horizontal Scaling</h3>
 
 <p>Every service is stateless — no local state is stored on the server. All state lives in Redis, Postgres, or Kafka. This means you can add more instances of any service behind the load balancer without coordination.</p>
@@ -810,7 +817,7 @@ A &#8211;> E;
 
 <p>Auto-scaling groups (in AWS or GCP) spin up new instances under load and tear them down when traffic subsides.</p>
 
-<a name="Kafka-as-the-Backbone"></a>
+<a name="Kafka.as.the.Backbone"></a>
 <h3>Kafka as the Backbone</h3>
 
 <p>Kafka is used for <strong>event-driven communication</strong> between services. Instead of Service A calling Service B directly (synchronous, tightly coupled), Service A publishes an event and Service B (or C, D, E) can consume it independently.</p>
@@ -859,17 +866,17 @@ T5 &#8211;> D;
 
 <p>This design makes the system <strong>fault-tolerant</strong> — if the notification service goes down, events pile up in Kafka and are processed when the service recovers. Nothing is lost.</p>
 
-<a name="Database-Sharding"></a>
+<a name="Database.Sharding"></a>
 <h3>Database Sharding</h3>
 
 <p>For tables that grow extremely large (like <code>votes</code> or <code>comments</code>), you can <strong>shard</strong> the data. Sharding means splitting a table across multiple database instances based on some key (often user ID or post ID).</p>
 
 <p>For example, vote records can be sharded by <code>post_id % N</code> where N is the number of shards. All votes for a given post live on the same shard, making aggregation fast.</p>
 
-<a name="Real-2d-Time-Features"></a>
+<a name="Real-Time.Features"></a>
 <h2>Real-Time Features</h2>
 
-<a name="Live-Comment-Updates"></a>
+<a name="Live.Comment.Updates"></a>
 <h3>Live Comment Updates</h3>
 
 <p>When you&rsquo;re reading a popular post, new comments sometimes appear without you refreshing. This is done via <strong>WebSockets</strong>.</p>
@@ -908,7 +915,7 @@ F &#8211;> E;
 
 <p>For lower-priority updates (like notification badges), Reddit may fall back to <strong>Server-Sent Events (SSE)</strong> or even <strong>long polling</strong> — simpler, lower overhead alternatives to WebSockets.</p>
 
-<a name="Push-Notifications"></a>
+<a name="Push.Notifications"></a>
 <h3>Push Notifications</h3>
 
 <p>Mobile notifications go through platform-specific push systems:</p>
@@ -921,12 +928,12 @@ F &#8211;> E;
 
 <p>Reddit&rsquo;s notification service formats the notification payload and sends it to the appropriate push gateway based on the user&rsquo;s device type.</p>
 
-<a name="The-Ranking-Algorithm"></a>
+<a name="The.Ranking.Algorithm"></a>
 <h2>The Ranking Algorithm</h2>
 
 <p>Reddit&rsquo;s ranking algorithm is what makes the front page feel useful rather than just chronological. Let&rsquo;s break it down.</p>
 
-<a name="The--22-Hot-22--Algorithm"></a>
+<a name="The..Hot..Algorithm"></a>
 <h3>The &ldquo;Hot&rdquo; Algorithm</h3>
 
 <p>Reddit&rsquo;s hot ranking is based on a formula originally developed by Randall Munroe (yes, the xkcd guy). Here&rsquo;s a simplified version:</p>
@@ -954,7 +961,7 @@ F &#8211;> E;
 
 <p>The key insight is this: <strong>the ranking combines score with time</strong>, and <strong>time decays the score</strong>. A post with 1,000 upvotes an hour ago beats a post with 10,000 upvotes from yesterday. The <code>45000</code> constant controls how fast posts decay — roughly every 12.5 hours, a post needs 10x more votes to stay at the same rank.</p>
 
-<a name="Other-Sort-Modes"></a>
+<a name="Other.Sort.Modes"></a>
 <h3>Other Sort Modes</h3>
 
 <div class="scrollable-table-container">
@@ -1004,17 +1011,17 @@ F &#8211;> E;
 
 <p>The higher the magnitude and the closer to 50/50 the split, the higher the controversial score.</p>
 
-<a name="Challenges--26-amp-3b--Tradeoffs"></a>
+<a name="Challenges..amp..Tradeoffs"></a>
 <h2>Challenges &amp; Tradeoffs</h2>
 
-<a name="L1.-Consistency-vs.-Availability"></a>
+<a name="L1..Consistency.vs..Availability"></a>
 <h3>1. Consistency vs. Availability</h3>
 
 <p>When you upvote a post, you don&rsquo;t get an error — you get an optimistic UI update. But behind the scenes, that vote might take a few seconds to fully propagate. Reddit chooses <strong>availability over strict consistency</strong> for votes (following the CAP theorem, when you&rsquo;re distributed, you pick two of three: Consistency, Availability, Partition Tolerance).</p>
 
 <p>For things like bans and moderation actions, however, Reddit needs <strong>stronger consistency</strong> — you don&rsquo;t want a banned user to keep posting because one replica didn&rsquo;t get the update. This is why different parts of the system use different consistency models.</p>
 
-<a name="L2.-Spam--26-amp-3b--Vote-Manipulation"></a>
+<a name="L2..Spam..amp..Vote.Manipulation"></a>
 <h3>2. Spam &amp; Vote Manipulation</h3>
 
 <p>Vote manipulation is a constant battle. Bad actors create armies of accounts to upvote their own posts or downvote competitors. Reddit counters this with:</p>
@@ -1027,7 +1034,7 @@ F &#8211;> E;
 </ul>
 
 
-<a name="L3.-Moderation-at-Scale"></a>
+<a name="L3..Moderation.at.Scale"></a>
 <h3>3. Moderation at Scale</h3>
 
 <p>Reddit has ~100,000 subreddits, each moderated by volunteers. The quality and consistency of moderation varies wildly. Reddit&rsquo;s technical approach includes:</p>
@@ -1042,7 +1049,7 @@ F &#8211;> E;
 
 <p>The challenge isn&rsquo;t the technology — it&rsquo;s the <strong>policy and human coordination</strong> at scale.</p>
 
-<a name="L4.-The-Thundering-Herd"></a>
+<a name="L4..The.Thundering.Herd"></a>
 <h3>4. The Thundering Herd</h3>
 
 <p>When a mega-popular post goes viral, suddenly millions of people request the same resource simultaneously. A <strong>cache miss</strong> on that resource causes every request to hit the database — causing what&rsquo;s known as the &ldquo;thundering herd&rdquo; problem.</p>
@@ -1056,7 +1063,7 @@ F &#8211;> E;
 </ul>
 
 
-<a name="L5.-Cold-Start-for-New-Users"></a>
+<a name="L5..Cold.Start.for.New.Users"></a>
 <h3>5. Cold Start for New Users</h3>
 
 <p>New users have no history. Their feeds are empty. Reddit handles this with:</p>
@@ -1068,12 +1075,12 @@ F &#8211;> E;
 </ul>
 
 
-<a name="System-Design-Interview-Tips"></a>
+<a name="System.Design.Interview.Tips"></a>
 <h2>System Design Interview Tips</h2>
 
 <p>If you&rsquo;re asked to design Reddit in an interview, here&rsquo;s how I&rsquo;d approach it:</p>
 
-<a name="Step-1:-Clarify-Requirements--28-5-minutes-29-"></a>
+<a name="Step.1:.Clarify.Requirements..5.minutes."></a>
 <h3>Step 1: Clarify Requirements (5 minutes)</h3>
 
 <p>Don&rsquo;t start coding or drawing. Ask:</p>
@@ -1088,7 +1095,7 @@ F &#8211;> E;
 
 <p>Interviewers reward candidates who <strong>scope properly</strong> before diving in.</p>
 
-<a name="Step-2:-Estimate-Scale--28-5-minutes-29-"></a>
+<a name="Step.2:.Estimate.Scale..5.minutes."></a>
 <h3>Step 2: Estimate Scale (5 minutes)</h3>
 
 <p>Do quick back-of-envelope math:</p>
@@ -1135,12 +1142,12 @@ I &#8211;> J;
 
 <p>This math tells you: this is a <strong>read-heavy system</strong> that needs aggressive caching.</p>
 
-<a name="Step-3:-High-2d-Level-Design--28-10-minutes-29-"></a>
+<a name="Step.3:.High-Level.Design..10.minutes."></a>
 <h3>Step 3: High-Level Design (10 minutes)</h3>
 
 <p>Draw the big boxes: client → CDN → load balancer → services → databases. Don&rsquo;t get lost in details yet. Make sure your interviewer nods along.</p>
 
-<a name="Step-4:-Deep-Dive--28-15-2d-20-minutes-29-"></a>
+<a name="Step.4:.Deep.Dive..15-20.minutes."></a>
 <h3>Step 4: Deep Dive (15-20 minutes)</h3>
 
 <p>Pick 2-3 components and go deep. The interviewer will often guide you. Good candidates for deep dives:</p>
@@ -1153,7 +1160,7 @@ I &#8211;> J;
 </ul>
 
 
-<a name="Step-5:-Address-Non-2d-Functional-Requirements"></a>
+<a name="Step.5:.Address.Non-Functional.Requirements"></a>
 <h3>Step 5: Address Non-Functional Requirements</h3>
 
 <p>Always cover:</p>
@@ -1166,7 +1173,7 @@ I &#8211;> J;
 </ul>
 
 
-<a name="Common-Mistakes-to-Avoid"></a>
+<a name="Common.Mistakes.to.Avoid"></a>
 <h3>Common Mistakes to Avoid</h3>
 
 <ul>
@@ -1177,7 +1184,7 @@ I &#8211;> J;
 </ul>
 
 
-<a name="Final-Thoughts"></a>
+<a name="Final.Thoughts"></a>
 <h2>Final Thoughts</h2>
 
 <p>The best part about learning from real systems like Reddit is that the solutions aren&rsquo;t magic. Every design choice is a tradeoff — consistency vs. speed, simplicity vs. scale, real-time vs. eventual consistency. The job of a good engineer isn&rsquo;t to find the &ldquo;right&rdquo; answer — it&rsquo;s to understand the tradeoffs and pick the one that fits the problem.</p>
@@ -1186,7 +1193,7 @@ I &#8211;> J;
 
 <p><em>Thanks for reading. If this was helpful, share it with someone preparing for their next system design interview. And if you have corrections or additions, I&rsquo;d genuinely love to hear them.</em></p>
 
-<a name="Further-Reading"></a>
+<a name="Further.Reading"></a>
 <h3>Further Reading</h3>
 
 <ul>
@@ -1260,7 +1267,68 @@ I &#8211;> J;
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

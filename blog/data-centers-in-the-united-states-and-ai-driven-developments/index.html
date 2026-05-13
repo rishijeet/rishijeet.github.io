@@ -109,6 +109,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -117,12 +118,18 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Data centers are the backbone of the digital economy, housing the servers, storage systems, and networking equipment
 that power cloud computing, web services, and data-intensive applications. In the United States, data centers are strategically located to meet the demands of businesses, governments, and consumers. The rise of artificial intelligence (AI) has further amplified the importance of data centers, requiring specialized infrastructure to handle complex computational workloads. This article explores the primary locations of data centers in the US, the reasons behind their selection, and recent developments driven by AI.</p>
 
 <p><img src="/images/2025/data_center.png" height="300" width="900" alt="Alt text" /></p>
 
-<a name="Major-Data-Center-Locations-in-the-United-States"></a>
+<a name="Major.Data.Center.Locations.in.the.United.States"></a>
 <h2>Major Data Center Locations in the United States</h2>
 
 <p>The US hosts approximately 5,381 data centers, with significant concentrations in specific regions that offer optimal conditions for operation. The top data center markets include:</p>
@@ -146,7 +153,7 @@ that power cloud computing, web services, and data-intensive applications. In th
 
 <p>These locations are detailed in sources like <a href="https://www.datacentermap.com/usa/">DataCenterMap</a> and <a href="https://dgtlinfra.com/united-states-data-centers/">Dgtl Infra</a>, which highlight their strategic importance.</p>
 
-<a name="Reasons-for-Location-Selection"></a>
+<a name="Reasons.for.Location.Selection"></a>
 <h2>Reasons for Location Selection</h2>
 
 <p>The choice of data center locations is driven by a combination of technical, economic, and environmental factors. The following criteria are critical in site selection, as outlined in sources such as <a href="https://www.techtarget.com/searchdatacenter/tip/Considerations-for-data-center-site-selection">TechTarget</a> and <a href="https://blog.equinix.com/blog/2024/08/06/5-considerations-for-choosing-data-center-locations/">Equinix</a>:</p>
@@ -167,12 +174,12 @@ that power cloud computing, web services, and data-intensive applications. In th
 
 <p>These factors explain why regions like Northern Virginia, with its robust infrastructure and proximity to key markets, dominate the data center landscape. Similarly, Dallas’s central location and energy advantages make it a growing hub, as noted in <a href="https://www.datacenterknowledge.com/data-center-site-selection/mapping-the-best-data-center-locations-in-2024">DataCenterKnowledge</a>.</p>
 
-<a name="Recent-Developments-in-Data-Centers-for-AI"></a>
+<a name="Recent.Developments.in.Data.Centers.for.AI"></a>
 <h2>Recent Developments in Data Centers for AI</h2>
 
 <p>The rapid growth of AI has significantly impacted data center requirements, particularly in terms of computational power and energy consumption. AI workloads, such as machine learning and large language models, demand specialized hardware like GPUs and TPUs, as well as scalable infrastructure. Recent developments highlight the following trends:</p>
 
-<a name="Massive-Investments"></a>
+<a name="Massive.Investments"></a>
 <h3>Massive Investments</h3>
 
 <p>Major tech companies are pouring billions into data center expansions to support AI:</p>
@@ -184,7 +191,7 @@ that power cloud computing, web services, and data-intensive applications. In th
 </ul>
 
 
-<a name="Specialized-Infrastructure"></a>
+<a name="Specialized.Infrastructure"></a>
 <h3>Specialized Infrastructure</h3>
 
 <p>Data centers are adapting to AI’s computational needs:</p>
@@ -195,7 +202,7 @@ that power cloud computing, web services, and data-intensive applications. In th
 </ul>
 
 
-<a name="Geographic-Diversification"></a>
+<a name="Geographic.Diversification"></a>
 <h3>Geographic Diversification</h3>
 
 <p>New AI-focused data centers are emerging in states beyond traditional hubs:</p>
@@ -208,7 +215,7 @@ that power cloud computing, web services, and data-intensive applications. In th
 </ul>
 
 
-<a name="Government-Support"></a>
+<a name="Government.Support"></a>
 <h3>Government Support</h3>
 
 <p>Federal initiatives are facilitating AI data center growth:</p>
@@ -230,7 +237,7 @@ that power cloud computing, web services, and data-intensive applications. In th
 </ul>
 
 
-<a name="Recent-AI-Data-Center-Projects-in-the-US"></a>
+<a name="Recent.AI.Data.Center.Projects.in.the.US"></a>
 <h3>Recent AI Data Center Projects in the US</h3>
 
 <div class="scrollable-table-container">
@@ -351,7 +358,68 @@ that power cloud computing, web services, and data-intensive applications. In th
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

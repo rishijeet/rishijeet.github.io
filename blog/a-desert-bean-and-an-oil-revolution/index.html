@@ -105,6 +105,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -113,11 +114,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p><em>How a nation that once begged OPEC for oil became the world&rsquo;s largest producer, with a little help from Rajasthan&rsquo;s desert farmers</em></p>
 
 <p><img src="/images/2026/oil.jpg" height="300" width="900" alt="Alt text" /></p>
 
-<a name="The-Smell-of-Dependence"></a>
+<a name="The.Smell.of.Dependence"></a>
 <h2>The Smell of Dependence</h2>
 
 <p>Picture this. It is October 1973. Richard Nixon is in the White House. The Vietnam War is winding down. And in the Middle East, a coalition of Arab nations has just made a decision that will bring the most powerful economy on Earth to its knees.</p>
@@ -133,7 +140,7 @@
 
 <p>How did that happen? And how did America fight its way back to the top, helped unexpectedly by a humble bean from the deserts of Rajasthan? That is the story we are about to tell.</p>
 
-<a name="The-Century-of-Plenty-2c--and-Then-the-Cliff"></a>
+<a name="The.Century.of.Plenty..and.Then.the.Cliff"></a>
 <h2>The Century of Plenty, and Then the Cliff</h2>
 
 <p>From the late 1800s through the mid-20th century, the United States was swimming in oil. Texas, Oklahoma, California, Louisiana. Oil gushed from the ground with almost comical ease. In 1901, the Spindletop well in Beaumont, Texas, erupted with such force that it took nine days to cap it. When it finally stabilised, it was producing more oil per day than all other American wells combined. It was the single most consequential oil discovery in history.
@@ -147,7 +154,7 @@
 
 <p>Enter the embargo. Enter the queues. Enter the humiliation.</p>
 
-<a name="The-Long-Dependency"></a>
+<a name="The.Long.Dependency"></a>
 <h2>The Long Dependency</h2>
 
 <p>After the shock of 1973, America made bold declarations about energy independence. President Nixon launched Project Independence. President Carter installed solar panels on the White House roof. But the declarations faded, the solar panels were removed by Reagan, and the imports kept rising.</p>
@@ -162,7 +169,7 @@
 
 <p>Something had to change.</p>
 
-<a name="The-Revolution-Underground"></a>
+<a name="The.Revolution.Underground"></a>
 <h2>The Revolution Underground</h2>
 
 <p>The revolution, when it came, did not come from Washington. It did not come from Big Oil boardrooms or military strategy. It came from a stubborn Texas oilman named George Mitchell.</p>
@@ -181,7 +188,7 @@
 
 <p>It was one of the most dramatic industrial reversals in history.</p>
 
-<a name="The-Secret-Ingredient:-How-Rajasthan-Fed-the-American-Oil-Boom"></a>
+<a name="The.Secret.Ingredient:.How.Rajasthan.Fed.the.American.Oil.Boom"></a>
 <h2>The Secret Ingredient: How Rajasthan Fed the American Oil Boom</h2>
 
 <p>Now here is the part of the story that almost nobody knows. The part that connects the oil derricks of West Texas to the dusty fields of northwestern India. The part that involves a humble, drought-resistant bean called guar, and how it quietly powered the greatest energy revolution of the 21st century.</p>
@@ -220,7 +227,7 @@
 
 <p>It is one of the most extraordinary and underreported supply chain stories in modern industrial history.</p>
 
-<a name="The-Numbers:-How-Big-Did-America-Get-3f-"></a>
+<a name="The.Numbers:.How.Big.Did.America.Get."></a>
 <h2>The Numbers: How Big Did America Get?</h2>
 
 <p>The statistics of America&rsquo;s shale-driven oil renaissance are genuinely staggering.</p>
@@ -233,7 +240,7 @@
 
 <p>America had gone from supplicant to supplier. And the Permian Basin alone was producing more oil per day than any single OPEC member nation.</p>
 
-<a name="The-Paradox:-Why-America-Still-Imports-Oil"></a>
+<a name="The.Paradox:.Why.America.Still.Imports.Oil"></a>
 <h2>The Paradox: Why America Still Imports Oil</h2>
 
 <p>Here is where many people get confused. If America is the world&rsquo;s largest oil producer, why does it still import millions of barrels a day?</p>
@@ -248,7 +255,7 @@
 
 <p>It sounds paradoxical. It is entirely rational. America sells what it has, buys what its machinery needs, and profits in the process.</p>
 
-<a name="The-Money:-What-Does-America-Actually-Earn-3f-"></a>
+<a name="The.Money:.What.Does.America.Actually.Earn."></a>
 <h2>The Money: What Does America Actually Earn?</h2>
 
 <p>Oil is not just an energy story. It is one of the biggest economic stories in the world.</p>
@@ -257,7 +264,7 @@
 
 <p>The shale revolution also reshaped geopolitics in ways that would have seemed impossible in 1973. When Russia invaded Ukraine in 2022 and European nations scrambled to replace Russian gas, it was American LNG tankers that sailed across the Atlantic to keep European homes heated that winter. Energy had become a weapon of statecraft, and America was now one of the largest arsenals.</p>
 
-<a name="A-Reversed-World-Order"></a>
+<a name="A.Reversed.World.Order"></a>
 <h2>A Reversed World Order</h2>
 
 <p>The story of America&rsquo;s oil journey is ultimately a story about vulnerability, ingenuity, and the unexpected ways the global economy connects people who will never meet.</p>
@@ -347,7 +354,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

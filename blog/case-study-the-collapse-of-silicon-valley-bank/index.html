@@ -109,6 +109,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -117,11 +118,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Silicon Valley Bank (SVB) was one of the largest banks catering to the startup and venture capital ecosystem in the United States. Its sudden collapse in March 2023 sent shockwaves through the financial sector, prompting government intervention and raising concerns about the stability of other regional banks. This case study explores the factors that led to SVB&rsquo;s failure, its impact, and key lessons learned.</p>
 
 <p><img src="/images/2025/svb.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Background-of-Silicon-Valley-Bank"></a>
+<a name="Background.of.Silicon.Valley.Bank"></a>
 <h2>Background of Silicon Valley Bank</h2>
 
 <p>Founded in 1983, SVB grew into the 16th largest bank in the U.S., with assets exceeding $209 billion by the end of 2022. It specialized in serving technology startups, venture capital (VC) firms, and innovation-driven companies. SVB&rsquo;s business model relied heavily on deposit funding from these clients and investments in long-duration U.S. government bonds.</p>
@@ -129,7 +136,7 @@
 <!--more-->
 
 
-<a name="Growth-and-Success"></a>
+<a name="Growth.and.Success"></a>
 <h3>Growth and Success</h3>
 
 <ul>
@@ -139,10 +146,10 @@
 </ul>
 
 
-<a name="The-Downfall:-Key-Factors-Leading-to-the-Collapse"></a>
+<a name="The.Downfall:.Key.Factors.Leading.to.the.Collapse"></a>
 <h2>The Downfall: Key Factors Leading to the Collapse</h2>
 
-<a name="L-3c-strong-3e-Overreliance-on-Long-2d-Term-Bonds-3c--2f-strong-3e-"></a>
+<a name="L.strong.Overreliance.on.Long-Term.Bonds..strong."></a>
 <h3><strong>Overreliance on Long-Term Bonds</strong></h3>
 
 <p>SVB invested heavily in long-term U.S. Treasury bonds and mortgage-backed securities (MBS) to generate returns. However, these investments carried significant interest rate risk.</p>
@@ -153,7 +160,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Federal-Reserve-e2--80--99-s-Interest-Rate-Hikes-3c--2f-strong-3e-"></a>
+<a name="L.strong.Federal.Reserve...s.Interest.Rate.Hikes..strong."></a>
 <h3><strong>Federal Reserve’s Interest Rate Hikes</strong></h3>
 
 <ul>
@@ -163,7 +170,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Tech-Industry-Slowdown-and-Deposit-Flight-3c--2f-strong-3e-"></a>
+<a name="L.strong.Tech.Industry.Slowdown.and.Deposit.Flight..strong."></a>
 <h3><strong>Tech Industry Slowdown and Deposit Flight</strong></h3>
 
 <ul>
@@ -172,7 +179,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Panic-and-Bank-Run--28-March-2023-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Panic.and.Bank.Run..March.2023...strong."></a>
 <h3><strong>Panic and Bank Run (March 2023)</strong></h3>
 
 <ul>
@@ -182,10 +189,10 @@
 </ul>
 
 
-<a name="Government-and-Market-Response"></a>
+<a name="Government.and.Market.Response"></a>
 <h2>Government and Market Response</h2>
 
-<a name="L-3c-strong-3e-FDIC-Intervention-3c--2f-strong-3e-"></a>
+<a name="L.strong.FDIC.Intervention..strong."></a>
 <h3><strong>FDIC Intervention</strong></h3>
 
 <ul>
@@ -194,7 +201,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Stock-Market-and-Banking-Sector-Impact-3c--2f-strong-3e-"></a>
+<a name="L.strong.Stock.Market.and.Banking.Sector.Impact..strong."></a>
 <h3><strong>Stock Market and Banking Sector Impact</strong></h3>
 
 <ul>
@@ -206,7 +213,7 @@
 
 <p><img src="/images/2025/svb_stock.avif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Lessons-and-Takeaways"></a>
+<a name="Key.Lessons.and.Takeaways"></a>
 <h2>Key Lessons and Takeaways</h2>
 
 <ul>
@@ -308,7 +315,68 @@ social media and VC networks.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

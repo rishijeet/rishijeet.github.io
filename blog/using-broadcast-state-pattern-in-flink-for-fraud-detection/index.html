@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,9 +116,15 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>The Broadcast State Pattern in Apache Flink is a powerful feature for real-time stream processing, particularly useful for scenarios like fraud detection. This pattern allows you to maintain a shared state that can be updated and accessed by multiple parallel instances of a stream processing operator. Here&rsquo;s how it can be applied to fraud detection:</p>
 
-<a name="Key-Concepts-of-the-Broadcast-State-Pattern"></a>
+<a name="Key.Concepts.of.the.Broadcast.State.Pattern"></a>
 <h2>Key Concepts of the Broadcast State Pattern</h2>
 
 <p><strong>Broadcast State</strong>: This is a state that is shared across all parallel instances of an operator. It is used to store information that needs to be accessible to all instances, such as configuration data or rules for fraud detection.</p>
@@ -126,7 +133,7 @@
 
 <p><strong>Broadcast Streams</strong>: These streams carry the state updates, such as new fraud detection rules or updates to existing rules.</p>
 
-<a name="Steps-to-Implement-Fraud-Detection-Using-Broadcast-State-Pattern"></a>
+<a name="Steps.to.Implement.Fraud.Detection.Using.Broadcast.State.Pattern"></a>
 <h2>Steps to Implement Fraud Detection Using Broadcast State Pattern</h2>
 
 <p><strong>Define the Broadcast State</strong>:</p>
@@ -164,7 +171,7 @@
 </ul>
 
 
-<a name="Example-Implementation"></a>
+<a name="Example.Implementation"></a>
 <h2>Example Implementation</h2>
 
 <p>Here&rsquo;s a simplified example (I have used Java as an example but works with other programming languages too ) of how you might implement this in Flink:</p>
@@ -226,7 +233,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Benefits-of-Using-Broadcast-State-Pattern"></a>
+<a name="Benefits.of.Using.Broadcast.State.Pattern"></a>
 <h2>Benefits of Using Broadcast State Pattern</h2>
 
 <p> <strong>Consistency:</strong>Ensures all instances have a consistent view of the rules.</p>
@@ -300,7 +307,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

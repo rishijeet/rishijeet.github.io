@@ -1,0 +1,1275 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>How Airbnb Works? - Rishijeet Mishra | Technologist | Tech Trends & Development Blog</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Bridging tech and education - Rishijeet Mishra's insights on digital learning">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/how-airbnb-works">
+
+        <link href='https://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+         <!--adding the font awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra | Technologist | Tech Trends & Development Blog" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/system-design/">System Design</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">How Airbnb Works?</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-11T09:21:17+05:30" pubdate><i class="fa fa-calendar"></i> May 11th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
+    <blockquote><p><em>Every time you search for a place to stay in Tokyo, lock in a booking for next weekend in Lisbon, or message a host about parking — you&rsquo;re touching a system that handles millions of concurrent users, real-time availability across 7 million listings, payment transactions in dozens of currencies, and geo-spatial searches across the entire planet. Let&rsquo;s pull back the curtain.</em></p></blockquote>
+
+<p><img src="/images/system_design/airbnb.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Airbnb is one of the most fascinating systems to think about from an engineering standpoint. Not because any single piece is extraordinarily novel on its own, but because the combination of problems they have to solve simultaneously is genuinely hard.</p>
+
+<p>You have geo-spatial search that needs to return results in under 200ms. You have a booking system that must never double-book a property, even when two guests are clicking &ldquo;Reserve&rdquo; at the exact same millisecond. You have dynamic pricing that shifts based on local events, season, and demand signals. You have payments flowing across 220+ countries with fraud detection running on every transaction. And you have to do all of this reliably for a platform where a single outage during peak travel season means real money lost for real hosts around the world.</p>
+
+<p>As of recent years, Airbnb has over 7 million active listings in 220+ countries, serves hundreds of millions of guest arrivals per year, and sees traffic spikes that correlate with holiday seasons, major events, and even viral social media moments. That&rsquo;s the scale we&rsquo;re designing for.</p>
+
+<!--more-->
+
+
+<p>Let&rsquo;s get into it.</p>
+
+<a name="Core.Features.and.Why.They.re.Harder.Than.They.Look"></a>
+<h2>Core Features and Why They&rsquo;re Harder Than They Look</h2>
+
+<p>Before diving into architecture, it&rsquo;s worth understanding what Airbnb actually does — and specifically what makes each feature technically interesting.</p>
+
+<p><strong>Property Listings:</strong> Hosts create listings with photos, descriptions, amenities, house rules, and availability calendars. Simple to describe, but storing and serving millions of rich media listings at low latency requires careful thinking about storage, CDN strategy, and search indexing.</p>
+
+<p><strong>Search:</strong> Guests search by location, dates, guest count, price range, and amenities. The geo-spatial nature of this — &ldquo;show me listings within a 5km radius of these coordinates&rdquo; — combined with real-time availability filtering makes this one of the hardest search problems at scale.</p>
+
+<p><strong>Booking:</strong> A guest selects dates and clicks Reserve. The system must verify availability in real-time, hold the inventory, process payment, and confirm the booking — all without any other guest booking the same property for the same dates in that window. Race conditions here are not hypothetical; they happen constantly at scale.</p>
+
+<p><strong>Availability Calendar:</strong> Each listing has a calendar showing which dates are blocked (already booked, or blocked by the host) and which are open. This calendar must stay consistent across the host&rsquo;s interface, the guest-facing search, and the booking system simultaneously.</p>
+
+<p><strong>Dynamic Pricing:</strong> Hosts can set base prices, but Airbnb&rsquo;s smart pricing system suggests (and with Smart Pricing enabled, automatically adjusts) nightly rates based on local demand, comparable listings, seasonal patterns, and upcoming events. Computing this in real-time for millions of listings is a significant data pipeline challenge.</p>
+
+<p><strong>Reviews and Messaging:</strong> Both reviews and the host-guest messaging system sound straightforward. But reviews have integrity concerns (preventing fake reviews, handling disputes), and messaging needs to work reliably even when either party is offline, with proper notification delivery across email, SMS, and push.</p>
+
+<p>Each of these features alone would be a substantial engineering problem. Airbnb runs all of them simultaneously at global scale.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>Let&rsquo;s start with the 30,000-foot view and then drill down.</p>
+
+<div class="mermaid">
+flowchart TB;
+
+subgraph Clients
+A1[Web Browser];
+A2[iOS App];
+A3[Android App];
+end;
+
+subgraph CDN
+B[Static Assets Images Map Tiles];
+end;
+
+subgraph Gateway
+C[Rate Limiting Auth Routing];
+end;
+
+subgraph Core
+D1[Listing Service];
+D2[Search Service];
+D3[Booking Service];
+D4[Payment Service];
+D5[User Service];
+D6[Messaging Service];
+D7[Notification Service];
+D8[Pricing Service];
+D9[Review Service];
+end;
+
+subgraph Streaming
+E[Async Event Streaming];
+end;
+
+subgraph Data
+F1[PostgreSQL];
+F2[Elasticsearch];
+F3[Redis];
+F4[Amazon S3];
+F5[Cassandra];
+end;
+
+A1 &#8211;> B;
+A2 &#8211;> B;
+A3 &#8211;> B;
+B &#8211;> C;
+C &#8211;> D1;
+D1 &#8211;> E;
+E &#8211;> D7;
+D1 &#8211;> F1;
+
+</div>
+
+
+<p>This diagram gives you the skeleton. Now let me explain each layer and why it&rsquo;s designed this way.</p>
+
+<p><strong>CDN Layer:</strong> The first interceptor for all traffic. Airbnb serves listing photos, static JavaScript bundles, CSS, and map tiles from edge nodes distributed globally. The goal is to serve as much as possible without ever hitting the origin servers. A guest in Singapore loading a listing page should get images from a CDN node in Singapore, not from a data center in Virginia.</p>
+
+<p><strong>API Gateway:</strong> Every API request from mobile or web flows through a centralized gateway. This is where authentication tokens are validated, rate limiting is enforced (so no single client can hammer your APIs), and requests are routed to the correct downstream service. The gateway is also where you implement cross-cutting concerns like request logging and circuit breaking.</p>
+
+<p><strong>Microservices:</strong> Airbnb started as a Rails monolith (as many startups do) and gradually decomposed into services as different domains scaled at different rates. The search team needed to iterate on ranking independently of the booking team. The payment system needed stricter deployment controls than the review system. Microservices solve the organizational and scaling problem simultaneously — each service can be scaled, deployed, and maintained independently.</p>
+
+<p><strong>Kafka Event Bus:</strong> The connective tissue between services. When a booking is confirmed, the Booking Service publishes a <code>booking.confirmed</code> event to Kafka. The Notification Service picks it up and sends emails. The Pricing Service picks it up and recalculates availability-based demand scores. The Calendar Service picks it up and updates the listing&rsquo;s availability. Nobody is directly coupled to anybody else.</p>
+
+<a name="Search.System.Deep.Dive"></a>
+<h2>Search System Deep Dive</h2>
+
+<p>Search is where Airbnb earns its reputation for engineering sophistication. It is not a simple keyword search. It is a geo-spatial, date-filtered, availability-aware, personalized ranking problem that must return results in under 200 milliseconds.</p>
+
+<a name="The.Query.Anatomy"></a>
+<h3>The Query Anatomy</h3>
+
+<p>When a guest searches &ldquo;Paris, France — July 4–10, 2 guests, max $200/night,&rdquo; the search system needs to:</p>
+
+<ol>
+<li>Find all listings within a reasonable radius of Paris</li>
+<li>Filter to those that are available for all nights from July 4 to July 10</li>
+<li>Filter to those that accommodate at least 2 guests</li>
+<li>Filter to those priced at $200 or under</li>
+<li>Rank the results by a combination of relevance, quality, and personalization signals</li>
+<li>Return paginated results with photos, price, and ratings</li>
+</ol>
+
+
+<p>Each of these steps has scaling implications.</p>
+
+<a name="Geo-Spatial.Indexing"></a>
+<h3>Geo-Spatial Indexing</h3>
+
+<p>The core challenge is step 1: &ldquo;find listings near Paris.&rdquo; You cannot do this with a simple SQL query scanning millions of rows. You need a spatial index.</p>
+
+<p><strong>GeoHash</strong> is one of the most common approaches. GeoHash divides the world into a grid of cells, each represented by a short string. The key property is that strings that share a prefix are geographically close to each other. A listing with GeoHash <code>u09tvw</code> is near any other listing starting with <code>u09tv</code>. This lets you turn a radius query into a prefix query — orders of magnitude faster.</p>
+
+<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>GeoHash precision levels:
+</span><span class='line'>- Length 1  → ~5000 km cell
+</span><span class='line'>- Length 4  → ~40 km cell
+</span><span class='line'>- Length 6  → ~1.2 km cell
+</span><span class='line'>- Length 8  → ~38 m cell</span></code></pre></div></figure>
+
+
+<p>For a city-level search, you might use precision 5 or 6 to find candidate cells, then compute exact distances only for candidates. This two-phase approach — coarse candidate retrieval followed by fine-grained filtering — is the backbone of geo search at scale.</p>
+
+<p><strong>QuadTree</strong> is an alternative. Instead of a fixed grid, a QuadTree recursively subdivides space into quadrants based on listing density. Areas with many listings (Manhattan) get finer subdivisions. Areas with few listings (rural Montana) stay coarse. This adapts better to uneven distribution but is more complex to implement and maintain.</p>
+
+<p>Airbnb uses Elasticsearch (now OpenSearch-compatible) as its primary search index. Elasticsearch has native support for geo-point fields and geo queries, which abstracts a lot of the spatial indexing complexity while still leveraging inverted indexes for filtering.</p>
+
+<a name="The.Search.Flow"></a>
+<h3>The Search Flow</h3>
+
+<div class="mermaid">
+flowchart LR;
+
+%% Nodes
+A[Guest Search Request];
+B[Search Service];
+C[Parse and Validate Query];
+D{Check Redis Cache same query seen recently};
+E[Return Cached Results];
+F[Build Elasticsearch Query];
+G[Geo Filter Date Filter Price Filter Amenity Filter];
+H[Retrieve Candidate Listings];
+I[Fetch Availability from Booking Service];
+J[Apply Ranking Model quality and personalization];
+K[Store in Cache TTL 60s];
+L[Return Paginated Results];
+
+%% Flow
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+
+D &#8211;>|Cache Hit| E;
+D &#8211;>|Cache Miss| F;
+
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> L;
+
+</div>
+
+
+<p>One subtle challenge here is the availability check in step I. Elasticsearch holds listing metadata, but real-time availability (which dates are blocked) lives in the booking system. Doing a live availability check for every candidate listing on every search query would be prohibitively expensive. The solution is a periodic sync: the booking system publishes availability updates to Kafka, and a consumer updates the availability data in Elasticsearch. There&rsquo;s a small lag — usually under a minute — but for search results this is acceptable. The final availability confirmation happens at booking time, not at search time.</p>
+
+<a name="Ranking"></a>
+<h3>Ranking</h3>
+
+<p>Once you have a set of available, filtered candidates, you need to rank them. The ranking model at Airbnb is a machine learning model (reportedly a gradient boosted tree followed by neural re-ranking) that scores each listing based on:</p>
+
+<ul>
+<li><strong>Listing quality signals:</strong> number and recency of reviews, average rating, response rate, acceptance rate</li>
+<li><strong>Price competitiveness:</strong> how this listing&rsquo;s price compares to similar listings in the area</li>
+<li><strong>Guest preferences:</strong> if the guest has searched before, what types of properties did they click? What did they book?</li>
+<li><strong>Host reliability:</strong> how often does this host cancel bookings? (A host with frequent cancellations gets penalized heavily in ranking)</li>
+<li><strong>Photo quality:</strong> Airbnb has trained models to assess photo quality and penalize listings with dark, blurry, or poorly composed photos</li>
+</ul>
+
+
+<p>This ranking is computed offline and stored as a score per listing. At query time, you retrieve candidates and sort by the precomputed score adjusted for query-specific context (distance from the searched location, for instance).</p>
+
+<a name="Pagination.Challenges"></a>
+<h3>Pagination Challenges</h3>
+
+<p>Geo-spatial pagination is awkward. When you page through results sorted by distance, a new listing being added (or an existing one becoming unavailable) can shift positions, causing duplicates or gaps between pages. Airbnb handles this with cursor-based pagination tied to a session token — the search state is snapshotted at query time and paginated results are pulled from that snapshot, not live data.</p>
+
+<a name="Booking.System.Deep.Dive"></a>
+<h2>Booking System Deep Dive</h2>
+
+<p>The booking system is where correctness trumps everything else. A search result being slightly stale is annoying. A double booking — two guests showing up at the same property on the same night — is a catastrophic failure that harms real people and destroys trust.</p>
+
+<a name="The.Booking.Workflow"></a>
+<h3>The Booking Workflow</h3>
+
+<div class="mermaid">
+sequenceDiagram;
+
+participant G as Guest;
+participant BS as Booking Service;
+participant PS as Payment Service;
+participant LS as Listing Service;
+participant NS as Notification Service;
+participant K as Kafka;
+
+G->>BS: Reserve listing_id dates guests;
+BS->>BS: Validate dates not in past;
+BS->>LS: Check availability;
+LS&#8211;>>BS: Available;
+
+BS->>BS: Acquire distributed lock;
+BS->>BS: Recheck availability;
+
+BS->>PS: Authorize payment hold;
+PS&#8211;>>BS: Authorization successful;
+
+BS->>BS: Create booking record pending;
+BS->>LS: Block dates on calendar;
+
+BS->>BS: Update booking confirmed;
+BS->>K: Publish booking confirmed;
+
+K->>NS: Send confirmation emails;
+
+BS&#8211;>>G: Booking confirmed;
+
+</div>
+
+
+<p>The critical section here is the distributed lock around step 4. Without it, two guests could both check availability (both see &ldquo;available&rdquo;), both proceed to payment, and both get a confirmed booking for the same dates. This is the classic time-of-check-to-time-of-use (TOCTOU) race condition.</p>
+
+<a name="Preventing.Double.Bookings"></a>
+<h3>Preventing Double Bookings</h3>
+
+<p>Airbnb uses a combination of strategies here:</p>
+
+<p><strong>Database-level constraints:</strong> The calendar table has a unique constraint on <code>(listing_id, date, status=BOOKED)</code>. Any second booking attempt for the same listing and date will fail with a unique violation at the database level. This is the last-resort guard.</p>
+
+<p><strong>Distributed locking with Redis:</strong> Before writing, the booking service acquires a Redis lock on the key <code>lock:listing:{listing_id}:dates:{date_range_hash}</code> using the <code>SET NX PX</code> command (set if not exists, with expiry). This provides mutual exclusion at the application layer, well before the database constraint fires. The lock has a TTL (say, 10 seconds) so that if the booking service crashes while holding the lock, it automatically releases.</p>
+
+<p><strong>Optimistic locking on the listing record:</strong> The listing record has a version number. When a booking is committed, it checks that the version hasn&rsquo;t changed since it was read. If another booking sneaked in between the read and the write, the version won&rsquo;t match, and the transaction is rolled back and retried.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- Calendar table with uniqueness enforced at DB level</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">listing_calendar</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">listing_id</span>    <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">listings</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="nb">date</span>          <span class="nb">DATE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">status</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span> <span class="c1">-- &#39;AVAILABLE&#39;, &#39;BOOKED&#39;, &#39;BLOCKED&#39;</span>
+</span><span class='line'>    <span class="n">booking_id</span>    <span class="n">UUID</span> <span class="k">REFERENCES</span> <span class="n">bookings</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">listing_id</span><span class="p">,</span> <span class="nb">date</span><span class="p">)</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- A UNIQUE partial index to prevent two BOOKED entries for same listing+date</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">UNIQUE</span> <span class="k">INDEX</span> <span class="n">idx_listing_calendar_booked</span>
+</span><span class='line'>    <span class="k">ON</span> <span class="n">listing_calendar</span> <span class="p">(</span><span class="n">listing_id</span><span class="p">,</span> <span class="nb">date</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">WHERE</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;BOOKED&#39;</span><span class="p">;</span>
+</span></code></pre></div></figure>
+
+
+<a name="Handling.Payment.Failures"></a>
+<h3>Handling Payment Failures</h3>
+
+<p>Payment processing adds another layer of complexity. The sequence is:</p>
+
+<ol>
+<li>Authorize the payment (card is valid, funds reserved but not captured)</li>
+<li>Create the booking</li>
+<li>Capture the payment (money actually moves)</li>
+</ol>
+
+
+<p>If step 2 fails after step 1, you must release the payment authorization. If step 3 fails after step 2, you need to cancel the booking and release the hold. This two-phase approach (authorize then capture) is industry standard for exactly this reason — it gives you a window to back out before money actually moves.</p>
+
+<p>For handling partial failures, Airbnb uses a saga pattern — each step in the booking workflow publishes compensating events that can undo the step if a later step fails. The booking saga coordinator (often implemented as a state machine) tracks which steps have completed and orchestrates rollback when needed.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<a name="Schema.Overview"></a>
+<h3>Schema Overview</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- Users</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">email</span>           <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">password_hash</span>   <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">first_name</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">last_name</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">phone</span>           <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">profile_photo</span>   <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">verified</span>        <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_at</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">()</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Listings</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">listings</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">host_id</span>         <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">title</span>           <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">description</span>     <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">property_type</span>   <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>   <span class="c1">-- &#39;apartment&#39;, &#39;house&#39;, &#39;villa&#39;, etc.</span>
+</span><span class='line'>    <span class="n">room_type</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>   <span class="c1">-- &#39;entire_place&#39;, &#39;private_room&#39;, &#39;shared_room&#39;</span>
+</span><span class='line'>    <span class="n">max_guests</span>      <span class="nb">INT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">bedrooms</span>        <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">bathrooms</span>       <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">latitude</span>        <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">longitude</span>       <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">geohash</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">12</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">city</span>            <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">country</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">base_price</span>      <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">currency</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="k">DEFAULT</span> <span class="s1">&#39;USD&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">is_active</span>       <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">TRUE</span><span class="p">,</span>
+</span><span class='line'>    <span class="k">version</span>         <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1">-- for optimistic locking</span>
+</span><span class='line'>    <span class="n">created_at</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">()</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Bookings</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">bookings</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">listing_id</span>      <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">listings</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">guest_id</span>        <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">check_in</span>        <span class="nb">DATE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">check_out</span>       <span class="nb">DATE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">total_nights</span>    <span class="nb">INT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">total_price</span>     <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">status</span>          <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>  <span class="c1">-- &#39;PENDING&#39;,&#39;CONFIRMED&#39;,&#39;CANCELLED&#39;,&#39;COMPLETED&#39;</span>
+</span><span class='line'>    <span class="n">payment_id</span>      <span class="n">UUID</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_at</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">updated_at</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">()</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Reviews</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">reviews</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+</span><span class='line'>    <span class="n">booking_id</span>      <span class="n">UUID</span> <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">bookings</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">reviewer_id</span>     <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">listing_id</span>      <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">listings</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">overall_rating</span>  <span class="nb">INT</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">overall_rating</span> <span class="k">BETWEEN</span> <span class="mi">1</span> <span class="k">AND</span> <span class="mi">5</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">cleanliness</span>     <span class="nb">INT</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">cleanliness</span> <span class="k">BETWEEN</span> <span class="mi">1</span> <span class="k">AND</span> <span class="mi">5</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">communication</span>   <span class="nb">INT</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">communication</span> <span class="k">BETWEEN</span> <span class="mi">1</span> <span class="k">AND</span> <span class="mi">5</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">body</span>            <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_at</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">DEFAULT</span> <span class="n">NOW</span><span class="p">()</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<a name="SQL.vs.NoSQL.Decisions"></a>
+<h3>SQL vs NoSQL Decisions</h3>
+
+<p>The bookings, payments, and user accounts all live in PostgreSQL. This is deliberate. These are domains where transactional consistency is non-negotiable. A payment that debits a guest but doesn&rsquo;t credit the host (due to an eventual consistency lag) is a real financial incident. PostgreSQL&rsquo;s ACID guarantees and row-level locking make it the right tool here.</p>
+
+<p>The messaging system, on the other hand, is a better fit for Cassandra. Messages are append-only, read by conversation ID, and need to scale horizontally without complex joins. Cassandra&rsquo;s partition key model — <code>partition key: (conversation_id), clustering key: (timestamp)</code> — retrieves all messages in a conversation in time order with a single partition scan. That&rsquo;s exactly the access pattern you need.</p>
+
+<p>Search metadata lives in Elasticsearch. You can&rsquo;t do geo-queries, full-text search, and multi-faceted filtering efficiently in PostgreSQL at millions of listing scale. Elasticsearch is purpose-built for exactly this read pattern. The tradeoff is that data is duplicated — the authoritative record is in PostgreSQL, but a denormalized copy lives in Elasticsearch. Changes must be propagated via Kafka consumers to keep them in sync.</p>
+
+<p>Redis serves as the caching layer and the distributed locking mechanism. Session tokens, search result caches, rate limit counters, and booking locks all live in Redis. The data here is ephemeral by design — if Redis loses its data, you fall through to PostgreSQL. Redis never holds the authoritative record.</p>
+
+<a name="Indexing.and.Partitioning"></a>
+<h3>Indexing and Partitioning</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- Geospatial index for fast radius queries</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_listings_geohash</span> <span class="k">ON</span> <span class="n">listings</span> <span class="p">(</span><span class="n">geohash</span><span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_listings_lat_lng</span> <span class="k">ON</span> <span class="n">listings</span> <span class="p">(</span><span class="n">latitude</span><span class="p">,</span> <span class="n">longitude</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Booking lookups by listing (for availability checks)</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_bookings_listing_dates</span> <span class="k">ON</span> <span class="n">bookings</span> <span class="p">(</span><span class="n">listing_id</span><span class="p">,</span> <span class="n">check_in</span><span class="p">,</span> <span class="n">check_out</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">WHERE</span> <span class="n">status</span> <span class="k">IN</span> <span class="p">(</span><span class="s1">&#39;PENDING&#39;</span><span class="p">,</span> <span class="s1">&#39;CONFIRMED&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Review aggregations by listing</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_reviews_listing</span> <span class="k">ON</span> <span class="n">reviews</span> <span class="p">(</span><span class="n">listing_id</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Calendar range queries</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_calendar_listing_date</span> <span class="k">ON</span> <span class="n">listing_calendar</span> <span class="p">(</span><span class="n">listing_id</span><span class="p">,</span> <span class="nb">date</span><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p>As the bookings table grows into hundreds of millions of rows, you partition it by <code>created_at</code> (range partitioning by month or quarter). Older partitions can be archived to cheaper storage. Most booking queries are for recent or upcoming bookings, so the hot partition is small and fast.</p>
+
+<a name="Pricing.and.Availability.System"></a>
+<h2>Pricing and Availability System</h2>
+
+<a name="Dynamic.Pricing"></a>
+<h3>Dynamic Pricing</h3>
+
+<p>Airbnb&rsquo;s Smart Pricing system is effectively a demand forecasting model. For each listing on each date, it estimates how much demand there will be and suggests a price that maximizes the host&rsquo;s expected revenue (not just occupancy — a fully-booked listing at too-low prices isn&rsquo;t optimal).</p>
+
+<p>Inputs to the pricing model:
+- Base price set by the host
+- Historical booking patterns for this listing and comparable listings
+- Seasonal demand curves for this market
+- Local events (concerts, conferences, sports events) detected from external data sources
+- Day-of-week effects (weekends vs weekdays)
+- Lead time (bookings made 6 months out vs 3 days out have different price sensitivity)
+- Current occupancy rate and remaining availability</p>
+
+<p>The pricing service runs as a batch job overnight for all listings, generating per-listing, per-date price recommendations. These are stored in a pricing table and served through a cache. When a guest views a listing, the price shown is the cached recommendation, not a live computation.</p>
+
+<div class="mermaid">
+flowchart LR;
+
+%% Nodes
+A[External Event Data Concerts Conferences];
+B[Historical Booking Data];
+C[Comparable Listings Data];
+D[Pricing ML Model batch nightly];
+E[Pricing Table PostgreSQL];
+F[Redis Cache TTL 1hr];
+G[Listing Service serves price to guests];
+
+%% Flow
+A &#8211;> D;
+B &#8211;> D;
+C &#8211;> D;
+
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+
+</div>
+
+
+<a name="Calendar.Synchronization"></a>
+<h3>Calendar Synchronization</h3>
+
+<p>Many hosts list their property on multiple platforms — Airbnb, VRBO, Booking.com. To prevent double bookings across platforms, Airbnb supports iCal synchronization. External platforms export their bookings as iCal feeds, and Airbnb periodically polls these feeds (typically every few hours) to import blocked dates.</p>
+
+<p>This is a best-effort system — there&rsquo;s a polling lag. If a guest books via VRBO at 2pm and the next Airbnb iCal sync is at 4pm, there&rsquo;s a 2-hour window where Airbnb might still show those dates as available. The final guard is still the booking flow itself — but the likelihood of a collision is low.</p>
+
+<a name="Maps.and.Geo.Services"></a>
+<h2>Maps and Geo Services</h2>
+
+<a name="How.Map.Search.Works"></a>
+<h3>How Map Search Works</h3>
+
+<p>Airbnb&rsquo;s map search is one of its most distinctive UX features. As you drag and zoom the map, listings appear and disappear dynamically. Under the hood, this is a bounding-box geo query: &ldquo;give me all listings with latitude between X1 and X2 and longitude between Y1 and Y2, filtered by the current search criteria.&rdquo;</p>
+
+<div class="mermaid">
+flowchart LR;
+
+%% Nodes
+A[User Drags Map<br/>New Bounding Box];
+B[Debounced API Call<br/>Wait 200ms];
+C[Search Service];
+D[Elasticsearch<br/>Geo Bounding Box Query];
+E[Apply Filters<br/>Price Amenities Availability];
+F[Return Listing Pins<br/>lat lng price id];
+G[Render Pins on Map];
+
+%% Flow
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+
+</div>
+
+
+<p>The debouncing step (waiting 200ms) is important. Without it, every pixel of map drag would fire an API call, destroying performance for the client and the server.</p>
+
+<p>For rendering, Airbnb sends back only the minimum data needed to display map pins — listing ID, coordinates, and price. The full listing details are loaded lazily when the user hovers or clicks a pin. This reduces payload size for map responses dramatically.</p>
+
+<a name="Clustering"></a>
+<h3>Clustering</h3>
+
+<p>When a guest zooms out to see an entire country, you can&rsquo;t render thousands of individual pins — the map becomes unreadable and the client rendering performance collapses. The solution is clustering: at lower zoom levels, nearby listings are grouped into clusters showing the count. As you zoom in, clusters split into individual listings.</p>
+
+<p>Clustering can be done client-side (computationally on the frontend using libraries like Supercluster) or server-side (pre-aggregated in Elasticsearch using geo-tile aggregations). Airbnb uses a hybrid — server-side aggregations for initial load, client-side refinement for interactive zooming.</p>
+
+<a name="GeoHash.and.Distance.Calculations"></a>
+<h3>GeoHash and Distance Calculations</h3>
+
+<p>For &ldquo;nearby listings&rdquo; recommendations (shown on a listing page: &ldquo;More places near this area&rdquo;), GeoHash prefix matching is used. A listing with GeoHash <code>u09tvw</code> is shown neighbors sharing the <code>u09t</code> prefix, which covers roughly a 40km area.</p>
+
+<p>For exact distance display (&ldquo;2.3 km from city center&rdquo;), the Haversine formula is used:</p>
+
+<p>$$
+d = 2R \times \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta lat}{2}\right) + \cos(lat_1) \times \cos(lat_2) \times \sin^2\left(\frac{\Delta lon}{2}\right)}\right)
+$$</p>
+
+<p>This is computed at query time for candidate listings after the spatial index narrows down the candidates. Computing Haversine for 20 candidates is cheap; computing it for millions of listings would not be.</p>
+
+<a name="Messaging.System"></a>
+<h2>Messaging System</h2>
+
+<a name="Architecture"></a>
+<h3>Architecture</h3>
+
+<p>Host-guest messaging needs to feel instant. When a host sends a message at 11pm about check-in instructions, the guest should see it immediately — not after polling a REST endpoint every 30 seconds.</p>
+
+<p>This requires WebSocket connections for real-time delivery.</p>
+
+<div class="mermaid">
+sequenceDiagram;
+
+participant H as Host Browser;
+participant WS as WebSocket Server;
+participant MS as Message Service;
+participant K as Kafka;
+participant G as Guest Mobile;
+
+H->>WS: Connect WebSocket;
+G->>WS: Connect WebSocket;
+
+H->>MS: Send message REST;
+MS->>MS: Persist to Cassandra;
+MS->>K: Publish message created;
+
+K->>WS: Consume event;
+WS->>G: Push message;
+WS->>H: Delivery ACK;
+
+</div>
+
+
+<p>The message service persists messages to Cassandra (append-only, partition by conversation ID, cluster by timestamp). The WebSocket server is a stateful layer — each connection maps to a user, and incoming message events are fanned out to the correct socket.</p>
+
+<p>Because WebSocket servers are stateful, horizontal scaling requires a routing layer. When a guest connects to WebSocket server A, and the host is connected to WebSocket server B, a message from the host needs to reach server A to deliver to the guest. A Redis pub/sub channel (one per conversation) bridges the two servers.</p>
+
+<a name="Offline.Delivery"></a>
+<h3>Offline Delivery</h3>
+
+<p>When a user is offline (no WebSocket connection), messages are queued. When the user reconnects, the WebSocket server checks for undelivered messages and pushes them. For mobile users who might stay offline for hours, push notifications (APNs for iOS, FCM for Android) are used as the delivery channel. The notification is a nudge to open the app, which then fetches messages via REST.</p>
+
+<a name="Notification.Pipeline"></a>
+<h2>Notification Pipeline</h2>
+
+<p>Airbnb sends millions of transactional emails, push notifications, and SMS messages per day — booking confirmations, host inquiries, review reminders, payment receipts. Each of these needs to be delivered reliably with retry logic.</p>
+
+<div class="mermaid">
+flowchart TB;
+
+%% Nodes
+K[Kafka Topics<br/>booking confirmed<br/>booking cancelled<br/>message received<br/>review requested];
+NC[Notification Consumer];
+NR[Notification Router<br/>select channel];
+
+EM[Email Service<br/>SendGrid SES];
+PN[Push Notification Service<br/>APNs FCM];
+SM[SMS Service<br/>Twilio];
+
+DT[Delivery Tracking<br/>open click bounce];
+RP[Retry Queue<br/>exponential backoff];
+
+%% Flow
+K &#8211;> NC;
+NC &#8211;> NR;
+
+NR &#8211;> EM;
+NR &#8211;> PN;
+NR &#8211;> SM;
+
+EM &#8211;> DT;
+PN &#8211;> DT;
+SM &#8211;> DT;
+
+DT &#8211;> RP;
+
+</div>
+
+
+<p>The notification router applies user preferences and channel priority. If a user has push notifications enabled and their device is known to be active, prefer push. If they haven&rsquo;t opened the app recently, also send an email. For booking confirmations specifically, always send email regardless of other channels — it&rsquo;s the paper trail the guest needs.</p>
+
+<p>The retry queue handles transient failures. If SendGrid is temporarily unavailable, the notification is re-queued with exponential backoff (retry after 1 min, then 5 min, then 30 min, then give up and alert the on-call team).</p>
+
+<a name="Recommendation.System"></a>
+<h2>Recommendation System</h2>
+
+<p>When a guest opens the Airbnb app without a specific search in mind — just browsing — the recommendation system kicks in. The goal is to surface listings the guest is likely to love before they&rsquo;ve told you what they want.</p>
+
+<p>The recommendation pipeline conceptually works in three stages:</p>
+
+<p><strong>Candidate Generation:</strong> Based on the user&rsquo;s location (from device GPS or last search), pull a large candidate set of nearby listings. Also incorporate any &ldquo;Wishlist&rdquo; items the user has saved — clear signals of intent.</p>
+
+<p><strong>Feature Engineering:</strong> For each candidate listing, compute features: distance from user, price relative to user&rsquo;s historical bookings, property type match (if user always books entire apartments, downrank shared rooms), review sentiment score, photo quality score.</p>
+
+<p><strong>Ranking:</strong> A trained ranking model (typically a two-tower neural network that learns user embeddings and listing embeddings separately, then scores them by dot product) orders the candidates. Users who tend to book similar properties are grouped in embedding space, so implicit collaborative filtering emerges from the model.</p>
+
+<p><strong>Trending Destinations:</strong> Airbnb surfaces trending destinations (cities or neighborhoods with recently spiking search volume) using real-time aggregation of search events in Kafka. A Spark Streaming job computes trending destinations every few minutes and writes them to a cache served on the home screen.</p>
+
+<a name="Scaling.Airbnb"></a>
+<h2>Scaling Airbnb</h2>
+
+<a name="Horizontal.Scaling"></a>
+<h3>Horizontal Scaling</h3>
+
+<p>Every microservice runs as multiple replicas behind a load balancer. Stateless services (search, listing, pricing) scale trivially — add more replicas and distribute traffic. Stateful services (WebSocket servers, session stores) require session affinity or external state stores (Redis) so any replica can serve any request.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h3>Event-Driven Architecture</h3>
+
+<p>Kafka is the backbone of Airbnb&rsquo;s asynchronous processing. By publishing events rather than making synchronous service calls, the booking service doesn&rsquo;t need to know or care that the notification service, the pricing service, and the search indexer all need to react to a confirmed booking. Each listens independently. If the notification service is temporarily down, events accumulate in Kafka and are processed when it recovers — no data is lost.</p>
+
+<p>This matters enormously during traffic spikes. On New Year&rsquo;s Eve or during major events, booking volume can spike 10x over normal. An event-driven architecture absorbs this naturally — Kafka buffers the spike, and downstream consumers process at their own pace.</p>
+
+<a name="Cache.Strategy"></a>
+<h3>Cache Strategy</h3>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">Cache</span> <span class="k">hierarchy</span><span class="p">:</span>
+</span><span class='line'><span class="mi">1</span><span class="p">.</span> <span class="n">CDN</span> <span class="p">(</span><span class="n">edge</span> <span class="k">cache</span><span class="p">)</span> <span class="err">—</span> <span class="k">static</span> <span class="n">assets</span><span class="p">,</span> <span class="o">~</span><span class="mi">90</span><span class="o">%</span> <span class="k">cache</span> <span class="n">hit</span> <span class="n">rate</span>
+</span><span class='line'><span class="mi">2</span><span class="p">.</span> <span class="n">Redis</span> <span class="p">(</span><span class="n">app</span> <span class="k">cache</span><span class="p">)</span> <span class="err">—</span> <span class="k">search</span> <span class="n">results</span><span class="p">,</span> <span class="n">listing</span> <span class="k">data</span><span class="p">,</span> <span class="n">pricing</span><span class="p">,</span> <span class="o">~</span><span class="mi">70</span><span class="o">%</span> <span class="n">hit</span> <span class="n">rate</span>
+</span><span class='line'><span class="mi">3</span><span class="p">.</span> <span class="n">PostgreSQL</span> <span class="k">read</span> <span class="n">replicas</span> <span class="err">—</span> <span class="k">for</span> <span class="k">cache</span> <span class="n">misses</span><span class="p">,</span> <span class="n">offloads</span> <span class="k">from</span> <span class="k">primary</span>
+</span><span class='line'><span class="mi">4</span><span class="p">.</span> <span class="n">PostgreSQL</span> <span class="k">primary</span> <span class="err">—</span> <span class="n">writes</span> <span class="k">only</span>
+</span></code></pre></div></figure>
+
+
+<p>For listing data, a tiered cache works well. The listing detail page caches a fully assembled response (listing metadata + first photo + host info + current price) in Redis with a 5-minute TTL. For frequently viewed listings (popular cities, high-ranked results), this hit rate is very high. The miss rate is low enough that the database read replicas handle it comfortably.</p>
+
+<a name="Database.Bottlenecks.and.Hotspots"></a>
+<h3>Database Bottlenecks and Hotspots</h3>
+
+<p>Popular listings — say, a treehouse in the Smoky Mountains with 5,000 reviews and a perpetual waitlist — can become read hotspots. Every search for that region returns that listing; every view of the listing hits the cache. The cache solves the read problem.</p>
+
+<p>Write hotspots are harder. If 500 guests all try to book a listing the moment it becomes available (because the host just posted a cancellation), the booking service handles a storm of concurrent write attempts. The distributed lock serializes these writes — only one booking succeeds, and 499 guests get a &ldquo;no longer available&rdquo; response. This is by design. The lock is the correct solution. The only mitigation is ensuring the lock is implemented efficiently (Redis SET NX is sub-millisecond) and the sad-path response to guests is fast and helpful.</p>
+
+<a name="Trust..Safety..and.Fraud.Detection"></a>
+<h2>Trust, Safety, and Fraud Detection</h2>
+
+<p>Trust is the product Airbnb is actually selling. A guest hands a stranger the keys to their home. That only works if both sides trust the platform to curate, verify, and protect them.</p>
+
+<a name="Identity.Verification"></a>
+<h3>Identity Verification</h3>
+
+<p>Airbnb requires government ID verification for hosts in many markets. The ID verification pipeline works as:</p>
+
+<ol>
+<li>User uploads a photo of their ID and a selfie</li>
+<li>An OCR service extracts name, date of birth, and document number</li>
+<li>A face matching model compares the selfie to the ID photo</li>
+<li>Document authenticity checks run against known templates (fonts, security features, layout)</li>
+<li>A risk score is generated and a human review queue catches borderline cases</li>
+</ol>
+
+
+<a name="Fraud.Detection"></a>
+<h3>Fraud Detection</h3>
+
+<p>Every payment transaction runs through a fraud scoring model that evaluates:
+- Is this IP address associated with prior fraud?
+- Is the billing address consistent with the user&rsquo;s typical location?
+- Is this a newly created account booking an unusually expensive property?
+- Is the device fingerprint linked to prior fraudulent accounts?</p>
+
+<p>High-risk transactions are held for additional verification. Very-high-risk transactions are declined and the account is flagged for review.</p>
+
+<a name="Review.Integrity"></a>
+<h3>Review Integrity</h3>
+
+<p>Reviews are only possible after a completed booking — preventing hosts or guests from reviewing without a real stay. Review bombing (coordinated negative reviews) is detected using graph analysis: if a cluster of accounts all review the same listing negatively within a short window, and those accounts have no prior review history, that pattern triggers an investigation.</p>
+
+<a name="Anomaly.Detection"></a>
+<h3>Anomaly Detection</h3>
+
+<p>A real-time anomaly detection system monitors key metrics — bookings per minute by region, payment failures per merchant, new listing creation rate — and alerts when values deviate significantly from historical baselines. This catches both technical incidents (a spike in payment failures suggests a payment gateway issue) and abuse patterns (a sudden spike in new listings in a city could indicate a fake listing campaign).</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<a name="Multi-Region.Deployments"></a>
+<h3>Multi-Region Deployments</h3>
+
+<p>Airbnb runs in multiple AWS regions. Traffic is globally load-balanced (using Route 53 latency-based routing or similar) so guests in Europe primarily hit EU infrastructure and guests in Asia primarily hit APAC infrastructure. Each region is independently deployable and can serve traffic for the primary use case even if another region goes down.</p>
+
+<p>The exception is financial data. Payment processing and booking records are replicated across regions, but writes go to a primary region and are replicated asynchronously. The RPO (recovery point objective) for financial data is near zero — Airbnb cannot afford to lose booking or payment records.</p>
+
+<a name="Observability.Stack"></a>
+<h3>Observability Stack</h3>
+
+<p>Without visibility into what&rsquo;s happening across hundreds of microservices, you&rsquo;re flying blind. Airbnb&rsquo;s observability stack includes:</p>
+
+<p><strong>Metrics:</strong> Every service emits latency histograms, error rates, and throughput metrics. Dashboards show real-time health. Alerts fire when error rates exceed thresholds or latency degrades.</p>
+
+<p><strong>Distributed Tracing:</strong> Using a system like Jaeger or OpenTelemetry, every request gets a trace ID that propagates through all downstream service calls. When a booking request takes 3 seconds instead of 300ms, the trace shows exactly which service call ate the time.</p>
+
+<p><strong>Log Aggregation:</strong> Structured logs from all services flow into a central system (Elasticsearch + Kibana, or similar). Engineers can search across all service logs for a specific booking ID to reconstruct exactly what happened during an incident.</p>
+
+<p><strong>Canary Deployments:</strong> New versions of services are deployed to a small percentage of traffic (say, 1%) and promoted to full rollout only if error rates remain stable. A bad deployment is caught and rolled back before it affects most users.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Good system design isn&rsquo;t about picking the &ldquo;right&rdquo; answer — it&rsquo;s about understanding the tradeoffs and making informed choices.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Decision</th>
+        <th>Airbnb&#8217;s Approach</th>
+        <th>Alternative</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Monolith vs Microservices</td>
+        <td>Microservices</td>
+        <td>Monolith</td>
+        <td>Independent scaling and deploys, but operational complexity increases</td>
+      </tr>
+      <tr>
+        <td>SQL vs NoSQL for bookings</td>
+        <td>PostgreSQL (SQL)</td>
+        <td>Cassandra</td>
+        <td>ACID guarantees for financial data, but harder to scale horizontally</td>
+      </tr>
+      <tr>
+        <td>Real-time vs eventual consistency</td>
+        <td>Eventual for search, strong for bookings</td>
+        <td>All real-time</td>
+        <td>Lower latency and cost for search; correctness where it matters</td>
+      </tr>
+      <tr>
+        <td>Cache TTL</td>
+        <td>Short (60-300s)</td>
+        <td>Longer TTL</td>
+        <td>Freshness vs cache efficiency</td>
+      </tr>
+      <tr>
+        <td>Optimistic vs pessimistic locking</td>
+        <td>Both, layered</td>
+        <td>One or the other</td>
+        <td>Redis lock (pessimistic) for speed, DB constraint (last-resort) for safety</td>
+      </tr>
+      <tr>
+        <td>Sync vs async notifications</td>
+        <td>Async (Kafka)</td>
+        <td>Synchronous RPC</td>
+        <td>Resilience and decoupling, but introduces delivery lag</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The most important tradeoff at Airbnb is the consistency spectrum. The search system tolerates eventual consistency — showing a listing that was booked 30 seconds ago as still available — because the cost of being slightly stale is low (the guest just sees &ldquo;no longer available&rdquo; at booking time). The booking system tolerates zero eventual consistency — it uses strong transactional guarantees — because the cost of a double booking is catastrophic. Designing each subsystem at the appropriate point on the consistency spectrum is what separates a thoughtful architecture from a one-size-fits-all one.</p>
+
+<a name="Technology.Stack"></a>
+<h2>Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Technology</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Web Frontend</td>
+        <td>React</td>
+        <td>Component model scales well for complex UIs; large ecosystem</td>
+      </tr>
+      <tr>
+        <td>Mobile</td>
+        <td>React Native / Swift / Kotlin</td>
+        <td>Cross-platform code sharing where possible; native where performance demands</td>
+      </tr>
+      <tr>
+        <td>Backend Services</td>
+        <td>Java, Kotlin, Ruby (legacy)</td>
+        <td>Java/Kotlin for high-throughput services; type safety and JVM performance</td>
+      </tr>
+      <tr>
+        <td>API Gateway</td>
+        <td>Nginx / Envoy</td>
+        <td>Proven, configurable, battle-tested at massive scale</td>
+      </tr>
+      <tr>
+        <td>Search</td>
+        <td>Elasticsearch</td>
+        <td>Native geo queries, full-text search, aggregations, horizontal scaling</td>
+      </tr>
+      <tr>
+        <td>Primary Database</td>
+        <td>PostgreSQL</td>
+        <td>ACID guarantees, mature ecosystem, excellent for relational + transactional data</td>
+      </tr>
+      <tr>
+        <td>Messaging DB</td>
+        <td>Apache Cassandra</td>
+        <td>Append-only access pattern, horizontal scaling, partition-friendly</td>
+      </tr>
+      <tr>
+        <td>Cache</td>
+        <td>Redis</td>
+        <td>Sub-millisecond reads, distributed locks, pub/sub, sorted sets for leaderboards</td>
+      </tr>
+      <tr>
+        <td>Event Streaming</td>
+        <td>Apache Kafka</td>
+        <td>High-throughput, durable event log; decouples producers from consumers</td>
+      </tr>
+      <tr>
+        <td>Object Storage</td>
+        <td>Amazon S3</td>
+        <td>Globally durable, infinitely scalable photo and media storage</td>
+      </tr>
+      <tr>
+        <td>Container Orchestration</td>
+        <td>Kubernetes</td>
+        <td>Automates deployment, scaling, and self-healing of microservices</td>
+      </tr>
+      <tr>
+        <td>Cloud Infrastructure</td>
+        <td>AWS</td>
+        <td>Global footprint, managed services reduce operational overhead</td>
+      </tr>
+      <tr>
+        <td>Observability</td>
+        <td>Datadog / OpenTelemetry</td>
+        <td>Metrics, traces, and logs unified across services</td>
+      </tr>
+      <tr>
+        <td>ML Platform</td>
+        <td>Spark + custom serving</td>
+        <td>Batch training at scale; low-latency model serving for ranking and fraud</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>A word on the choice of Kafka: it&rsquo;s heavy infrastructure to run and operate. For a team of 5, Kafka is overkill. For a platform at Airbnb&rsquo;s scale with dozens of services that need to react to the same events, Kafka&rsquo;s durability and consumer group model make it the right choice. You can replay events if a consumer has a bug, which is invaluable during incidents.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>If you&rsquo;re preparing for a system design interview and Airbnb (or a similar short-term rental marketplace) comes up, here is how to approach it well.</p>
+
+<a name="What.interviewers.are.testing"></a>
+<h3>What interviewers are testing</h3>
+
+<ul>
+<li>Can you scope the problem correctly? (Don&rsquo;t design Twitter when asked to design Airbnb)</li>
+<li>Do you understand geo-spatial search challenges?</li>
+<li>Can you reason about the booking concurrency problem?</li>
+<li>Do you know when to use which database?</li>
+<li>Can you identify the consistency requirements for different parts of the system?</li>
+</ul>
+
+
+<a name="Strong.answers.include"></a>
+<h3>Strong answers include</h3>
+
+<p><strong>For search:</strong> &ldquo;I&rsquo;d use Elasticsearch with geo-point indexing for the spatial component, with a two-phase approach — GeoHash to find candidate cells, then distance calculation for ranking. Availability data is synced asynchronously from the booking system with a Kafka consumer, so search results might be 30-60 seconds stale, but the booking step is the real consistency gate.&rdquo;</p>
+
+<p><strong>For bookings:</strong> &ldquo;Double booking prevention uses a layered approach. First, a distributed Redis lock on (listing_id, date_range) serializes concurrent booking attempts. Second, a unique database constraint on (listing_id, date, BOOKED) provides a last-resort guard. Payment is authorized before the booking is committed, using the two-phase authorize-then-capture pattern.&rdquo;</p>
+
+<p><strong>For scaling:</strong> &ldquo;Search and listing reads scale horizontally — stateless services plus Redis caching handle most traffic. The booking write path is harder to scale because of the locking requirement, but because locks are narrow (per listing per date range) rather than global, you can have thousands of concurrent bookings happening in parallel as long as they&rsquo;re for different listings.&rdquo;</p>
+
+<a name="Common.mistakes.to.avoid"></a>
+<h3>Common mistakes to avoid</h3>
+
+<ul>
+<li>Designing a monolithic database. Putting search, bookings, payments, and messaging all in one PostgreSQL database will bottleneck your design. Explain why different storage systems serve different access patterns.</li>
+<li>Ignoring the concurrency problem. An answer that says &ldquo;check availability then book&rdquo; without addressing the race condition shows incomplete thinking.</li>
+<li>Over-engineering upfront. In an interview, explain that the system would start simpler (a single database, no Kafka) and describe when and why you&rsquo;d introduce complexity as you scale.</li>
+<li>Treating all data with the same consistency requirement. The hallmark of a strong answer is knowing where eventual consistency is acceptable and where it isn&rsquo;t.</li>
+</ul>
+
+
+<a name="Interview.flow.recommendation"></a>
+<h3>Interview flow recommendation</h3>
+
+<ol>
+<li>Spend 5 minutes clarifying scope: which features matter most? (Focus on search and booking — they&rsquo;re the core)</li>
+<li>Estimate scale: how many listings, searches/sec, bookings/day?</li>
+<li>Design the API layer: what are the core REST endpoints?</li>
+<li>Sketch the high-level architecture: clients → gateway → services → storage</li>
+<li>Deep-dive search: geo-spatial indexing, filtering, ranking</li>
+<li>Deep-dive booking: the locking strategy, the payment flow, the saga pattern</li>
+<li>Discuss scaling: where are the bottlenecks? How do you address them?</li>
+<li>Close with tradeoffs: what did you choose not to do, and why?</li>
+</ol>
+
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Airbnb is a masterclass in building a system where correctness, performance, and user trust are all non-negotiable simultaneously. The search system has to be fast because slow search means guests leave. The booking system has to be correct because a single double-booking is a disaster. The payment system has to be reliable because every failed transaction is lost revenue and lost trust. And all of this has to work across the globe, in dozens of currencies, for millions of properties.</p>
+
+<p>What makes Airbnb&rsquo;s architecture interesting isn&rsquo;t that it uses exotic technology — almost everything here is industry standard (PostgreSQL, Elasticsearch, Kafka, Redis). What makes it interesting is the careful reasoning about which consistency model applies where, how to handle concurrency at the transaction level, how to make geo-spatial search fast without sacrificing result quality, and how to build a trust layer for a business model that literally requires strangers to trust each other.</p>
+
+<p>Understanding the <em>why</em> behind each architectural choice — not just the <em>what</em> — is what separates an engineer who can talk about system design from one who can actually do it.</p>
+
+<hr />
+
+<p><em>Enjoyed this deep dive? The best way to internalize these concepts is to start designing systems yourself — pick a product you use every day and try to sketch its architecture from first principles. Then look at what engineers at that company have actually written about how they built it. The gap between your design and theirs is where the most learning happens.</em></p>
+
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2026 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div>
+    
+
+
+
+    
+
+
+
+
+<div class="hire hire--unavailable">
+    
+        
+    
+</div>
+
+</div>
+        </div>
+        
+    </div>
+</footer>
+
+
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/how-airbnb-works/';
+        var disqus_url = 'https://rishijeet.github.io/blog/how-airbnb-works/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+        <!--adding fancybox -->
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

@@ -105,6 +105,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -113,13 +114,19 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>In the ever-evolving field of artificial intelligence, large language models (LLMs) like GPT-4, Claude, Gemini, and LLaMA have reshaped how machines understand and generate human language. Behind the impressive capabilities of these models lies a deceptively simple but foundational step: <strong>tokenization</strong>.</p>
 
 <p>In this blog, we will dive deep into the concept of tokenization, understand its types, why it&rsquo;s needed, the challenges it solves, how it works under the hood, and where it’s headed in the future. This is a one-stop technical deep-dive for anyone looking to fully grasp the backbone of language understanding in LLMs.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-What-is-Tokenization-3f--3c--2f-strong-3e-"></a>
+<a name="L.strong.What.is.Tokenization...strong."></a>
 <h2><strong>What is Tokenization?</strong></h2>
 
 <p>At its core, tokenization is the process of converting raw text into smaller units called <strong>tokens</strong> that a language model can understand and process. These tokens can be:</p>
@@ -159,14 +166,14 @@
 
 <p><img src="/images/2025/token.png" height="300" width="900" alt="Alt text" /></p>
 
-<a name="Token-IDs"></a>
+<a name="Token.IDs"></a>
 <h4>Token IDs</h4>
 
 <p><img src="/images/2025/tokenid.png" height="300" width="900" alt="Alt text" /></p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Why-Tokenization-is-Needed-in-LLMs-3c--2f-strong-3e-"></a>
+<a name="L.strong.Why.Tokenization.is.Needed.in.LLMs..strong."></a>
 <h2><strong>Why Tokenization is Needed in LLMs</strong></h2>
 
 <p>Language models operate over numbers (tensors), not raw strings. Before any neural network processes your prompt, the words must be:</p>
@@ -189,10 +196,10 @@
 
 <hr />
 
-<a name="L-3c-strong-3e-Types-of-Tokenization-Strategies-3c--2f-strong-3e-"></a>
+<a name="L.strong.Types.of.Tokenization.Strategies..strong."></a>
 <h2><strong>Types of Tokenization Strategies</strong></h2>
 
-<a name="L-3c-strong-3e-Word-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Word-Level.Tokenization..strong."></a>
 <h3><strong>Word-Level Tokenization</strong></h3>
 
 <p>Each word is a token. Simple but inefficient for:</p>
@@ -210,7 +217,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Character-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Character-Level.Tokenization..strong."></a>
 <h3><strong>Character-Level Tokenization</strong></h3>
 
 <p>Each character is a token. Solves OOV issues but leads to longer sequences and loss of semantic granularity.</p>
@@ -220,7 +227,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Subword-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Subword.Tokenization..strong."></a>
 <h3><strong>Subword Tokenization</strong></h3>
 
 <p>Breaks words into frequent subword units using statistical techniques like:</p>
@@ -246,7 +253,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Byte-2d-Level-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Byte-Level.Tokenization..strong."></a>
 <h3><strong>Byte-Level Tokenization</strong></h3>
 
 <p>Tokenizes text at the byte level, including UTF-8 encodings.</p>
@@ -258,7 +265,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-SentencePiece-3c--2f-strong-3e-"></a>
+<a name="L.strong.SentencePiece..strong."></a>
 <h3><strong>SentencePiece</strong></h3>
 
 <p>A library that trains subword models using BPE or Unigram LM on raw text. Used in multilingual LLMs like T5, mT5.</p>
@@ -267,10 +274,10 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-How-Tokenization-Works:-Under-the-Hood-3c--2f-strong-3e-"></a>
+<a name="L.strong.How.Tokenization.Works:.Under.the.Hood..strong."></a>
 <h2><strong>How Tokenization Works: Under the Hood</strong></h2>
 
-<a name="L-3c-strong-3e-Training-a-Tokenizer-3c--2f-strong-3e-"></a>
+<a name="L.strong.Training.a.Tokenizer..strong."></a>
 <h3><strong>Training a Tokenizer</strong></h3>
 
 <p>During tokenizer training, the process involves:</p>
@@ -284,7 +291,7 @@ If unseen during training, this is a problem.</p>
 </ul>
 
 
-<a name="L-3c-strong-3e-Encoding-3c--2f-strong-3e-"></a>
+<a name="L.strong.Encoding..strong."></a>
 <h3><strong>Encoding</strong></h3>
 
 <p>At inference or training:</p>
@@ -308,7 +315,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Tokenization-and-Model-Limits-3c--2f-strong-3e-"></a>
+<a name="L.strong.Tokenization.and.Model.Limits..strong."></a>
 <h2><strong>Tokenization and Model Limits</strong></h2>
 
 <p>Most LLMs have a context window defined in <strong>tokens</strong>, not characters. For instance:</p>
@@ -324,7 +331,7 @@ If unseen during training, this is a problem.</p>
 
 <p>This is crucial for prompt design, summarization, RAG (Retrieval Augmented Generation), and efficient inference.</p>
 
-<a name="L-3c-strong-3e-Challenges-and-Trade-2d-offs-3c--2f-strong-3e-"></a>
+<a name="L.strong.Challenges.and.Trade-offs..strong."></a>
 <h2><strong>Challenges and Trade-offs</strong></h2>
 
 <div class="scrollable-table-container">
@@ -361,10 +368,10 @@ If unseen during training, this is a problem.</p>
 </div>
 
 
-<a name="L-3c-strong-3e-Tokenization-in-Multilingual-and-Code-Models-3c--2f-strong-3e-"></a>
+<a name="L.strong.Tokenization.in.Multilingual.and.Code.Models..strong."></a>
 <h2><strong>Tokenization in Multilingual and Code Models</strong></h2>
 
-<a name="L-3c-strong-3e-Multilingual-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Multilingual.Tokenization..strong."></a>
 <h3><strong>Multilingual Tokenization</strong></h3>
 
 <ul>
@@ -374,7 +381,7 @@ If unseen during training, this is a problem.</p>
 </ul>
 
 
-<a name="L-3c-strong-3e-Code-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Code.Tokenization..strong."></a>
 <h3><strong>Code Tokenization</strong></h3>
 
 <ul>
@@ -394,7 +401,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Compression-2c--Prompt-Engineering-2c--and-Token-Optimization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Compression..Prompt.Engineering..and.Token.Optimization..strong."></a>
 <h2><strong>Compression, Prompt Engineering, and Token Optimization</strong></h2>
 
 <p>Tokenization also directly affects:</p>
@@ -411,7 +418,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Tokenization-vs.-Embeddings-3c--2f-strong-3e-"></a>
+<a name="L.strong.Tokenization.vs..Embeddings..strong."></a>
 <h2><strong>Tokenization vs. Embeddings</strong></h2>
 
 <p>It’s important to note:</p>
@@ -426,32 +433,32 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-The-Future-of-Tokenization-in-LLMs-3c--2f-strong-3e-"></a>
+<a name="L.strong.The.Future.of.Tokenization.in.LLMs..strong."></a>
 <h2><strong>The Future of Tokenization in LLMs</strong></h2>
 
-<a name="L-3c-strong-3e-Token-2d-Free-Models-3c--2f-strong-3e-"></a>
+<a name="L.strong.Token-Free.Models..strong."></a>
 <h3><strong>Token-Free Models</strong></h3>
 
 <p>Efforts like <strong>Charformer</strong> and <strong>Byte-level transformers</strong> aim to bypass static tokenization and learn from raw bytes or characters.</p>
 
-<a name="L-3c-strong-3e-Neural-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Neural.Tokenization..strong."></a>
 <h3><strong>Neural Tokenization</strong></h3>
 
 <p>Trainable tokenizers using neural nets to learn optimal segmentation dynamically.</p>
 
-<a name="L-3c-strong-3e-Universal-Tokenizers-3c--2f-strong-3e-"></a>
+<a name="L.strong.Universal.Tokenizers..strong."></a>
 <h3><strong>Universal Tokenizers</strong></h3>
 
 <p>Tokenizers trained across modalities (text, image, code) using a common vocabulary to unify multimodal models.</p>
 
-<a name="L-3c-strong-3e-Efficient-Context-Windows-3c--2f-strong-3e-"></a>
+<a name="L.strong.Efficient.Context.Windows..strong."></a>
 <h3><strong>Efficient Context Windows</strong></h3>
 
 <p>With sliding-window and compression-based methods (e.g., Mamba, Hyena), token overhead may reduce for long contexts.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Major-LLMs-and-Their-Tokenization-3c--2f-strong-3e-"></a>
+<a name="L.strong.Major.LLMs.and.Their.Tokenization..strong."></a>
 <h2><strong>Major LLMs and Their Tokenization</strong></h2>
 
 <div class="scrollable-table-container">
@@ -509,7 +516,7 @@ If unseen during training, this is a problem.</p>
 
 <hr />
 
-<a name="L-3c-strong-3e-Conclusion-3c--2f-strong-3e-"></a>
+<a name="L.strong.Conclusion..strong."></a>
 <h2><strong>Conclusion</strong></h2>
 
 <p>Tokenization may appear trivial at first glance, but it&rsquo;s the hidden workhorse powering the language capabilities of every modern LLM. From enabling multilingual understanding to compressing long documents into tight prompts, tokenization determines what the model sees, learns, and generates.</p>
@@ -581,7 +588,68 @@ If unseen during training, this is a problem.</p>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

@@ -109,6 +109,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -117,9 +118,15 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>If you&rsquo;re anything like me, you&rsquo;ve probably spent the last few years glued to the whirlwind of AI advancements. From ChatGPT blowing our minds to models getting bigger and smarter by the day, it&rsquo;s been a wild ride. But every now and then, something comes along that feels like a real paradigm shift – not just more parameters or fancier training data, but a fundamental rethink of how these beasts work under the hood. That&rsquo;s exactly what DeepSeek&rsquo;s latest innovation, mHC (short for Manifold-Constrained Hyper-Connections), feels like to me. I stumbled upon their paper right at the start of 2026, and man, it got me excited. It&rsquo;s not just another incremental tweak; it&rsquo;s a clever fix to a problem that&rsquo;s been lurking in neural networks for over a decade.</p>
 
-<a name="What-the-Heck-is-DeepSeek-and-Why-Should-You-Care-About-mHC-3f-"></a>
+<a name="What.the.Heck.is.DeepSeek.and.Why.Should.You.Care.About.mHC."></a>
 <h2>What the Heck is DeepSeek and Why Should You Care About mHC?</h2>
 
 <p>First off, a quick intro to DeepSeek for those who might not be as deep in the AI weeds. DeepSeek is a Chinese AI lab that&rsquo;s been punching way above its weight class. They&rsquo;re the folks behind models like DeepSeek-V2 and DeepSeek-Coder, which have consistently outperformed bigger names from OpenAI or Google on certain benchmarks, often at a fraction of the cost. They&rsquo;re all about efficiency and open-source vibes, which is refreshing in an industry that&rsquo;s sometimes too secretive.</p>
@@ -133,7 +140,7 @@
 
 <p>Why is this exciting? Because as AI models scale to trillions of parameters, stability becomes the bottleneck. mHC could be the key to unlocking even bigger, smarter AIs without needing insane hardware upgrades. It&rsquo;s like finding a way to make your car engine more efficient instead of just slapping on a bigger gas tank.</p>
 
-<a name="A-Layman-27-s-Guide-to-Neural-Network-Connections:-From-Residuals-to-Hyper-2d-Connections"></a>
+<a name="A.Layman.s.Guide.to.Neural.Network.Connections:.From.Residuals.to.Hyper-Connections"></a>
 <h2>A Layman&rsquo;s Guide to Neural Network Connections: From Residuals to Hyper-Connections</h2>
 
 <p>Okay, let&rsquo;s ease into the technical side with some analogies. If you&rsquo;re new to this, think of a neural network as a stack of layers, each processing data a bit more. Data goes in at the bottom (input), gets transformed layer by layer, and pops out at the top (output, like a generated sentence).</p>
@@ -156,7 +163,7 @@
 
 <p>This diagram shows the core architecture of mHC compared to standard residuals and plain HC. You can see how mHC adds the manifold projection step to keep things in check.</p>
 
-<a name="Diving-Deeper:-The-Math-Behind-mHC"></a>
+<a name="Diving.Deeper:.The.Math.Behind.mHC"></a>
 <h2>Diving Deeper: The Math Behind mHC</h2>
 
 <p>In HC, the residual update becomes:</p>
@@ -212,7 +219,7 @@ save memory.</div></li>
 
 <p>Check out this graph illustrating training stability. The blue line (mHC) stays smooth, while HC (red) spikes all over – clear visual proof of the fix.</p>
 
-<a name="The-Proof-is-in-the-Data:-Benchmarks-and-Experiments"></a>
+<a name="The.Proof.is.in.the.Data:.Benchmarks.and.Experiments"></a>
 <h2>The Proof is in the Data: Benchmarks and Experiments</h2>
 
 <p>Now, let&rsquo;s talk numbers. DeepSeek tested mHC on models inspired by their DeepSeek-V3 architecture: 3B, 9B, and 27B parameters, all with Mixture-of-Experts (MoE) layers. They used n=4 expansion, trained on datasets proportional to size (e.g., 1T tokens for extended 3B runs).</p>
@@ -276,7 +283,7 @@ save memory.</div></li>
 
 <p>This chart from DeepSeek&rsquo;s R1 review (their likely mHC-powered model) shows broader benchmarks, reinforcing the gains.</p>
 
-<a name="Why-mHC-Feels-Like-a-Breakthrough--e2--80--93--And-What-It-Means-for-AI-27-s-Future"></a>
+<a name="Why.mHC.Feels.Like.a.Breakthrough.....And.What.It.Means.for.AI.s.Future"></a>
 <h2>Why mHC Feels Like a Breakthrough – And What It Means for AI&rsquo;s Future</h2>
 
 <p>What I love about mHC is how it questions sacred cows. Residual connections have been untouchable since 2015, but DeepSeek shows they&rsquo;re not optimal. By widening internal flows while keeping stability, mHC enables better &ldquo;feature mixing&rdquo; – the model can juggle more ideas per layer without losing track.</p>
@@ -289,7 +296,7 @@ save memory.</div></li>
 
 <p>In layman speak, mHC is like upgrading from a single-core CPU to multi-core, but with software that prevents overheating. It could lead to AIs that reason better on complex tasks – think solving multi-step math or parsing dense docs – without exploding your electric bill.</p>
 
-<a name="Wrapping-It-Up:-mHC-as-AI-27-s-Next-Big-Leap"></a>
+<a name="Wrapping.It.Up:.mHC.as.AI.s.Next.Big.Leap"></a>
 <h2>Wrapping It Up: mHC as AI&rsquo;s Next Big Leap</h2>
 
 <p>If there&rsquo;s one takeaway, it&rsquo;s that mHC isn&rsquo;t just a patch; it&rsquo;s a rethink that could scale AI further than we thought possible. DeepSeek&rsquo;s work reminds me why I got into this field: the thrill of peeling back layers (pun intended) to find smarter ways forward.</p>
@@ -359,7 +366,68 @@ save memory.</div></li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

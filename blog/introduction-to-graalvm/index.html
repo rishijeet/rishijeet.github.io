@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,11 +116,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>GraalVM is a high-performance runtime that provides significant improvements in application performance and efficiency. It is designed to execute applications written in Java, JavaScript, LLVM-based languages such as C and C++, and other dynamic languages. What sets GraalVM apart from traditional JVMs is its advanced Just-In-Time (JIT) compiler and its ability to perform ahead-of-time (AOT) compilation, which can yield impressive performance gains.</p>
 
 <p><img src="/images/2024/graalvm.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Why-is-GraalVM-Fast-3f-"></a>
+<a name="Why.is.GraalVM.Fast."></a>
 <h3>Why is GraalVM Fast?</h3>
 
 <p>GraalVM&rsquo;s performance advantage stems from several advanced mechanisms:</p>
@@ -165,12 +172,12 @@
 </ul>
 
 
-<a name="Code-Example:-Java-Performance-with-GraalVM"></a>
+<a name="Code.Example:.Java.Performance.with.GraalVM"></a>
 <h3>Code Example: Java Performance with GraalVM</h3>
 
 <p>Let&rsquo;s compare the performance of a simple Java application running on the standard JVM versus GraalVM.</p>
 
-<a name="Example-Code:-Fibonacci-Calculation"></a>
+<a name="Example.Code:.Fibonacci.Calculation"></a>
 <h4>Example Code: Fibonacci Calculation</h4>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="java"><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Fibonacci</span> <span class="o">{</span>
@@ -191,7 +198,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Benchmarking-with-Standard-JVM"></a>
+<a name="Benchmarking.with.Standard.JVM"></a>
 <h4>Benchmarking with Standard JVM</h4>
 
 <p>Compile and run the application using the standard JVM:</p>
@@ -208,7 +215,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Benchmarking-with-GraalVM"></a>
+<a name="Benchmarking.with.GraalVM"></a>
 <h4>Benchmarking with GraalVM</h4>
 
 <p>Compile and run the application using GraalVM:</p>
@@ -228,7 +235,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Native-Image-Compilation-with-GraalVM"></a>
+<a name="Native.Image.Compilation.with.GraalVM"></a>
 <h3>Native Image Compilation with GraalVM</h3>
 
 <p>For even faster startup time and reduced memory usage, compile the application to a native image:</p>
@@ -251,22 +258,22 @@
 </span></code></pre></div></figure>
 
 
-<a name="Detailed-Metrics"></a>
+<a name="Detailed.Metrics"></a>
 <h3>Detailed Metrics</h3>
 
 <p>To get precise metrics, multiple runs and averaging can provide more accurate results. Here’s a more structured approach to measuring performance:</p>
 
-<a name="L1.-Execution-Time"></a>
+<a name="L1..Execution.Time"></a>
 <h4>1. Execution Time</h4>
 
 <p>Run each setup multiple times (e.g., 10 times) and take the average execution time.</p>
 
-<a name="L2.-Memory-Usage"></a>
+<a name="L2..Memory.Usage"></a>
 <h4>2. Memory Usage</h4>
 
 <p>Use profiling tools like <code>jvisualvm</code> for JVMs and <code>time</code> or <code>top</code> for native images to measure memory usage.</p>
 
-<a name="Example-Script-for-Multiple-Runs"></a>
+<a name="Example.Script.for.Multiple.Runs"></a>
 <h3>Example Script for Multiple Runs</h3>
 
 <p>Here is a simple shell script to automate multiple runs and average the execution time:</p>
@@ -330,25 +337,25 @@
 </ul>
 
 
-<a name="Advanced-Mechanics-of-GraalVM"></a>
+<a name="Advanced.Mechanics.of.GraalVM"></a>
 <h3>Advanced Mechanics of GraalVM</h3>
 
-<a name="Just-2d-In-2d-Time-Compilation"></a>
+<a name="Just-In-Time.Compilation"></a>
 <h4>Just-In-Time Compilation</h4>
 
 <p>GraalVM&rsquo;s JIT compiler optimizes code dynamically at runtime. It performs speculative optimizations based on the current execution context and profile data. For example, if a method is frequently called with a certain set of argument types, the JIT compiler can optimize that method specifically for those types.</p>
 
-<a name="Ahead-2d-of-2d-Time-Compilation"></a>
+<a name="Ahead-of-Time.Compilation"></a>
 <h4>Ahead-of-Time Compilation</h4>
 
 <p>The Native Image tool performs AOT compilation, which translates bytecode into machine code before execution. This eliminates the need for JIT compilation at runtime, leading to faster startup times and lower memory usage. AOT-compiled binaries include only the necessary parts of the runtime and application code, resulting in smaller and more efficient executables.</p>
 
-<a name="Truffle-Framework"></a>
+<a name="Truffle.Framework"></a>
 <h4>Truffle Framework</h4>
 
 <p>The Truffle framework allows for the creation of highly optimized language runtimes. Languages implemented on Truffle can be executed with GraalVM&rsquo;s JIT compiler, benefiting from its advanced optimization techniques. Truffle interpreters generate an intermediate representation (IR) of the code, which the GraalVM compiler can optimize aggressively.</p>
 
-<a name="Partial-Escape-Analysis"></a>
+<a name="Partial.Escape.Analysis"></a>
 <h4>Partial Escape Analysis</h4>
 
 <p>Partial escape analysis is used to determine if objects can be allocated on the stack instead of the heap. If an object does not escape the scope of a method, it can be allocated on the stack, reducing heap allocations and garbage collection pressure. This technique improves both performance and memory efficiency.</p>
@@ -423,7 +430,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

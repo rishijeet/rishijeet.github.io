@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,9 +116,15 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Apache Cassandra is designed to handle large amounts of data across many commodity servers without any single point of failure. This architecture allows it to provide high availability and fault tolerance, making it an excellent choice for large-scale, mission-critical applications. Below, we&rsquo;ll delve into the key components and architecture of Cassandra.</p>
 
-<a name="Key-Components"></a>
+<a name="Key.Components"></a>
 <h3>Key Components</h3>
 
 <ul>
@@ -133,10 +140,10 @@
 </ul>
 
 
-<a name="Architecture-Overview"></a>
+<a name="Architecture.Overview"></a>
 <h3>Architecture Overview</h3>
 
-<a name="Cluster-Management"></a>
+<a name="Cluster.Management"></a>
 <h4>Cluster Management</h4>
 
 <p>Cassandra&rsquo;s cluster architecture ensures high availability and fault tolerance. The cluster is a set of nodes, and data is distributed among these nodes using consistent hashing. Key features include:</p>
@@ -151,7 +158,7 @@
 <!--more-->
 
 
-<a name="Data-Distribution"></a>
+<a name="Data.Distribution"></a>
 <h4>Data Distribution</h4>
 
 <p>Cassandra uses a consistent hashing algorithm to distribute data across nodes. Key features include:</p>
@@ -163,7 +170,7 @@
 </ul>
 
 
-<a name="Write-Path"></a>
+<a name="Write.Path"></a>
 <h4>Write Path</h4>
 
 <p>The write path in Cassandra ensures durability and high availability:</p>
@@ -176,7 +183,7 @@
 </ul>
 
 
-<a name="Read-Path"></a>
+<a name="Read.Path"></a>
 <h4>Read Path</h4>
 
 <p>The read path in Cassandra is optimized for speed:</p>
@@ -190,7 +197,7 @@
 </ul>
 
 
-<a name="Fault-Tolerance"></a>
+<a name="Fault.Tolerance"></a>
 <h4>Fault Tolerance</h4>
 
 <p>Cassandra is designed to be highly fault-tolerant:</p>
@@ -251,7 +258,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Keyspace-and-Table-Creation"></a>
+<a name="Keyspace.and.Table.Creation"></a>
 <h4>Keyspace and Table Creation</h4>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- Create a keyspace</span>
@@ -273,10 +280,10 @@
 </span></code></pre></div></figure>
 
 
-<a name="Why-is-Cassandra-fast-in-writes-3f-"></a>
+<a name="Why.is.Cassandra.fast.in.writes."></a>
 <h2>Why is Cassandra fast in writes?</h2>
 
-<a name="Log-2d-Structured-Storage"></a>
+<a name="Log-Structured.Storage"></a>
 <h3>Log-Structured Storage</h3>
 
 <ul>
@@ -290,7 +297,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="In-2d-Memory-Write-Path"></a>
+<a name="In-Memory.Write.Path"></a>
 <h3>In-Memory Write Path</h3>
 
 <ul>
@@ -305,7 +312,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Multi-2d-Threaded-Architecture"></a>
+<a name="Multi-Threaded.Architecture"></a>
 <h3>Multi-Threaded Architecture</h3>
 
 <ul>
@@ -323,7 +330,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Distributed-Writes"></a>
+<a name="Distributed.Writes"></a>
 <h3>Distributed Writes</h3>
 
 <ul>
@@ -339,7 +346,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Tunable-Consistency"></a>
+<a name="Tunable.Consistency"></a>
 <h3>Tunable Consistency</h3>
 
 <ul>
@@ -354,7 +361,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="No-Single-Point-of-Bottleneck"></a>
+<a name="No.Single.Point.of.Bottleneck"></a>
 <h3>No Single Point of Bottleneck</h3>
 
 <ul>
@@ -437,7 +444,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

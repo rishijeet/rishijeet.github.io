@@ -4,7 +4,7 @@
     <title><![CDATA[Category: mcp | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/mcp/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-03T22:26:54+05:30</updated>
+    <updated>2026-05-13T15:55:12+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -22,14 +22,14 @@
 
 <p>In the evolving field of artificial intelligence, large language models (LLMs) have transformed how we approach problem-solving, but they often struggle with hallucinations—generating plausible but incorrect information—or handling tasks requiring real-world interaction. Enter ReAct (Reasoning and Acting), a prompting framework that synergizes reasoning traces with actionable steps, enabling LLMs to behave more like intelligent agents. This detailed blog explores ReAct&rsquo;s foundations, mechanics, advantages, and practical implementation, culminating in a sample Python application using LangChain. We&rsquo;ll draw on established research and code examples to provide a comprehensive guide, updated with insights as of 2025.</p>
 
-<a name="How-ReAct-Works"></a>
+<a name="How.ReAct.Works"></a>
 <h2>How ReAct Works</h2>
 
 <p>In ReAct, the LLM generates a &ldquo;thought&rdquo; to plan, selects an &ldquo;action&rdquo; from available tools, observes the outcome, and iterates. This loop continues until the model outputs a final answer. For example, answering &ldquo;What is Olivia Wilde&rsquo;s boyfriend&rsquo;s age raised to the 0.23 power?&rdquo; might involve searching for the boyfriend, then calculating the power.</p>
 
 <p><img src="/images/2025/reAct.gif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Points"></a>
+<a name="Key.Points"></a>
 <h2>Key Points</h2>
 
 <ul>
@@ -42,7 +42,7 @@
 <!--more-->
 
 
-<a name="Foundations-of-ReAct"></a>
+<a name="Foundations.of.ReAct"></a>
 <h2>Foundations of ReAct</h2>
 
 <p>ReAct was introduced in the 2022 paper &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; by Shunyu Yao et al. It builds on chain-of-thought (CoT) prompting, where LLMs break down problems into intermediate reasoning steps for better performance on tasks like arithmetic or commonsense reasoning. However, CoT relies solely on the model&rsquo;s internal knowledge, leading to issues like factual errors or outdated information.</p>
@@ -61,7 +61,7 @@
 
 <p>This structure improves trustworthiness by making the process interpretable—users can trace how the model arrived at an answer.</p>
 
-<a name="How-ReAct-Works:-A-Step-2d-by-2d-Step-Breakdown"></a>
+<a name="How.ReAct.Works:.A.Step-by-Step.Breakdown"></a>
 <h2>How ReAct Works: A Step-by-Step Breakdown</h2>
 
 <p>ReAct operates in an iterative loop, typically capped at a maximum number of turns to control costs and latency. Here&rsquo;s the flow:</p>
@@ -88,7 +88,7 @@
 
 <p>However, challenges include dependency on tool quality, potential for infinite loops without safeguards, and higher token usage compared to simpler prompts.</p>
 
-<a name="Comparisons:-ReAct-vs.-Other-LLM-Techniques"></a>
+<a name="Comparisons:.ReAct.vs..Other.LLM.Techniques"></a>
 <h2>Comparisons: ReAct vs. Other LLM Techniques</h2>
 
 <p>To contextualize ReAct, consider this comparison table:</p>
@@ -140,7 +140,7 @@
 
 <p>ReAct often outperforms baselines on benchmarks like HotpotQA, Fever, ALFWorld, and WebShop, with gains in accuracy and efficiency when combined with CoT.</p>
 
-<a name="Building-a-Sample-ReAct-Application-in-Python"></a>
+<a name="Building.a.Sample.ReAct.Application.in.Python"></a>
 <h2>Building a Sample ReAct Application in Python</h2>
 
 <p>A basic ReAct agent can be built using Python libraries like LangChain. The sample below creates an agent that searches the web and performs math, demonstrating the loop in action. You&rsquo;ll need API keys for an LLM (e.g., OpenAI) and tools (e.g., Google Serper for search). For full code and setup, see the detailed survey below. This sample creates an agent that answers questions by searching the web (via Tavily) and performing calculations. It demonstrates the full loop and includes conversational memory for multi-turn interactions.</p>
@@ -162,7 +162,7 @@ os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
 </ul>
 
 
-<a name="Code-Implementation"></a>
+<a name="Code.Implementation"></a>
 <h3>Code Implementation</h3>
 
 <p>The application uses LangGraph&rsquo;s <code>create_react_agent</code> for the ReAct logic. Here&rsquo;s the complete code:</p>
@@ -209,7 +209,7 @@ response = run_agent(query)
 print(f"Final Answer: {response}")
 </code></pre>
 
-<a name="Detailed-Explanation"></a>
+<a name="Detailed.Explanation"></a>
 <h3>Detailed Explanation</h3>
 
 <ol>
@@ -230,7 +230,7 @@ print(f"Final Answer: {response}")
 </ol>
 
 
-<a name="Testing-and-Output"></a>
+<a name="Testing.and.Output"></a>
 <h3>Testing and Output</h3>
 
 <p>Running the code might yield:</p>
@@ -241,7 +241,7 @@ This ensures factual grounding, e.g., verifying current data as of 2025.</li>
 </ul>
 
 
-<a name="Advanced-Variations-and-Best-Practices"></a>
+<a name="Advanced.Variations.and.Best.Practices"></a>
 <h2>Advanced Variations and Best Practices</h2>
 
 <ul>
@@ -278,7 +278,7 @@ retrieves documents from a vector store before prompting the model.</p>
 <!--more-->
 
 
-<a name="Key-Points"></a>
+<a name="Key.Points"></a>
 <h3>Key Points</h3>
 
 <ul>
@@ -290,7 +290,7 @@ retrieves documents from a vector store before prompting the model.</p>
 </ul>
 
 
-<a name="Key-Differences"></a>
+<a name="Key.Differences"></a>
 <h2>Key Differences</h2>
 
 <div class="scrollable-table-container">
@@ -339,7 +339,7 @@ retrieves documents from a vector store before prompting the model.</p>
 </div>
 
 
-<a name="Python-Code-Examples"></a>
+<a name="Python.Code.Examples"></a>
 <h3>Python Code Examples</h3>
 
 <p>Here&rsquo;s how to implement basic versions of each.</p>
@@ -351,19 +351,19 @@ retrieves documents from a vector store before prompting the model.</p>
 </span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.runnables</span> <span class="kn">import</span> <span class="n">RunnablePassthrough</span>
 </span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.output_parsers</span> <span class="kn">import</span> <span class="n">StrOutputParser</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Sample-documents&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Sample.documents&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
 </span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Sample</span> <span class="n">documents</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">docs</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Document</span> <span class="mi">1</span> <span class="n">content</span><span class="o">&amp;</span><span class="n">hellip</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Document</span> <span class="mi">2</span> <span class="n">content</span><span class="o">&amp;</span><span class="n">hellip</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;]</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Embed-and-store&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Embed.and.store&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
 </span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Embed</span> <span class="ow">and</span> <span class="n">store</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">embeddings</span> <span class="o">=</span> <span class="n">OpenAIEmbeddings</span><span class="p">()</span>
 </span><span class='line'><span class="n">vectorstore</span> <span class="o">=</span> <span class="n">Chroma</span><span class="o">.</span><span class="n">from_texts</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
 </span><span class='line'><span class="n">retriever</span> <span class="o">=</span> <span class="n">vectorstore</span><span class="o">.</span><span class="n">as_retriever</span><span class="p">()</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Prompt-template&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Prompt.template&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
 </span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Prompt</span> <span class="n">template</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">template</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Use</span> <span class="n">the</span> <span class="n">following</span> <span class="n">context</span> <span class="n">to</span> <span class="n">answer</span> <span class="n">the</span> <span class="n">question</span><span class="p">:</span>
@@ -418,7 +418,7 @@ This sets up an MCP server with a tool and prompt, connectable via clients like 
 <p><strong>A2A Example (using Python A2A SDK)</strong>:
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">a2a</span> <span class="kn">import</span> <span class="n">AgentSkill</span><span class="p">,</span> <span class="n">AgentCard</span><span class="p">,</span> <span class="n">A2AServer</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Define-skill&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Define.skill&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
 </span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Define</span> <span class="n">skill</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">skill</span> <span class="o">=</span> <span class="n">AgentSkill</span><span class="p">(</span>
@@ -429,7 +429,7 @@ This sets up an MCP server with a tool and prompt, connectable via clients like 
 </span><span class='line'>    <span class="n">examples</span><span class="o">=</span><span class="p">[</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hi</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hello</span> <span class="n">world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;]</span>
 </span><span class='line'><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Define-Agent-Card&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Define.Agent.Card&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
 </span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Define</span> <span class="n">Agent</span> <span class="n">Card</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">card</span> <span class="o">=</span> <span class="n">AgentCard</span><span class="p">(</span>
@@ -439,13 +439,13 @@ This sets up an MCP server with a tool and prompt, connectable via clients like 
 </span><span class='line'>    <span class="n">service_url</span><span class="o">=&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="o">&lt;</span><span class="n">a</span> <span class="n">href</span><span class="o">=</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="o">&gt;</span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8000</span><span class="o">&lt;/</span><span class="n">a</span><span class="o">&gt;&amp;</span><span class="n">rsquo</span><span class="p">;</span>
 </span><span class='line'><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Agent-logic&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Agent.logic&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
 </span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Agent</span> <span class="n">logic</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">hello_world_handler</span><span class="p">(</span><span class="n">task</span><span class="p">):</span>
 </span><span class='line'>    <span class="k">return</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Hello</span><span class="p">,</span> <span class="n">World</span><span class="err">!</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
 </span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Run-server&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Run.server&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
 </span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Run</span> <span class="n">server</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">server</span> <span class="o">=</span> <span class="n">A2AServer</span><span class="p">(</span><span class="n">card</span><span class="p">,</span> <span class="p">{</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hello_world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span> <span class="n">hello_world_handler</span><span class="p">})</span>
@@ -457,10 +457,10 @@ This creates an A2A server; other agents can discover it via the Agent Card and 
 
 <p>In the evolving landscape of AI, techniques like Retrieval-Augmented Generation (RAG), Model Context Protocol (MCP), and Agent-to-Agent (A2A) represent foundational advancements in making large language models (LLMs) more capable, interactive, and collaborative. These methods address key limitations of standalone LLMs, such as outdated knowledge, isolation from tools, and lack of multi-entity coordination. Below, we delve into detailed explanations, architectural insights, comparisons, real-world applications, and implementation guidance, expanding on the core concepts introduced earlier. This comprehensive overview incorporates practical considerations, potential challenges, and synergies among these techniques, drawing from established sources and best practices.</p>
 
-<a name="In-2d-Depth-Explanations-of-Core-Terms"></a>
+<a name="In-Depth.Explanations.of.Core.Terms"></a>
 <h2>In-Depth Explanations of Core Terms</h2>
 
-<a name="Retrieval-2d-Augmented-Generation--28-RAG-29-"></a>
+<a name="Retrieval-Augmented.Generation..RAG."></a>
 <h3>Retrieval-Augmented Generation (RAG)</h3>
 
 <p>RAG is a hybrid approach that combines information retrieval with generative AI to produce more accurate and contextually grounded responses. Introduced as a way to mitigate LLM hallucinations—where models generate plausible but incorrect information—RAG works by first querying an external knowledge base (e.g., a vector database) for relevant documents, then feeding these into the LLM&rsquo;s prompt for generation.</p>
@@ -482,7 +482,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Model-Context-Protocol--28-MCP-29-"></a>
+<a name="Model.Context.Protocol..MCP."></a>
 <h3>Model Context Protocol (MCP)</h3>
 
 <p>MCP is an open-source protocol from Anthropic (released in 2024) designed to standardize how AI agents access external context, including tools, data, and prompts. It acts as a bridge between LLMs and real-world systems, enabling dynamic, secure interactions without custom integrations.</p>
@@ -509,7 +509,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Agent-2d-to-2d-Agent--28-A2A-29-"></a>
+<a name="Agent-to-Agent..A2A."></a>
 <h3>Agent-to-Agent (A2A)</h3>
 
 <p>A2A is Google&rsquo;s 2025 open protocol for enabling AI agents to communicate and collaborate across frameworks and vendors. It treats agents as interoperable services, allowing task delegation in multi-agent systems.</p>
@@ -536,7 +536,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Other-Related-Terms"></a>
+<a name="Other.Related.Terms"></a>
 <h3>Other Related Terms</h3>
 
 <ul>
@@ -546,7 +546,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Detailed-Comparisons-and-Synergies"></a>
+<a name="Detailed.Comparisons.and.Synergies"></a>
 <h2>Detailed Comparisons and Synergies</h2>
 
 <p>While RAG, MCP, and A2A address LLM limitations, they differ in scope and application:</p>
@@ -609,7 +609,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Real-2d-World-Applications-and-Case-Studies"></a>
+<a name="Real-World.Applications.and.Case.Studies"></a>
 <h2>Real-World Applications and Case Studies</h2>
 
 <ul>
@@ -620,7 +620,7 @@ g., ChromaDB or FAISS) for similar documents via cosine similarity.</li>
 </ul>
 
 
-<a name="Advanced-Implementation-with-Python-Code"></a>
+<a name="Advanced.Implementation.with.Python.Code"></a>
 <h2>Advanced Implementation with Python Code</h2>
 
 <p>Building on basic examples, here&rsquo;s an integrated system using all three.</p>
@@ -664,7 +664,7 @@ server.run(port=8000)
 </ul>
 
 
-<a name="Potential-Challenges-and-Best-Practices"></a>
+<a name="Potential.Challenges.and.Best.Practices"></a>
 <h2>Potential Challenges and Best Practices</h2>
 
 <ul>
@@ -688,7 +688,7 @@ server.run(port=8000)
 
 <p>In this article, we’ll explore what MCP is, why it matters, and how it’s becoming a key component in the infrastructure stack for advanced AI applications. We’ll also walk through a conceptual example of building an MCP-compatible server.</p>
 
-<a name="What-is-the-Model-Context-Protocol--28-MCP-29--3f-"></a>
+<a name="What.is.the.Model.Context.Protocol..MCP.."></a>
 <h2>What is the Model Context Protocol (MCP)?</h2>
 
 <p><strong>MCP</strong> is a protocol designed to manage the <strong>contextual state</strong> of AI models across requests in multi-agent, multi-model environments. It’s part of a broader effort to make LLMs (Large Language Models) more <strong>stateful</strong>, <strong>collaborative</strong>, and <strong>task-aware</strong>.</p>
@@ -707,29 +707,11 @@ server.run(port=8000)
 <!--more-->
 
 
-<a name="Why-is-MCP-Relevant-Now-3f-"></a>
+<a name="Why.is.MCP.Relevant.Now."></a>
 <h2>Why is MCP Relevant Now?</h2>
 
 <p>The growing interest in <strong>AI agents</strong>, <strong>function-calling APIs</strong>, and <strong>model interoperability</strong> has created a pressing need for something like MCP. Some trends driving MCP adoption include:</p>
 
-<style>
-  .trend-impact-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, sans-serif;
-  }
-  .trend-impact-table th,
-  .trend-impact-table td {
-    text-align: left;
-    padding: 12px;
-    border-bottom: 1px solid #ccc;
-    vertical-align: top;
-  }
-  .trend-impact-table th {
-    background-color: #f2f2f2;
-    width: 25%;
-  }
-</style>
 
 
 
@@ -764,12 +746,12 @@ server.run(port=8000)
 
 <p>Leading companies like <strong>OpenAI (via ChatGPT APIs)</strong>, <strong>Anthropic (via Claude’s memory)</strong>, and <strong>Mistral</strong> are integrating ideas from MCP implicitly, if not through standardized APIs.</p>
 
-<a name="Core-Concepts-of-MCP"></a>
+<a name="Core.Concepts.of.MCP"></a>
 <h2>Core Concepts of MCP</h2>
 
 <p>An MCP server typically supports the following concepts:</p>
 
-<a name="L-3c-strong-3e-Model-Context-3c--2f-strong-3e-"></a>
+<a name="L.strong.Model.Context..strong."></a>
 <h3><strong>Model Context</strong></h3>
 
 <pre><code class="json">{
@@ -786,7 +768,7 @@ server.run(port=8000)
 }
 </code></pre>
 
-<a name="L-3c-strong-3e-Model-Invocation-with-Context-3c--2f-strong-3e-"></a>
+<a name="L.strong.Model.Invocation.with.Context..strong."></a>
 <h3><strong>Model Invocation with Context</strong></h3>
 
 <pre><code class="json">{
@@ -799,17 +781,17 @@ server.run(port=8000)
 }
 </code></pre>
 
-<a name="L-3c-strong-3e-Chained-Outputs-and-Shared-State-3c--2f-strong-3e-"></a>
+<a name="L.strong.Chained.Outputs.and.Shared.State..strong."></a>
 <h3><strong>Chained Outputs and Shared State</strong></h3>
 
 <p>Each model contributes to a shared state, stored either in an in-memory store (like Redis) or a structured store (like Postgres + pgvector for embeddings).</p>
 
-<a name="Building-a-Basic-MCP-Server"></a>
+<a name="Building.a.Basic.MCP.Server"></a>
 <h2>Building a Basic MCP Server</h2>
 
 <p>Let’s outline what a minimal MCP-compatible server might look like using <strong>FastAPI</strong> and <strong>Redis</strong>.</p>
 
-<a name="Basic-Server-with-Context-Store"></a>
+<a name="Basic.Server.with.Context.Store"></a>
 <h3>Basic Server with Context Store</h3>
 
 <pre><code class="python">from fastapi import FastAPI, Request
@@ -843,7 +825,7 @@ async def invoke_model(request: Request):
     return {"output": response, "context_ref": new_context_ref}
 </code></pre>
 
-<a name="Add-Capability-Metadata"></a>
+<a name="Add.Capability.Metadata"></a>
 <h3>Add Capability Metadata</h3>
 
 <p>Enhance the server to log requested capabilities and dependency resolution (e.g., invoking tools or submodels).</p>
@@ -854,28 +836,11 @@ log_event(user_id, session_id, model, capability)
 
 <hr />
 
-<a name="MCP-vs-Alternatives"></a>
+<a name="MCP.vs.Alternatives"></a>
 <h2>MCP vs Alternatives</h2>
 
 <p>MCP aims to serve as the <strong>underlying protocol</strong>, while frameworks like LangChain act as <strong>developer tooling on top</strong>.</p>
 
-<style>
-  .comparison-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, sans-serif;
-  }
-  .comparison-table th,
-  .comparison-table td {
-    text-align: center;
-    padding: 12px;
-    border-bottom: 1px solid #ccc;
-    width: 20%;
-  }
-  .comparison-table th {
-    background-color: #f2f2f2;
-  }
-</style>
 
 
 
@@ -930,7 +895,7 @@ log_event(user_id, session_id, model, capability)
 </table>
 
 
-<a name="Adoption-and-Ecosystem-Signals"></a>
+<a name="Adoption.and.Ecosystem.Signals"></a>
 <h2>Adoption and Ecosystem Signals</h2>
 
 <ul>
@@ -941,10 +906,10 @@ log_event(user_id, session_id, model, capability)
 </ul>
 
 
-<a name="Challenges-and-Future-Directions"></a>
+<a name="Challenges.and.Future.Directions"></a>
 <h2>Challenges and Future Directions</h2>
 
-<a name="Technical-Challenges"></a>
+<a name="Technical.Challenges"></a>
 <h3>Technical Challenges</h3>
 
 <ul>
@@ -954,7 +919,7 @@ log_event(user_id, session_id, model, capability)
 </ul>
 
 
-<a name="What-e2--80--99-s-Next-3f-"></a>
+<a name="What...s.Next."></a>
 <h3>What’s Next?</h3>
 
 <ul>

@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,9 +116,15 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>In the era of large language models (LLMs) like GPT-3 and Llama, fine-tuning these behemoths for specific tasks has become a cornerstone of AI development. However, traditional full fine-tuning demands enormous computational resources, often requiring hundreds of GBs of GPU memory and extensive training time. This is where parameter-efficient fine-tuning (PEFT) techniques shine, allowing us to adapt massive models with minimal overhead. Among these, Low-Rank Adaptation (LoRA) and its quantized variant, Quantized LoRA (QLoRA), stand out for their efficiency and effectiveness. In this technical blog, we&rsquo;ll explore the mechanics, mathematics, advantages, and practical implementations of LoRA and QLoRA, drawing from foundational research and real-world applications.</p>
 
-<a name="Understanding-Fine-2d-Tuning-Challenges"></a>
+<a name="Understanding.Fine-Tuning.Challenges"></a>
 <h2>Understanding Fine-Tuning Challenges</h2>
 
 <p>Full fine-tuning involves updating all parameters of a pre-trained model on a downstream dataset, which maximizes performance but at a steep cost. For instance, fine-tuning a 175B-parameter model like GPT-3 requires retraining every weight, leading to high memory usage and deployment challenges. PEFT methods mitigate this by updating only a subset of parameters or adding lightweight adapters, reducing trainable parameters by orders of magnitude while preserving model quality.</p>
@@ -127,12 +134,12 @@
 <!--more-->
 
 
-<a name="What-is-LoRA-3f-"></a>
+<a name="What.is.LoRA."></a>
 <h2>What is LoRA?</h2>
 
 <p>LoRA, or Low-Rank Adaptation, was introduced by Microsoft researchers in 2021 as a method to fine-tune LLMs by injecting low-rank trainable matrices into the model&rsquo;s layers without altering the original weights. The core idea stems from the observation that weight updates during fine-tuning often lie in a low-dimensional subspace—meaning the changes to the model&rsquo;s weights have a low &ldquo;intrinsic rank.&rdquo; Instead of updating the full weight matrix, LoRA decomposes these updates into smaller, low-rank factors.</p>
 
-<a name="How-LoRA-Works"></a>
+<a name="How.LoRA.Works"></a>
 <h3>How LoRA Works</h3>
 
 <p>Consider a pre-trained weight matrix \( W_0 \in \mathbb{R}^{d \times k} \) in a Transformer layer (e.g., attention weights like \( W_q, W_k, W_v, W_o \)). During fine-tuning, the update is constrained as \( \Delta W = BA \), where \( B \in \mathbb{R}^{d \times r} \), \( A \in \mathbb{R}^{r \times k} \), and \( r \ll \min(d, k) \) is the rank (typically 1-64). The original weights \( W_0 \) remain frozen, and only \( A \) and \( B \) are trained.</p>
@@ -145,7 +152,7 @@ where \( \alpha \) is a scaling factor (often set to twice the rank for stabilit
 
 <p>LoRA is typically applied to attention layers in Transformers, as empirical studies show this yields the best results with fewer parameters. For a model like GPT-3 175B, this reduces trainable parameters from billions to just thousands (e.g., 0.3M for r=8), slashing GPU memory needs by 3x and trainable parameters by 10,000x compared to full fine-tuning.</p>
 
-<a name="Advantages-of-LoRA"></a>
+<a name="Advantages.of.LoRA"></a>
 <h3>Advantages of LoRA</h3>
 
 <ul>
@@ -155,12 +162,12 @@ where \( \alpha \) is a scaling factor (often set to twice the rank for stabilit
 </ul>
 
 
-<a name="Introducing-QLoRA:-Quantization-Meets-LoRA"></a>
+<a name="Introducing.QLoRA:.Quantization.Meets.LoRA"></a>
 <h2>Introducing QLoRA: Quantization Meets LoRA</h2>
 
 <p>While LoRA is efficient, fine-tuning still requires loading the full model in high-precision formats (e.g., FP16), which can exceed single-GPU limits for models over 30B parameters. QLoRA, proposed in 2023, extends LoRA by quantizing the base model to 4 bits, enabling fine-tuning of 65B+ models on a single 48GB GPU without performance loss.</p>
 
-<a name="How-QLoRA-Builds-on-LoRA"></a>
+<a name="How.QLoRA.Builds.on.LoRA"></a>
 <h3>How QLoRA Builds on LoRA</h3>
 
 <p>QLoRA freezes a 4-bit quantized version of the pre-trained model and backpropagates gradients through it into LoRA adapters. Key innovations include:</p>
@@ -186,7 +193,7 @@ Y_{&#92;text{BF16}} = X_{&#92;text{BF16}} &#92;cdot &#92;text{doubleDequant}(c_{
 
 <p>QLoRA matches 16-bit full fine-tuning on benchmarks like Vicuna, with models like Guanaco achieving 99.3% of ChatGPT&rsquo;s performance after 24 hours on one GPU.</p>
 
-<a name="Advantages-of-QLoRA-Over-LoRA"></a>
+<a name="Advantages.of.QLoRA.Over.LoRA"></a>
 <h3>Advantages of QLoRA Over LoRA</h3>
 
 <ul>
@@ -196,7 +203,7 @@ Y_{&#92;text{BF16}} = X_{&#92;text{BF16}} &#92;cdot &#92;text{doubleDequant}(c_{
 </ul>
 
 
-<a name="Practical-Implementation-with-Hugging-Face"></a>
+<a name="Practical.Implementation.with.Hugging.Face"></a>
 <h2>Practical Implementation with Hugging Face</h2>
 
 <p>Hugging Face&rsquo;s libraries (Transformers, PEFT, Diffusers) simplify LoRA/QLoRA usage. For LoRA fine-tuning of Stable Diffusion:</p>
@@ -220,7 +227,7 @@ Y_{&#92;text{BF16}} = X_{&#92;text{BF16}} &#92;cdot &#92;text{doubleDequant}(c_{
 
 <p>Recent tutorials emphasize dataset preparation and evaluation for vision-language models like QWEN2.5VL.</p>
 
-<a name="Applications-and-Case-Studies"></a>
+<a name="Applications.and.Case.Studies"></a>
 <h2>Applications and Case Studies</h2>
 
 <p>LoRA/QLoRA power domain-specific adaptations, from chatbots (e.g., Guanaco) to image generation (e.g., Pokémon fine-tuning). In production, they&rsquo;ve enabled zero-shot learning via hypernetworks and optimized LLMs for edge devices. Studies from Lightning AI show QLoRA excelling in memory-constrained environments across hundreds of experiments.</p>
@@ -293,7 +300,68 @@ Y_{&#92;text{BF16}} = X_{&#92;text{BF16}} &#92;cdot &#92;text{doubleDequant}(c_{
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

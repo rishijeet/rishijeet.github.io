@@ -109,6 +109,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -117,11 +118,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>As the AI landscape rapidly evolves, the demand for systems that support <strong>modular</strong>, <strong>context-aware</strong>, and <strong>efficient orchestration</strong> of models has grown. Enter the <strong>Model Context Protocol (MCP)</strong> — a rising standard that enables dynamic, multi-agent AI systems to exchange context, manage state, and chain model invocations intelligently.</p>
 
 <p>In this article, we’ll explore what MCP is, why it matters, and how it’s becoming a key component in the infrastructure stack for advanced AI applications. We’ll also walk through a conceptual example of building an MCP-compatible server.</p>
 
-<a name="What-is-the-Model-Context-Protocol--28-MCP-29--3f-"></a>
+<a name="What.is.the.Model.Context.Protocol..MCP.."></a>
 <h2>What is the Model Context Protocol (MCP)?</h2>
 
 <p><strong>MCP</strong> is a protocol designed to manage the <strong>contextual state</strong> of AI models across requests in multi-agent, multi-model environments. It’s part of a broader effort to make LLMs (Large Language Models) more <strong>stateful</strong>, <strong>collaborative</strong>, and <strong>task-aware</strong>.</p>
@@ -140,29 +147,11 @@
 <!--more-->
 
 
-<a name="Why-is-MCP-Relevant-Now-3f-"></a>
+<a name="Why.is.MCP.Relevant.Now."></a>
 <h2>Why is MCP Relevant Now?</h2>
 
 <p>The growing interest in <strong>AI agents</strong>, <strong>function-calling APIs</strong>, and <strong>model interoperability</strong> has created a pressing need for something like MCP. Some trends driving MCP adoption include:</p>
 
-<style>
-  .trend-impact-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, sans-serif;
-  }
-  .trend-impact-table th,
-  .trend-impact-table td {
-    text-align: left;
-    padding: 12px;
-    border-bottom: 1px solid #ccc;
-    vertical-align: top;
-  }
-  .trend-impact-table th {
-    background-color: #f2f2f2;
-    width: 25%;
-  }
-</style>
 
 
 
@@ -197,12 +186,12 @@
 
 <p>Leading companies like <strong>OpenAI (via ChatGPT APIs)</strong>, <strong>Anthropic (via Claude’s memory)</strong>, and <strong>Mistral</strong> are integrating ideas from MCP implicitly, if not through standardized APIs.</p>
 
-<a name="Core-Concepts-of-MCP"></a>
+<a name="Core.Concepts.of.MCP"></a>
 <h2>Core Concepts of MCP</h2>
 
 <p>An MCP server typically supports the following concepts:</p>
 
-<a name="L-3c-strong-3e-Model-Context-3c--2f-strong-3e-"></a>
+<a name="L.strong.Model.Context..strong."></a>
 <h3><strong>Model Context</strong></h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="json"><span class='line'><span class="p">{</span>
@@ -220,7 +209,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="L-3c-strong-3e-Model-Invocation-with-Context-3c--2f-strong-3e-"></a>
+<a name="L.strong.Model.Invocation.with.Context..strong."></a>
 <h3><strong>Model Invocation with Context</strong></h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="json"><span class='line'><span class="p">{</span>
@@ -234,17 +223,17 @@
 </span></code></pre></div></figure>
 
 
-<a name="L-3c-strong-3e-Chained-Outputs-and-Shared-State-3c--2f-strong-3e-"></a>
+<a name="L.strong.Chained.Outputs.and.Shared.State..strong."></a>
 <h3><strong>Chained Outputs and Shared State</strong></h3>
 
 <p>Each model contributes to a shared state, stored either in an in-memory store (like Redis) or a structured store (like Postgres + pgvector for embeddings).</p>
 
-<a name="Building-a-Basic-MCP-Server"></a>
+<a name="Building.a.Basic.MCP.Server"></a>
 <h2>Building a Basic MCP Server</h2>
 
 <p>Let’s outline what a minimal MCP-compatible server might look like using <strong>FastAPI</strong> and <strong>Redis</strong>.</p>
 
-<a name="Basic-Server-with-Context-Store"></a>
+<a name="Basic.Server.with.Context.Store"></a>
 <h3>Basic Server with Context Store</h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">Request</span>
@@ -279,7 +268,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Add-Capability-Metadata"></a>
+<a name="Add.Capability.Metadata"></a>
 <h3>Add Capability Metadata</h3>
 
 <p>Enhance the server to log requested capabilities and dependency resolution (e.g., invoking tools or submodels).</p>
@@ -291,28 +280,11 @@
 
 <hr />
 
-<a name="MCP-vs-Alternatives"></a>
+<a name="MCP.vs.Alternatives"></a>
 <h2>MCP vs Alternatives</h2>
 
 <p>MCP aims to serve as the <strong>underlying protocol</strong>, while frameworks like LangChain act as <strong>developer tooling on top</strong>.</p>
 
-<style>
-  .comparison-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, sans-serif;
-  }
-  .comparison-table th,
-  .comparison-table td {
-    text-align: center;
-    padding: 12px;
-    border-bottom: 1px solid #ccc;
-    width: 20%;
-  }
-  .comparison-table th {
-    background-color: #f2f2f2;
-  }
-</style>
 
 
 
@@ -367,7 +339,7 @@
 </table>
 
 
-<a name="Adoption-and-Ecosystem-Signals"></a>
+<a name="Adoption.and.Ecosystem.Signals"></a>
 <h2>Adoption and Ecosystem Signals</h2>
 
 <ul>
@@ -378,10 +350,10 @@
 </ul>
 
 
-<a name="Challenges-and-Future-Directions"></a>
+<a name="Challenges.and.Future.Directions"></a>
 <h2>Challenges and Future Directions</h2>
 
-<a name="Technical-Challenges"></a>
+<a name="Technical.Challenges"></a>
 <h3>Technical Challenges</h3>
 
 <ul>
@@ -391,7 +363,7 @@
 </ul>
 
 
-<a name="What-e2--80--99-s-Next-3f-"></a>
+<a name="What...s.Next."></a>
 <h3>What’s Next?</h3>
 
 <ul>
@@ -471,7 +443,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

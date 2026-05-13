@@ -105,6 +105,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -113,11 +114,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Apache Airflow is a powerful open-source platform used to programmatically author, schedule, and monitor workflows. It is designed for complex data engineering tasks, pipeline automation, and orchestrating multiple processes. This article will break down Airflow&rsquo;s architecture and provide a code example to help you understand how to work with it.</p>
 
 <p><img src="/images/2024/apache_airflow.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Concepts-in-Airflow"></a>
+<a name="Key.Concepts.in.Airflow"></a>
 <h3>Key Concepts in Airflow</h3>
 
 <p>Before diving into the architecture, let’s go over some important Airflow concepts:</p>
@@ -138,12 +145,12 @@
 
 <p>Now that we&rsquo;ve introduced these basic concepts, let’s look at Airflow’s architecture in detail.</p>
 
-<a name="Airflow-Architecture"></a>
+<a name="Airflow.Architecture"></a>
 <h2>Airflow Architecture</h2>
 
 <p>The Airflow architecture is based on a distributed model where different components handle specific responsibilities. The primary components are:</p>
 
-<a name="L-3c-strong-3e-Scheduler-3c--2f-strong-3e-"></a>
+<a name="L.strong.Scheduler..strong."></a>
 <h3><strong>Scheduler</strong></h3>
 
 <p>The Scheduler is the heart of Airflow. It is responsible for determining when a task should run based on the scheduling interval defined in a DAG. It monitors all active DAGs and adds tasks to the execution queue.</p>
@@ -154,7 +161,7 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Executor-3c--2f-strong-3e-"></a>
+<a name="L.strong.Executor..strong."></a>
 <h3><strong>Executor</strong></h3>
 
 <p>The Executor is responsible for running the tasks that the scheduler assigns to it. Different types of executors can be used, depending on the scale and complexity of the environment.</p>
@@ -166,37 +173,37 @@
 </ul>
 
 
-<a name="L-3c-strong-3e-Workers-3c--2f-strong-3e-"></a>
+<a name="L.strong.Workers..strong."></a>
 <h3><strong>Workers</strong></h3>
 
 <p>Workers are the machines where the tasks are executed. In larger deployments, workers are distributed across multiple machines to handle high workloads efficiently. Workers receive tasks from the executor and execute them.</p>
 
-<a name="L-3c-strong-3e-Web-Server-3c--2f-strong-3e-"></a>
+<a name="L.strong.Web.Server..strong."></a>
 <h3><strong>Web Server</strong></h3>
 
 <p>The Web Server provides an interface for users to monitor and manage the execution of workflows. This is built on Flask and provides a rich UI to visualize DAGs, track task statuses, logs, etc.</p>
 
-<a name="L-3c-strong-3e-Metadata-Database-3c--2f-strong-3e-"></a>
+<a name="L.strong.Metadata.Database..strong."></a>
 <h3><strong>Metadata Database</strong></h3>
 
 <p>Airflow uses a relational database (e.g., PostgreSQL, MySQL) as the metadata store. It holds details about DAGs, task instances, users, connections, variables, and other essential metadata.</p>
 
-<a name="L-3c-strong-3e-Flower-3c--2f-strong-3e-"></a>
+<a name="L.strong.Flower..strong."></a>
 <h3><strong>Flower</strong></h3>
 
 <p>Flower is an optional component that can be used with the CeleryExecutor to monitor worker nodes and tasks in real-time.</p>
 
-<a name="L-3c-strong-3e-Message-Broker--28-For-CeleryExecutor-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Message.Broker..For.CeleryExecutor...strong."></a>
 <h3><strong>Message Broker (For CeleryExecutor)</strong></h3>
 
 <p>In a setup using CeleryExecutor, a message broker (RabbitMQ, Redis) is used to manage communication between the scheduler, executor, and workers.</p>
 
-<a name="L-3c-strong-3e-DagBag-3c--2f-strong-3e-"></a>
+<a name="L.strong.DagBag..strong."></a>
 <h3><strong>DagBag</strong></h3>
 
 <p>DagBag is the collection of all the DAGs that are active and ready to be scheduled by the scheduler. Every time a new DAG file is added or updated, it is added to the DagBag for execution.</p>
 
-<a name="Typical-Workflow"></a>
+<a name="Typical.Workflow"></a>
 <h2>Typical Workflow</h2>
 
 <ol>
@@ -209,12 +216,12 @@
 </ol>
 
 
-<a name="Code-Example"></a>
+<a name="Code.Example"></a>
 <h2>Code Example</h2>
 
 <p>Let’s create a basic DAG that uses a PythonOperator to run a Python function.</p>
 
-<a name="DAG-Definition"></a>
+<a name="DAG.Definition"></a>
 <h3>DAG Definition</h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">datetime</span>
@@ -253,7 +260,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Breakdown-of-the-Code"></a>
+<a name="Breakdown.of.the.Code"></a>
 <h3>Breakdown of the Code</h3>
 
 <ul>
@@ -263,7 +270,7 @@
 </ul>
 
 
-<a name="Running-the-DAG"></a>
+<a name="Running.the.DAG"></a>
 <h3>Running the DAG</h3>
 
 <ol>
@@ -352,7 +359,68 @@ Navigate to <code>localhost:8080</code> to monitor and trigger your DAG.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

@@ -105,6 +105,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -113,14 +114,20 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Coca-Cola is one of the most iconic brands in the world, with a history spanning over a century. It has become synonymous with soft drinks, creating a massive global presence. This case study explores Coca-Cola’s success story, key crises, and scandals, as well as how the company has managed to remain a market leader for so long.</p>
 
 <p><img src="/images/2025/coca_cola.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="The-Success-Story"></a>
+<a name="The.Success.Story"></a>
 <h2>The Success Story</h2>
 
-<a name="Origins-and-Early-Growth"></a>
+<a name="Origins.and.Early.Growth"></a>
 <h3>Origins and Early Growth</h3>
 
 <ul>
@@ -130,7 +137,7 @@
 </ul>
 
 
-<a name="Market-Domination"></a>
+<a name="Market.Domination"></a>
 <h3>Market Domination</h3>
 
 <ul>
@@ -145,7 +152,7 @@
 <!--more-->
 
 
-<a name="Product-Diversification"></a>
+<a name="Product.Diversification"></a>
 <h3>Product Diversification</h3>
 
 <ul>
@@ -155,7 +162,7 @@
 </ul>
 
 
-<a name="Financial-Strength"></a>
+<a name="Financial.Strength"></a>
 <h3>Financial Strength</h3>
 
 <ul>
@@ -165,7 +172,7 @@
 </ul>
 
 
-<a name="Key-Facts--26-amp-3b--Figures"></a>
+<a name="Key.Facts..amp..Figures"></a>
 <h3>Key Facts &amp; Figures</h3>
 
 <ul>
@@ -181,10 +188,10 @@
 
 <hr />
 
-<a name="Major-Crises-and-Scandals"></a>
+<a name="Major.Crises.and.Scandals"></a>
 <h2>Major Crises and Scandals</h2>
 
-<a name="The--22-New-Coke-22--Disaster--28-1985-29-"></a>
+<a name="The..New.Coke..Disaster..1985."></a>
 <h3>The &ldquo;New Coke&rdquo; Disaster (1985)</h3>
 
 <ul>
@@ -196,7 +203,7 @@
 
 <p><img src="/images/2025/new_coke.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Racial-Discrimination-Lawsuit--28-1999-29-"></a>
+<a name="Racial.Discrimination.Lawsuit..1999."></a>
 <h3>Racial Discrimination Lawsuit (1999)</h3>
 
 <ul>
@@ -205,7 +212,7 @@
 </ul>
 
 
-<a name="India-Pesticide-Controversy--28-2003-2d-2006-29-"></a>
+<a name="India.Pesticide.Controversy..2003-2006."></a>
 <h3>India Pesticide Controversy (2003-2006)</h3>
 
 <ul>
@@ -215,7 +222,7 @@
 </ul>
 
 
-<a name="Water-Usage--26-amp-3b--Environmental-Concerns"></a>
+<a name="Water.Usage..amp..Environmental.Concerns"></a>
 <h3>Water Usage &amp; Environmental Concerns</h3>
 
 <ul>
@@ -224,7 +231,7 @@
 </ul>
 
 
-<a name="Coca-2d-Cola-and-Health-Concerns"></a>
+<a name="Coca-Cola.and.Health.Concerns"></a>
 <h3>Coca-Cola and Health Concerns</h3>
 
 <ul>
@@ -236,10 +243,10 @@
 
 <hr />
 
-<a name="Strategies-for-Long-2d-Term-Success"></a>
+<a name="Strategies.for.Long-Term.Success"></a>
 <h2>Strategies for Long-Term Success</h2>
 
-<a name="Strong-Branding--26-amp-3b--Marketing"></a>
+<a name="Strong.Branding..amp..Marketing"></a>
 <h3>Strong Branding &amp; Marketing</h3>
 
 <ul>
@@ -248,7 +255,7 @@
 </ul>
 
 
-<a name="Global-Expansion--26-amp-3b--Localization"></a>
+<a name="Global.Expansion..amp..Localization"></a>
 <h3>Global Expansion &amp; Localization</h3>
 
 <ul>
@@ -257,7 +264,7 @@
 </ul>
 
 
-<a name="Innovation--26-amp-3b--Product-Adaptation"></a>
+<a name="Innovation..amp..Product.Adaptation"></a>
 <h3>Innovation &amp; Product Adaptation</h3>
 
 <ul>
@@ -268,7 +275,7 @@
 
 <p><img src="/images/2025/coke_brands.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Crisis-Management--26-amp-3b--Adaptability"></a>
+<a name="Crisis.Management..amp..Adaptability"></a>
 <h3>Crisis Management &amp; Adaptability</h3>
 
 <ul>
@@ -345,7 +352,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

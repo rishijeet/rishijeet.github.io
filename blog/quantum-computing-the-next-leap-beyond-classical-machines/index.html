@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,13 +116,19 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>For decades, classical computers have been the backbone of innovation, powering everything from banking systems to spacecraft navigation. But as we continue to push the boundaries of science—whether simulating molecules for drug discovery, cracking complex optimization problems, or modeling the cosmos—classical computing starts hitting hard physical and mathematical walls.</p>
 
 <p>This is where <strong>quantum computing</strong> steps in: a paradigm that doesn’t just speed things up, but fundamentally changes <em>how</em> we compute.</p>
 
 <p><img src="/images/2025/qc.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="What-Exactly-is-Quantum-Computing-3f-"></a>
+<a name="What.Exactly.is.Quantum.Computing."></a>
 <h2>What Exactly is Quantum Computing?</h2>
 
 <p>Quantum computing is a computational model that leverages the principles of <strong>quantum mechanics</strong>—the physics governing particles at atomic and subatomic scales. Unlike classical computers that process data in <strong>bits</strong> (0 or 1), quantum computers use <strong>quantum bits (qubits)</strong>, which can exist as:</p>
@@ -138,7 +145,7 @@
 <!--more-->
 
 
-<a name="Quantum-Concepts"></a>
+<a name="Quantum.Concepts"></a>
 <h3>Quantum Concepts</h3>
 
 <ul>
@@ -155,7 +162,7 @@
 
 <p><img src="/images/2025/qc_explained.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Why-Quantum-Computing-is-Better--28-for-Certain-Problems-29-"></a>
+<a name="Why.Quantum.Computing.is.Better..for.Certain.Problems."></a>
 <h2>Why Quantum Computing is Better (for Certain Problems)</h2>
 
 <p>Classical computers are excellent for general-purpose computing—running apps, databases, and simulations. But some problems are <strong>intractable</strong> on classical systems because the resources required grow exponentially with input size.</p>
@@ -170,7 +177,7 @@
 </ul>
 
 
-<a name="Example:-Classical-vs-Quantum"></a>
+<a name="Example:.Classical.vs.Quantum"></a>
 <h3>Example: Classical vs Quantum</h3>
 
 <ul>
@@ -179,7 +186,7 @@
 </ul>
 
 
-<a name="Why-Do-We-Need-Quantum-Computing-3f-"></a>
+<a name="Why.Do.We.Need.Quantum.Computing."></a>
 <h2>Why Do We Need Quantum Computing?</h2>
 
 <p><strong>Scaling Limits of Moore’s Law</strong>
@@ -193,7 +200,7 @@
 
 <p><img src="/images/2025/qc_computer.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="A-Glimpse-Into-Quantum-Programming"></a>
+<a name="A.Glimpse.Into.Quantum.Programming"></a>
 <h2>A Glimpse Into Quantum Programming</h2>
 
 <p>Quantum computing isn’t just theory—you can actually <strong>write and run code today</strong> using frameworks like <strong>Qiskit (IBM)</strong>, <strong>Cirq (Google)</strong>, and <strong>Braket (AWS)</strong>.</p>
@@ -232,7 +239,7 @@
 
 <p>This tiny demo illustrates the foundation of all quantum algorithms.</p>
 
-<a name="Future-of-Quantum-Computing"></a>
+<a name="Future.of.Quantum.Computing"></a>
 <h2>Future of Quantum Computing</h2>
 
 <p>Quantum computing is still in its infancy—today’s machines are <strong>noisy and error-prone (NISQ era)</strong>. But progress is rapid:</p>
@@ -245,7 +252,7 @@
 </ul>
 
 
-<a name="What-Could-the-Future-Look-Like-3f-"></a>
+<a name="What.Could.the.Future.Look.Like."></a>
 <h3>What Could the Future Look Like?</h3>
 
 <ul>
@@ -256,7 +263,7 @@
 </ul>
 
 
-<a name="Final-Thoughts"></a>
+<a name="Final.Thoughts"></a>
 <h2>Final Thoughts</h2>
 
 <p>Quantum computing isn’t about replacing classical computers; it’s about <strong>augmenting them for specific, hard problems</strong>. Think of it as moving from “faster calculators” to “a completely new kind of mathematics machine.”</p>
@@ -326,7 +333,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

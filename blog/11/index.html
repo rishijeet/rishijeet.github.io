@@ -86,6 +86,81 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/advantages-of-enable-checkpointing-in-apache-flink/">Advantages of Enable Checkpointing in Apache Flink</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2024-05-19T21:32:50+05:30" pubdate><i class="fa fa-calendar"></i> May 19th, 2024</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/apache-flink/'>apache-flink</a></li>
+            
+                <li><a class='category' href='/blog/categories/streaming-data/'>streaming-data</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+
+    <div class="article__content clearfix">
+        <p>Enabling checkpointing in Apache Flink provides significant advantages for ensuring the reliability, consistency, and fault-tolerance of stream processing applications. Below, I detail the benefits and provide a code example.</p>
+
+<a name="Advantages.of.Checkpointing"></a>
+<h2>Advantages of Checkpointing</h2>
+
+<ul>
+<li><p><strong>Fault Tolerance</strong> Checkpointing ensures that the state of your Flink application can be recovered in case of a failure. Flink periodically saves snapshots of the entire distributed data stream and state to a persistent storage. If a failure occurs, Flink can restart the application and restore the state from the latest checkpoint, minimizing data loss and downtime.</p></li>
+<li><p><strong>Exactly-Once Processing Semantics</strong> With checkpointing, Flink guarantees exactly-once processing semantics. This means that each event in the stream is processed exactly once, even in the face of failures. This is crucial for applications where accuracy is paramount, such as financial transaction processing or data analytics.</p></li>
+<li><p><strong>Consistent State Management</strong> Checkpointing provides consistent snapshots of the application state. This consistency ensures that all parts of the state are in sync and correspond to the same point in the input stream, avoiding issues like partial updates or inconsistent results.</p></li>
+<li><p><strong>Efficient State Recovery</strong> Checkpointing allows efficient recovery of the application state. Instead of reprocessing the entire data stream from the beginning, Flink can resume processing from the last checkpoint, saving computational resources and reducing recovery time.</p></li>
+<li><p><strong>Backpressure Handling</strong> Flink’s checkpointing mechanism can help manage backpressure in the system by ensuring that the system processes data at a rate that matches the checkpointing intervals, preventing data overloads.</p></li>
+<li><p><strong>State Evolution</strong> Checkpointing supports state evolution, allowing updates to the state schema without losing data. This is useful for applications that need to update their state representation over time while maintaining historical consistency.</p></li>
+</ul>
+
+
+
+        <a class="btn pull-right" href="/blog/advantages-of-enable-checkpointing-in-apache-flink/">
+            Read on &rarr;
+        </a>
+    </div>
+
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/understanding-windowing-in-apache-flink/">Understanding Windowing in Apache Flink</a>
         </h1>
     
@@ -120,10 +195,12 @@
     </div>
 
 
+
             
         </div>
     
 </header>
+
 
 
 
@@ -133,10 +210,10 @@
 
 <p><img src="/images/windows.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
 
-<a name="Types-of-Windows-in-Flink"></a>
+<a name="Types.of.Windows.in.Flink"></a>
 <h2>Types of Windows in Flink</h2>
 
-<a name="Tumbling-Windows"></a>
+<a name="Tumbling.Windows"></a>
 <h3>Tumbling Windows</h3>
 
 <p>Tumbling windows are fixed-size, non-overlapping windows. Each event belongs to exactly one window.</p>
@@ -154,7 +231,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Sliding-Windows"></a>
+<a name="Sliding.Windows"></a>
 <h3>Sliding Windows</h3>
 
 <p>Sliding windows are also fixed-size but can overlap. Each event can belong to multiple windows depending on the slide interval.</p>
@@ -175,7 +252,9 @@
 
 
 
-        <a class="btn pull-right" href="/blog/understanding-windowing-in-apache-flink/">Read on &rarr;</a>
+        <a class="btn pull-right" href="/blog/understanding-windowing-in-apache-flink/">
+            Read on &rarr;
+        </a>
     </div>
 
 
@@ -221,6 +300,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -229,8 +309,9 @@
 
 
 
+
     <div class="article__content clearfix">
-        <a name="What-are-Watermarks-3f-"></a>
+        <a name="What.are.Watermarks."></a>
 <h2>What are Watermarks?</h2>
 
 <p>Watermarks in Apache Flink are a mechanism to handle event time and out-of-order events in stream processing. They represent a point in time in the data stream and indicate that no events with timestamps earlier than the watermark should be expected. Essentially, watermarks help Flink understand the progress of event time in the stream and trigger computations like window operations based on this understanding.</p>
@@ -256,7 +337,9 @@
 <p><img src="/images/stream_watermark_out_of_order.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
 
 
-        <a class="btn pull-right" href="/blog/understanding-watermarks-in-apache-flink/">Read on &rarr;</a>
+        <a class="btn pull-right" href="/blog/understanding-watermarks-in-apache-flink/">
+            Read on &rarr;
+        </a>
     </div>
 
 
@@ -302,6 +385,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -310,15 +394,16 @@
 
 
 
+
     <div class="article__content clearfix">
-        <a name="What-is-Event-Time-3f-"></a>
+        <a name="What.is.Event.Time."></a>
 <h3>What is Event Time?</h3>
 
 <p>Event Time is one of the three time semantics in Apache Flink, along with Ingestion Time and Processing Time. Event Time refers to the time at which each individual event actually occurred, typically extracted from the event itself. This contrasts with Processing Time, which refers to the time at which events are processed by the Flink system, and Ingestion Time, which is the time at which events enter the Flink pipeline.</p>
 
 <p><img src="/images/event_processing_time.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
 
-<a name="Key-Features-of-Event-Time:"></a>
+<a name="Key.Features.of.Event.Time:"></a>
 <h3>Key Features of Event Time:</h3>
 
 <p><strong>Timestamp Extraction</strong>: In Event Time, each event must have a timestamp that indicates when the event occurred. This timestamp is extracted from the event data itself.</p>
@@ -328,7 +413,9 @@
 <p><strong>Windowing</strong>: Event Time is crucial for windowed operations. Windows (e.g., tumbling, sliding, session windows) in Flink can be defined based on Event Time, ensuring that events are grouped according to when they actually occurred.</p>
 
 
-        <a class="btn pull-right" href="/blog/understanding-event-time-in-apache-flink/">Read on &rarr;</a>
+        <a class="btn pull-right" href="/blog/understanding-event-time-in-apache-flink/">
+            Read on &rarr;
+        </a>
     </div>
 
 
@@ -376,6 +463,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -384,10 +472,11 @@
 
 
 
+
     <div class="article__content clearfix">
         <p>The Broadcast State Pattern in Apache Flink is a powerful feature for real-time stream processing, particularly useful for scenarios like fraud detection. This pattern allows you to maintain a shared state that can be updated and accessed by multiple parallel instances of a stream processing operator. Here&rsquo;s how it can be applied to fraud detection:</p>
 
-<a name="Key-Concepts-of-the-Broadcast-State-Pattern"></a>
+<a name="Key.Concepts.of.the.Broadcast.State.Pattern"></a>
 <h2>Key Concepts of the Broadcast State Pattern</h2>
 
 <p><strong>Broadcast State</strong>: This is a state that is shared across all parallel instances of an operator. It is used to store information that needs to be accessible to all instances, such as configuration data or rules for fraud detection.</p>
@@ -396,7 +485,7 @@
 
 <p><strong>Broadcast Streams</strong>: These streams carry the state updates, such as new fraud detection rules or updates to existing rules.</p>
 
-<a name="Steps-to-Implement-Fraud-Detection-Using-Broadcast-State-Pattern"></a>
+<a name="Steps.to.Implement.Fraud.Detection.Using.Broadcast.State.Pattern"></a>
 <h2>Steps to Implement Fraud Detection Using Broadcast State Pattern</h2>
 
 <p><strong>Define the Broadcast State</strong>:</p>
@@ -416,85 +505,9 @@
 
 
 
-        <a class="btn pull-right" href="/blog/using-broadcast-state-pattern-in-flink-for-fraud-detection/">Read on &rarr;</a>
-    </div>
-
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/efficient-thread-handling-in-rust-a-deep-dive/">Efficient Thread Handling in Rust: A Deep Dive</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2024-04-16T19:43:17+05:30" pubdate><i class="fa fa-calendar"></i> Apr 16th, 2024</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/rust/'>rust</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <p>Concurrency is a fundamental aspect of modern software development, and Rust provides robust abstractions for managing concurrent tasks through its ownership and borrowing system. Threads, a primary mechanism for concurrent programming in Rust, can be efficiently handled using various features and best practices. In this article, we will explore the basics of thread handling in Rust, ownership, and thread safety, as well as practical examples to illustrate efficient concurrent programming.</p>
-
-<a name="Basics-of-Threads-in-Rust"></a>
-<h2>Basics of Threads in Rust</h2>
-
-<p>Rust&rsquo;s standard library provides the <code>std::thread</code> module for working with threads. To create a new thread, the <code>std::thread::spawn</code> function is used, taking a closure that represents the code to be executed in the new thread.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="rust"><span class='line'><span class="kn">use</span> <span class="n">std</span><span class="o">::</span><span class="n">thread</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">fn</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
-</span><span class='line'>    <span class="kd">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">thread</span><span class="o">::</span><span class="nb">spawn</span><span class="p">(</span><span class="o">||</span> <span class="p">{</span>
-</span><span class='line'>        <span class="c1">// Code to be executed in the new thread</span>
-</span><span class='line'>    <span class="p">});</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c1">// Do other work in the main thread</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c1">// Wait for the spawned thread to finish</span>
-</span><span class='line'>    <span class="n">handle</span><span class="p">.</span><span class="n">join</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></div></figure>
-
-
-
-
-
-        <a class="btn pull-right" href="/blog/efficient-thread-handling-in-rust-a-deep-dive/">Read on &rarr;</a>
+        <a class="btn pull-right" href="/blog/using-broadcast-state-pattern-in-flink-for-fraud-detection/">
+            Read on &rarr;
+        </a>
     </div>
 
 
@@ -564,7 +577,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

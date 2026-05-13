@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,11 +116,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Large Language Models (LLMs) like GPT-3, BERT, and T5 have revolutionized natural language processing (NLP). However, training and fine-tuning these models require substantial computational resources. Graphics Processing Units (GPUs) are critical in this context, providing the necessary power to handle the vast amounts of data and complex calculations involved. In this blog, we will explore why GPUs are essential for LLMs, the types of GPUs required, and the associated costs.</p>
 
 <p><img src="/images/2024/nvidia_a100.jpg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Why-GPUs-are-Essential-for-LLMs"></a>
+<a name="Why.GPUs.are.Essential.for.LLMs"></a>
 <h3>Why GPUs are Essential for LLMs</h3>
 
 <ul>
@@ -159,7 +166,7 @@ implementation of complex neural network operations and reducing training time.<
 
 <p><img src="/images/2024/nvidia_time_sol.svg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Types-of-GPUs-Required-for-LLMs"></a>
+<a name="Types.of.GPUs.Required.for.LLMs"></a>
 <h3>Types of GPUs Required for LLMs</h3>
 
 <p>Different LLM tasks have varying computational requirements, and the choice of GPU depends on the model size, dataset size, and specific application. Here are some common GPU types used for LLMs:</p>
@@ -236,7 +243,7 @@ It is based on the Ampere architecture and is popular among researchers and enth
 
 <p><img src="/images/2024/nvidia_perf.svg" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Cost-Considerations"></a>
+<a name="Cost.Considerations"></a>
 <h3>Cost Considerations</h3>
 
 <p>The cost of GPUs varies based on their performance, memory capacity, and features. Here are some factors to consider when budgeting for GPUs in LLM projects:</p>
@@ -275,7 +282,7 @@ operational costs can add up, especially for high-power GPUs.</li>
 
 <p>While NVIDIA is the dominant player in the GPU market, there are indeed other companies that produce GPUs. However, NVIDIA&rsquo;s significant presence in the deep learning and AI sectors often overshadows these competitors. Let&rsquo;s explore some of these companies, their offerings, and why they are less frequently discussed in the context of LLMs.</p>
 
-<a name="Other-GPU-Manufacturers"></a>
+<a name="Other.GPU.Manufacturers"></a>
 <h3>Other GPU Manufacturers</h3>
 
 <p><strong>AMD (Advanced Micro Devices):</strong></p>
@@ -340,7 +347,7 @@ traditional GPUs but are worth mentioning due to their specialized role in AI.</
 </ul>
 
 
-<a name="Why-NVIDIA-Dominates-the-LLM-Space"></a>
+<a name="Why.NVIDIA.Dominates.the.LLM.Space"></a>
 <h3>Why NVIDIA Dominates the LLM Space</h3>
 
 <p><strong>CUDA Ecosystem:</strong></p>
@@ -440,7 +447,68 @@ a wealth of community knowledge, tutorials, and research papers centered around 
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

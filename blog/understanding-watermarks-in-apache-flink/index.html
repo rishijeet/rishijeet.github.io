@@ -105,6 +105,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -113,7 +114,13 @@
 
 
 
-    <a name="What-are-Watermarks-3f-"></a>
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
+    <a name="What.are.Watermarks."></a>
 <h2>What are Watermarks?</h2>
 
 <p>Watermarks in Apache Flink are a mechanism to handle event time and out-of-order events in stream processing. They represent a point in time in the data stream and indicate that no events with timestamps earlier than the watermark should be expected. Essentially, watermarks help Flink understand the progress of event time in the stream and trigger computations like window operations based on this understanding.</p>
@@ -141,7 +148,7 @@
 <!--more-->
 
 
-<a name="Generating-Watermarks"></a>
+<a name="Generating.Watermarks"></a>
 <h2>Generating Watermarks</h2>
 
 <p>Watermarks can be generated in two main ways:</p>
@@ -150,7 +157,7 @@
 
 <p><strong>Periodic Watermarks</strong>: These are emitted at regular intervals.</p>
 
-<a name="Example-of-Watermark-Generation"></a>
+<a name="Example.of.Watermark.Generation"></a>
 <h3>Example of Watermark Generation</h3>
 
 <p>Here’s a code example demonstrating how to assign timestamps and generate watermarks using periodic watermarks:</p>
@@ -194,7 +201,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Example-Source-Function"></a>
+<a name="Example.Source.Function"></a>
 <h3>Example Source Function</h3>
 
 <p>Here’s a simple source function generating events with timestamps:</p>
@@ -220,14 +227,14 @@
 </span></code></pre></div></figure>
 
 
-<a name="Handling-Parallel-Streams"></a>
+<a name="Handling.Parallel.Streams"></a>
 <h2>Handling Parallel Streams</h2>
 
 <p>In a distributed environment, Flink processes streams in parallel. Each parallel sub-task can emit its own watermarks. Flink uses the minimum watermark of all parallel sub-tasks to ensure that no events are missed.</p>
 
 <p><img src="/images/parallel_streams_watermarks.svg" height="300" width="900" alt="Alt text" /><em>Source: Apache Flink</em></p>
 
-<a name="Example-of-Parallel-Watermark-Handling"></a>
+<a name="Example.of.Parallel.Watermark.Handling"></a>
 <h3>Example of Parallel Watermark Handling</h3>
 
 <p>When using parallel streams, each sub-task generates its watermarks, and Flink computes the minimum watermark across all sub-tasks. This is crucial to correctly handle late events and ensure accurate window computations.</p>
@@ -253,7 +260,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Watermark-Strategy-for-Parallel-Sources"></a>
+<a name="Watermark.Strategy.for.Parallel.Sources"></a>
 <h3>Watermark Strategy for Parallel Sources</h3>
 
 <p>Here&rsquo;s an example of a parallel source function generating events and watermarks:</p>
@@ -279,7 +286,7 @@
 </span></code></pre></div></figure>
 
 
-<a name="Benefits-of-Watermarks"></a>
+<a name="Benefits.of.Watermarks"></a>
 <h2>Benefits of Watermarks</h2>
 
 <p> <strong>Handling Late Data</strong>: Watermarks allow the system to process late events and include them in the correct windows, ensuring completeness and accuracy.</p>
@@ -358,7 +365,68 @@
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

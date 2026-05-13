@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,11 +116,17 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Credit Suisse, one of Switzerland’s most prestigious banks, fell from grace due to years of scandals, mismanagement, and financial instability. Once a symbol of Swiss banking excellence, the bank collapsed in 2023, forcing a historic takeover by UBS. This case study explores the major factors leading to Credit Suisse’s downfall, examining key financial data, regulatory failures, and market reactions.</p>
 
 <p><img src="/images/2025/credit_suisse.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="L-3c-strong-3e-Background-of-Credit-Suisse-3c--2f-strong-3e-"></a>
+<a name="L.strong.Background.of.Credit.Suisse..strong."></a>
 <h2><strong>Background of Credit Suisse</strong></h2>
 
 <ul>
@@ -137,10 +144,10 @@
 
 <hr />
 
-<a name="L-3c-strong-3e-Key-Events-Leading-to-the-Collapse-3c--2f-strong-3e-"></a>
+<a name="L.strong.Key.Events.Leading.to.the.Collapse..strong."></a>
 <h2><strong>Key Events Leading to the Collapse</strong></h2>
 
-<a name="L-3c-strong-3e-Archegos-Capital-Collapse--28-2021-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Archegos.Capital.Collapse..2021...strong."></a>
 <h3><strong>Archegos Capital Collapse (2021)</strong></h3>
 
 <p><strong>What Happened?</strong></p>
@@ -163,7 +170,7 @@
 
 <hr />
 
-<a name="L-3c-strong-3e-Greensill-Capital-Scandal--28-2021-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Greensill.Capital.Scandal..2021...strong."></a>
 <h3><strong>Greensill Capital Scandal (2021)</strong></h3>
 
 <p><strong>What Happened?</strong></p>
@@ -186,7 +193,7 @@
 
 <hr />
 
-<a name="L-3c-strong-3e-Money-Laundering-and-Legal-Issues-3c--2f-strong-3e-"></a>
+<a name="L.strong.Money.Laundering.and.Legal.Issues..strong."></a>
 <h3><strong>Money Laundering and Legal Issues</strong></h3>
 
 <p>Credit Suisse was repeatedly implicated in financial scandals:</p>
@@ -209,7 +216,7 @@
 
 <hr />
 
-<a name="L-3c-strong-3e-2022-2d-2023-Liquidity-Crisis--26-amp-3b--Collapse-3c--2f-strong-3e-"></a>
+<a name="L.strong.2022-2023.Liquidity.Crisis..amp..Collapse..strong."></a>
 <h3><strong>2022-2023 Liquidity Crisis &amp; Collapse</strong></h3>
 
 <p><strong>What Happened?</strong></p>
@@ -237,7 +244,7 @@
 
 <hr />
 
-<a name="L-3c-strong-3e-Final-Collapse--26-amp-3b--UBS-Takeover-3c--2f-strong-3e-"></a>
+<a name="L.strong.Final.Collapse..amp..UBS.Takeover..strong."></a>
 <h2><strong>Final Collapse &amp; UBS Takeover</strong></h2>
 
 <p>On <strong>March 19, 2023</strong>, the Swiss government orchestrated a forced merger between UBS and Credit Suisse:</p>
@@ -252,7 +259,7 @@
 
 <hr />
 
-<a name="L-3c-strong-3e-Lessons-from-the-Credit-Suisse-Crisis-3c--2f-strong-3e-"></a>
+<a name="L.strong.Lessons.from.the.Credit.Suisse.Crisis..strong."></a>
 <h2><strong>Lessons from the Credit Suisse Crisis</strong></h2>
 
 <ul>
@@ -287,7 +294,7 @@ major factor in its downfall.</li>
 
 <hr />
 
-<a name="L-3c-strong-3e-Conclusion-3c--2f-strong-3e-"></a>
+<a name="L.strong.Conclusion..strong."></a>
 <h2><strong>Conclusion</strong></h2>
 
 <p>The Credit Suisse crisis serves as a cautionary tale for banks worldwide. Despite being a globally significant institution, its failure to manage risks, handle scandals, and maintain client confidence led to its <strong>historic collapse in 2023</strong>. With tighter regulations and increased scrutiny, the banking sector must learn from this failure to avoid similar downfalls in the future.</p>
@@ -355,7 +362,68 @@ major factor in its downfall.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

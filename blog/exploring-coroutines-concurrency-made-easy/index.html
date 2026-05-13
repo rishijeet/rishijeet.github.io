@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,14 +116,20 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>Concurrency is a critical aspect of modern software development, enabling applications to perform multiple tasks simultaneously. Traditional approaches to concurrency, such as threads, often come with complexity and overhead. Coroutines offer a powerful alternative by providing a simpler, more efficient way to handle concurrent operations. In this blog, we&rsquo;ll delve into the world of coroutines, explore what makes them unique, and provide examples to illustrate their usage. We&rsquo;ll also discuss alternative concurrency models and their trade-offs.</p>
 
-<a name="What-Are-Coroutines-3f-"></a>
+<a name="What.Are.Coroutines."></a>
 <h2>What Are Coroutines?</h2>
 
 <p>Coroutines are a concurrency primitive that allows functions to pause execution and resume later, enabling non-blocking asynchronous code execution. Unlike traditional threads, coroutines are lightweight, have minimal overhead, and do not require OS-level context switching.</p>
 
-<a name="Key-Features-of-Coroutines"></a>
+<a name="Key.Features.of.Coroutines"></a>
 <h3>Key Features of Coroutines</h3>
 
 <ol>
@@ -133,7 +140,7 @@
 </ol>
 
 
-<a name="Coroutines-in-Kotlin"></a>
+<a name="Coroutines.in.Kotlin"></a>
 <h2>Coroutines in Kotlin</h2>
 
 <p>Kotlin is one of the languages that has built-in support for coroutines, making it a popular choice for modern asynchronous programming. Let&rsquo;s explore coroutines in Kotlin with some examples.</p>
@@ -141,7 +148,7 @@
 <!--more-->
 
 
-<a name="Example:-Basic-Coroutine"></a>
+<a name="Example:.Basic.Coroutine"></a>
 <h3>Example: Basic Coroutine</h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
@@ -160,7 +167,7 @@
 <code>launch</code> function starts a new coroutine that delays for 1 second and then prints &ldquo;Rishijeet!&rdquo;. Meanwhile, &ldquo;Hello,&rdquo; is
 printed immediately.</p>
 
-<a name="Example:-Structured-Concurrency"></a>
+<a name="Example:.Structured.Concurrency"></a>
 <h3>Example: Structured Concurrency</h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
@@ -183,7 +190,7 @@ printed immediately.</p>
 
 <p>This example demonstrates structured concurrency. The <code>doWork</code> function is a suspend function that simulates work with a 2-second delay. The <code>launch</code> function starts a coroutine that runs <code>doWork</code>, and <code>job.join()</code> waits for the coroutine to complete.</p>
 
-<a name="Example:-Async-and-Await"></a>
+<a name="Example:.Async.and.Await"></a>
 <h3>Example: Async and Await</h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="kotlin"><span class='line'><span class="k">import</span> <span class="nn">kotlinx.coroutines.*</span>
@@ -206,12 +213,12 @@ printed immediately.</p>
 
 <p>In this example, the <code>async</code> function starts a coroutine that computes a value asynchronously. The <code>await</code> function suspends the coroutine until the result is available.</p>
 
-<a name="Alternatives-to-Coroutines"></a>
+<a name="Alternatives.to.Coroutines"></a>
 <h2>Alternatives to Coroutines</h2>
 
 <p>While coroutines offer many advantages, there are other concurrency models to consider. Each has its own trade-offs and use cases.</p>
 
-<a name="L-3c-strong-3e-Threads-3c--2f-strong-3e-"></a>
+<a name="L.strong.Threads..strong."></a>
 <h3><strong>Threads</strong></h3>
 
 <p>Threads are the traditional approach to concurrency. They are managed by the OS and provide true parallelism but come with significant overhead and complexity.</p>
@@ -235,7 +242,7 @@ printed immediately.</p>
 </span></code></pre></div></figure>
 
 
-<a name="L-3c-strong-3e-Reactive-Programming-3c--2f-strong-3e-"></a>
+<a name="L.strong.Reactive.Programming..strong."></a>
 <h3><strong>Reactive Programming</strong></h3>
 
 <p>Reactive programming, using libraries like RxJava or Reactor, is another approach to concurrency. It is based on the Observer pattern and provides powerful abstractions for asynchronous programming.</p>
@@ -254,7 +261,7 @@ printed immediately.</p>
 </span></code></pre></div></figure>
 
 
-<a name="L-3c-strong-3e-Async-2f-Await--28-Promises-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Async.Await..Promises...strong."></a>
 <h3><strong>Async/Await (Promises)</strong></h3>
 
 <p>Async/await is a popular pattern in languages like JavaScript and Python. It simplifies asynchronous code by allowing it to be written in a synchronous style.</p>
@@ -347,7 +354,68 @@ printed immediately.</p>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

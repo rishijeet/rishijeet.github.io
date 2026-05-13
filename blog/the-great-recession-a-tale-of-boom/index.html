@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,12 +116,18 @@
 
 
 
-    <a name="L-3c-strong-3e-Prologue:-The-Illusion-of-Prosperity-3c--2f-strong-3e-"></a>
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
+    <a name="L.strong.Prologue:.The.Illusion.of.Prosperity..strong."></a>
 <h3><strong>Prologue: The Illusion of Prosperity</strong></h3>
 
 <p>In the early 2000s, the United States and much of the Western world were riding high on a wave of economic prosperity. The stock market was booming, home prices were soaring, and credit was available to almost anyone who wanted it. The American Dream had never seemed more attainable. But beneath the surface, cracks were forming in the foundations of this seemingly unstoppable growth.</p>
 
-<a name="L-3c-strong-3e-Act-1:-The-Bubble-Inflates--28-2000-2d-2006-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Act.1:.The.Bubble.Inflates..2000-2006...strong."></a>
 <h3><strong>Act 1: The Bubble Inflates (2000-2006)</strong></h3>
 
 <p>The origins of the Great Recession can be traced back to a combination of financial deregulation, a booming housing market, and risky lending practices.</p>
@@ -170,7 +177,7 @@
 
 <p><img src="/images/2025/real_estate.jpg" height="300" width="900" alt="Alt text" /></p>
 
-<a name="L-3c-strong-3e-Act-2:-The-Collapse-Begins--28-2007-2d-2008-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Act.2:.The.Collapse.Begins..2007-2008...strong."></a>
 <h3><strong>Act 2: The Collapse Begins (2007-2008)</strong></h3>
 
 <p>The tipping point arrived in 2007 when homeowners began defaulting on their subprime mortgages. The housing market, once thought to be invincible, started crumbling.</p>
@@ -229,7 +236,7 @@
 
 <p><img src="/images/2025/stock_market_2007.png" height="300" width="900" alt="Alt text" /></p>
 
-<a name="L-3c-strong-3e-Act-3:-Global-Domino-Effect--28-2008-2d-2010-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Act.3:.Global.Domino.Effect..2008-2010...strong."></a>
 <h3><strong>Act 3: Global Domino Effect (2008-2010)</strong></h3>
 
 <p>The crisis spread beyond the United States, leading to a worldwide recession.</p>
@@ -270,7 +277,7 @@ counter the slowdown.</li>
 </ul>
 
 
-<a name="L-3c-strong-3e-Act-4:-Recovery-and-Reforms--28-2010-2d-Present-29--3c--2f-strong-3e-"></a>
+<a name="L.strong.Act.4:.Recovery.and.Reforms..2010-Present...strong."></a>
 <h3><strong>Act 4: Recovery and Reforms (2010-Present)</strong></h3>
 
 <p>Governments around the world took aggressive steps to stabilize the economy.</p>
@@ -312,7 +319,7 @@ counter the slowdown.</li>
 </ul>
 
 
-<a name="L-3c-strong-3e-Epilogue:-Lessons-Learned-and-the-Road-Ahead-3c--2f-strong-3e-"></a>
+<a name="L.strong.Epilogue:.Lessons.Learned.and.the.Road.Ahead..strong."></a>
 <h3><strong>Epilogue: Lessons Learned and the Road Ahead</strong></h3>
 
 <p>The Great Recession reshaped the global financial landscape. It exposed the dangers of excessive risk-taking, inadequate regulation, and blind faith in financial engineering.</p>
@@ -391,7 +398,68 @@ counter the slowdown.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

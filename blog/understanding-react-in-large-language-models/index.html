@@ -113,6 +113,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -121,18 +122,24 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>ReAct, short for Reasoning and Acting, is a paradigm for enhancing large language models (LLMs) by integrating verbal reasoning traces with task-specific actions. Introduced in a 2022 paper, it addresses limitations in chain-of-thought (CoT) prompting by allowing models to interact with external environments, such as APIs or databases, to gather real-time data. This makes LLMs more reliable for tasks requiring factual accuracy or multi-step planning.</p>
 
 <p>In the evolving field of artificial intelligence, large language models (LLMs) have transformed how we approach problem-solving, but they often struggle with hallucinations—generating plausible but incorrect information—or handling tasks requiring real-world interaction. Enter ReAct (Reasoning and Acting), a prompting framework that synergizes reasoning traces with actionable steps, enabling LLMs to behave more like intelligent agents. This detailed blog explores ReAct&rsquo;s foundations, mechanics, advantages, and practical implementation, culminating in a sample Python application using LangChain. We&rsquo;ll draw on established research and code examples to provide a comprehensive guide, updated with insights as of 2025.</p>
 
-<a name="How-ReAct-Works"></a>
+<a name="How.ReAct.Works"></a>
 <h2>How ReAct Works</h2>
 
 <p>In ReAct, the LLM generates a &ldquo;thought&rdquo; to plan, selects an &ldquo;action&rdquo; from available tools, observes the outcome, and iterates. This loop continues until the model outputs a final answer. For example, answering &ldquo;What is Olivia Wilde&rsquo;s boyfriend&rsquo;s age raised to the 0.23 power?&rdquo; might involve searching for the boyfriend, then calculating the power.</p>
 
 <p><img src="/images/2025/reAct.gif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Key-Points"></a>
+<a name="Key.Points"></a>
 <h2>Key Points</h2>
 
 <ul>
@@ -145,7 +152,7 @@
 <!--more-->
 
 
-<a name="Foundations-of-ReAct"></a>
+<a name="Foundations.of.ReAct"></a>
 <h2>Foundations of ReAct</h2>
 
 <p>ReAct was introduced in the 2022 paper &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; by Shunyu Yao et al. It builds on chain-of-thought (CoT) prompting, where LLMs break down problems into intermediate reasoning steps for better performance on tasks like arithmetic or commonsense reasoning. However, CoT relies solely on the model&rsquo;s internal knowledge, leading to issues like factual errors or outdated information.</p>
@@ -164,7 +171,7 @@
 
 <p>This structure improves trustworthiness by making the process interpretable—users can trace how the model arrived at an answer.</p>
 
-<a name="How-ReAct-Works:-A-Step-2d-by-2d-Step-Breakdown"></a>
+<a name="How.ReAct.Works:.A.Step-by-Step.Breakdown"></a>
 <h2>How ReAct Works: A Step-by-Step Breakdown</h2>
 
 <p>ReAct operates in an iterative loop, typically capped at a maximum number of turns to control costs and latency. Here&rsquo;s the flow:</p>
@@ -191,7 +198,7 @@
 
 <p>However, challenges include dependency on tool quality, potential for infinite loops without safeguards, and higher token usage compared to simpler prompts.</p>
 
-<a name="Comparisons:-ReAct-vs.-Other-LLM-Techniques"></a>
+<a name="Comparisons:.ReAct.vs..Other.LLM.Techniques"></a>
 <h2>Comparisons: ReAct vs. Other LLM Techniques</h2>
 
 <p>To contextualize ReAct, consider this comparison table:</p>
@@ -243,7 +250,7 @@
 
 <p>ReAct often outperforms baselines on benchmarks like HotpotQA, Fever, ALFWorld, and WebShop, with gains in accuracy and efficiency when combined with CoT.</p>
 
-<a name="Building-a-Sample-ReAct-Application-in-Python"></a>
+<a name="Building.a.Sample.ReAct.Application.in.Python"></a>
 <h2>Building a Sample ReAct Application in Python</h2>
 
 <p>A basic ReAct agent can be built using Python libraries like LangChain. The sample below creates an agent that searches the web and performs math, demonstrating the loop in action. You&rsquo;ll need API keys for an LLM (e.g., OpenAI) and tools (e.g., Google Serper for search). For full code and setup, see the detailed survey below. This sample creates an agent that answers questions by searching the web (via Tavily) and performing calculations. It demonstrates the full loop and includes conversational memory for multi-turn interactions.</p>
@@ -265,7 +272,7 @@ os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
 </ul>
 
 
-<a name="Code-Implementation"></a>
+<a name="Code.Implementation"></a>
 <h3>Code Implementation</h3>
 
 <p>The application uses LangGraph&rsquo;s <code>create_react_agent</code> for the ReAct logic. Here&rsquo;s the complete code:</p>
@@ -313,7 +320,7 @@ os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
 </span></code></pre></div></figure>
 
 
-<a name="Detailed-Explanation"></a>
+<a name="Detailed.Explanation"></a>
 <h3>Detailed Explanation</h3>
 
 <ol>
@@ -334,7 +341,7 @@ os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
 </ol>
 
 
-<a name="Testing-and-Output"></a>
+<a name="Testing.and.Output"></a>
 <h3>Testing and Output</h3>
 
 <p>Running the code might yield:</p>
@@ -345,7 +352,7 @@ This ensures factual grounding, e.g., verifying current data as of 2025.</li>
 </ul>
 
 
-<a name="Advanced-Variations-and-Best-Practices"></a>
+<a name="Advanced.Variations.and.Best.Practices"></a>
 <h2>Advanced Variations and Best Practices</h2>
 
 <ul>
@@ -424,7 +431,68 @@ This ensures factual grounding, e.g., verifying current data as of 2025.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

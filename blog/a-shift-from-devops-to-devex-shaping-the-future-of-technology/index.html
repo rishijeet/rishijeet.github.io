@@ -113,6 +113,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -121,14 +122,20 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>DevOps has transformed the software development lifecycle by integrating development and operations, fostering collaboration, and automating processes to enhance efficiency. However, as technology evolves, there is a growing focus on Developer Experience (DevEx), which aims to optimize the overall experience of developers. This shift promises not only enhanced productivity but also greater innovation and job satisfaction.</p>
 
-<a name="Understanding-DevEx"></a>
+<a name="Understanding.DevEx"></a>
 <h4>Understanding DevEx</h4>
 
 <p>DevEx encompasses all aspects of a developer’s interaction with tools, systems, and processes. It aims to create an environment where developers can focus on coding and innovation rather than dealing with cumbersome processes and tools.</p>
 
-<a name="Key-Metrics-and-Data"></a>
+<a name="Key.Metrics.and.Data"></a>
 <h4>Key Metrics and Data</h4>
 
 <ul>
@@ -170,7 +177,7 @@ likely to recommend their organizations as a great place to work.</li>
 <!--more-->
 
 
-<a name="Elements-of-a-Strong-DevEx"></a>
+<a name="Elements.of.a.Strong.DevEx"></a>
 <h4>Elements of a Strong DevEx</h4>
 
 <ul>
@@ -207,7 +214,7 @@ likely to recommend their organizations as a great place to work.</li>
 
 <p><img src="/images/2024/devex.avif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Adoption-and-Future-Prospects"></a>
+<a name="Adoption.and.Future.Prospects"></a>
 <h4>Adoption and Future Prospects</h4>
 
 <ul>
@@ -310,7 +317,68 @@ likely to recommend their organizations as a great place to work.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

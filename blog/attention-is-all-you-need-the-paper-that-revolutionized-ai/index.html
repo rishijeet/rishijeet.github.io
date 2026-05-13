@@ -109,6 +109,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -117,16 +118,22 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>In June 2017, eight researchers from Google Brain and Google Research published a paper that would fundamentally reshape artificial intelligence. Titled &ldquo;Attention Is All You Need,&rdquo; it introduced the Transformer architecture—a model that discarded the conventional wisdom of sequence processing and replaced it with something elegantly simple: pure attention.</p>
 
 <p>The numbers tell the story. As of 2025, this single paper has been cited over 173,000 times, making it one of the most influential works in machine learning history. Today, nearly every large language model you interact with—ChatGPT, Google Gemini, Claude, Meta&rsquo;s Llama—traces its lineage directly back to this architecture.</p>
 
 <p>But here&rsquo;s what makes this achievement remarkable: it wasn&rsquo;t about adding more layers, more parameters, or more complexity. It was about removing what had been considered essential for decades.</p>
 
-<a name="The-Problem:-Sequential-Processing"></a>
+<a name="The.Problem:.Sequential.Processing"></a>
 <h2>The Problem: Sequential Processing</h2>
 
-<a name="Why-RNNs-Were-Dominant--28-And-Problematic-29-"></a>
+<a name="Why.RNNs.Were.Dominant..And.Problematic."></a>
 <h3>Why RNNs Were Dominant (And Problematic)</h3>
 
 <p>Before 2017, the dominant approach for sequence tasks used Recurrent Neural Networks (RNNs), particularly Long Short-Term Memory (LSTM) networks and Gated Recurrent Units (GRUs). The idea was intuitive: process sequences one element at a time, maintaining a hidden state that captures information from previous steps.</p>
@@ -152,7 +159,7 @@
 </ul>
 
 
-<a name="Attempted-Solutions-Before-Transformers"></a>
+<a name="Attempted.Solutions.Before.Transformers"></a>
 <h3>Attempted Solutions Before Transformers</h3>
 
 <p>Researchers had tried other approaches:</p>
@@ -162,10 +169,10 @@
 
 <p>The paper notes these approaches attempted to parallelize, but all had significant limitations. ConvS2S was faster than RNNs, but still limited. And none could match the quality of attention-augmented RNNs.</p>
 
-<a name="The-Solution:-Self-2d-Attention"></a>
+<a name="The.Solution:.Self-Attention"></a>
 <h2>The Solution: Self-Attention</h2>
 
-<a name="What-is-Attention-3f-"></a>
+<a name="What.is.Attention."></a>
 <h3>What is Attention?</h3>
 
 <p>Imagine you&rsquo;re in a crowded coffee shop. Many conversations are happening, but you can focus your listening attention on one person. You&rsquo;re not ignoring others, but you&rsquo;re weighting your perception toward one source.</p>
@@ -178,13 +185,14 @@
 
 <p><img src="/images/2025/single-multi-head.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
 
-<a name="Scaled-Dot-2d-Product-Attention:-The-Core-Formula"></a>
+<a name="Scaled.Dot-Product.Attention:.The.Core.Formula"></a>
 <h3>Scaled Dot-Product Attention: The Core Formula</h3>
 
 <p>The paper introduces &ldquo;Scaled Dot-Product Attention,&rdquo; which is the building block of everything:</p>
 
-<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>Attention(Q, K, V) = softmax(QK^T / √d_k) V</span></code></pre></div></figure>
-
+<p>$$
+Attention(Q, K, V) = softmax(QK^T / √d_k) V
+$$</p>
 
 <p>Let&rsquo;s break this down step by step:</p>
 
@@ -217,14 +225,18 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p><strong>The Beauty</strong>: All n words can be processed in parallel. Position 10 doesn&rsquo;t wait for position 9.</p>
 
-<a name="Why-Multiple-Heads-Matter"></a>
+<a name="Why.Multiple.Heads.Matter"></a>
 <h3>Why Multiple Heads Matter</h3>
 
 <p>Here&rsquo;s where it gets powerful. The paper found that a single attention function isn&rsquo;t enough. They introduced <strong>Multi-Head Attention</strong>:</p>
 
-<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>MultiHead(Q, K, V) = Concat(head_1, ..., head_h) W^O
-</span><span class='line'>
-</span><span class='line'>where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)</span></code></pre></div></figure>
+<div>
+$$
+MultiHead(Q, K, V) = Concat(head_1, &#8230;, head_h) W^O
+
+where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)
+$$
+</div>
 
 
 <p>What does this mean? The model learns <strong>h different linear projections</strong> of Q, K, and V, performs attention on each separately, and concatenates the results.</p>
@@ -254,7 +266,7 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>The attention visualizations in the paper (Figures 3-5) show this beautifully. Head 5 in layer 5 learns to capture the phrase &ldquo;making&hellip;more difficult&rdquo; by connecting distant words. Other heads perform anaphora resolution (connecting &ldquo;its&rdquo; to &ldquo;Law&rdquo;).</p>
 
-<a name="Transformer-Architecture"></a>
+<a name="Transformer.Architecture"></a>
 <h2>Transformer Architecture</h2>
 
 <a name="Overview"></a>
@@ -272,7 +284,7 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>But unlike previous encoder-decoder models, it uses <em>only</em> attention (and feed-forward networks) for both.</p>
 
-<a name="The-Encoder:-6-Identical-Layers"></a>
+<a name="The.Encoder:.6.Identical.Layers"></a>
 <h3>The Encoder: 6 Identical Layers</h3>
 
 <p>Each encoder layer contains:</p>
@@ -284,10 +296,10 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 </ul>
 
 
-<p>The output of each sub-layer is:</p>
-
-<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>LayerNorm(x + Sublayer(x))</span></code></pre></div></figure>
-
+<p>The output of each sub-layer is:
+$$
+LayerNorm(x + Sublayer(x))
+$$</p>
 
 <p><strong>Key specifications</strong>:</p>
 
@@ -299,7 +311,7 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 </ul>
 
 
-<a name="The-Decoder:-6-Identical-Layers-with-Masking"></a>
+<a name="The.Decoder:.6.Identical.Layers.with.Masking"></a>
 <h3>The Decoder: 6 Identical Layers with Masking</h3>
 
 <p>The decoder has the same 6 layers, plus one crucial difference:</p>
@@ -317,13 +329,14 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>In practice, this means setting future positions to -∞ in the softmax. This maintains the &ldquo;auto-regressive&rdquo; property—you generate one word at a time, without cheating by looking ahead.</p>
 
-<a name="Position-2d-Wise-Feed-2d-Forward-Networks"></a>
+<a name="Position-Wise.Feed-Forward.Networks"></a>
 <h3>Position-Wise Feed-Forward Networks</h3>
 
 <p>Between attention layers sits a feed-forward network:</p>
 
-<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>FFN(x) = max(0, xW_1 + b_1)W_2 + b_2</span></code></pre></div></figure>
-
+<p>$$
+FFN(x) = max(0, xW_1 + b_1)W_2 + b_2
+$$</p>
 
 <p>This is applied to each position separately and identically. Specifications:</p>
 
@@ -336,16 +349,17 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>Interestingly, this is equivalent to two 1×1 convolutions.</p>
 
-<a name="Positional-Encoding:-Telling-the-Model-About-Order"></a>
+<a name="Positional.Encoding:.Telling.the.Model.About.Order"></a>
 <h3>Positional Encoding: Telling the Model About Order</h3>
 
 <p>Here&rsquo;s a subtle but critical detail: attention mechanisms don&rsquo;t inherently understand word order. &ldquo;Dog bites man&rdquo; and &ldquo;man bites dog&rdquo; would be processed the same without additional information.</p>
 
 <p>The solution: <strong>Positional Encodings</strong> (sinusoidal):</p>
 
-<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>PE_(pos, 2i) = sin(pos / 10000^(2i/d_model))
-</span><span class='line'>PE_(pos, 2i+1) = cos(pos / 10000^(2i/d_model))</span></code></pre></div></figure>
-
+<p>$$
+PE_(pos, 2i) = sin(pos / 10000^(2i/d_model))
+PE_(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+$$</p>
 
 <p>Where:</p>
 
@@ -357,11 +371,11 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>Each dimension gets a sinusoid at different frequencies. The wavelengths form a geometric progression from 2π to 10,000·2π.</p>
 
-<p><strong>Why sine and cosine?</strong> The paper hypothesized this allows the model to easily learn relative position offsets since for any fixed offset k, PE<em>{pos+k} can be represented as a linear function of PE</em>{pos}.</p>
+<p><strong>Why sine and cosine?</strong> The paper hypothesized this allows the model to easily learn relative position offsets since for any fixed offset k, $$ PE_{pos+k} $$ can be represented as a linear function of $$ PE_{pos} $$.</p>
 
 <p>The paper tested learned positional embeddings (Table 3, row E) and found nearly identical results, so the sinusoidal choice is more theoretical. But sinusoids have an advantage: they can extrapolate to longer sequences than seen during training.</p>
 
-<a name="The-Three-Applications-of-Attention"></a>
+<a name="The.Three.Applications.of.Attention"></a>
 <h3>The Three Applications of Attention</h3>
 
 <p>The paper explicitly lists three ways attention is used:</p>
@@ -373,12 +387,12 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 </ol>
 
 
-<a name="Why-Attention-Works-Better"></a>
+<a name="Why.Attention.Works.Better"></a>
 <h2>Why Attention Works Better</h2>
 
 <p>The paper provides a systematic comparison in Table 1, examining three criteria:</p>
 
-<a name="L1.-Computational-Complexity-Per-Layer"></a>
+<a name="L1..Computational.Complexity.Per.Layer"></a>
 <h3>1. Computational Complexity Per Layer</h3>
 
 <div class="scrollable-table-container">
@@ -419,7 +433,7 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>So n &lt; d, making self-attention win.</p>
 
-<a name="L2.-Sequential-Operations-Required"></a>
+<a name="L2..Sequential.Operations.Required"></a>
 <h3>2. Sequential Operations Required</h3>
 
 <div class="scrollable-table-container">
@@ -450,7 +464,7 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>This is the parallelization advantage. Self-attention can process all positions simultaneously. RNNs must process sequentially.</p>
 
-<a name="L3.-Path-Length-for-Long-2d-Range-Dependencies"></a>
+<a name="L3..Path.Length.for.Long-Range.Dependencies"></a>
 <h3>3. Path Length for Long-Range Dependencies</h3>
 
 <div class="scrollable-table-container">
@@ -490,10 +504,10 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>Shorter paths → easier to learn long-range dependencies.</p>
 
-<a name="Results--26-amp-3b--Impact"></a>
+<a name="Results..amp..Impact"></a>
 <h2>Results &amp; Impact</h2>
 
-<a name="Machine-Translation-Performance"></a>
+<a name="Machine.Translation.Performance"></a>
 <h3>Machine Translation Performance</h3>
 
 <p>The paper evaluated on two benchmarks: WMT 2014 English-German (EN-DE) and English-French (EN-FR).</p>
@@ -576,7 +590,7 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p><strong>Improvement</strong>: Beats all previous models with less than &frac14; training cost.</p>
 
-<a name="Key-Numbers"></a>
+<a name="Key.Numbers"></a>
 <h3>Key Numbers</h3>
 
 <ul>
@@ -590,7 +604,7 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 </ul>
 
 
-<a name="Generalization-Beyond-Translation"></a>
+<a name="Generalization.Beyond.Translation"></a>
 <h3>Generalization Beyond Translation</h3>
 
 <p>The paper also tested English constituency parsing (Penn Treebank):</p>
@@ -622,10 +636,10 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>Despite no task-specific tuning, the Transformer achieved state-of-the-art on semi-supervised parsing and competitive results on WSJ-only. This proved the architecture was generalizable.</p>
 
-<a name="Technical-Deep-Dive"></a>
+<a name="Technical.Deep.Dive"></a>
 <h2>Technical Deep Dive</h2>
 
-<a name="Model-Variants--26-amp-3b--Ablation-Study"></a>
+<a name="Model.Variants..amp..Ablation.Study"></a>
 <h3>Model Variants &amp; Ablation Study</h3>
 
 <p>The paper conducted extensive ablations (Table 3) to understand which components matter:</p>
@@ -684,15 +698,15 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p>Finding: Nearly identical, validating sinusoidal choice.</p>
 
-<a name="Training-Details"></a>
+<a name="Training.Details"></a>
 <h3>Training Details</h3>
 
 <p><strong>Optimizer</strong>: Adam with β₁ = 0.9, β₂ = 0.98, ε = 10⁻⁹</p>
 
-<p><strong>Learning Rate Schedule</strong>:</p>
-
-<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>lrate = d_model^(-0.5) · min(step_num^(-0.5), step_num · warmup_steps^(-1.5))</span></code></pre></div></figure>
-
+<p><strong>Learning Rate Schedule</strong>:
+$$
+lrate = d_model^(-0.5) · min(step_num^(-0.5), step_num · warmup_steps^(-1.5))
+$$</p>
 
 <p>With warmup_steps = 4000. This increases learning rate linearly for first 4000 steps, then decreases proportionally to step<sup>-0.5</sup>.</p>
 
@@ -706,10 +720,10 @@ Multiply by V and sum. Positions with high attention weights contribute more to 
 
 <p><strong>Inference</strong>: Beam search with beam size = 4, length penalty α = 0.6. Model parameters averaged over last 5-20 checkpoints.</p>
 
-<a name="Understanding-the-Impact"></a>
+<a name="Understanding.the.Impact"></a>
 <h2>Understanding the Impact</h2>
 
-<a name="Why-This-Mattered"></a>
+<a name="Why.This.Mattered"></a>
 <h3>Why This Mattered</h3>
 
 <p>The Transformer&rsquo;s success opened new possibilities:</p>
@@ -735,7 +749,7 @@ fine-tune for specific tasks. This revolutionized NLP.</li>
 </ul>
 
 
-<a name="Modern-Descendants"></a>
+<a name="Modern.Descendants"></a>
 <h3>Modern Descendants</h3>
 
 <p>Every major language model today uses Transformer variants:</p>
@@ -748,7 +762,7 @@ fine-tune for specific tasks. This revolutionized NLP.</li>
 </ul>
 
 
-<a name="Limitations--26-amp-3b--Future-Directions"></a>
+<a name="Limitations..amp..Future.Directions"></a>
 <h2>Limitations &amp; Future Directions</h2>
 
 <p>The paper acknowledges limitations:</p>
@@ -858,7 +872,68 @@ attention for very long sequences.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">

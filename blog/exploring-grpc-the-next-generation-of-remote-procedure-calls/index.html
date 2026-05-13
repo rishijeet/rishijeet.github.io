@@ -107,6 +107,7 @@
     </div>
 
 
+
             
         </div>
     
@@ -115,16 +116,22 @@
 
 
 
+
+    <!-- TOC ONLY ON POST PAGE -->
+    <div id="toc-container">
+        <div id="toc"></div>
+    </div>
+
     <p>In the realm of distributed systems and microservices, effective communication between services is paramount. For many years, REST (Representational State Transfer) has been the dominant paradigm for building APIs. However, gRPC (gRPC Remote Procedure Calls) is emerging as a powerful alternative, offering several advantages over traditional REST APIs. In this blog, we&rsquo;ll explore what gRPC is, how it works, and why it might be a better choice than REST for certain applications.</p>
 
-<a name="What-is-gRPC-3f-"></a>
+<a name="What.is.gRPC."></a>
 <h2>What is gRPC?</h2>
 
 <p>gRPC, originally developed by Google, is an open-source framework that enables high-performance remote procedure calls (RPC). It leverages HTTP/2 for transport, Protocol Buffers (Protobuf) as the interface definition language (IDL), and provides features like bi-directional streaming, authentication, and load balancing out-of-the-box.</p>
 
 <p><img src="/images/2024/grpc.png" height="300" width="900" alt="Alt text" /><em>Source: gRPC</em></p>
 
-<a name="Key-Components-of-gRPC"></a>
+<a name="Key.Components.of.gRPC"></a>
 <h3>Key Components of gRPC</h3>
 
 <ul>
@@ -137,7 +144,7 @@ method calls.</li>
 </ul>
 
 
-<a name="How-gRPC-Works"></a>
+<a name="How.gRPC.Works"></a>
 <h3>How gRPC Works</h3>
 
 <ul>
@@ -153,7 +160,7 @@ languages.</li>
 <!--more-->
 
 
-<a name="Example-Protobuf-Definition"></a>
+<a name="Example.Protobuf.Definition"></a>
 <h3>Example Protobuf Definition</h3>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="protobuf"><span class='line'><span class="na">syntax</span> <span class="o">=</span> <span class="s">&quot;proto3&quot;</span><span class="p">;</span>
@@ -172,7 +179,7 @@ languages.</li>
 </span></code></pre></div></figure>
 
 
-<a name="Why-gRPC-is-Better-Than-REST"></a>
+<a name="Why.gRPC.is.Better.Than.REST"></a>
 <h2>Why gRPC is Better Than REST</h2>
 
 <a name="Performance"></a>
@@ -186,7 +193,7 @@ languages.</li>
 
 <p><img src="/images/2024/grpc_rest.png" height="300" width="900" alt="Alt text" /><em>Source: Refine</em></p>
 
-<a name="Strongly-Typed-Contracts"></a>
+<a name="Strongly.Typed.Contracts"></a>
 <h3>Strongly Typed Contracts</h3>
 
 <ul>
@@ -194,7 +201,7 @@ languages.</li>
 </ul>
 
 
-<a name="Bi-2d-Directional-Streaming"></a>
+<a name="Bi-Directional.Streaming"></a>
 <h3>Bi-Directional Streaming</h3>
 
 <ul>
@@ -210,7 +217,7 @@ languages.</li>
 </ul>
 
 
-<a name="Code-Generation"></a>
+<a name="Code.Generation"></a>
 <h3>Code Generation</h3>
 
 <ul>
@@ -218,7 +225,7 @@ languages.</li>
 </ul>
 
 
-<a name="Built-2d-In-Features"></a>
+<a name="Built-In.Features"></a>
 <h3>Built-In Features</h3>
 
 <ul>
@@ -227,7 +234,7 @@ languages.</li>
 </ul>
 
 
-<a name="Ecosystem-and-Tooling"></a>
+<a name="Ecosystem.and.Tooling"></a>
 <h3>Ecosystem and Tooling</h3>
 
 <ul>
@@ -235,7 +242,7 @@ languages.</li>
 </ul>
 
 
-<a name="When-to-Use-gRPC"></a>
+<a name="When.to.Use.gRPC"></a>
 <h2>When to Use gRPC</h2>
 
 <p>While gRPC offers many advantages, it may not be suitable for every use case. Here are some scenarios where gRPC shines:</p>
@@ -318,7 +325,68 @@ languages.</li>
 </footer>
 
 
-        
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
 <!--Adding the Mathjax support -->
 <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
