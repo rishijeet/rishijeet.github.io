@@ -4,7 +4,7 @@
     <title><![CDATA[Category: system_design | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/system-design/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-13T15:55:12+05:30</updated>
+    <updated>2026-05-13T16:27:44+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,692 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Youtube Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-youtube-works/"/>
+        <updated>2026-05-13T16:08:56+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-youtube-works</id>
+        <content type="html"><![CDATA[<p>There is a moment every engineer has when they first truly think about what YouTube does. Not the product, but the machine. Someone in rural Indonesia uploads a phone video of a street cat doing something peculiar. Within minutes, that video is available in crisp 1080p to a user in São Paulo, another in Stockholm, and a third on a slow connection in rural Kenya who gets a smooth 360p stream without a single rebuffering event. The recommendation engine is already deciding who else should see it. The ad system has already matched it to relevant advertisers. The copyright scanner has already checked it against a database of millions of audio and video fingerprints.</p>
+
+<p><img src="/images/system_design/youtube.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>That is not magic. That is engineering, done at a scale that very few systems in the world have ever had to achieve.</p>
+
+<p>YouTube serves over 2 billion logged-in users every month. More than 500 hours of video are uploaded to the platform every single minute. The platform delivers over a billion hours of video playback per day. When you build a system at that scale, you cannot afford to think about problems the way you would in a startup. Every architectural decision has second and third order consequences. A naive caching strategy does not just waste a few dollars — it can collapse under load during a major event. A poorly designed upload pipeline does not just frustrate one creator — it fails millions simultaneously.</p>
+
+<!--more-->
+
+
+<p>This blog walks through YouTube&rsquo;s architecture the way a senior engineer would explain it to a teammate: from first principles, with a focus on why things are designed the way they are, what tradeoffs were made, and what happens when things go wrong.</p>
+
+<a name="Core.Features.of.YouTube"></a>
+<h2>Core Features of YouTube</h2>
+
+<p>Before jumping into architecture, it helps to enumerate what YouTube actually does, because each feature has its own set of engineering challenges.</p>
+
+<ul>
+<li><strong>Video upload</strong> — accepting large files reliably from any network condition globally</li>
+<li><strong>Video transcoding</strong> — converting raw uploads into multiple formats and resolutions</li>
+<li><strong>Video streaming</strong> — delivering video to any device at the right quality</li>
+<li><strong>Search</strong> — making billions of videos discoverable in milliseconds</li>
+<li><strong>Recommendations</strong> — surfacing relevant content to keep users engaged</li>
+<li><strong>Likes, dislikes, and comments</strong> — high-throughput social engagement systems</li>
+<li><strong>Subscriptions and notifications</strong> — fan-out at scale</li>
+<li><strong>Live streaming</strong> — real-time ingest, transcoding, and delivery</li>
+<li><strong>Shorts</strong> — short-form vertical video with its own discovery loop</li>
+<li><strong>Playlists and watch history</strong> — personalization infrastructure</li>
+<li><strong>Monetization and ads</strong> — real-time ad targeting and insertion</li>
+</ul>
+
+
+<p>Each of these features is a distributed system in its own right. The real engineering challenge is making them work together seamlessly.</p>
+
+<a name="High-Level.System.Architecture"></a>
+<h2>High-Level System Architecture</h2>
+
+<p>At the highest level, YouTube&rsquo;s architecture can be broken into several major layers: client-facing delivery, processing infrastructure, data stores, and intelligence systems.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Web and Mobile Clients];
+B[CDN Edge Servers];
+C[API Gateway and Load Balancer];
+D[Upload Service];
+E[Streaming Service];
+F[Search Service];
+G[Recommendation Service];
+H[Metadata Service];
+I[Notification Service];
+J[Video Storage GCS];
+K[Transcoding Workers];
+L[Bigtable and Spanner];
+M[Kafka Event Bus];
+N[ML Training Infrastructure];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+C &#8211;> F;
+C &#8211;> G;
+C &#8211;> H;
+C &#8211;> I;
+D &#8211;> K;
+K &#8211;> J;
+K &#8211;> L;
+E &#8211;> J;
+H &#8211;> L;
+M &#8211;> G;
+M &#8211;> I;
+M &#8211;> N;
+G &#8211;> N;
+</div>
+
+
+<p>When a user opens YouTube on their phone, the request first hits a CDN edge server that is geographically close to them. Static assets — JavaScript bundles, thumbnails, homepage layout — are served directly from the edge. For dynamic content like the personalized home feed, the request passes through the API gateway to the recommendation service, which queries the user&rsquo;s embedding model, fetches candidate videos, scores them, and returns a ranked list — all in under 100 milliseconds.</p>
+
+<p>When a user presses play, the streaming service negotiates the right video quality based on available bandwidth and serves segment files from CDN-cached storage.</p>
+
+<p>When a creator uploads a video, the upload service receives the raw file in chunks, stores it temporarily, and publishes an event to a message queue. A fleet of transcoding workers picks up that job, converts the video into a dozen formats and resolutions, and stores all variants in object storage. The metadata service updates indexes so the video becomes searchable and streamable.</p>
+
+<p>Every one of those steps involves redundancy, retry logic, monitoring, and failure handling.</p>
+
+<a name="Video.Upload.Pipeline"></a>
+<h2>Video Upload Pipeline</h2>
+
+<p>The video upload pipeline is one of the most deceptively complex parts of YouTube. Uploading a 4K feature-length film over a flaky mobile connection, reliably and without losing data, requires careful engineering at every step.</p>
+
+<p><strong>Chunked uploads</strong> are the foundation. Rather than sending the entire file in one HTTP request — which would fail on any network interruption — the client splits the video into chunks of a few megabytes each and uploads them sequentially or in parallel. Each chunk is acknowledged by the server. If the connection drops, the client can resume from the last acknowledged chunk. YouTube uses resumable upload APIs for this, which Google has published as part of its Cloud Storage API design.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Creator Client];
+B[Upload Gateway];
+C[Chunk Validator];
+D[Temporary Object Storage];
+E[Upload Event Queue];
+F[Virus and Content Scanner];
+G[Metadata Extractor];
+H[Thumbnail Generator];
+I[Transcoding Queue];
+J[Transcoding Workers];
+K[Permanent Video Storage];
+L[Search Index Updater];
+M[Metadata Database];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+G &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+J &#8211;> L;
+J &#8211;> M;
+</div>
+
+
+<p>Once all chunks arrive and are reassembled, several things happen in parallel:</p>
+
+<ul>
+<li><strong>Virus and content scanning</strong> runs the file against malware signatures and checks early content policy signals</li>
+<li><strong>Metadata extraction</strong> reads codec information, duration, frame rate, resolution, and audio channels</li>
+<li><strong>Thumbnail generation</strong> samples frames to produce candidate thumbnails</li>
+</ul>
+
+
+<p>All of this is asynchronous. The creator sees &ldquo;Upload complete — processing&rdquo; in their studio dashboard, but the real work has just begun. Publishing an event to a queue (Kafka or Cloud Pub/Sub in Google&rsquo;s world) decouples the upload from the processing. The transcoding workers consume from that queue independently, which means upload throughput and transcoding throughput can scale separately.</p>
+
+<p><strong>Why queues?</strong> Because if transcoding workers slow down during a traffic spike, the queue absorbs the backlog. Without a queue, backpressure would ripple directly back to the upload gateway, causing creator-facing errors. Queues are also natural retry mechanisms — if a transcoding worker crashes mid-job, the message stays unacknowledged and another worker picks it up.</p>
+
+<a name="Video.Transcoding.System"></a>
+<h2>Video Transcoding System</h2>
+
+<p>Raw video from a creator&rsquo;s camera is typically a massive file in whatever format their device produces — H.264 in an MKV container, ProRes from a professional camera, HEVC from a modern iPhone. YouTube needs to convert this into formats that play on every device, at multiple quality levels, with adaptive streaming support.</p>
+
+<p><strong>Why transcode at all?</strong> Because a 50GB raw camera file cannot stream to a mobile device. And because different devices support different codecs — older Android TVs might not support AV1, but newer devices do and AV1 gives significantly better compression than H.264. Serving the right codec to the right device saves bandwidth costs and improves playback quality.</p>
+
+<p>The transcoding pipeline produces multiple renditions of every video:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Resolution</th>
+        <th>Label</th>
+        <th>Typical Bitrate (H.264)</th>
+        <th>Use Case</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>256x144</td>
+        <td>144p</td>
+        <td>80 Kbps</td>
+        <td>Very slow mobile connections</td>
+      </tr>
+      <tr>
+        <td>640x360</td>
+        <td>360p</td>
+        <td>400 Kbps</td>
+        <td>Standard mobile</td>
+      </tr>
+      <tr>
+        <td>1280x720</td>
+        <td>720p</td>
+        <td>2.5 Mbps</td>
+        <td>HD viewing</td>
+      </tr>
+      <tr>
+        <td>1920x1080</td>
+        <td>1080p</td>
+        <td>5 Mbps</td>
+        <td>Full HD</td>
+      </tr>
+      <tr>
+        <td>3840x2160</td>
+        <td>4K</td>
+        <td>20 Mbps</td>
+        <td>Premium displays</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Each rendition is split into short segments, typically two to ten seconds long. These segments are the atomic unit of adaptive streaming. The player requests them one by one, and can switch resolutions between segment boundaries based on current network conditions. This is the foundation of <strong>HLS (HTTP Live Streaming)</strong> and <strong>MPEG-DASH (Dynamic Adaptive Streaming over HTTP)</strong>.</p>
+
+<p>Transcoding is computationally expensive — it is a CPU and GPU intensive workload. YouTube runs transcoding on a large fleet of workers, potentially using GPU acceleration for encoding. The number of workers scales based on the depth of the transcoding queue. A popular channel uploading a long video gets the same transcoding priority queue as anyone else, though YouTube has historically offered faster processing to partners.</p>
+
+<p>A single video upload at 4K generates perhaps a dozen renditions, each in a couple of codec variants, split into hundreds or thousands of segments. The storage multiplication factor is significant, and it is one reason why storage cost is a major operational expense for YouTube.</p>
+
+<a name="Video.Streaming.Architecture"></a>
+<h2>Video Streaming Architecture</h2>
+
+<p>The streaming system is where most of YouTube&rsquo;s infrastructure investment lives. Serving billions of concurrent streams globally requires a layered architecture.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Player];
+B[CDN Edge PoP];
+C[Regional CDN Cache];
+D[Origin Storage GCS];
+E[Manifest Server];
+F[Bitrate Adaptation Logic];
+A &#8211;> E;
+E &#8211;> A;
+A &#8211;> F;
+F &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+</div>
+
+
+<p>When you press play, the player first fetches a <strong>manifest file</strong> — a small text document that lists all available renditions and their segment URLs. The player picks an initial quality based on estimated bandwidth and starts requesting segments. As you watch, the player continuously monitors download speed and buffer health. If your connection slows down, the player transparently switches to a lower-quality rendition mid-stream. You see slightly lower quality but no buffering event.</p>
+
+<p><strong>Segment caching at the edge</strong> is what makes this work at global scale. Popular videos have their segments cached at hundreds of CDN points of presence (PoPs) around the world. A segment request for a viral video in Tokyo does not travel to a US data center — it is served from a server in Tokyo or close to it, with millisecond response times.</p>
+
+<p>For less popular or newly uploaded videos, the CDN may not have a cached copy. The request falls through to a regional cache, and if that misses too, it goes all the way to origin storage. This layered caching structure means origin servers only handle a small fraction of total traffic.</p>
+
+<p>Cache invalidation is an interesting problem here. When YouTube detects a policy violation on a video and removes it, how quickly do CDN edges stop serving it? This requires active invalidation signals sent to edge servers, not passive TTL expiration.</p>
+
+<a name="Search.System.Deep.Dive"></a>
+<h2>Search System Deep Dive</h2>
+
+<p>Search at YouTube scale is essentially a full-text search engine operating over a corpus of billions of documents, where each document is a video&rsquo;s metadata: title, description, tags, transcript, and engagement signals.</p>
+
+<p>The core data structure is an <strong>inverted index</strong> — for each term in the vocabulary, the index stores a list of video IDs that contain that term. When a user searches for &ldquo;street cat compilation,&rdquo; the search engine looks up each term&rsquo;s posting list, computes the intersection and union, scores each candidate by relevance, and returns a ranked list in milliseconds.</p>
+
+<p>Relevance scoring is not just about text matching. Signals like view count, watch time ratio, click-through rate, and freshness all contribute to ranking. A video with 50 million views and a strong CTR will rank above a textually identical title from a new channel with no history.</p>
+
+<p><strong>Autocomplete</strong> is a separate system that predicts what you are typing. It uses a trie data structure or a specialized prefix index, updated frequently with trending queries. When you type &ldquo;how to make,&rdquo; the system is not querying the full index — it is querying a much smaller structure of popular query completions.</p>
+
+<p><strong>Personalized search</strong> adds another layer. Your search history, watch history, and subscription graph influence which videos surface for you. Two users searching the same term can get meaningfully different results based on their viewing patterns.</p>
+
+<p>Typo tolerance is handled through techniques like edit distance computation (Levenshtein distance) and phonetic matching, so &ldquo;Byonce concert&rdquo; still finds Beyoncé content.</p>
+
+<a name="Recommendation.System.Deep.Dive"></a>
+<h2>Recommendation System Deep Dive</h2>
+
+<p>The recommendation system is arguably the most valuable and most studied component of YouTube&rsquo;s stack. It is responsible for a significant portion of all watch time on the platform.</p>
+
+<p>YouTube&rsquo;s recommendation system, as described in their well-known 2016 research paper, is a two-stage architecture: <strong>candidate generation</strong> followed by <strong>ranking</strong>.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Signal Collector];
+B[User Embedding Model];
+C[Video Embedding Model];
+D[Candidate Generator];
+E[Candidate Pool 100s of videos];
+F[Ranking Model];
+G[Final Ranked List];
+H[Diversity Filter];
+I[Home Feed];
+A &#8211;> B;
+B &#8211;> D;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p><strong>Candidate generation</strong> is a scalability solution. YouTube has hundreds of millions of videos. Scoring all of them for every user on every page load is computationally impossible. Instead, the candidate generator uses approximate nearest-neighbor search over dense embedding vectors to quickly find a few hundred plausible candidates from the entire corpus. These are videos that the model believes are in the neighborhood of what this user might want.</p>
+
+<p><strong>Ranking</strong> then applies a more expensive model to those few hundred candidates, scoring each one against a richer feature set: predicted watch time, predicted click probability, video freshness, channel relationship, time of day, device type, and dozens more signals. The top-ranked results become your home feed.</p>
+
+<p><strong>User embeddings</strong> capture your taste as a vector in high-dimensional space. Your watch history, search history, and engagement patterns are encoded into this vector. Videos are also embedded in the same vector space, so similarity between a user vector and a video vector indicates relevance.</p>
+
+<p><strong>The cold start problem</strong> is real. A new user has no history. A new video has no engagement signals. YouTube handles this by using demographic signals, geographic signals, and the very first few interactions a new user has. For new videos, it initially relies heavily on channel history and metadata signals.</p>
+
+<p>The ethical complexity of recommendation optimization is worth acknowledging. Optimizing for watch time can lead to rabbit-hole dynamics where increasingly extreme content is recommended because it holds attention. YouTube has invested significantly in changing what the system optimizes for, adding signals for user satisfaction surveys and authoritative source signals for certain content categories.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>YouTube&rsquo;s data is diverse — structured metadata, large blobs, time-series engagement data, social graph data — and no single database handles all of it well. The architecture uses purpose-fit storage systems.</p>
+
+<p><strong>Video metadata</strong> — title, description, tags, upload date, channel ID, transcript — is stored in a globally distributed relational database. Google Spanner is the natural fit here: it provides SQL semantics, strong consistency, and horizontal scalability across regions. Strong consistency matters for metadata because a creator updating a video title should not result in some users seeing the old title and some seeing the new one.</p>
+
+<p><strong>User activity and engagement data</strong> — views, watch time, likes, comments — is extremely high volume and write-heavy. Bigtable, Google&rsquo;s wide-column NoSQL store, handles this well. It can absorb millions of writes per second and supports efficient range scans over time-sorted data, which is exactly the access pattern for watch history.</p>
+
+<p>Here is a simplified schema to illustrate the data model:</p>
+
+<p><strong>Users table (Spanner)</strong>
+- user_id (primary key)
+- username
+- email
+- created_at
+- preferences (JSON blob)
+- subscription_count
+- country_code</p>
+
+<p><strong>Videos table (Spanner)</strong>
+- video_id (primary key)
+- channel_id (foreign key)
+- title
+- description
+- duration_seconds
+- upload_timestamp
+- status (processing, active, removed)
+- view_count (eventually consistent counter)
+- storage_path
+- thumbnail_url</p>
+
+<p><strong>Watch history (Bigtable)</strong>
+- Row key: user_id + reverse_timestamp
+- Columns: video_id, watched_seconds, total_seconds, device_type, timestamp</p>
+
+<p>The reverse timestamp trick is important. In Bigtable, rows are sorted lexicographically. By storing timestamps as <code>MAX_LONG - actual_timestamp</code>, the most recent watches sort to the top, making queries for recent history extremely fast.</p>
+
+<p><strong>Comments</strong> present an interesting challenge. Comments are semi-structured, deeply nested (replies), and subject to moderation. A combination of Spanner (for the authoritative record) and a search index (for content moderation and ranking) is typical. Top-level comment ranking is a separate ML problem that factors in likes, author reputation, and recency.</p>
+
+<p><strong>Subscriptions</strong> form a social graph. YouTube&rsquo;s subscription graph has hundreds of millions of edges (user subscribes to channel). This graph data feeds both the notification system and the watch feed. Graph storage in a key-value or wide-column store makes sense here, with the channel ID as the row key and subscriber IDs as columns.</p>
+
+<a name="CDN.and.Edge.Caching"></a>
+<h2>CDN and Edge Caching</h2>
+
+<p>YouTube&rsquo;s CDN strategy is a blend of its own infrastructure and third-party CDN providers. Google has built an extensive global network of edge PoPs that serve a large portion of YouTube traffic. These edge servers cache video segments, thumbnails, and static assets.</p>
+
+<div class="mermaid">
+flowchart TD;
+
+A[User Request];
+B[Local ISP Cache];
+C[CDN Edge PoP];
+D[Regional CDN Cluster];
+E[Origin Storage];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+
+B &#8211;>|cache hit| A;
+C &#8211;>|cache hit| A;
+D &#8211;>|cache hit| A;
+
+</div>
+
+
+<p>The cache hierarchy has three or four levels. The innermost edge (sometimes inside ISP networks via Google Global Cache agreements) has very limited storage but is geographically closest to users. Regional clusters have more storage and handle a broader range of content. Origin is the source of truth but rarely touched for popular content.</p>
+
+<p><strong>Cache hit ratio</strong> is the key metric. A hit ratio of 95% means origin only handles 5% of requests. For popular videos, hit ratios approach 99%. For long-tail videos (the vast majority of YouTube&rsquo;s catalog that gets only occasional views), the CDN might not cache them at all, routing requests directly to regional origin replicas.</p>
+
+<p><strong>Hotspot handling</strong> is a real challenge. When a news event breaks and a single video suddenly receives millions of requests per minute, cold CDN caches must warm up under load. YouTube likely uses a combination of proactive cache warming for trending videos and origin-protection mechanisms like request coalescing (multiple simultaneous CDN misses for the same segment merge into a single origin request).</p>
+
+<a name="Live.Streaming.System"></a>
+<h2>Live Streaming System</h2>
+
+<p>Live streaming adds real-time constraints to an already complex system. The latency budget is fundamentally different from on-demand streaming.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Streamer Encoder OBS RTMP];
+B[Ingest Gateway];
+C[Real-Time Transcoder];
+D[Segment Packager];
+E[Live DVR Storage];
+F[CDN Edge];
+G[Viewer Player];
+H[Live Chat Service];
+I[Chat Fanout Workers];
+G &#8211;> H;
+H &#8211;> I;
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+D &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p>The streamer&rsquo;s encoder (typically OBS or similar software) sends an RTMP stream to YouTube&rsquo;s ingest gateways. These gateways receive the raw stream and pass it to real-time transcoding workers. Unlike VOD transcoding, live transcoding cannot wait for the entire file — it must process incoming frames in real time, producing segments as the stream progresses.</p>
+
+<p>Segment duration in live streaming is shorter than in VOD — typically two to four seconds — to keep latency low. Viewers are always slightly behind real time by at least one segment duration plus delivery time, which means live YouTube streams have a typical latency of 10 to 30 seconds in normal mode, or around five to eight seconds in low-latency mode.</p>
+
+<p>The live chat system is a separate high-throughput pub/sub problem. During a large concert stream, chat messages may arrive at tens of thousands per second. Not every message reaches every viewer — there is rate limiting and sampling at scale. The chat service uses a fan-out architecture where messages are broadcast to subscribed viewer sessions via WebSocket connections.</p>
+
+<p><strong>Scaling live events</strong> like the Super Bowl or a major esports final requires pre-provisioning CDN capacity, because the traffic spike is instantaneous and massive. YouTube works with CDN partners and pre-caches what it can, but the ingest and origin layers must also scale horizontally to handle peak write rates.</p>
+
+<a name="Comments..Likes..and.Engagement.Systems"></a>
+<h2>Comments, Likes, and Engagement Systems</h2>
+
+<p>The like and dislike system is a classic high-throughput counter problem. A popular video can receive thousands of likes per minute. Storing each like as an individual database write would hammer any relational database. Instead, YouTube likely uses counter aggregation: individual events are buffered in an in-memory store (Redis) and periodically flushed to durable storage in batches. The displayed count is an approximation.</p>
+
+<p>Comments are stored durably, since they are content that users expect to be permanent. Comment ranking is a separate problem — top comments are typically ranked by a model that considers like count, author reputation, and relevance to the video topic.</p>
+
+<p><strong>Notification fan-out</strong> is a classic systems design challenge. When a creator with 10 million subscribers uploads a video, how do you notify all 10 million subscribers? A naive approach writes 10 million notification records synchronously — this would be unbearably slow and would create a massive write spike. The actual architecture uses asynchronous fan-out via Kafka. The upload event is published once, and a fleet of notification workers consume it and generate individual subscriber notifications in parallel. Even so, for channels with very large subscriber counts, the fan-out may be batched over several minutes.</p>
+
+<p>Spam prevention in comments is a real ML problem. YouTube trains classifiers to detect low-quality or spam comments before they are displayed. High-confidence spam is auto-removed. Borderline content goes into a moderation queue for human review.</p>
+
+<a name="Monetization.and.Ads.System"></a>
+<h2>Monetization and Ads System</h2>
+
+<p>Ad serving at YouTube is a real-time bidding system operating under strict latency constraints. A pre-roll ad must be selected and loaded before the video plays, which means the entire ad selection pipeline — from request to response — needs to complete in well under 100 milliseconds.</p>
+
+<p>The advertiser ecosystem uses a combination of reserved buys (guaranteed placements purchased in advance) and real-time bidding (RTB) auctions where advertisers bid for impressions in real time. YouTube&rsquo;s ad server receives a request containing contextual signals (video topic, viewer location, device type) and user signals (interest categories, demographic estimates), runs an auction among eligible advertisers, and returns the winning ad creative.</p>
+
+<p>Targeting is privacy-sensitive. YouTube uses interest-based categories derived from watch and search history, but these are aggregated and not sold as raw data to advertisers. The shift away from third-party cookies has pushed more reliance on YouTube&rsquo;s own first-party signals.</p>
+
+<p>Revenue sharing with creators (the YouTube Partner Program) requires accurate tracking of ad impressions, view-through rates, and revenue attributions — a significant analytics infrastructure problem.</p>
+
+<a name="Scaling.YouTube"></a>
+<h2>Scaling YouTube</h2>
+
+<p>YouTube&rsquo;s growth required repeatedly re-architecting systems that were not designed for the next order of magnitude of scale.</p>
+
+<p><strong>Horizontal scaling</strong> of stateless services (API servers, streaming servers, upload gateways) is relatively straightforward — add more instances behind load balancers. Kubernetes manages this container orchestration at Google scale.</p>
+
+<p><strong>Event-driven architecture</strong> via Kafka decouples services so they can scale independently. The upload service does not care how fast the transcoder processes jobs — it publishes events and forgets. This isolation makes the system resilient: a transcoding bottleneck does not cause upload failures.</p>
+
+<p><strong>Multi-region deployment</strong> ensures both latency (serve users from nearby regions) and resilience (a regional outage does not take down the platform globally). But multi-region comes with consistency challenges. A like count updated in the US region must eventually propagate to the EU region. YouTube accepts eventual consistency for engagement counters — the exact like count being slightly stale for a few seconds is tolerable.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Scaling Bottleneck</th>
+        <th>Root Cause</th>
+        <th>Engineering Solution</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Upload throughput</td>
+        <td>File reassembly and validation CPU</td>
+        <td>Distribute across upload gateway fleet, parallel chunk validation</td>
+      </tr>
+      <tr>
+        <td>Transcoding latency</td>
+        <td>CPU/GPU intensive workload</td>
+        <td>Elastic worker pool, priority queues, GPU instances</td>
+      </tr>
+      <tr>
+        <td>CDN cache warmup</td>
+        <td>Sudden popularity spikes</td>
+        <td>Predictive pre-warming for trending content</td>
+      </tr>
+      <tr>
+        <td>Recommendation freshness</td>
+        <td>ML model training cycle time</td>
+        <td>Continuous training, lightweight online learning updates</td>
+      </tr>
+      <tr>
+        <td>Notification fan-out</td>
+        <td>Large subscriber counts</td>
+        <td>Async fan-out via Kafka, batched delivery</td>
+      </tr>
+      <tr>
+        <td>Search index freshness</td>
+        <td>Indexing pipeline lag</td>
+        <td>Near-real-time incremental indexing</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>YouTube targets extremely high availability — any downtime during peak hours is visible to hundreds of millions of users and costly in both revenue and trust.</p>
+
+<p><strong>Multi-region active-active deployment</strong> means traffic is served from multiple regions simultaneously. If one region degrades, traffic is routed away via anycast DNS or global load balancing. Failover should be automatic and fast.</p>
+
+<p><strong>Circuit breakers</strong> protect internal services. If the recommendation service starts failing, the API gateway trips a circuit breaker and falls back to a simpler ranking (popular videos for the user&rsquo;s region, for example) rather than propagating failures or timing out.</p>
+
+<p><strong>Monitoring, tracing, and alerting</strong> are not optional at this scale. Every service emits metrics (request rate, error rate, latency percentiles), traces (distributed request tracing to find where latency comes from), and structured logs. Tools like Google Cloud Monitoring, internal equivalents of Prometheus, and Dapper (Google&rsquo;s distributed tracing system) provide visibility. Alerting fires on anomalous changes — a sudden spike in error rate at a specific edge PoP, for example.</p>
+
+<p><strong>Chaos engineering</strong> (deliberately injecting failures into production systems to test resilience) is standard practice at this scale. It surfaces hidden dependencies and failure modes before they become production incidents.</p>
+
+<a name="Trust..Safety..and.Copyright.Systems"></a>
+<h2>Trust, Safety, and Copyright Systems</h2>
+
+<p><strong>Content ID</strong> is YouTube&rsquo;s copyright matching system. Rights holders submit reference audio and video fingerprints. When a new video is uploaded, it is scanned against this database. If a match is found, the rights holder can choose to block the video, monetize it (taking the ad revenue), or simply track its viewership. This system processes every upload, which means it runs at the same throughput as the transcoding pipeline.</p>
+
+<p>The technical challenge is approximate matching — a user might have added filters, changed the aspect ratio, or cut a few seconds from a song. The fingerprinting must be robust to these transformations. Perceptual hashing and audio fingerprinting techniques (similar in concept to Shazam&rsquo;s algorithm) enable fuzzy matching.</p>
+
+<p><strong>Machine learning-based content moderation</strong> flags potentially policy-violating content for human review or automated removal. Training these classifiers is a large-scale ML problem, and the false positive rate matters enormously — incorrectly removing a creator&rsquo;s content has real economic consequences for them.</p>
+
+<p><strong>Fake engagement detection</strong> protects the integrity of view counts, like counts, and subscriber numbers. YouTube runs statistical anomaly detection to identify bot-driven view inflation. Accounts and views that appear to originate from bot networks are removed or not counted.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Real engineering is full of uncomfortable tradeoffs, and YouTube is a good case study in making them explicitly.</p>
+
+<p><strong>SQL vs NoSQL</strong> — YouTube does not use one or the other; it uses both. Spanner for metadata that needs transactions and consistency. Bigtable for engagement data that needs throughput. The mistake is treating this as a binary choice.</p>
+
+<p><strong>CDN cost vs performance</strong> — storing more content at more edge locations improves latency but costs money. Long-tail videos that get rare views do not justify caching at every PoP. YouTube uses popularity signals to decide where to cache what, dynamically.</p>
+
+<p><strong>Consistency vs availability</strong> — for view counts and like counts, eventual consistency is acceptable. For metadata (is this video visible? what is its title?), stronger consistency is necessary. The system uses different consistency models for different data, which adds complexity but improves performance.</p>
+
+<p><strong>Precomputed vs real-time recommendations</strong> — fully precomputing recommendations for every user daily would be fast to serve but would go stale quickly. Fully computing recommendations in real time would be accurate but slow. YouTube uses a hybrid: precomputed user embeddings updated frequently, with real-time scoring of candidates at request time.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Decision</th>
+        <th>Option A</th>
+        <th>Option B</th>
+        <th>YouTube&#8217;s Approach</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Metadata consistency</td>
+        <td>Strong consistency (slow)</td>
+        <td>Eventual consistency (fast)</td>
+        <td>Strong consistency via Spanner</td>
+      </tr>
+      <tr>
+        <td>Engagement counters</td>
+        <td>Exact real-time counts (expensive)</td>
+        <td>Approximate batched counts (cheap)</td>
+        <td>Approximate, buffered in Redis</td>
+      </tr>
+      <tr>
+        <td>Recommendations</td>
+        <td>Fully precomputed (stale)</td>
+        <td>Fully real-time (slow)</td>
+        <td>Hybrid: precomputed embeddings + real-time ranking</td>
+      </tr>
+      <tr>
+        <td>Video storage</td>
+        <td>Single copy (cheap, risky)</td>
+        <td>High redundancy (expensive, safe)</td>
+        <td>Multi-region replication with erasure coding</td>
+      </tr>
+      <tr>
+        <td>CDN caching</td>
+        <td>Cache everything everywhere</td>
+        <td>Cache nothing, serve from origin</td>
+        <td>Popularity-based tiered caching</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>YouTube runs primarily on Google Cloud infrastructure, which makes sense — YouTube is owned by Google and Google has invested heavily in infrastructure that exactly matches YouTube&rsquo;s requirements.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Use Case</th>
+        <th>Why It Fits</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Go</td>
+        <td>API servers, streaming services</td>
+        <td>Low latency, efficient concurrency, fast startup</td>
+      </tr>
+      <tr>
+        <td>C++</td>
+        <td>Transcoding, codec work</td>
+        <td>Maximum CPU efficiency for compute-bound workloads</td>
+      </tr>
+      <tr>
+        <td>Python</td>
+        <td>ML pipelines, data engineering</td>
+        <td>Rich ML ecosystem, TensorFlow integration</td>
+      </tr>
+      <tr>
+        <td>Java / Kotlin</td>
+        <td>Backend services, Android clients</td>
+        <td>Mature ecosystem, strong typing, Android native</td>
+      </tr>
+      <tr>
+        <td>Google Spanner</td>
+        <td>Video and user metadata</td>
+        <td>Globally distributed SQL with strong consistency</td>
+      </tr>
+      <tr>
+        <td>Google Bigtable</td>
+        <td>Watch history, engagement events</td>
+        <td>Massive write throughput, time-series access patterns</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Caching, session state, rate limiting</td>
+        <td>Sub-millisecond reads, flexible data structures</td>
+      </tr>
+      <tr>
+        <td>Google Cloud Pub/Sub</td>
+        <td>Event streaming, service decoupling</td>
+        <td>Managed Kafka-compatible at Google scale</td>
+      </tr>
+      <tr>
+        <td>TensorFlow / JAX</td>
+        <td>Recommendation models, content moderation</td>
+        <td>Google-native ML framework, TPU integration</td>
+      </tr>
+      <tr>
+        <td>Google Cloud Storage</td>
+        <td>Video file storage</td>
+        <td>Exabyte-scale blob storage with global replication</td>
+      </tr>
+      <tr>
+        <td>Kubernetes (GKE)</td>
+        <td>Container orchestration</td>
+        <td>Dynamic scaling, service mesh, standardized deployment</td>
+      </tr>
+      <tr>
+        <td>Google CDN / Cloud CDN</td>
+        <td>Edge delivery</td>
+        <td>Google&#8217;s global network fabric, integrated with GCS</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>YouTube is one of the most common system design interview questions, especially at Google, Meta, and other large tech companies. Here is what interviewers are actually looking for.</p>
+
+<p><strong>What interviewers want to see:</strong></p>
+
+<p>First, scope the problem. YouTube the product has dozens of features. A one-hour interview cannot cover all of them. Pick two or three core features — video upload, video streaming, and recommendations are good choices — and go deep on those. Telling the interviewer upfront what you will focus on shows structured thinking.</p>
+
+<p>Second, start with estimates. How many daily active users? How many videos uploaded per day? What is the average video size? What is peak concurrent streaming? These numbers drive architectural decisions. If you cannot estimate, you cannot size systems appropriately.</p>
+
+<p>Third, design in layers. Start with the high-level diagram — clients, CDN, API gateway, core services, databases. Then drill into specific components when the interviewer asks. Do not jump straight into database schema before explaining the overall request flow.</p>
+
+<p><strong>Common mistakes:</strong></p>
+
+<p>Treating the database as a single MySQL instance. At YouTube scale, there is no single database. Any design that has one relational database for all data will not get you past the first follow-up question.</p>
+
+<p>Ignoring the CDN. Video delivery without discussing CDN caching is incomplete. The CDN is not optional — it is the reason YouTube can serve billions of streams without origin infrastructure collapsing.</p>
+
+<p>Over-indexing on technology names. Saying &ldquo;I would use Kafka&rdquo; is not valuable if you cannot explain why you need a queue at all, or what problem Kafka solves in your design. Interviewers care about reasoning, not name-dropping.</p>
+
+<p>Forgetting failure scenarios. A good design answer discusses what happens when services fail, how the system degrades gracefully, and how it recovers. Pure happy-path designs show limited experience.</p>
+
+<p><strong>Strong answers cover:</strong></p>
+
+<ul>
+<li>Why chunked uploads beat single-request uploads</li>
+<li>Why transcoding is asynchronous and queue-based</li>
+<li>How adaptive streaming works and why it matters for user experience</li>
+<li>Why recommendations use two-stage candidate generation and ranking</li>
+<li>Why different data types need different databases</li>
+<li>What CDN cache hierarchy looks like and how hit ratios are managed</li>
+<li>How notification fan-out works for large subscriber counts</li>
+<li>What tradeoffs exist between consistency and availability for different data</li>
+</ul>
+
+
+<p>The best candidates do not just describe the architecture — they argue for it. They say &ldquo;I chose this approach because&hellip;&rdquo; and then explain the alternatives they rejected and why. That kind of reasoning is what senior engineers do every day, and it is exactly what interviewers are looking for.</p>
+
+<a name="Putting.It.All.Together"></a>
+<h2>Putting It All Together</h2>
+
+<p>YouTube&rsquo;s architecture is not a single clever invention. It is the accumulation of thousands of engineering decisions made over two decades, under relentless traffic growth and evolving product requirements. Almost every component you see today replaced something simpler that could not scale to the next milestone.</p>
+
+<p>The principles that run through all of it are consistent: decouple services with queues so they can scale independently, use purpose-fit storage systems instead of forcing everything into one database, cache aggressively at the edge and tier your caches based on content popularity, design for failure by building redundancy and retry logic everywhere, and measure everything so you can find bottlenecks before they become outages.</p>
+
+<p>Understanding how YouTube works is not just useful for interviews. It is a masterclass in the engineering mindset that every distributed systems problem demands: humility about the complexity of scale, clarity about tradeoffs, and a willingness to say &ldquo;this design works until it doesn&rsquo;t, and when it doesn&rsquo;t, here is what we will do.&rdquo;</p>
+
+<p>That is the engineering that keeps a street cat video playing smoothly for all three billion of its viewers.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Airbnb Works?]]></title>
