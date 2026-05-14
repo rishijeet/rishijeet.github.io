@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2026-05-13T16:27:44+05:30</updated>
+  <updated>2026-05-14T11:24:53+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -14,12 +14,723 @@
 
   
   <entry>
+    <title type="html"><![CDATA[How ChatGPT Works?]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/how-chatgpt-works/"/>
+    <updated>2026-05-14T11:15:39+05:30</updated>
+    <id>https://rishijeet.github.io/blog/how-chatgpt-works</id>
+    <content type="html"><![CDATA[<blockquote><p><em>There is a moment, maybe you have felt it yourself, where you type a question into ChatGPT and within seconds you get a response that feels remarkably thoughtful. It does not just return a keyword match. It understands context, it reasons through problems, it can write code and explain concepts and help you draft emails. And it does all of this for millions of people simultaneously, in real time.</em></p></blockquote>
+
+<p><img src="https://rishijeet.github.io/images/system_design/chatgpt.avif" height="300" width="900" alt="Alt text" /></p>
+
+<p>If you are an engineer looking at that and thinking &ldquo;okay, but what is actually happening behind that text box?&rdquo;, this post is for you.</p>
+
+<p>We are going to go deep. Not just &ldquo;there&rsquo;s a transformer model and it predicts tokens&rdquo; deep. We are going to talk about the full engineering stack: how prompts flow through distributed systems, how GPUs communicate across data centers, how the inference pipeline is optimized for latency, how memory and context are managed, and what tradeoffs the engineering teams at OpenAI are navigating every single day. By the end, you should have a genuine mental model of how a system like ChatGPT is actually built.</p>
+
+<!--more-->
+
+
+<a name="What.Makes.LLM.Infrastructure.So.Hard"></a>
+<h2>What Makes LLM Infrastructure So Hard</h2>
+
+<p>Before we get into diagrams and components, it helps to appreciate the scale of what we are dealing with.</p>
+
+<p>GPT-4 is estimated to have somewhere in the range of hundreds of billions of parameters. Each parameter is a floating point number. Just loading a model of that size into GPU memory requires dozens of high-end GPUs. And that is just for one instance of the model, serving one request at a time.</p>
+
+<p>ChatGPT serves millions of requests per day. Each request might require generating hundreds or thousands of tokens, each of which involves a forward pass through the entire model. The memory bandwidth requirements, the compute requirements, the networking requirements between GPUs - it all compounds into one of the most computationally expensive systems ever built for a consumer product.</p>
+
+<p>There is also the latency problem. When you stream text in real time, users expect to see tokens appearing within a second or two. You cannot batch everything offline. You need fast inference, low network overhead, and efficient memory management all at once.</p>
+
+<p>Then there is the reliability problem. GPUs fail. Nodes go offline. Data centers lose connectivity. Your serving infrastructure needs to handle all of that gracefully without dropping user conversations mid-stream.</p>
+
+<p>And finally there is the safety problem. You are exposing a very capable model to billions of internet users. Some of them will try to extract harmful content, manipulate the system, or misuse the API. Your moderation layer needs to catch those cases without introducing unacceptable latency or false positives that frustrate legitimate users.</p>
+
+<p>All of this happens simultaneously, every second, at global scale. That is the engineering problem.</p>
+
+<a name="Core.Features.of.ChatGPT"></a>
+<h2>Core Features of ChatGPT</h2>
+
+<p>Before going architectural, it is worth being precise about what ChatGPT actually does, because each capability has engineering implications.</p>
+
+<ul>
+<li>Conversational AI with multi-turn context: the model maintains the thread of a conversation across multiple exchanges, which requires managing conversation history efficiently</li>
+<li>Prompt understanding and instruction following: the model parses natural language instructions and tries to execute them faithfully</li>
+<li>Token-by-token streaming: responses arrive progressively, not all at once, which requires a streaming infrastructure from GPU all the way to the browser</li>
+<li>Tool usage: the model can decide to call external tools like web search or code execution and integrate the results</li>
+<li>File and image processing: multimodal inputs need specialized preprocessing before they reach the language model</li>
+<li>Retrieval augmented generation: the system can fetch relevant documents from a knowledge base and incorporate them into the response</li>
+<li>Code generation and execution: a sandboxed code interpreter allows the model to run and test code</li>
+<li>Voice: speech-to-text on input and text-to-speech on output, adding audio processing pipelines on both ends</li>
+</ul>
+
+
+<p>Each of these is not a feature checkbox. Each is a subsystem with its own latency budget, failure modes, and scaling concerns.</p>
+
+<a name="High-Level.System.Architecture"></a>
+<h2>High-Level System Architecture</h2>
+
+<p>Let us start with the full picture and then zoom into each layer.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Browser or App];
+B[CDN Edge Layer];
+C[API Gateway];
+D[Auth and Rate Limiter];
+E[Orchestrator Service];
+F[Safety Classifier Input];
+G[Prompt Processor];
+H[Retrieval System];
+I[Model Serving Layer];
+J[GPU Cluster];
+K[KV Cache];
+L[Safety Classifier Output];
+M[Response Streamer];
+N[Client];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> I;
+I &#8211;> L;
+L &#8211;> M;
+M &#8211;> N;
+</div>
+
+
+<p>When a user types a message and hits enter, the request first hits a CDN edge node. This is not just for caching static assets. The CDN terminates TLS close to the user, reducing round-trip latency. It also acts as a shield against DDoS traffic, absorbing volumetric attacks before they reach the application layer.</p>
+
+<p>From the CDN, the request reaches the API gateway. The gateway handles routing, request validation, protocol translation, and exposes a clean interface for multiple clients (web, mobile, API). It is also where authentication tokens are validated and rate limiting decisions are enforced.</p>
+
+<p>After the gateway, requests enter the orchestrator. Think of this as the brain of the request handling layer. It coordinates all the downstream services: it decides whether retrieval is needed, it manages the conversation state, it routes to the appropriate model version, and it sequences tool calls if the model decides to use tools.</p>
+
+<p>The model serving layer is where the actual inference happens. This is backed by GPU clusters running the LLM. The inference layer communicates tightly with a KV cache (more on this later), returns tokens, and streams them back up the stack.</p>
+
+<p>Before returning tokens to the user, a safety classifier runs on the output to catch policy violations. Then the response streamer sends tokens progressively to the client using server-sent events or WebSockets.</p>
+
+<a name="The.Request.Lifecycle.in.Detail"></a>
+<h2>The Request Lifecycle in Detail</h2>
+
+<p>Understanding how a single request flows helps clarify why each component exists.</p>
+
+<div class="mermaid">
+sequenceDiagram;
+participant U as User;
+participant G as API Gateway;
+participant O as Orchestrator;
+participant P as Prompt Processor;
+participant M as Model Server;
+participant S as Safety Layer;
+U ->> G: POST chat message;
+G ->> O: Validated request;
+O ->> P: Conversation context;
+P ->> M: Tokenized prompt;
+M ->> M: Autoregressive generation;
+M ->> S: Output tokens;
+S ->> U: Streamed safe tokens;
+</div>
+
+
+<p>Notice that every step in this pipeline adds latency. The CDN, gateway, authentication, orchestration, prompt processing, inference, safety checking, streaming - it all stacks up. For a system promising near-real-time responses, every millisecond matters. This is why companies invest heavily in co-locating services, optimizing network paths, and reducing serialization overhead.</p>
+
+<a name="Prompt.Processing.Pipeline"></a>
+<h2>Prompt Processing Pipeline</h2>
+
+<p>This is one of the most underappreciated parts of the system. Before a single GPU cycle is spent on inference, your prompt goes through several transformation stages.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Raw User Message];
+B[Input Sanitization];
+C[Tokenization];
+D[System Prompt Injection];
+E[Conversation History Assembly];
+F[Context Window Check];
+G[Context Truncation if needed];
+H[Final Token Sequence];
+I[Model Inference];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p><strong>Tokenization</strong> is the first real transformation. The text is broken into tokens using a byte-pair encoding scheme. The word &ldquo;unbelievable&rdquo; might become three tokens. A short Python function might be fifty tokens. This matters because the model does not see characters or words, it sees integer IDs from a vocabulary of roughly 100,000 tokens. The tokenizer is a critical piece of infrastructure, and it runs in CPU, not GPU, so it needs to be fast.</p>
+
+<p><strong>System prompt injection</strong> happens before your message. The model needs to know how to behave, what persona to adopt, what tools it has access to, and what policies to follow. This system prompt can be hundreds of tokens long and it is prepended to every request. At scale, this represents a non-trivial fraction of inference compute.</p>
+
+<p><strong>Conversation history assembly</strong> is where multi-turn context is added. Every message in the conversation, both user and assistant turns, is concatenated into a single long token sequence. This is what allows the model to maintain context. But it also means that long conversations become expensive. A conversation with 20 exchanges might have 5,000 tokens of history, and all of that has to be processed on every new turn.</p>
+
+<p><strong>Context window management</strong> is the hard constraint. GPT-4 supports context windows of up to 128,000 tokens in some configurations. But bigger context means more memory, more compute, and more latency. For typical conversations, the system tries to keep context manageable. When it approaches the limit, it has to make decisions: truncate old messages, summarize them, or reject new turns.</p>
+
+<a name="The.Transformer.Architecture"></a>
+<h2>The Transformer Architecture</h2>
+
+<p>To understand inference, you need a working model of the transformer. Not the full mathematics, but enough to reason about bottlenecks.</p>
+
+<p>A transformer is a sequence model that takes a sequence of tokens as input and produces a probability distribution over the vocabulary for the next token. It does this by computing attention - a mechanism that lets every token look at every other token in the sequence and weight the information from each.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Input Token IDs];
+B[Embedding Layer];
+C[Positional Encoding];
+D[Multi-Head Self-Attention Block];
+E[Feed-Forward Layer];
+F[Layer Normalization];
+G[Repeat N Layers];
+H[Output Linear Layer];
+I[Softmax over Vocabulary];
+J[Next Token Probability];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+</div>
+
+
+<p><strong>Self-attention</strong> is the core innovation. For each token in the sequence, the model computes three vectors: query, key, and value. It then compares the query of the current token against the keys of all other tokens, producing attention scores. These scores weight the values, and the result is a context-aware representation of the current token.</p>
+
+<p><strong>Multi-head attention</strong> runs this process in parallel across multiple subspaces. Different heads learn to attend to different relationships, some might focus on syntactic dependencies while others focus on semantic similarity.</p>
+
+<p><strong>Why this replaced RNNs</strong>: Recurrent networks process tokens one at a time, sequentially. This creates a gradient problem over long sequences and prevents parallelization during training. Transformers compute attention over the entire sequence at once, enabling massively parallel computation on GPUs. This is the architectural decision that made large language models tractable.</p>
+
+<p>The quadratic complexity of attention is the famous problem. If your sequence is N tokens long, computing attention requires O(N squared) operations. For a 128,000 token context window, this is computationally brutal. Approximate attention methods and efficient implementations help, but this remains one of the fundamental scaling challenges.</p>
+
+<a name="Training.Pipeline"></a>
+<h2>Training Pipeline</h2>
+
+<p>Training is a separate world from inference, but it shapes everything about how the inference system is designed.</p>
+
+<p><strong>Pretraining</strong> is the foundation. The model is trained on a massive corpus of internet text, books, and code, to predict the next token in a sequence. This is unsupervised learning at an almost incomprehensible scale. GPT-4 pretraining likely consumed thousands of A100 GPUs running for months.</p>
+
+<p><strong>Supervised Fine-Tuning</strong> comes next. Human trainers write example conversations showing the ideal model behavior. The model is fine-tuned on these examples to learn to follow instructions and produce helpful responses.</p>
+
+<p><strong>RLHF - Reinforcement Learning from Human Feedback</strong> is what makes ChatGPT feel usable rather than just capable. Human raters compare pairs of model responses and indicate which is better. These preferences train a reward model that can score responses. The language model is then optimized using reinforcement learning to produce responses that score highly on this reward model.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Raw Training Data];
+B[Pretraining on Next Token Prediction];
+C[Supervised Fine-Tuning on Demonstrations];
+D[Human Preference Collection];
+E[Reward Model Training];
+F[PPO Optimization Against Reward Model];
+G[Production Model];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p><strong>Distributed training</strong> is unavoidable at this scale. A single model does not fit on a single GPU. Training uses a combination of data parallelism (different GPUs process different batches), tensor parallelism (different GPUs hold different parts of the model), and pipeline parallelism (different layers run on different GPUs). Coordinating gradient synchronization across thousands of GPUs requires high-bandwidth interconnects like NVLink within nodes and InfiniBand across nodes.</p>
+
+<p>Training is dramatically more expensive than inference. A single training run for a frontier model can cost tens or hundreds of millions of dollars. This is why fine-tuning and RLHF iterations happen on much smaller scales and why checkpointing is critical.</p>
+
+<a name="Token.Generation.and.the.Inference.System"></a>
+<h2>Token Generation and the Inference System</h2>
+
+<p>This is where the rubber meets the road. When you send a message, here is what happens on the GPU side.</p>
+
+<p>The model receives the complete token sequence: system prompt plus conversation history plus your new message. It processes this entire sequence in one forward pass (this is called the prefill phase), and at the end it produces the first token of the response. Then, for each subsequent token, it runs another forward pass using the previous output as additional context.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Tokenized Prompt];
+B[Prefill Forward Pass];
+C[First Output Token];
+D[Append Token to Sequence];
+E[Incremental Forward Pass];
+F[Sample Next Token];
+G[End of Sequence Token];
+H[Stop Generation];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+F &#8211;> D;
+</div>
+
+
+<p><strong>Autoregressive generation</strong> is this loop of generating one token at a time. It is inherently sequential. You cannot generate token 50 until you have token 49. This creates a fundamental latency floor. A 500-token response with a 50ms per-token generation rate takes 25 seconds. That is why optimizing per-token latency is so critical.</p>
+
+<p><strong>The KV Cache</strong> is the most important optimization in LLM inference. During the attention computation, each token computes key and value matrices. For the tokens already in the context (the prompt and previous output), these matrices are the same every time. The KV cache stores these matrices so they do not have to be recomputed on each generation step. This turns an O(N) computation into O(1) per new token for the cached portion. The tradeoff is memory. Large context windows with the KV cache consume enormous GPU memory.</p>
+
+<p><strong>Sampling strategies</strong> control how the next token is selected from the probability distribution:</p>
+
+<ul>
+<li>Temperature scales the distribution. High temperature means more random and creative. Low temperature means more deterministic and focused.</li>
+<li>Top-k restricts sampling to only the K most likely tokens, preventing very low-probability tokens from being selected.</li>
+<li>Top-p (nucleus sampling) restricts to the smallest set of tokens whose cumulative probability exceeds p. This is more adaptive than top-k.</li>
+</ul>
+
+
+<p><strong>Speculative decoding</strong> is an advanced optimization. A smaller, faster draft model generates candidate tokens, and the large model verifies them in parallel. If the draft was correct, you get multiple tokens in the time it would take the large model to generate one. This can significantly improve throughput without changing output quality.</p>
+
+<p><strong>Continuous batching</strong> is another key technique. Traditional batching waits for multiple requests to arrive and processes them together. Continuous batching processes requests incrementally, allowing new requests to be added to a running batch and completed requests to leave without waiting for the whole batch to finish. This dramatically improves GPU utilization for variable-length requests.</p>
+
+<a name="Distributed.GPU.Infrastructure"></a>
+<h2>Distributed GPU Infrastructure</h2>
+
+<p>Let us talk about how the actual compute cluster is organized.</p>
+
+<p>A single model forward pass for GPT-4 scale models requires more memory than any single GPU has. An A100 has 80GB of HBM memory. A model with hundreds of billions of parameters, even in 16-bit precision, needs multiple terabytes. The model has to be split across many GPUs.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Inference Request];
+B[Orchestrator Node];
+C[GPU Node 1 Layers 1 to 10];
+D[GPU Node 2 Layers 11 to 20];
+E[GPU Node 3 Layers 21 to 30];
+F[GPU Node 4 Layers 31 to 40];
+G[Response Assembly];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p><strong>Tensor parallelism</strong> splits individual weight matrices across multiple GPUs. Each GPU holds a shard of each layer and they communicate via all-reduce operations after each computation step. This is fast because it uses NVLink, which has very high bandwidth within a server node.</p>
+
+<p><strong>Pipeline parallelism</strong> assigns different layers to different GPUs or nodes. The model flows through the pipeline with each stage doing its computation and passing activations to the next. The challenge is pipeline bubbles - GPUs waiting idle while the pipeline flushes.</p>
+
+<p><strong>Data parallelism</strong> runs multiple copies of the entire model on different GPU clusters, each handling different user requests. This is how you scale throughput: more replicas, more concurrent requests served.</p>
+
+<p><strong>NVLink and InfiniBand</strong> are the networking infrastructure. NVLink connects GPUs within a node with very high bandwidth, around 600 GB/s bidirectionally for NVLink 4.0. InfiniBand connects nodes across a cluster with lower bandwidth but still orders of magnitude more than typical Ethernet. The communication overhead between GPUs is often the limiting factor in inference latency.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Parallelism Type</th>
+        <th>What is Split</th>
+        <th>Communication Needed</th>
+        <th>Best Use Case</th>
+        <th>Main Bottleneck</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Tensor Parallelism</td>
+        <td>Weight matrices within each layer</td>
+        <td>All-reduce per layer, high frequency</td>
+        <td>Single large model that exceeds one GPU memory</td>
+        <td>NVLink bandwidth</td>
+      </tr>
+      <tr>
+        <td>Pipeline Parallelism</td>
+        <td>Model layers across stages</td>
+        <td>Activation passing between stages</td>
+        <td>Very deep models with many layers</td>
+        <td>Pipeline bubble idle time</td>
+      </tr>
+      <tr>
+        <td>Data Parallelism</td>
+        <td>Input batches across replicas</td>
+        <td>Gradient sync during training only</td>
+        <td>Scaling throughput, multiple concurrent requests</td>
+        <td>Memory per replica</td>
+      </tr>
+      <tr>
+        <td>Expert Parallelism (MoE)</td>
+        <td>Expert networks across GPUs</td>
+        <td>Token routing between experts</td>
+        <td>Mixture of experts models</td>
+        <td>Load imbalance between experts</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Retrieval.Augmented.Generation"></a>
+<h2>Retrieval Augmented Generation</h2>
+
+<p>The model&rsquo;s knowledge has a training cutoff. Events after that date, proprietary company data, real-time information - none of it is in the weights. RAG is how you give the model access to external knowledge without retraining.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Query];
+B[Query Embedding Model];
+C[Vector Database Search];
+D[Retrieved Document Chunks];
+E[Context Assembly];
+F[LLM with Retrieved Context];
+G[Grounded Response];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+A &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p><strong>Embeddings</strong> are the foundation. Text is converted into dense vector representations where semantically similar content lands close together in the vector space. A query about &ldquo;machine learning optimization techniques&rdquo; will have a similar embedding to a document about &ldquo;gradient descent methods&rdquo;, even if the exact words differ.</p>
+
+<p><strong>Vector databases</strong> like Pinecone, Weaviate, or Qdrant store these embeddings and support approximate nearest neighbor search. They are optimized for high-dimensional vector lookup at low latency. When a query comes in, the vector database finds the K most similar document chunks in milliseconds.</p>
+
+<p><strong>Chunking strategy</strong> matters more than people realize. If you chunk documents too small, individual chunks lose context. Too large, and you waste tokens on irrelevant content. A common approach is overlapping chunks of 512 to 1024 tokens with a 128-token overlap so that context at chunk boundaries is not lost.</p>
+
+<p><strong>The RAG tradeoff vs fine-tuning</strong>: fine-tuning bakes knowledge into model weights. This gives faster inference since no retrieval step is needed, but updating the knowledge requires retraining. RAG keeps knowledge in a database that can be updated without touching the model. For frequently changing information like news or company documents, RAG is almost always the right choice.</p>
+
+<a name="Memory.and.Context.Management"></a>
+<h2>Memory and Context Management</h2>
+
+<p>A multi-turn conversation creates an interesting engineering problem. How do you maintain coherent context over many exchanges without your token budget exploding?</p>
+
+<p><strong>Short-term memory</strong> is just the conversation history in the context window. For a typical conversation of ten to twenty exchanges, this works fine. The full history fits in the context window and the model has access to everything.</p>
+
+<p><strong>The token explosion problem</strong> hits when conversations go long. Each new message appends to the history. A hundred-message conversation might have 20,000 tokens of history. At scale with millions of users, storing and processing this context is expensive both in memory and compute.</p>
+
+<p><strong>Context compression strategies</strong> include:</p>
+
+<ul>
+<li>Summarization: periodically summarize older parts of the conversation and replace the raw text with the summary. You lose some detail but save tokens.</li>
+<li>Sliding window: only keep the N most recent messages. Simple but the model loses early context.</li>
+<li>Selective retention: use a smaller model to identify the most important exchanges and discard the rest.</li>
+<li>Hierarchical memory: recent messages in full, older messages summarized at increasing levels of compression.</li>
+</ul>
+
+
+<p><strong>Session storage</strong> is the infrastructure layer for this. Conversation history needs to be persisted between requests. A key-value store like Redis is the typical choice: fast reads, TTL-based expiration for old sessions, and low latency. For very long conversations, you might need to offload to a distributed store like DynamoDB.</p>
+
+<a name="Caching.and.Performance.Optimization"></a>
+<h2>Caching and Performance Optimization</h2>
+
+<p>Caching in an LLM system operates at multiple levels and each level addresses a different bottleneck.</p>
+
+<p><strong>KV cache</strong> we covered in the inference section. This is GPU-level caching of attention key-value pairs. It is the single biggest optimization in LLM inference and is non-negotiable for production systems.</p>
+
+<p><strong>Prompt caching</strong> is a newer optimization. When many requests share a common prefix (the system prompt, for example), you can cache the KV activations for that prefix and reuse them across requests. OpenAI and Anthropic have introduced this in their APIs. The savings are significant: a 1000-token system prompt that is shared across a million requests, if cached, saves enormous prefill computation.</p>
+
+<p><strong>Semantic caching</strong> takes this further. If you can identify that two queries are semantically similar enough to return the same response, you can serve the cached response directly. This works well for frequently asked common questions but requires a fast embedding lookup and careful cache invalidation to avoid stale responses.</p>
+
+<p><strong>CDN caching</strong> applies to the API layer for public endpoints. Static assets, documentation, and non-personalized API responses can be cached at edge nodes globally.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Type</th>
+        <th>Where It Lives</th>
+        <th>What It Caches</th>
+        <th>Latency Savings</th>
+        <th>Invalidation Challenge</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>KV Cache</td>
+        <td>GPU HBM memory</td>
+        <td>Attention key-value pairs per token</td>
+        <td>Eliminates recomputation of past tokens</td>
+        <td>Eviction on memory pressure</td>
+      </tr>
+      <tr>
+        <td>Prompt Cache</td>
+        <td>GPU memory, shared across requests</td>
+        <td>Precomputed activations for common prefixes</td>
+        <td>Skips prefill for shared prefix</td>
+        <td>Prefix change invalidates all</td>
+      </tr>
+      <tr>
+        <td>Semantic Cache</td>
+        <td>Redis or vector DB</td>
+        <td>Full responses for similar queries</td>
+        <td>Full response, zero inference cost</td>
+        <td>Hard to know when stale</td>
+      </tr>
+      <tr>
+        <td>Session Cache</td>
+        <td>Redis</td>
+        <td>Conversation history per user</td>
+        <td>Avoids DB round trip per message</td>
+        <td>TTL expiry, user logout</td>
+      </tr>
+      <tr>
+        <td>CDN Cache</td>
+        <td>Edge nodes globally</td>
+        <td>Static assets, public API responses</td>
+        <td>Eliminates origin server round trip</td>
+        <td>Cache-control headers</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Safety.and.Moderation.Systems"></a>
+<h2>Safety and Moderation Systems</h2>
+
+<p>Building a consumer AI product means you are going to face adversarial users, well-intentioned misuse, and genuinely harmful requests. Safety systems have to address all of these without killing the experience for the vast majority of legitimate users.</p>
+
+<p><strong>Input moderation</strong> runs before inference. A fast classifier (much smaller than the LLM itself) evaluates the incoming prompt and flags requests that violate policy. This classifier is trained on examples of harmful content and runs in milliseconds. The tradeoff: a too-aggressive classifier blocks legitimate requests. A too-permissive one lets harmful content through. Finding the right threshold is a continuous calibration problem.</p>
+
+<p><strong>Jailbreak prevention</strong> is an arms race. Users craft creative prompts to trick the model into ignoring its safety training, often through roleplay framing, hypothetical scenarios, or adversarial constructions. Defenses include fine-tuning the model to resist these patterns, pattern matching on known jailbreak techniques, and output monitoring.</p>
+
+<p><strong>Output moderation</strong> runs after inference. The generated response is checked before being sent to the user. This is a second line of defense and catches cases where the input classifier was bypassed. Running it adds latency, typically another 50 to 100ms.</p>
+
+<p><strong>Policy systems</strong> translate human values into classifier labels. What counts as harmful? This is not a technical question, it is a policy question, and the answer varies by jurisdiction, culture, and use case. The infrastructure needs to support multiple policy configurations, for example different rules for an enterprise API customer versus a consumer product.</p>
+
+<p><strong>The false positive problem</strong> is real and costly. If your safety classifier is too aggressive, it flags legitimate medical questions, fiction writing, security research, and academic discussions. Each false positive is a user who could not get help and went to a competitor. This drives investment in more nuanced classifiers that understand context rather than pattern matching on surface forms.</p>
+
+<a name="Multimodal.Systems"></a>
+<h2>Multimodal Systems</h2>
+
+<p>ChatGPT now processes images, audio, and documents alongside text. Each modality requires its own pipeline.</p>
+
+<p><strong>Image understanding</strong> uses a vision transformer (ViT) or similar vision encoder to convert an image into a sequence of embeddings. These embeddings are projected into the same space as text token embeddings so they can be fed into the language model alongside text. The model then attends over both text and image embeddings together.</p>
+
+<p><strong>OCR pipelines</strong> extract text from documents and images before passing them to the language model. Dedicated OCR models handle this, and the extracted text is inserted into the context alongside the original image embeddings.</p>
+
+<p><strong>Audio input</strong> goes through a speech-to-text model (OpenAI uses Whisper) that transcribes audio into text. The transcribed text is then processed through the normal text pipeline. For voice conversations with low latency, this transcription needs to be streaming and near-real-time.</p>
+
+<p><strong>Text-to-speech</strong> on the output side converts the generated text into audio using a neural TTS model. The challenge is that you cannot wait for the full response before starting TTS. You need to stream text through TTS as it is generated, which requires careful chunking at sentence or phrase boundaries.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Modality</th>
+        <th>Input Processing</th>
+        <th>Model Component</th>
+        <th>Output Processing</th>
+        <th>Latency Added</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Text</td>
+        <td>Tokenization</td>
+        <td>Language model decoder</td>
+        <td>Detokenization</td>
+        <td>Baseline</td>
+      </tr>
+      <tr>
+        <td>Image</td>
+        <td>Patch extraction, ViT encoding</td>
+        <td>Vision encoder + cross-attention</td>
+        <td>Text generation</td>
+        <td>100 to 500ms encoding</td>
+      </tr>
+      <tr>
+        <td>Audio input</td>
+        <td>Waveform preprocessing, Whisper</td>
+        <td>ASR model then language model</td>
+        <td>Text generation</td>
+        <td>Real-time transcription lag</td>
+      </tr>
+      <tr>
+        <td>Audio output</td>
+        <td>Text generation</td>
+        <td>Language model then TTS</td>
+        <td>Waveform synthesis, streaming</td>
+        <td>50 to 200ms per chunk</td>
+      </tr>
+      <tr>
+        <td>Documents (PDF)</td>
+        <td>Text extraction, OCR</td>
+        <td>Language model with long context</td>
+        <td>Text generation</td>
+        <td>Preprocessing time + context tokens</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Scaling.ChatGPT"></a>
+<h2>Scaling ChatGPT</h2>
+
+<p>When your user base grows from 10,000 users to 10 million users, every part of your architecture gets stress tested.</p>
+
+<p><strong>Horizontal scaling of the API layer</strong> is straightforward. Stateless orchestrator services can be scaled behind a load balancer. Kubernetes handles this well, and auto-scaling policies based on request queue depth can provision capacity proactively.</p>
+
+<p><strong>Scaling the GPU layer</strong> is where things get hard. GPUs are not commodity hardware. Procurement takes months. Provisioning a new GPU cluster requires physical data center space, power, cooling, and high-bandwidth networking. This means capacity planning needs to happen quarters in advance. OpenAI, Microsoft, and Google have invested billions in GPU infrastructure precisely because you cannot just click a button and get more compute.</p>
+
+<p><strong>Queue-based inference</strong> helps smooth over demand spikes. Instead of dropping requests when the GPU cluster is saturated, you queue them and process them in order. This degrades experience gracefully - users wait a bit longer rather than getting errors. The risk is queue depth growing unboundedly during extreme traffic spikes.</p>
+
+<p><strong>Multi-region serving</strong> reduces latency for global users and provides fault tolerance. A user in Tokyo should not have their request routed to US East Coast if there is a serving cluster in Japan. Geographic routing also means a region-level outage does not take down the entire service.</p>
+
+<p><strong>Context-length as a scaling bottleneck</strong> is underappreciated. A request with a 100,000 token context window uses dramatically more GPU memory and compute than a 1,000 token request. If you allow unlimited context, a small number of users with very long conversations can monopolize your GPU memory. Systems typically enforce context limits and tier them by subscription level.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>LLM infrastructure is inherently less reliable than traditional web services because of GPU failures.</p>
+
+<p><strong>GPU failure rates</strong> are higher than CPU failure rates. High-end GPUs run hot, under extreme memory pressure, and are pushed to near 100% utilization constantly. Failures are a regular occurrence at the scale of thousands of GPUs. Your serving infrastructure must be designed to route around failed GPUs automatically.</p>
+
+<p><strong>Degraded inference modes</strong> provide fallback behavior. If the primary large model is unavailable or overloaded, the system can route to a smaller, faster model with a notice to the user. This is better than an outright error and keeps the experience functional.</p>
+
+<p><strong>Checkpointing and recovery</strong> for inference sessions: if a streaming response is interrupted mid-generation, can you resume? This is an open engineering problem. Most production systems currently restart generation from the beginning, which is wasteful. Better approaches involve persisting generation state to fast storage, but this adds latency overhead.</p>
+
+<p><strong>Monitoring</strong> for LLM systems requires new kinds of metrics. Beyond standard latency, error rate, and throughput, you need:
+- Time to first token: how long before the user sees any output
+- Token generation rate: tokens per second during generation
+- Context utilization: what fraction of the context window is being used
+- Safety classifier false positive rate
+- Model quality metrics via continuous evaluation</p>
+
+<p><strong>Alerting</strong> on quality degradation is harder than alerting on errors. If the model starts producing lower quality responses, nothing crashes. You need automated evaluation to catch quality regressions.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Real engineering is navigating tradeoffs under constraints. Here are the ones that matter most for LLM systems.</p>
+
+<p><strong>Latency vs. quality</strong>: a smaller model generates tokens faster but produces lower quality responses. A larger model is better but slower. The right choice depends on the use case. For real-time chat, you optimize for sub-second first-token latency. For document summarization, you can tolerate more latency for better quality.</p>
+
+<p><strong>Model size vs. cost</strong>: GPT-4 scale models cost orders of magnitude more to serve than smaller models. For high-volume, cost-sensitive use cases, a well-fine-tuned smaller model often delivers 80% of the quality at 10% of the cost.</p>
+
+<p><strong>Retrieval vs. fine-tuning</strong>: fine-tuning gives the model knowledge that is always available, zero retrieval latency, and tighter integration with the model&rsquo;s reasoning. But it is expensive to update and can cause catastrophic forgetting of other capabilities. RAG is cheaper to update and keeps knowledge current, but adds retrieval latency and can retrieve irrelevant context that confuses the model.</p>
+
+<p><strong>GPU utilization vs. response speed</strong>: packing more requests into a batch improves GPU utilization and throughput. But it can increase individual request latency as requests wait for a batch to fill. Continuous batching helps, but there is still a fundamental tension between maximizing hardware efficiency and minimizing user-perceived latency.</p>
+
+<p><strong>Safety vs. usability</strong>: overly aggressive safety classifiers frustrate users and drive them to less safe alternatives. Too permissive and you enable harm. The tradeoff is real and the calibration is never perfect. The best approach is investing in precise classifiers that understand context rather than surface-level pattern matching.</p>
+
+<p><strong>Caching vs. freshness</strong>: aggressive caching reduces compute cost and latency but can serve stale responses. For a system where the world changes constantly, this is a real concern. Semantic caching in particular needs careful TTL management and cache invalidation strategies tied to document update events.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>A system like ChatGPT is built on a carefully chosen set of technologies, each selected for a specific reason.</p>
+
+<p><strong>PyTorch</strong> is the foundation for model development and training. Its dynamic computation graph makes experimentation fast. Most LLM research happens in PyTorch, so it has the best ecosystem of model implementations and training libraries.</p>
+
+<p><strong>CUDA and Triton</strong> are the low-level GPU programming layers. Custom CUDA kernels are written for performance-critical operations like attention. Triton, OpenAI&rsquo;s own GPU programming language, allows writing efficient GPU kernels in Python-like syntax, making custom kernel development more accessible.</p>
+
+<p><strong>TensorRT</strong> from NVIDIA optimizes trained models for inference. It fuses operations, quantizes weights to lower precision, and generates GPU-optimal execution plans. Quantization from 16-bit to 8-bit or even 4-bit precision can halve or quarter memory requirements with modest quality tradeoffs.</p>
+
+<p><strong>Ray</strong> is the distributed computing framework for Python. It handles distributed inference orchestration, model serving, and scaling compute across multiple nodes without requiring teams to write raw distributed systems code.</p>
+
+<p><strong>Kubernetes</strong> orchestrates the containerized service layer: API servers, orchestrators, preprocessing services. It handles deployment, scaling, health checking, and rolling updates.</p>
+
+<p><strong>Redis</strong> serves multiple purposes: session storage for conversation history, prompt caching, rate limiting counters, and feature flags. Its sub-millisecond latency makes it suitable for any hot path.</p>
+
+<p><strong>Kafka</strong> handles asynchronous event streaming: logging request events, feeding monitoring pipelines, decoupling safety classification from the critical path when it can be asynchronous.</p>
+
+<p><strong>Vector databases</strong> (Pinecone, Weaviate, Qdrant) power the retrieval system. They store and serve embeddings at low latency with approximate nearest neighbor algorithms like HNSW.</p>
+
+<p><strong>NVIDIA H100 GPUs</strong> are the current hardware of choice for LLM inference and training. The H100 SXM5 has 80GB HBM3 memory, 3.35TB/s memory bandwidth, and dedicated transformer acceleration in the tensor core architecture.</p>
+
+<p><strong>InfiniBand</strong> networking (typically 400Gb/s HDR or 800Gb/s NDR) connects nodes in GPU clusters with the bandwidth required for tensor parallelism across nodes.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>System design interviews at top tech companies increasingly include LLM system questions. &ldquo;Design ChatGPT&rdquo; or &ldquo;Design a large-scale AI chat system&rdquo; are real questions being asked.</p>
+
+<p><strong>What interviewers are looking for</strong>:</p>
+
+<p>They want to see that you understand the unique constraints of LLM systems compared to traditional web systems. The GPU bottleneck, the token generation model, the context management challenge, the streaming requirement - these are ChatGPT-specific problems that demonstrate you have thought deeply about the domain.</p>
+
+<p><strong>Where candidates go wrong</strong>:</p>
+
+<p>Most candidates describe a generic web service: load balancer, API servers, database, cache. This misses the actual hard problems. The model serving layer, GPU memory management, KV cache, continuous batching, distributed inference - these are the interesting engineering problems and they are usually completely absent from weak answers.</p>
+
+<p>Another common mistake is ignoring the inference infrastructure entirely and treating the LLM as a black box API call. That might be true if you are building on top of OpenAI&rsquo;s API, but that is not what the interviewer wants to hear when they ask &ldquo;design ChatGPT.&rdquo;</p>
+
+<p><strong>A strong answer structure</strong>:</p>
+
+<p>Start with requirements: throughput (requests per second), latency targets (time to first token, streaming rate), context window support, multimodal support. Then align your architecture to those requirements.</p>
+
+<p>Explain the inference pipeline in enough depth to show you understand autoregressive generation, KV cache, and batching. Discuss how you would scale GPU compute horizontally. Address context management and storage. Cover safety systems briefly. Discuss monitoring and reliability.</p>
+
+<p>When discussing tradeoffs, show that you understand the cost of compute and that you would make different architectural choices based on the use case and budget.</p>
+
+<p><strong>Strong vs weak on specific topics</strong>:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Topic</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Inference</td>
+        <td>&#8220;We call the model API and return the response&#8221;</td>
+        <td>&#8220;Autoregressive generation with KV cache, continuous batching to maximize GPU utilization, speculative decoding for latency&#8221;</td>
+      </tr>
+      <tr>
+        <td>Scaling</td>
+        <td>&#8220;Add more servers&#8221;</td>
+        <td>&#8220;Tensor parallelism for model size, data parallelism for throughput, queue-based load leveling, multi-region for latency and availability&#8221;</td>
+      </tr>
+      <tr>
+        <td>Memory</td>
+        <td>&#8220;Store conversations in a database&#8221;</td>
+        <td>&#8220;Redis for hot sessions, TTL-based expiry, context truncation and summarization strategies for long conversations, token budget management&#8221;</td>
+      </tr>
+      <tr>
+        <td>Latency</td>
+        <td>&#8220;Use a CDN&#8221;</td>
+        <td>&#8220;Minimize time to first token via prefill optimization, streaming with SSE, KV cache, prompt caching for shared prefixes, geographic routing&#8221;</td>
+      </tr>
+      <tr>
+        <td>Safety</td>
+        <td>&#8220;Filter bad words&#8221;</td>
+        <td>&#8220;Input and output classifiers, reward model alignment, false positive calibration, context-aware moderation, abuse detection systems&#8221;</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>ChatGPT is one of the most complex distributed systems ever deployed to consumers. It combines cutting-edge machine learning research with hardcore distributed systems engineering, real-time streaming infrastructure, GPU cluster management, and safety systems that have to make nuanced judgments at scale.</p>
+
+<p>What I find most interesting about this system is that almost every component represents a genuine engineering challenge that did not exist five years ago. KV cache management at hundred-thousand-token context lengths, speculative decoding, continuous batching, tensor parallelism across InfiniBand-connected nodes, multimodal embedding spaces - these are all relatively new solutions to relatively new problems.</p>
+
+<p>If you are building systems like this, or preparing to work on them, the deepest investment you can make is understanding the inference pipeline end to end. That is where the most interesting engineering decisions happen, and that is where the biggest performance gains are still being found.</p>
+
+<p>The field is moving extremely fast. The architectures that are state of the art today will be iterated on significantly in the next two years. But the fundamentals we covered here - distributed inference, KV cache, attention mechanisms, RAG, context management, safety systems - these principles will remain relevant even as the specific implementations evolve.</p>
+
+<p>If you get one thing from this post, let it be this: every design decision in this system was made under real constraints of compute, latency, cost, and reliability. Understanding those constraints is what separates engineers who can talk about LLM systems from engineers who can build them.</p>
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[How Youtube Works?]]></title>
     <summary><![CDATA[]]></summary>
     <link href="https://rishijeet.github.io/blog/how-youtube-works/"/>
     <updated>2026-05-13T16:08:56+05:30</updated>
     <id>https://rishijeet.github.io/blog/how-youtube-works</id>
-    <content type="html"><![CDATA[<p>There is a moment every engineer has when they first truly think about what YouTube does. Not the product, but the machine. Someone in rural Indonesia uploads a phone video of a street cat doing something peculiar. Within minutes, that video is available in crisp 1080p to a user in São Paulo, another in Stockholm, and a third on a slow connection in rural Kenya who gets a smooth 360p stream without a single rebuffering event. The recommendation engine is already deciding who else should see it. The ad system has already matched it to relevant advertisers. The copyright scanner has already checked it against a database of millions of audio and video fingerprints.</p>
+    <content type="html"><![CDATA[<blockquote><p><em>There is a moment every engineer has when they first truly think about what YouTube does. Not the product, but the machine. Someone in rural Indonesia uploads a phone video of a street cat doing something peculiar. Within minutes, that video is available in crisp 1080p to a user in São Paulo, another in Stockholm, and a third on a slow connection in rural Kenya who gets a smooth 360p stream without a single rebuffering event. The recommendation engine is already deciding who else should see it. The ad system has already matched it to relevant advertisers. The copyright scanner has already checked it against a database of millions of audio and video fingerprints.</em></p></blockquote>
 
 <p><img src="https://rishijeet.github.io/images/system_design/youtube.png" height="300" width="900" alt="Alt text" /></p>
 
