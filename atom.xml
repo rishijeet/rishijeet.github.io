@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-16T12:17:50+05:30</updated>
+    <updated>2026-05-16T14:17:05+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,647 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How NGINX Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-nginx-works/"/>
+        <updated>2026-05-16T14:13:47+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-nginx-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>There is a good chance that every HTTP request you have made today passed through NGINX at some point. It might have been serving a static file, forwarding your request to a backend application, terminating TLS, or quietly balancing your traffic across a dozen servers. NGINX sits at the heart of a staggering amount of internet infrastructure, and yet most engineers interact with it only through config files without fully understanding what is happening underneath.</em></p></blockquote>
+
+<p>This blog is a deep dive into how NGINX actually works. Not just what it does, but why it was built the way it was, what engineering problems it solves, how it interacts with the Linux kernel, and what makes it so exceptionally fast even under enormous load. By the end, you should have the kind of intuition that lets you reason about NGINX the way a systems engineer would.</p>
+
+<p><img src="https://rishijeet.github.io/images/system_design/nginx.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<a name="Why.NGINX.Exists.at.All"></a>
+<h2>Why NGINX Exists at All</h2>
+
+<p>To understand NGINX, you have to understand the world it was born into. In the early 2000s, Apache HTTP Server was the dominant web server. Apache worked on a model where every incoming connection spawned either a new process or a new thread. For a few thousand requests, this was fine. But as web traffic started growing, engineers ran into a hard wall known as the C10K problem — how do you handle 10,000 simultaneous connections on a single server?</p>
+
+<!--more-->
+
+
+<p>The thread-per-connection model has a fundamental problem. Each thread or process consumes memory, typically somewhere between 1MB and 8MB per thread depending on the stack size. Scheduling 10,000 threads means the operating system is constantly doing context switches, which burn CPU cycles on bookkeeping rather than actual work. The kernel&rsquo;s scheduler is not designed to efficiently juggle tens of thousands of threads all doing mostly waiting.</p>
+
+<p>Igor Sysoev was a Russian engineer who experienced this problem firsthand while working on the infrastructure for Rambler, one of Russia&rsquo;s largest internet portals. In 2002 he started writing NGINX specifically to solve the C10K problem. The core insight was simple but radical: instead of giving each connection its own thread, use a small number of worker processes and handle all connections inside an event loop. This is the architecture that makes NGINX fundamentally different from Apache.</p>
+
+<p>The practical implication is dramatic. An NGINX worker process can handle tens of thousands of simultaneous connections using only a few megabytes of memory. You could run 4 worker processes on a modern server and comfortably handle hundreds of thousands of concurrent connections. That same workload would bring Apache to its knees.</p>
+
+<a name="Core.Features.of.NGINX"></a>
+<h2>Core Features of NGINX</h2>
+
+<p>Before going deep on architecture, it helps to understand the full surface area of what NGINX actually does in production.</p>
+
+<p>NGINX is first and foremost a web server. It can serve static HTML, CSS, JavaScript, images, and video files directly from disk with extraordinary efficiency. It uses kernel-level optimizations like sendfile() to move data from disk to network without copying it through userspace at all.</p>
+
+<p>As a reverse proxy, NGINX sits in front of your backend application servers and forwards requests to them. This is one of its most common production uses. Your Node.js or Python or Java application never talks directly to the internet. NGINX handles the connection, buffers the request, forwards it upstream, and sends the response back to the client.</p>
+
+<p>As a load balancer, NGINX distributes incoming requests across a pool of backend servers. It supports multiple algorithms and actively monitors backend health. If a backend dies, NGINX stops sending traffic to it automatically.</p>
+
+<p>NGINX also serves as an API gateway, providing rate limiting, request filtering, authentication headers, and routing logic. It handles TLS termination, taking the expensive work of SSL handshakes and encryption off your application servers. It manages WebSocket connections, HTTP streaming, response caching, and Gzip compression.</p>
+
+<p>The important thing to notice is that NGINX does all of these things within the same event-driven architecture. Whether it is serving a static file, proxying to a backend, or terminating TLS, the same non-blocking I/O model handles everything.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>Let&rsquo;s look at the overall structure of how NGINX processes work and communicate.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Client Request];
+B[Master Process];
+C[Worker Process 1];
+D[Worker Process 2];
+E[Worker Process 3];
+F[Cache Manager];
+G[Cache Loader];
+H[Upstream Backend 1];
+I[Upstream Backend 2];
+J[Upstream Backend 3];
+K[File System];
+
+A &#8211;>|TCP Connection| B;
+B &#8211;>|Accept| C;
+B &#8211;>|Accept| D;
+B &#8211;>|Accept| E;
+C &#8211;>|Proxy| H;
+D &#8211;>|Proxy| I;
+E &#8211;>|Proxy| J;
+C &#8211;>|Static Files| K;
+B &#8211;>|Manage| F;
+B &#8211;>|Manage| G;
+</div>
+
+
+<p>The master process is the parent of everything. It reads and validates the configuration file, binds to ports, and then forks worker processes. After that, the master process mostly stays out of the way. It listens for signals from the operating system administrator and manages the lifecycle of workers.</p>
+
+<p>Worker processes are where all the real work happens. Each worker runs a tight event loop that handles thousands of connections simultaneously. Workers do not communicate with each other during normal operation. There are no shared mutexes on the hot path. Each worker is an independent unit processing its own set of connections.</p>
+
+<p>The cache manager and cache loader are separate helper processes. The cache loader walks the disk cache on startup and populates the in-memory cache metadata. The cache manager handles eviction and expiry of cached responses during normal operation. Separating these out keeps the worker processes focused purely on serving requests.</p>
+
+<a name="Event-Driven.Architecture.Deep.Dive"></a>
+<h2>Event-Driven Architecture Deep Dive</h2>
+
+<p>This is the section where NGINX starts to look like a fundamentally different kind of system. Most developers are used to thinking about concurrent programs in terms of threads. You have work to do, so you give it a thread. More work means more threads. NGINX rejects this model entirely.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Event Loop];
+B[epoll wait];
+C[Event Queue];
+D[Read Event Handler];
+E[Write Event Handler];
+F[Timer Event Handler];
+G[Connection Accept];
+H[Request Parse];
+I[Upstream Connect];
+J[Response Send];
+
+A &#8211;> B;
+B &#8211;>|Events Ready| C;
+C &#8211;> D;
+C &#8211;> E;
+C &#8211;> F;
+D &#8211;> H;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+E &#8211;> J;
+F &#8211;>|Timeout Check| A;
+J &#8211;> A;
+</div>
+
+
+<p>The fundamental primitive NGINX relies on is called epoll on Linux (kqueue on BSD and macOS). Epoll is a kernel mechanism for monitoring large numbers of file descriptors efficiently. A file descriptor is just an integer that refers to an open resource — a socket, a file, a pipe. When you have 50,000 connections open, each connection is a file descriptor.</p>
+
+<p>With the old select() and poll() syscalls, your program would hand the kernel a list of all file descriptors to watch, and the kernel would scan through them all to see which ones were ready. This is O(n) work for every single poll, meaning it got slower as you had more connections. Epoll fixes this by maintaining the watch list inside the kernel and only returning the file descriptors that are actually ready. If you have 50,000 connections but only 200 have data available, epoll returns only those 200. The cost is proportional to activity, not to total connection count.</p>
+
+<p>Here is the mental model for a single NGINX worker. It calls epoll_wait() and goes to sleep. The kernel watches all the sockets. When data arrives on any socket, or when a socket becomes writable, the kernel wakes up the worker and hands it a list of ready events. The worker processes each ready event by calling a non-blocking read or write. If a read would block because no data is available yet, the worker does not wait. It registers interest in that file descriptor with epoll and moves on to handle the next event.</p>
+
+<p>This is the key insight: the worker process never blocks. It is always either doing useful work or sleeping in epoll_wait waiting for the kernel to tell it something is ready. There is no wasted time spinning on a connection that has not received data yet.</p>
+
+<p>Compare this to the thread-per-connection model. With threads, when a connection has no data, the thread blocks on a read() syscall. The OS scheduler has to context switch it out and bring in another thread. That context switch costs somewhere between 1 and 10 microseconds. At thousands of connections, context switching overhead starts dominating your CPU usage. You end up spending more time managing threads than doing actual work.</p>
+
+<p>NGINX avoids all of that. The worker&rsquo;s event loop is essentially a tightly controlled state machine. Every connection is represented as a lightweight struct with a current state. When an event fires, the worker looks up the connection struct, calls the appropriate handler function, updates the state, and moves on. The entire operation stays in the same thread and the same CPU core. CPU cache locality is excellent.</p>
+
+<a name="Master.and.Worker.Process.Model"></a>
+<h2>Master and Worker Process Model</h2>
+
+<p>The master process is responsible for things that happen infrequently but matter a great deal: starting up, reloading configuration, upgrading the binary, and shutting down gracefully.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Admin sends SIGHUP];
+B[Master Process receives signal];
+C[Master reads new config];
+D[Config valid?];
+E[Master forks new workers];
+F[New workers start accepting];
+G[Old workers drain connections];
+H[Old workers exit];
+I[Log error];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;>|Yes| E;
+D &#8211;>|No| I;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>When you send NGINX a SIGHUP signal, it performs a zero-downtime reload. The master process reads the new configuration file and validates it. If valid, it forks new worker processes that use the new configuration. The old workers are told to stop accepting new connections. They finish processing whatever connections are already open, then exit. During this entire process, no client experiences a dropped connection. From the client&rsquo;s perspective, the reload is invisible.</p>
+
+<p>This is one of the engineering properties that makes NGINX production-friendly. You can push a configuration change to a live server with zero downtime, no service interruption, and no dropped connections.</p>
+
+<p>Worker processes are pinned to CPU cores in production deployments using worker_cpu_affinity. This is important for cache efficiency. When a process always runs on the same core, its data stays hot in the L1 and L2 caches. Context switching across cores would constantly invalidate those caches. For a latency-sensitive system like a web proxy, these cache misses add up.</p>
+
+<p>The number of worker processes is typically set to the number of CPU cores. One worker per core is the right starting point because the workers spend most of their time either in epoll_wait or doing I/O. They are not CPU-bound. Adding more workers than cores usually just creates contention without improving throughput.</p>
+
+<a name="Request.Processing.Lifecycle"></a>
+<h2>Request Processing Lifecycle</h2>
+
+<p>Let&rsquo;s trace a single HTTP request through NGINX from the moment the TCP connection arrives to the moment the response is sent back.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Client TCP SYN];
+B[Kernel accept queue];
+C[NGINX epoll event];
+D[Worker accepts connection];
+E[TLS handshake if HTTPS];
+F[HTTP request parsing];
+G[Location matching];
+H[Upstream selection];
+I[Backend connection pool check];
+J[New TCP to backend or reuse];
+K[Forward request headers];
+L[Backend processes request];
+M[Read backend response];
+N[Buffer response];
+O[Send response to client];
+P[Keep-alive or close];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> L;
+L &#8211;> M;
+M &#8211;> N;
+N &#8211;> O;
+O &#8211;> P;
+</div>
+
+
+<p>When a client initiates a TCP connection, the kernel completes the three-way handshake and places the connection in the kernel&rsquo;s accept queue. The socket bound by the NGINX master process becomes readable. Epoll fires an event. The worker calls accept() to pull the connection out of the queue and gets a file descriptor for the new socket.</p>
+
+<p>If this is an HTTPS connection, the TLS handshake happens next. NGINX handles this using OpenSSL or a compatible library. The handshake involves certificate validation, cipher negotiation, and key exchange. This is computationally expensive, which is why NGINX supports TLS session resumption — clients that have recently connected can present a session ticket and skip most of the handshake.</p>
+
+<p>Once the connection is established, NGINX reads the HTTP request. HTTP/1.1 is a text protocol, so NGINX parses the headers byte by byte, looking for the method, URI, and headers. This parsing is fast and allocation-light. NGINX avoids copying data whenever possible.</p>
+
+<p>With the request parsed, NGINX evaluates the location blocks in the configuration to determine how to handle the request. Location matching is done using a combination of prefix matching and regex matching. The most specific prefix match wins, unless a regex match applies. NGINX compiles regex patterns at startup so matching is fast.</p>
+
+<p>Once the location is determined, NGINX knows what to do: serve a static file, proxy to an upstream, return a redirect, or apply some other directive. If proxying, it selects a backend using the configured load balancing algorithm, checks whether there is a keepalive connection to that backend already in the pool, and either reuses it or opens a new TCP connection.</p>
+
+<p>The request is forwarded to the backend with appropriate headers added: X-Real-IP, X-Forwarded-For, Host, and any custom headers configured. NGINX then reads the backend response. If proxy_buffering is on, NGINX reads the full response into a buffer before sending it to the client. This decouples the backend from slow clients. If buffering is off, NGINX pipes the response directly, which reduces latency but means the backend stays connected until the client finishes reading.</p>
+
+<p>Finally, NGINX sends the response back to the client. If keep-alive is enabled, the connection stays open and the state machine resets to wait for the next request. If not, the connection is closed and the file descriptor is returned to the kernel.</p>
+
+<a name="Reverse.Proxy.Internals"></a>
+<h2>Reverse Proxy Internals</h2>
+
+<p>The reverse proxy is where NGINX adds enormous value in real production systems. Without a reverse proxy, your application server is directly exposed to the internet. It has to deal with slow clients, malformed requests, connection floods, and TLS negotiation all by itself.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Slow Client];
+B[Fast Client];
+C[NGINX Reverse Proxy];
+D[Backend App Server];
+E[Backend App Server];
+
+A &#8211;>|Slow upload| C;
+B &#8211;>|Fast request| C;
+C &#8211;>|Buffered full request| D;
+C &#8211;>|Buffered full request| E;
+D &#8211;>|Response| C;
+E &#8211;>|Response| C;
+C &#8211;>|Slow delivery| A;
+C &#8211;>|Fast delivery| B;
+</div>
+
+
+<p>One of the most important things a reverse proxy does is protect backends from slow clients. Imagine a client on a mobile connection uploading a 10MB file at 100KB/s. Without a proxy, your application server has to hold a thread or connection open for 100 seconds waiting for the upload to complete. With NGINX, the proxy buffers the entire upload first, then sends it to the backend in a burst over the fast internal network. The backend sees a fast request and finishes quickly. It never has to deal with the slow client.</p>
+
+<p>NGINX maintains connection pools to backends. Opening a new TCP connection takes time — the three-way handshake, potential TLS handshake, and kernel allocations. With connection pooling using the keepalive directive in an upstream block, NGINX keeps a set of idle connections to each backend. When a request arrives, it reuses an existing connection rather than opening a new one. This dramatically reduces latency, especially for HTTPS backends.</p>
+
+<p>Timeout handling is critical. NGINX has separate timeout values for proxy_connect_timeout, proxy_read_timeout, and proxy_send_timeout. If a backend takes too long to respond, NGINX can close the connection, optionally retry on a different backend, and return an error to the client. This prevents a slow or hung backend from holding connections indefinitely and consuming resources.</p>
+
+<a name="Load.Balancing.System"></a>
+<h2>Load Balancing System</h2>
+
+<p>NGINX&rsquo;s load balancer is deliberately simple, and that simplicity is a feature. Complex load balancing algorithms are hard to reason about under failure conditions.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Incoming Request];
+B[NGINX Load Balancer];
+C[Round Robin Selector];
+D[Backend 1 healthy];
+E[Backend 2 unhealthy];
+F[Backend 3 healthy];
+G[Health Check Process];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;>|Request 1| D;
+C &#8211;>|Skip| E;
+C &#8211;>|Request 2| F;
+G &#8211;>|Check| E;
+G &#8211;>|Mark healthy or unhealthy| E;
+</div>
+
+
+<p>Round robin is the default. Each request goes to the next backend in the list. It is simple, predictable, and fair. It works well when backends are homogeneous and requests are roughly equal in cost.</p>
+
+<p>Least connections sends each request to the backend with the fewest active connections. This works better when requests have variable processing time. A backend that is slow on one request does not get buried with more requests while other backends are idle.</p>
+
+<p>IP hash routes each client IP to the same backend consistently. This is used for sticky sessions when your application stores session state on the backend server rather than in a shared store like Redis. It has a significant failure mode: if that backend dies, all those clients have their sessions invalidated. For this reason, most modern architectures avoid relying on sticky sessions.</p>
+
+<p>Weighted round robin lets you send more traffic to backends with more capacity. If one backend has twice the CPU as the others, you give it double the weight and it receives double the requests.</p>
+
+<p>Health checks are either passive or active. Passive health checks work by observing failures. If a backend returns 5xx errors or times out, NGINX marks it as failed and stops sending traffic for a configurable period. Active health checks (available in NGINX Plus) send synthetic requests to backends on a schedule and remove them from rotation proactively.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Algorithm</th>
+        <th>Best Use Case</th>
+        <th>Weakness</th>
+        <th>Session Affinity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Round Robin</td>
+        <td>Homogeneous backends, uniform request cost</td>
+        <td>Ignores backend load</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>Least Connections</td>
+        <td>Variable request processing time</td>
+        <td>More state to track</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>IP Hash</td>
+        <td>Session state on backend</td>
+        <td>Uneven load, hard failover</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td>Weighted Round Robin</td>
+        <td>Heterogeneous backend capacity</td>
+        <td>Requires manual weight tuning</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>Random with two choices</td>
+        <td>Large backend pools</td>
+        <td>Less predictable</td>
+        <td>No</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Static.File.Serving.Optimization"></a>
+<h2>Static File Serving Optimization</h2>
+
+<p>NGINX is extremely fast at serving static files, and the reason comes down to a Linux syscall called sendfile(). Normally, serving a file requires two copies: one from the kernel&rsquo;s page cache into userspace memory, and another from userspace memory into the socket buffer. With sendfile(), the kernel copies data directly from the page cache to the socket buffer without ever bringing it into userspace. This is called zero-copy.</p>
+
+<p>The benefit is twofold. First, you eliminate the memory copy, which saves CPU cycles and memory bandwidth. Second, the data stays inside the kernel, which means one fewer context switch between kernel mode and user mode.</p>
+
+<p>The kernel&rsquo;s page cache is also critical here. The first time NGINX reads a file, the kernel reads it from disk and caches the pages in RAM. Every subsequent read returns from the cache without touching the disk at all. For a server serving the same popular static assets repeatedly, the hot files stay permanently in cache and disk I/O is essentially zero.</p>
+
+<p>NGINX also supports TCP_NOPUSH and TCP_NODELAY socket options to optimize how the kernel sends data. TCP_NOPUSH tells the kernel to batch data into larger TCP segments rather than sending many small packets. This reduces network overhead significantly when sending large responses.</p>
+
+<a name="Caching.System"></a>
+<h2>Caching System</h2>
+
+<p>NGINX implements a full reverse proxy cache that can dramatically reduce load on backend systems.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Incoming Request];
+B[Cache key generation];
+C[Cache lookup];
+D[Cache hit];
+E[Cache miss];
+F[Backend request];
+G[Response received];
+H[Cache store];
+I[Send cached response];
+J[Send fresh response];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+D &#8211;> I;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> J;
+</div>
+
+
+<p>The cache key is typically derived from the request URI and optionally other headers like the Host header. When a request arrives, NGINX hashes the key and looks it up in a shared memory zone that contains cache metadata. If there is a hit and the cached entry has not expired, NGINX serves the response directly from disk without touching the backend at all.</p>
+
+<p>Microcaching is an interesting technique where you cache responses for very short periods, sometimes as little as 1 second. For high-traffic endpoints, even 1 second of caching means a thousand requests per second hit the backend only once. The response might be slightly stale, but for most use cases that is completely acceptable.</p>
+
+<p>Cache invalidation is the hard part. NGINX does not support active cache invalidation by default in the open source version. You can work around this by using cache keys that include version numbers or content hashes, so a new version naturally gets a new cache key. Stale responses are handled by proxy_cache_use_stale, which lets NGINX serve a stale cached response if the backend is slow or returning errors. This dramatically improves resilience.</p>
+
+<a name="TLS.and.HTTPS.Internals"></a>
+<h2>TLS and HTTPS Internals</h2>
+
+<p>TLS termination is one of the most computationally expensive things NGINX does. A TLS handshake requires asymmetric cryptography — RSA or ECDSA operations — that are orders of magnitude slower than symmetric operations like AES.</p>
+
+<p>NGINX uses OpenSSL (or BoringSSL in some deployments) for TLS operations. Modern servers use hardware acceleration for AES-NI instructions, which brings the cost of symmetric encryption to almost nothing. But the handshake is still expensive.</p>
+
+<p>Session resumption is critical for TLS performance. NGINX supports both session tickets and session IDs. With session tickets, the server encrypts its session state and gives it to the client. On the next connection, the client presents the ticket, and the server decrypts it to restore the session without going through the full handshake. This reduces handshake latency from several round trips to one.</p>
+
+<p>HTTP/2 multiplexes multiple requests over a single TLS connection. Instead of one request per connection, a client can have dozens of in-flight requests over a single TCP stream. NGINX supports HTTP/2 natively. For backend connections, NGINX can also proxy to backends over HTTP/2, though in practice many backend connections still use HTTP/1.1 with keepalive because backends often live on a trusted internal network where TLS overhead matters less.</p>
+
+<a name="WebSocket.and.Streaming.Support"></a>
+<h2>WebSocket and Streaming Support</h2>
+
+<p>WebSocket is a protocol that starts as HTTP and then upgrades to a full-duplex persistent connection. NGINX supports WebSocket proxying by detecting the Upgrade and Connection headers in the HTTP handshake and then switching the connection into a transparent tunnel mode.</p>
+
+<p>Once in tunnel mode, NGINX does not interpret the data flowing through the connection. It simply reads from one side and writes to the other. The connection stays open indefinitely until either side closes it. This means NGINX has to track long-lived connections differently from normal HTTP connections. Timeouts need to be adjusted because a WebSocket connection that is idle is not necessarily broken — it might just be waiting for an event.</p>
+
+<p>Streaming HTTP responses, like server-sent events or chunked transfer encoding, work similarly. NGINX buffers responses to protect backends from slow clients. For streaming, you typically want to disable buffering with proxy_buffering off so that chunks are sent to the client as soon as they arrive from the backend, rather than accumulating in a buffer first.</p>
+
+<a name="Rate.Limiting.and.Security"></a>
+<h2>Rate Limiting and Security</h2>
+
+<p>NGINX implements rate limiting using the leaky bucket algorithm. You define a zone in shared memory that tracks request rates per key (usually IP address). Requests that arrive faster than the configured rate are either delayed or rejected with a 429 status.</p>
+
+<p>The two main directives are limit_req and limit_conn. limit_req controls the rate of requests over time. limit_conn controls the number of simultaneous connections from a single client. Together, they are your first line of defense against abusive clients and simple DDoS attacks.</p>
+
+<p>Rate limiting in NGINX works at the worker level, using shared memory zones that all workers can read and write. The shared memory is protected by a lightweight mutex. This is one of the few places where NGINX workers communicate during the hot path, and it is engineered to be fast.</p>
+
+<p>For DDoS mitigation at scale, NGINX rate limiting is useful but limited. It sees traffic after it has reached your server. Real DDoS protection happens further upstream at the CDN or anycast edge. But for protecting a backend against accidental traffic spikes or specific abusive clients, NGINX rate limiting is very effective.</p>
+
+<a name="NGINX.Kernel.Interaction"></a>
+<h2>NGINX Kernel Interaction</h2>
+
+<p>Understanding how NGINX interacts with the Linux kernel is what separates a deep understanding of NGINX from a surface-level one.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[NGINX Worker Process];
+B[epoll instance];
+C[Linux Kernel];
+D[TCP Socket Buffers];
+E[Network Interface];
+F[Page Cache];
+G[File System];
+
+A &#8211;>|epoll_wait| B;
+B &#8211;>|Kernel monitors fds| C;
+C &#8211;>|Packet arrives| E;
+E &#8211;>|DMA to| D;
+D &#8211;>|Readable event| B;
+B &#8211;>|Wakeup worker| A;
+A &#8211;>|read syscall| D;
+A &#8211;>|sendfile syscall| F;
+F &#8211;>|Read from disk| G;
+F &#8211;>|Write to socket| D;
+</div>
+
+
+<p>When a network packet arrives, the network interface card uses DMA (Direct Memory Access) to copy the packet into the kernel&rsquo;s socket receive buffer without CPU involvement. The kernel then fires an interrupt, processes the packet, reassembles TCP segments, and marks the associated socket as readable. Epoll, which was watching that socket, adds it to the ready list. The next time the worker calls epoll_wait(), it receives the event and calls read() to pull the data out of the buffer.</p>
+
+<p>The socket buffers are a critical resource. The kernel&rsquo;s TCP receive buffer holds incoming data until the application reads it. The send buffer holds outgoing data until it can be transmitted. If your application is slow to read, the receive buffer fills up, which causes TCP flow control to kick in — the kernel tells the sender to slow down. NGINX avoids this by always reading data promptly in its event loop.</p>
+
+<p>The kernel&rsquo;s TCP stack also handles accept queues. When connections arrive faster than NGINX can call accept(), the kernel queues them. The backlog parameter controls how many connections can wait in this queue. If the queue fills up, the kernel starts dropping SYN packets, which causes clients to see connection timeouts. In high-traffic deployments, tuning net.core.somaxconn and net.ipv4.tcp_max_syn_backlog is essential.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Kernel Parameter</th>
+        <th>What It Controls</th>
+        <th>Production Consideration</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>net.core.somaxconn</td>
+        <td>Maximum accept queue depth per socket</td>
+        <td>Increase to 65535 under heavy load</td>
+      </tr>
+      <tr>
+        <td>net.ipv4.tcp_max_syn_backlog</td>
+        <td>Maximum incomplete connections</td>
+        <td>Increase to handle connection bursts</td>
+      </tr>
+      <tr>
+        <td>net.ipv4.tcp_tw_reuse</td>
+        <td>Reuse TIME_WAIT sockets faster</td>
+        <td>Enable to reduce ephemeral port exhaustion</td>
+      </tr>
+      <tr>
+        <td>net.core.rmem_max</td>
+        <td>Maximum TCP receive buffer size</td>
+        <td>Increase for high-bandwidth connections</td>
+      </tr>
+      <tr>
+        <td>fs.file-max</td>
+        <td>Maximum open file descriptors system-wide</td>
+        <td>Must exceed total expected connections</td>
+      </tr>
+      <tr>
+        <td>worker_rlimit_nofile</td>
+        <td>Per-process file descriptor limit for NGINX</td>
+        <td>Set to match expected connections per worker</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The file descriptor limit deserves special attention. On Linux, every socket is a file descriptor. If NGINX handles 100,000 connections, it needs at least 100,000 open file descriptors. Plus more for open files, logs, and upstream connections. The default per-process limit on many systems is 1024, which is hopelessly inadequate. Production NGINX deployments set worker_rlimit_nofile to something like 100000.</p>
+
+<a name="Scaling.NGINX"></a>
+<h2>Scaling NGINX</h2>
+
+<p>A single NGINX instance can handle an enormous amount of traffic, but there are limits. At some point, you need to scale horizontally.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Anycast IP or DNS load balanced];
+B[NGINX Edge Node Region 1];
+C[NGINX Edge Node Region 2];
+D[NGINX Edge Node Region 3];
+E[Origin NGINX Cluster];
+F[Backend Application Cluster];
+G[Database Layer];
+
+A &#8211;> B;
+A &#8211;> C;
+A &#8211;> D;
+B &#8211;> E;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p>The first scaling lever is multi-core optimization. NGINX worker processes are independent, so adding CPU cores and matching workers scales linearly up to the point where the network interface card becomes the bottleneck. For a 10Gbps NIC, that bottleneck happens somewhere around 1 million requests per second for small responses.</p>
+
+<p>Beyond a single machine, you add more NGINX instances behind a hardware load balancer or DNS round robin. For geographic distribution, you deploy NGINX at edge locations in different regions and use anycast or geographic DNS routing to send clients to the nearest edge.</p>
+
+<p>Kernel-level features like SO_REUSEPORT allow multiple NGINX worker processes to each have their own accept queue for the same port. Without SO_REUSEPORT, all workers compete to call accept() on a single listening socket, which creates contention. With SO_REUSEPORT, the kernel distributes incoming connections evenly across the workers&#8217; separate accept queues, eliminating that lock contention entirely.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Zero-downtime operation is a core NGINX design goal. The hot-reload mechanism we discussed earlier handles configuration changes. Binary upgrades work similarly — you can replace the NGINX binary on disk and perform a live upgrade without dropping connections.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Backend returns 5xx];
+B[NGINX passive health check];
+C[Failure threshold reached];
+D[Backend marked unavailable];
+E[Traffic redirected to healthy backends];
+F[Retry timer expires];
+G[Test request sent];
+H[Backend healthy];
+I[Backend returns to rotation];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+D &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p>When a backend fails, NGINX&rsquo;s passive health checking detects the failures and temporarily stops routing to that backend. The proxy_next_upstream directive controls what counts as a failure worth retrying. You can configure NGINX to retry on connection errors, timeouts, and specific HTTP status codes. It will try the next backend in the pool automatically.</p>
+
+<p>For observability, NGINX logs every request with configurable detail in the access log. The error log captures anything unexpected. NGINX Plus adds a real-time metrics API. In open-source NGINX, you typically use tools like Prometheus with an nginx-prometheus-exporter to scrape metrics, or parse logs with a tool like Filebeat sending to Elasticsearch.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>The event-driven architecture that makes NGINX so efficient also imposes constraints. NGINX worker processes cannot do blocking operations. If you need to run a slow computation, talk to a database, or call a blocking API, you cannot do it in the worker&rsquo;s event loop without blocking the entire worker. This is why Lua scripting in NGINX (via OpenResty) is written to be non-blocking, using coroutines that yield when waiting for I/O.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Decision</th>
+        <th>NGINX Choice</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Concurrency Model</td>
+        <td>Event loop with epoll</td>
+        <td>Scales to millions of connections, but blocking code kills performance</td>
+      </tr>
+      <tr>
+        <td>Process vs Thread</td>
+        <td>Worker processes</td>
+        <td>Isolation and stability, but no shared state between workers</td>
+      </tr>
+      <tr>
+        <td>Response Buffering</td>
+        <td>Buffer by default</td>
+        <td>Protects backends, increases latency for streaming</td>
+      </tr>
+      <tr>
+        <td>Caching</td>
+        <td>Disk-based cache</td>
+        <td>Survives restarts, slower than in-memory</td>
+      </tr>
+      <tr>
+        <td>Load Balancing</td>
+        <td>Simple algorithms</td>
+        <td>Predictable and debuggable, not adaptive</td>
+      </tr>
+      <tr>
+        <td>Configuration</td>
+        <td>Static config files</td>
+        <td>Simple to audit, requires reload for changes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Buffering versus streaming is a real tension. Buffering the full response from the backend before sending to the client protects the backend from slow clients and reduces backend connection hold time. But for streaming APIs, chatbots, or live video, buffering defeats the purpose. You want bytes flowing to the client as fast as they arrive. The right choice depends entirely on your use case.</p>
+
+<p>The static configuration file model is both a strength and a weakness. It is auditable, version-controllable, and simple to reason about. But dynamic routing changes require a reload. For Kubernetes environments where backends change constantly, this creates friction. This is why tools like NGINX Kubernetes Ingress Controller exist — they watch the Kubernetes API and dynamically generate NGINX configurations and trigger reloads.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>NGINX is written in C, which gives it direct access to Linux system calls without the overhead of a managed runtime. There is no garbage collector pausing at inconvenient moments, no JIT compilation latency, and no abstraction layers between the code and the kernel.</p>
+
+<p>OpenSSL handles all the cryptography. It is battle-tested, hardware-accelerated, and continuously audited. Some high-security deployments use BoringSSL, Google&rsquo;s fork, which has a smaller and more conservative API surface.</p>
+
+<p>Lua, through the ngx_http_lua_module (part of OpenResty), provides a scripting layer that runs inside the NGINX event loop. You can write non-blocking Lua code that talks to Redis, makes HTTP subrequests, modifies headers, and implements custom authentication logic. OpenResty effectively turns NGINX into a programmable platform.</p>
+
+<p>In Kubernetes, NGINX is widely used as the ingress controller. It watches Kubernetes Service and Ingress resources through the API server and dynamically generates and reloads its upstream configuration. This closes the gap between NGINX&rsquo;s static configuration model and Kubernetes&rsquo;s dynamic service discovery.</p>
+
+<p>HTTP/2 and HTTP/3 (QUIC) are increasingly important. HTTP/2 multiplexing reduces the overhead of many small requests. HTTP/3 moves from TCP to QUIC, which handles packet loss more gracefully and eliminates head-of-line blocking at the transport layer. NGINX has experimental HTTP/3 support, and the ecosystem is moving in that direction.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design an API gateway, a CDN edge node, or a high-throughput proxy, they are essentially asking you to design something NGINX-like. Here is how to think about it.</p>
+
+<p>Start by clarifying the problem. How many requests per second? What is the acceptable latency? Do we need TLS termination? Is the backend pool static or dynamic? Do we need caching? Rate limiting? The answers to these questions drive the architecture.</p>
+
+<p>When explaining concurrency, mention the event-driven model explicitly. Say that thread-per-connection does not scale to hundreds of thousands of connections because of memory and context-switching overhead. Explain that an event loop with non-blocking I/O handles this by never blocking — the process is always either handling a ready event or sleeping in epoll waiting for one.</p>
+
+<p>Strong candidates discuss the full lifecycle: TCP acceptance, request buffering, location matching, upstream selection, connection pooling, response buffering, and keep-alive. They also discuss what happens when things go wrong — backend timeouts, health check failures, buffer exhaustion, file descriptor limits.</p>
+
+<p>Weak answers focus only on the happy path. They describe NGINX as &ldquo;it forwards requests to backends&rdquo; without discussing the engineering underneath. They do not mention the event loop, epoll, connection pooling, zero-copy file serving, or how configuration reloads work without downtime.</p>
+
+<p>A question specifically about load balancing should cover at minimum: algorithm choices and their tradeoffs, health check mechanisms, what happens during backend failure, how you handle draining connections during a deploy, and the limits of session affinity.</p>
+
+<p>When discussing scaling, strong candidates layer the answer. Single server first: worker processes matching CPU cores, SO_REUSEPORT, kernel tuning. Then horizontal scaling with multiple NGINX instances. Then geographic distribution with anycast and edge caching. Then integration with a CDN. Each layer has a cost and a reason.</p>
+
+<p>The most impressive thing you can do in a system design interview is explain the tradeoffs honestly. If you choose buffering over streaming, explain what you gain and what you give up. If you choose round-robin over least-connections, explain when that choice breaks down. Real engineers make principled tradeoffs, not perfect decisions.</p>
+
+<p>NGINX is a masterclass in doing one set of things extremely well. It does not try to be a database, a message queue, or an application runtime. It sits on the network edge, handles connections efficiently, routes requests intelligently, and gets out of the way. That clarity of purpose, executed with deep engineering discipline, is what makes it the foundation of so much of the internet&rsquo;s infrastructure.</p>
+
+<p>The more you understand the systems underneath — epoll, socket buffers, the page cache, process isolation, zero-copy — the more natural NGINX&rsquo;s design choices feel. They are not arbitrary. Every decision traces back to a real constraint in the underlying system. That is what good systems engineering looks like.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Google Search Works?]]></title>
@@ -8172,316 +8813,6 @@ least one function as of 2025, up from 65% in early 2024, driven by investments 
 <p>Quantum computing isn’t about replacing classical computers; it’s about <strong>augmenting them for specific, hard problems</strong>. Think of it as moving from “faster calculators” to “a completely new kind of mathematics machine.”</p>
 
 <p>We’re standing at the dawn of a technological revolution—similar to how classical computing looked in the 1950s. It’s early, messy, and imperfect, but the trajectory is clear: <strong>quantum computing will redefine the limits of what is computationally possible.</strong></p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Supercharge Reasoning in AI: Hands-On Chain of Thought Builds]]></title>
-        <link href="https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds/"/>
-        <updated>2025-08-29T13:26:07+05:30</updated>
-        <id>https://rishijeet.github.io/blog/supercharge-reasoning-in-ai-hands-on-chain-of-thought-builds</id>
-        <content type="html"><![CDATA[<p>Chain of Thought (CoT) is a prompting technique introduced in a 2022 paper by Google researchers (Wei et al., &ldquo;Chain-of-Thought Prompting Elicits Reasoning in Large Language Models&rdquo;). The core idea is simple: instead of asking an LLM for a direct answer, you instruct it to <strong>reason step by step</strong>. This elicits better performance on tasks requiring logic, math, commonsense, or multi-step planning.</p>
-
-<p><img src="https://rishijeet.github.io/images/2025/cot.webp" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<p>For example:</p>
-
-<ul>
-<li><strong>Direct Prompt</strong>: &ldquo;What is 15% of 200?&rdquo;</li>
-<li><strong>CoT Prompt</strong>: &ldquo;What is 15% of 200? Let&rsquo;s think step by step.&rdquo;</li>
-</ul>
-
-
-<p>The LLM might respond:</p>
-
-<ul>
-<li>&ldquo;Step 1: 15% means 15 per 100, so 15/100 = 0.15.</li>
-<li>Step 2: Multiply by 200: 0.15 * 200 = 30. So, the answer is 30.&#8221;</li>
-</ul>
-
-
-<!--more-->
-
-
-<p>This &ldquo;thinking&rdquo; process isn&rsquo;t magic—it&rsquo;s emergent from the model&rsquo;s training on vast datasets where step-by-step explanations are common. CoT shines in zero-shot (no examples) or few-shot (with examples) scenarios, and variants like <strong>Tree of Thoughts</strong> or <strong>Self-Consistency</strong> build on it for even more robustness.</p>
-
-<a name="Why.Does.CoT.Work."></a>
-<h3>Why Does CoT Work?</h3>
-
-<ul>
-<li><strong>Decomposes Complexity</strong>: Breaks problems into manageable sub-steps, reducing error rates.</li>
-<li><strong>Transparency</strong>: Users see the &ldquo;thought process,&rdquo; building trust and allowing debugging.</li>
-<li><strong>Scalability</strong>: Works with any LLM API; no need for fine-tuning.</li>
-<li><strong>Applications</strong>: Math solvers, code debuggers, decision-making tools, chatbots that explain reasoning.</li>
-</ul>
-
-
-<p>Research shows CoT improves accuracy by 10-50% on benchmarks like GSM8K (math) or CommonsenseQA. In interactive apps, it can stream thoughts progressively, giving users a &ldquo;processing&rdquo; indicator.</p>
-
-<a name="Evolution.and.Variants.of.CoT"></a>
-<h2>Evolution and Variants of CoT</h2>
-
-<p>CoT has evolved rapidly:</p>
-
-<ul>
-<li><strong>Zero-Shot CoT</strong>: Just add &ldquo;Let&rsquo;s think step by step&rdquo; to the prompt.</li>
-<li><strong>Few-Shot CoT</strong>: Provide 2-5 examples of step-by-step reasoning before the query.</li>
-<li><strong>Automatic CoT</strong>: Use LLMs to generate CoT examples dynamically.</li>
-<li><strong>Tree of Thoughts (ToT)</strong>: Explores multiple reasoning paths like a tree search.</li>
-<li><strong>Graph of Thoughts</strong>: Models reasoning as a graph for non-linear problems.</li>
-</ul>
-
-
-<p>In 2025, with models like Grok 4, CoT is often combined with tools (e.g., code execution or web search) for agentic systems—AI agents that plan, act, and reflect.</p>
-
-<a name="Building.a.Chain.of.Thought.Application:.Step-by-Step.Guide"></a>
-<h2>Building a Chain of Thought Application: Step-by-Step Guide</h2>
-
-<p>To build a CoT application, we&rsquo;ll create a Python-based tool that:</p>
-
-<ol>
-<li>Takes user input.</li>
-<li>Applies CoT prompting via an LLM API.</li>
-<li>Streams the response to show &ldquo;thinking&rdquo; in real-time (using API streaming features).</li>
-<li>Parses the final answer for clarity.</li>
-</ol>
-
-
-<p>We&rsquo;ll use OpenAI&rsquo;s API as an example. Assumptions:</p>
-
-<ul>
-<li>You have an API key.</li>
-<li>Focus on a math/word problem solver, but extensible to any domain.</li>
-</ul>
-
-
-<a name="Step.1:.Set.Up.Your.Environment"></a>
-<h3>Step 1: Set Up Your Environment</h3>
-
-<p>Install required libraries:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="bash"><span class='line'>pip install openai requests
-</span></code></pre></div></figure>
-
-
-<a name="Step.2:.Basic.CoT.Implementation"></a>
-<h3>Step 2: Basic CoT Implementation</h3>
-
-<p>Start with a simple non-streaming version. This script prompts the LLM with CoT and prints the full response.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">import</span> <span class="nn">openai</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Set your API key</span>
-</span><span class='line'><span class="n">openai</span><span class="o">.</span><span class="n">api_key</span> <span class="o">=</span> <span class="s">&quot;your-openai-api-key&quot;</span>  <span class="c"># Replace with actual key</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">cot_reasoning</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s">&quot;gpt-4o&quot;</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="sd">    Applies Chain of Thought prompting to a query.</span>
-</span><span class='line'><span class="sd">    </span>
-</span><span class='line'><span class="sd">    Args:</span>
-</span><span class='line'><span class="sd">    - query (str): The user&#39;s question.</span>
-</span><span class='line'><span class="sd">    - model (str): LLM model to use.</span>
-</span><span class='line'><span class="sd">    </span>
-</span><span class='line'><span class="sd">    Returns:</span>
-</span><span class='line'><span class="sd">    - str: The reasoned response.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="c"># CoT Prompt Template (Few-Shot for better results)</span>
-</span><span class='line'>    <span class="n">prompt</span> <span class="o">=</span> <span class="s">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="s">    Solve the following problem step by step.</span>
-</span><span class='line'><span class="s">    </span>
-</span><span class='line'><span class="s">    Example 1:</span>
-</span><span class='line'><span class="s">    Question: If a car travels 60 miles in 1.5 hours, what is its speed?</span>
-</span><span class='line'><span class="s">    Step 1: Speed is distance divided by time.</span>
-</span><span class='line'><span class="s">    Step 2: Distance = 60 miles, Time = 1.5 hours.</span>
-</span><span class='line'><span class="s">    Step 3: Speed = 60 / 1.5 = 40 mph.</span>
-</span><span class='line'><span class="s">    Answer: 40 mph.</span>
-</span><span class='line'><span class="s">    </span>
-</span><span class='line'><span class="s">    Example 2:</span>
-</span><span class='line'><span class="s">    Question: What is the next number in the sequence: 2, 4, 8, 16?</span>
-</span><span class='line'><span class="s">    Step 1: Observe the pattern: each number is doubled.</span>
-</span><span class='line'><span class="s">    Step 2: 2 * 2 = 4, 4 * 2 = 8, 8 * 2 = 16.</span>
-</span><span class='line'><span class="s">    Step 3: Next is 16 * 2 = 32.</span>
-</span><span class='line'><span class="s">    Answer: 32.</span>
-</span><span class='line'><span class="s">    </span>
-</span><span class='line'><span class="s">    Now, your question:</span>
-</span><span class='line'><span class="s">    Question: {query}</span>
-</span><span class='line'><span class="s">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">formatted_prompt</span> <span class="o">=</span> <span class="n">prompt</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">response</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">ChatCompletion</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-</span><span class='line'>        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">messages</span><span class="o">=</span><span class="p">[{</span><span class="s">&quot;role&quot;</span><span class="p">:</span> <span class="s">&quot;user&quot;</span><span class="p">,</span> <span class="s">&quot;content&quot;</span><span class="p">:</span> <span class="n">formatted_prompt</span><span class="p">}]</span>
-</span><span class='line'>    <span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Usage</span>
-</span><span class='line'><span class="n">query</span> <span class="o">=</span> <span class="s">&quot;What is 25</span><span class="si">% o</span><span class="s">f 400?&quot;</span>
-</span><span class='line'><span class="n">result</span> <span class="o">=</span> <span class="n">cot_reasoning</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
-</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span></code></pre></div></figure>
-
-
-<p><strong>Expected Output</strong>:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="n">Step</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">25</span><span class="o">%</span> <span class="n">means</span> <span class="mi">25</span> <span class="n">per</span> <span class="mi">100</span><span class="p">,</span> <span class="n">so</span> <span class="mf">0.25</span><span class="o">.</span>
-</span><span class='line'><span class="n">Step</span> <span class="mi">2</span><span class="p">:</span> <span class="n">Multiply</span> <span class="n">by</span> <span class="mi">400</span><span class="p">:</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="mi">400</span> <span class="o">=</span> <span class="mf">100.</span>
-</span><span class='line'><span class="n">Answer</span><span class="p">:</span> <span class="mf">100.</span>
-</span></code></pre></div></figure>
-
-
-<p>This shows the &ldquo;thinking&rdquo; steps. To make it interactive, add a loop for multiple queries.</p>
-
-<a name="Step.3:.Adding.Real-Time.Processing.Feedback"></a>
-<h3>Step 3: Adding Real-Time Processing Feedback</h3>
-
-<p>To &ldquo;let you know that it is processing these steps,&rdquo; use streaming. OpenAI supports response streaming, printing tokens as they arrive—simulating thinking.</p>
-
-<p>Modify the function:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">import</span> <span class="nn">openai</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">sys</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">openai</span><span class="o">.</span><span class="n">api_key</span> <span class="o">=</span> <span class="s">&quot;your-openai-api-key&quot;</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">cot_streaming_reasoning</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s">&quot;gpt-4o&quot;</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="sd">    Streams Chain of Thought reasoning in real-time.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="n">prompt</span> <span class="o">=</span> <span class="s">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="s">    Solve the following problem step by step. Think out loud.</span>
-</span><span class='line'><span class="s">    </span>
-</span><span class='line'><span class="s">    # Few-shot examples here (same as above)</span>
-</span><span class='line'><span class="s">    </span>
-</span><span class='line'><span class="s">    Question: {query}</span>
-</span><span class='line'><span class="s">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="n">formatted_prompt</span> <span class="o">=</span> <span class="n">prompt</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">stream</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">ChatCompletion</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-</span><span class='line'>        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">messages</span><span class="o">=</span><span class="p">[{</span><span class="s">&quot;role&quot;</span><span class="p">:</span> <span class="s">&quot;user&quot;</span><span class="p">,</span> <span class="s">&quot;content&quot;</span><span class="p">:</span> <span class="n">formatted_prompt</span><span class="p">}],</span>
-</span><span class='line'>        <span class="n">stream</span><span class="o">=</span><span class="bp">True</span>  <span class="c"># Enable streaming</span>
-</span><span class='line'>    <span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Thinking...&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">full_response</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;content&quot;</span><span class="p">):</span>
-</span><span class='line'>            <span class="n">content</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">content</span>
-</span><span class='line'>            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>  <span class="c"># Print incrementally</span>
-</span><span class='line'>            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-</span><span class='line'>            <span class="n">full_response</span> <span class="o">+=</span> <span class="n">content</span>
-</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Done!&quot;</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">full_response</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Usage</span>
-</span><span class='line'><span class="n">query</span> <span class="o">=</span> <span class="s">&quot;If I have 3 apples and eat 2, how many are left?&quot;</span>
-</span><span class='line'><span class="n">cot_streaming_reasoning</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
-</span></code></pre></div></figure>
-
-
-<p><strong>How It Works</strong>:</p>
-
-<ul>
-<li>The <code>stream=True</code> parameter yields partial responses.</li>
-<li>We print each chunk, showing steps like &ldquo;Step 1: &hellip;&rdquo; as they generate.</li>
-<li>This creates a &ldquo;processing&rdquo; effect—users see thoughts unfolding.</li>
-</ul>
-
-
-<p>For a web app, use Flask or Streamlit to stream via WebSockets.</p>
-
-<a name="Step.4:.Advanced.Features.....Parsing.and.Error.Handling"></a>
-<h3>Step 4: Advanced Features – Parsing and Error Handling</h3>
-
-<p>To extract the final answer reliably, parse the response. Add self-consistency by generating multiple CoTs and voting.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="k">def</span> <span class="nf">parse_final_answer</span><span class="p">(</span><span class="n">response</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="sd">    Extracts the final answer from CoT response.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="n">lines</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&quot;Answer:&quot;</span><span class="p">):</span>
-</span><span class='line'>            <span class="k">return</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;Answer:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-</span><span class='line'>    <span class="k">return</span> <span class="s">&quot;No clear answer found.&quot;</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># In your main function:</span>
-</span><span class='line'><span class="n">result</span> <span class="o">=</span> <span class="n">cot_streaming_reasoning</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
-</span><span class='line'><span class="n">final_answer</span> <span class="o">=</span> <span class="n">parse_final_answer</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;Final Answer: {final_answer}&quot;</span><span class="p">)</span>
-</span></code></pre></div></figure>
-
-
-<p>For robustness (Self-Consistency CoT):</p>
-
-<ul>
-<li>Run 3-5 CoT generations.</li>
-<li>Use majority vote on answers.</li>
-</ul>
-
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="k">def</span> <span class="nf">self_consistent_cot</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
-</span><span class='line'>    <span class="n">answers</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_samples</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">response</span> <span class="o">=</span> <span class="n">cot_reasoning</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>  <span class="c"># Or streaming version</span>
-</span><span class='line'>        <span class="n">answer</span> <span class="o">=</span> <span class="n">parse_final_answer</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-</span><span class='line'>        <span class="n">answers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">answer</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># Simple majority vote</span>
-</span><span class='line'>    <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
-</span><span class='line'>    <span class="n">most_common</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">most_common</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">most_common</span> <span class="k">else</span> <span class="s">&quot;Inconsistent results&quot;</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Usage</span>
-</span><span class='line'><span class="n">consistent_answer</span> <span class="o">=</span> <span class="n">self_consistent_cot</span><span class="p">(</span><span class="s">&quot;A bat and ball cost $1.10 total. The bat costs $1 more than the ball. How much is the ball?&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">consistent_answer</span><span class="p">)</span>  <span class="c"># Should be $0.05</span>
-</span></code></pre></div></figure>
-
-
-<a name="Step.5:.Building.a.Full.Application"></a>
-<h3>Step 5: Building a Full Application</h3>
-
-<p>For a complete app, use Streamlit for a UI:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">import</span> <span class="nn">streamlit</span> <span class="kn">as</span> <span class="nn">st</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">openai</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">openai</span><span class="o">.</span><span class="n">api_key</span> <span class="o">=</span> <span class="s">&quot;your-openai-api-key&quot;</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">st</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s">&quot;Chain of Thought Reasoner&quot;</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">query</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">text_input</span><span class="p">(</span><span class="s">&quot;Enter your question:&quot;</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">if</span> <span class="n">st</span><span class="o">.</span><span class="n">button</span><span class="p">(</span><span class="s">&quot;Reason&quot;</span><span class="p">):</span>
-</span><span class='line'>    <span class="k">with</span> <span class="n">st</span><span class="o">.</span><span class="n">spinner</span><span class="p">(</span><span class="s">&quot;Thinking step by step...&quot;</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">response</span> <span class="o">=</span> <span class="n">cot_streaming_reasoning</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>  <span class="c"># Use non-streaming for simplicity, or adapt</span>
-</span><span class='line'>        <span class="n">st</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-</span><span class='line'>        <span class="n">final</span> <span class="o">=</span> <span class="n">parse_final_answer</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-</span><span class='line'>        <span class="n">st</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;Final Answer: {final}&quot;</span><span class="p">)</span>
-</span></code></pre></div></figure>
-
-
-<p>Run with <code>streamlit run app.py</code>. This creates a web interface where users input queries and see the CoT process.</p>
-
-<a name="Challenges.and.Best.Practices"></a>
-<h2>Challenges and Best Practices</h2>
-
-<ul>
-<li><strong>Token Limits</strong>: CoT increases prompt length; use efficient models.</li>
-<li><strong>Bias in Reasoning</strong>: LLMs can hallucinate steps—validate with tools (e.g., code execution for math).</li>
-<li><strong>Customization</strong>: For domains like code generation, add &ldquo;Step 1: Understand requirements. Step 2: Plan code structure.&rdquo;</li>
-<li><strong>Integration with Agents</strong>: Combine CoT with ReAct (Reason + Act) for tool-using agents.</li>
-<li><strong>Ethics</strong>: Ensure transparency; CoT doesn&rsquo;t make AI infallible.</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>Chain of Thought applications transform LLMs from black boxes into transparent reasoners. By building step-by-step processing into your prompts and code, you create tools that not only solve problems but explain how.</p>
 ]]></content>
     </entry>
     

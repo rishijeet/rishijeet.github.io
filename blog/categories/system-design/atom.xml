@@ -4,7 +4,7 @@
     <title><![CDATA[Category: system_design | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/system-design/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-16T12:17:50+05:30</updated>
+    <updated>2026-05-16T14:17:05+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,647 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How NGINX Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-nginx-works/"/>
+        <updated>2026-05-16T14:13:47+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-nginx-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>There is a good chance that every HTTP request you have made today passed through NGINX at some point. It might have been serving a static file, forwarding your request to a backend application, terminating TLS, or quietly balancing your traffic across a dozen servers. NGINX sits at the heart of a staggering amount of internet infrastructure, and yet most engineers interact with it only through config files without fully understanding what is happening underneath.</em></p></blockquote>
+
+<p>This blog is a deep dive into how NGINX actually works. Not just what it does, but why it was built the way it was, what engineering problems it solves, how it interacts with the Linux kernel, and what makes it so exceptionally fast even under enormous load. By the end, you should have the kind of intuition that lets you reason about NGINX the way a systems engineer would.</p>
+
+<p><img src="/images/system_design/nginx.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<a name="Why.NGINX.Exists.at.All"></a>
+<h2>Why NGINX Exists at All</h2>
+
+<p>To understand NGINX, you have to understand the world it was born into. In the early 2000s, Apache HTTP Server was the dominant web server. Apache worked on a model where every incoming connection spawned either a new process or a new thread. For a few thousand requests, this was fine. But as web traffic started growing, engineers ran into a hard wall known as the C10K problem — how do you handle 10,000 simultaneous connections on a single server?</p>
+
+<!--more-->
+
+
+<p>The thread-per-connection model has a fundamental problem. Each thread or process consumes memory, typically somewhere between 1MB and 8MB per thread depending on the stack size. Scheduling 10,000 threads means the operating system is constantly doing context switches, which burn CPU cycles on bookkeeping rather than actual work. The kernel&rsquo;s scheduler is not designed to efficiently juggle tens of thousands of threads all doing mostly waiting.</p>
+
+<p>Igor Sysoev was a Russian engineer who experienced this problem firsthand while working on the infrastructure for Rambler, one of Russia&rsquo;s largest internet portals. In 2002 he started writing NGINX specifically to solve the C10K problem. The core insight was simple but radical: instead of giving each connection its own thread, use a small number of worker processes and handle all connections inside an event loop. This is the architecture that makes NGINX fundamentally different from Apache.</p>
+
+<p>The practical implication is dramatic. An NGINX worker process can handle tens of thousands of simultaneous connections using only a few megabytes of memory. You could run 4 worker processes on a modern server and comfortably handle hundreds of thousands of concurrent connections. That same workload would bring Apache to its knees.</p>
+
+<a name="Core.Features.of.NGINX"></a>
+<h2>Core Features of NGINX</h2>
+
+<p>Before going deep on architecture, it helps to understand the full surface area of what NGINX actually does in production.</p>
+
+<p>NGINX is first and foremost a web server. It can serve static HTML, CSS, JavaScript, images, and video files directly from disk with extraordinary efficiency. It uses kernel-level optimizations like sendfile() to move data from disk to network without copying it through userspace at all.</p>
+
+<p>As a reverse proxy, NGINX sits in front of your backend application servers and forwards requests to them. This is one of its most common production uses. Your Node.js or Python or Java application never talks directly to the internet. NGINX handles the connection, buffers the request, forwards it upstream, and sends the response back to the client.</p>
+
+<p>As a load balancer, NGINX distributes incoming requests across a pool of backend servers. It supports multiple algorithms and actively monitors backend health. If a backend dies, NGINX stops sending traffic to it automatically.</p>
+
+<p>NGINX also serves as an API gateway, providing rate limiting, request filtering, authentication headers, and routing logic. It handles TLS termination, taking the expensive work of SSL handshakes and encryption off your application servers. It manages WebSocket connections, HTTP streaming, response caching, and Gzip compression.</p>
+
+<p>The important thing to notice is that NGINX does all of these things within the same event-driven architecture. Whether it is serving a static file, proxying to a backend, or terminating TLS, the same non-blocking I/O model handles everything.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>Let&rsquo;s look at the overall structure of how NGINX processes work and communicate.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Client Request];
+B[Master Process];
+C[Worker Process 1];
+D[Worker Process 2];
+E[Worker Process 3];
+F[Cache Manager];
+G[Cache Loader];
+H[Upstream Backend 1];
+I[Upstream Backend 2];
+J[Upstream Backend 3];
+K[File System];
+
+A &#8211;>|TCP Connection| B;
+B &#8211;>|Accept| C;
+B &#8211;>|Accept| D;
+B &#8211;>|Accept| E;
+C &#8211;>|Proxy| H;
+D &#8211;>|Proxy| I;
+E &#8211;>|Proxy| J;
+C &#8211;>|Static Files| K;
+B &#8211;>|Manage| F;
+B &#8211;>|Manage| G;
+</div>
+
+
+<p>The master process is the parent of everything. It reads and validates the configuration file, binds to ports, and then forks worker processes. After that, the master process mostly stays out of the way. It listens for signals from the operating system administrator and manages the lifecycle of workers.</p>
+
+<p>Worker processes are where all the real work happens. Each worker runs a tight event loop that handles thousands of connections simultaneously. Workers do not communicate with each other during normal operation. There are no shared mutexes on the hot path. Each worker is an independent unit processing its own set of connections.</p>
+
+<p>The cache manager and cache loader are separate helper processes. The cache loader walks the disk cache on startup and populates the in-memory cache metadata. The cache manager handles eviction and expiry of cached responses during normal operation. Separating these out keeps the worker processes focused purely on serving requests.</p>
+
+<a name="Event-Driven.Architecture.Deep.Dive"></a>
+<h2>Event-Driven Architecture Deep Dive</h2>
+
+<p>This is the section where NGINX starts to look like a fundamentally different kind of system. Most developers are used to thinking about concurrent programs in terms of threads. You have work to do, so you give it a thread. More work means more threads. NGINX rejects this model entirely.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Event Loop];
+B[epoll wait];
+C[Event Queue];
+D[Read Event Handler];
+E[Write Event Handler];
+F[Timer Event Handler];
+G[Connection Accept];
+H[Request Parse];
+I[Upstream Connect];
+J[Response Send];
+
+A &#8211;> B;
+B &#8211;>|Events Ready| C;
+C &#8211;> D;
+C &#8211;> E;
+C &#8211;> F;
+D &#8211;> H;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+E &#8211;> J;
+F &#8211;>|Timeout Check| A;
+J &#8211;> A;
+</div>
+
+
+<p>The fundamental primitive NGINX relies on is called epoll on Linux (kqueue on BSD and macOS). Epoll is a kernel mechanism for monitoring large numbers of file descriptors efficiently. A file descriptor is just an integer that refers to an open resource — a socket, a file, a pipe. When you have 50,000 connections open, each connection is a file descriptor.</p>
+
+<p>With the old select() and poll() syscalls, your program would hand the kernel a list of all file descriptors to watch, and the kernel would scan through them all to see which ones were ready. This is O(n) work for every single poll, meaning it got slower as you had more connections. Epoll fixes this by maintaining the watch list inside the kernel and only returning the file descriptors that are actually ready. If you have 50,000 connections but only 200 have data available, epoll returns only those 200. The cost is proportional to activity, not to total connection count.</p>
+
+<p>Here is the mental model for a single NGINX worker. It calls epoll_wait() and goes to sleep. The kernel watches all the sockets. When data arrives on any socket, or when a socket becomes writable, the kernel wakes up the worker and hands it a list of ready events. The worker processes each ready event by calling a non-blocking read or write. If a read would block because no data is available yet, the worker does not wait. It registers interest in that file descriptor with epoll and moves on to handle the next event.</p>
+
+<p>This is the key insight: the worker process never blocks. It is always either doing useful work or sleeping in epoll_wait waiting for the kernel to tell it something is ready. There is no wasted time spinning on a connection that has not received data yet.</p>
+
+<p>Compare this to the thread-per-connection model. With threads, when a connection has no data, the thread blocks on a read() syscall. The OS scheduler has to context switch it out and bring in another thread. That context switch costs somewhere between 1 and 10 microseconds. At thousands of connections, context switching overhead starts dominating your CPU usage. You end up spending more time managing threads than doing actual work.</p>
+
+<p>NGINX avoids all of that. The worker&rsquo;s event loop is essentially a tightly controlled state machine. Every connection is represented as a lightweight struct with a current state. When an event fires, the worker looks up the connection struct, calls the appropriate handler function, updates the state, and moves on. The entire operation stays in the same thread and the same CPU core. CPU cache locality is excellent.</p>
+
+<a name="Master.and.Worker.Process.Model"></a>
+<h2>Master and Worker Process Model</h2>
+
+<p>The master process is responsible for things that happen infrequently but matter a great deal: starting up, reloading configuration, upgrading the binary, and shutting down gracefully.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Admin sends SIGHUP];
+B[Master Process receives signal];
+C[Master reads new config];
+D[Config valid?];
+E[Master forks new workers];
+F[New workers start accepting];
+G[Old workers drain connections];
+H[Old workers exit];
+I[Log error];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;>|Yes| E;
+D &#8211;>|No| I;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>When you send NGINX a SIGHUP signal, it performs a zero-downtime reload. The master process reads the new configuration file and validates it. If valid, it forks new worker processes that use the new configuration. The old workers are told to stop accepting new connections. They finish processing whatever connections are already open, then exit. During this entire process, no client experiences a dropped connection. From the client&rsquo;s perspective, the reload is invisible.</p>
+
+<p>This is one of the engineering properties that makes NGINX production-friendly. You can push a configuration change to a live server with zero downtime, no service interruption, and no dropped connections.</p>
+
+<p>Worker processes are pinned to CPU cores in production deployments using worker_cpu_affinity. This is important for cache efficiency. When a process always runs on the same core, its data stays hot in the L1 and L2 caches. Context switching across cores would constantly invalidate those caches. For a latency-sensitive system like a web proxy, these cache misses add up.</p>
+
+<p>The number of worker processes is typically set to the number of CPU cores. One worker per core is the right starting point because the workers spend most of their time either in epoll_wait or doing I/O. They are not CPU-bound. Adding more workers than cores usually just creates contention without improving throughput.</p>
+
+<a name="Request.Processing.Lifecycle"></a>
+<h2>Request Processing Lifecycle</h2>
+
+<p>Let&rsquo;s trace a single HTTP request through NGINX from the moment the TCP connection arrives to the moment the response is sent back.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Client TCP SYN];
+B[Kernel accept queue];
+C[NGINX epoll event];
+D[Worker accepts connection];
+E[TLS handshake if HTTPS];
+F[HTTP request parsing];
+G[Location matching];
+H[Upstream selection];
+I[Backend connection pool check];
+J[New TCP to backend or reuse];
+K[Forward request headers];
+L[Backend processes request];
+M[Read backend response];
+N[Buffer response];
+O[Send response to client];
+P[Keep-alive or close];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> L;
+L &#8211;> M;
+M &#8211;> N;
+N &#8211;> O;
+O &#8211;> P;
+</div>
+
+
+<p>When a client initiates a TCP connection, the kernel completes the three-way handshake and places the connection in the kernel&rsquo;s accept queue. The socket bound by the NGINX master process becomes readable. Epoll fires an event. The worker calls accept() to pull the connection out of the queue and gets a file descriptor for the new socket.</p>
+
+<p>If this is an HTTPS connection, the TLS handshake happens next. NGINX handles this using OpenSSL or a compatible library. The handshake involves certificate validation, cipher negotiation, and key exchange. This is computationally expensive, which is why NGINX supports TLS session resumption — clients that have recently connected can present a session ticket and skip most of the handshake.</p>
+
+<p>Once the connection is established, NGINX reads the HTTP request. HTTP/1.1 is a text protocol, so NGINX parses the headers byte by byte, looking for the method, URI, and headers. This parsing is fast and allocation-light. NGINX avoids copying data whenever possible.</p>
+
+<p>With the request parsed, NGINX evaluates the location blocks in the configuration to determine how to handle the request. Location matching is done using a combination of prefix matching and regex matching. The most specific prefix match wins, unless a regex match applies. NGINX compiles regex patterns at startup so matching is fast.</p>
+
+<p>Once the location is determined, NGINX knows what to do: serve a static file, proxy to an upstream, return a redirect, or apply some other directive. If proxying, it selects a backend using the configured load balancing algorithm, checks whether there is a keepalive connection to that backend already in the pool, and either reuses it or opens a new TCP connection.</p>
+
+<p>The request is forwarded to the backend with appropriate headers added: X-Real-IP, X-Forwarded-For, Host, and any custom headers configured. NGINX then reads the backend response. If proxy_buffering is on, NGINX reads the full response into a buffer before sending it to the client. This decouples the backend from slow clients. If buffering is off, NGINX pipes the response directly, which reduces latency but means the backend stays connected until the client finishes reading.</p>
+
+<p>Finally, NGINX sends the response back to the client. If keep-alive is enabled, the connection stays open and the state machine resets to wait for the next request. If not, the connection is closed and the file descriptor is returned to the kernel.</p>
+
+<a name="Reverse.Proxy.Internals"></a>
+<h2>Reverse Proxy Internals</h2>
+
+<p>The reverse proxy is where NGINX adds enormous value in real production systems. Without a reverse proxy, your application server is directly exposed to the internet. It has to deal with slow clients, malformed requests, connection floods, and TLS negotiation all by itself.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Slow Client];
+B[Fast Client];
+C[NGINX Reverse Proxy];
+D[Backend App Server];
+E[Backend App Server];
+
+A &#8211;>|Slow upload| C;
+B &#8211;>|Fast request| C;
+C &#8211;>|Buffered full request| D;
+C &#8211;>|Buffered full request| E;
+D &#8211;>|Response| C;
+E &#8211;>|Response| C;
+C &#8211;>|Slow delivery| A;
+C &#8211;>|Fast delivery| B;
+</div>
+
+
+<p>One of the most important things a reverse proxy does is protect backends from slow clients. Imagine a client on a mobile connection uploading a 10MB file at 100KB/s. Without a proxy, your application server has to hold a thread or connection open for 100 seconds waiting for the upload to complete. With NGINX, the proxy buffers the entire upload first, then sends it to the backend in a burst over the fast internal network. The backend sees a fast request and finishes quickly. It never has to deal with the slow client.</p>
+
+<p>NGINX maintains connection pools to backends. Opening a new TCP connection takes time — the three-way handshake, potential TLS handshake, and kernel allocations. With connection pooling using the keepalive directive in an upstream block, NGINX keeps a set of idle connections to each backend. When a request arrives, it reuses an existing connection rather than opening a new one. This dramatically reduces latency, especially for HTTPS backends.</p>
+
+<p>Timeout handling is critical. NGINX has separate timeout values for proxy_connect_timeout, proxy_read_timeout, and proxy_send_timeout. If a backend takes too long to respond, NGINX can close the connection, optionally retry on a different backend, and return an error to the client. This prevents a slow or hung backend from holding connections indefinitely and consuming resources.</p>
+
+<a name="Load.Balancing.System"></a>
+<h2>Load Balancing System</h2>
+
+<p>NGINX&rsquo;s load balancer is deliberately simple, and that simplicity is a feature. Complex load balancing algorithms are hard to reason about under failure conditions.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Incoming Request];
+B[NGINX Load Balancer];
+C[Round Robin Selector];
+D[Backend 1 healthy];
+E[Backend 2 unhealthy];
+F[Backend 3 healthy];
+G[Health Check Process];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;>|Request 1| D;
+C &#8211;>|Skip| E;
+C &#8211;>|Request 2| F;
+G &#8211;>|Check| E;
+G &#8211;>|Mark healthy or unhealthy| E;
+</div>
+
+
+<p>Round robin is the default. Each request goes to the next backend in the list. It is simple, predictable, and fair. It works well when backends are homogeneous and requests are roughly equal in cost.</p>
+
+<p>Least connections sends each request to the backend with the fewest active connections. This works better when requests have variable processing time. A backend that is slow on one request does not get buried with more requests while other backends are idle.</p>
+
+<p>IP hash routes each client IP to the same backend consistently. This is used for sticky sessions when your application stores session state on the backend server rather than in a shared store like Redis. It has a significant failure mode: if that backend dies, all those clients have their sessions invalidated. For this reason, most modern architectures avoid relying on sticky sessions.</p>
+
+<p>Weighted round robin lets you send more traffic to backends with more capacity. If one backend has twice the CPU as the others, you give it double the weight and it receives double the requests.</p>
+
+<p>Health checks are either passive or active. Passive health checks work by observing failures. If a backend returns 5xx errors or times out, NGINX marks it as failed and stops sending traffic for a configurable period. Active health checks (available in NGINX Plus) send synthetic requests to backends on a schedule and remove them from rotation proactively.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Algorithm</th>
+        <th>Best Use Case</th>
+        <th>Weakness</th>
+        <th>Session Affinity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Round Robin</td>
+        <td>Homogeneous backends, uniform request cost</td>
+        <td>Ignores backend load</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>Least Connections</td>
+        <td>Variable request processing time</td>
+        <td>More state to track</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>IP Hash</td>
+        <td>Session state on backend</td>
+        <td>Uneven load, hard failover</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td>Weighted Round Robin</td>
+        <td>Heterogeneous backend capacity</td>
+        <td>Requires manual weight tuning</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>Random with two choices</td>
+        <td>Large backend pools</td>
+        <td>Less predictable</td>
+        <td>No</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Static.File.Serving.Optimization"></a>
+<h2>Static File Serving Optimization</h2>
+
+<p>NGINX is extremely fast at serving static files, and the reason comes down to a Linux syscall called sendfile(). Normally, serving a file requires two copies: one from the kernel&rsquo;s page cache into userspace memory, and another from userspace memory into the socket buffer. With sendfile(), the kernel copies data directly from the page cache to the socket buffer without ever bringing it into userspace. This is called zero-copy.</p>
+
+<p>The benefit is twofold. First, you eliminate the memory copy, which saves CPU cycles and memory bandwidth. Second, the data stays inside the kernel, which means one fewer context switch between kernel mode and user mode.</p>
+
+<p>The kernel&rsquo;s page cache is also critical here. The first time NGINX reads a file, the kernel reads it from disk and caches the pages in RAM. Every subsequent read returns from the cache without touching the disk at all. For a server serving the same popular static assets repeatedly, the hot files stay permanently in cache and disk I/O is essentially zero.</p>
+
+<p>NGINX also supports TCP_NOPUSH and TCP_NODELAY socket options to optimize how the kernel sends data. TCP_NOPUSH tells the kernel to batch data into larger TCP segments rather than sending many small packets. This reduces network overhead significantly when sending large responses.</p>
+
+<a name="Caching.System"></a>
+<h2>Caching System</h2>
+
+<p>NGINX implements a full reverse proxy cache that can dramatically reduce load on backend systems.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Incoming Request];
+B[Cache key generation];
+C[Cache lookup];
+D[Cache hit];
+E[Cache miss];
+F[Backend request];
+G[Response received];
+H[Cache store];
+I[Send cached response];
+J[Send fresh response];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+D &#8211;> I;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> J;
+</div>
+
+
+<p>The cache key is typically derived from the request URI and optionally other headers like the Host header. When a request arrives, NGINX hashes the key and looks it up in a shared memory zone that contains cache metadata. If there is a hit and the cached entry has not expired, NGINX serves the response directly from disk without touching the backend at all.</p>
+
+<p>Microcaching is an interesting technique where you cache responses for very short periods, sometimes as little as 1 second. For high-traffic endpoints, even 1 second of caching means a thousand requests per second hit the backend only once. The response might be slightly stale, but for most use cases that is completely acceptable.</p>
+
+<p>Cache invalidation is the hard part. NGINX does not support active cache invalidation by default in the open source version. You can work around this by using cache keys that include version numbers or content hashes, so a new version naturally gets a new cache key. Stale responses are handled by proxy_cache_use_stale, which lets NGINX serve a stale cached response if the backend is slow or returning errors. This dramatically improves resilience.</p>
+
+<a name="TLS.and.HTTPS.Internals"></a>
+<h2>TLS and HTTPS Internals</h2>
+
+<p>TLS termination is one of the most computationally expensive things NGINX does. A TLS handshake requires asymmetric cryptography — RSA or ECDSA operations — that are orders of magnitude slower than symmetric operations like AES.</p>
+
+<p>NGINX uses OpenSSL (or BoringSSL in some deployments) for TLS operations. Modern servers use hardware acceleration for AES-NI instructions, which brings the cost of symmetric encryption to almost nothing. But the handshake is still expensive.</p>
+
+<p>Session resumption is critical for TLS performance. NGINX supports both session tickets and session IDs. With session tickets, the server encrypts its session state and gives it to the client. On the next connection, the client presents the ticket, and the server decrypts it to restore the session without going through the full handshake. This reduces handshake latency from several round trips to one.</p>
+
+<p>HTTP/2 multiplexes multiple requests over a single TLS connection. Instead of one request per connection, a client can have dozens of in-flight requests over a single TCP stream. NGINX supports HTTP/2 natively. For backend connections, NGINX can also proxy to backends over HTTP/2, though in practice many backend connections still use HTTP/1.1 with keepalive because backends often live on a trusted internal network where TLS overhead matters less.</p>
+
+<a name="WebSocket.and.Streaming.Support"></a>
+<h2>WebSocket and Streaming Support</h2>
+
+<p>WebSocket is a protocol that starts as HTTP and then upgrades to a full-duplex persistent connection. NGINX supports WebSocket proxying by detecting the Upgrade and Connection headers in the HTTP handshake and then switching the connection into a transparent tunnel mode.</p>
+
+<p>Once in tunnel mode, NGINX does not interpret the data flowing through the connection. It simply reads from one side and writes to the other. The connection stays open indefinitely until either side closes it. This means NGINX has to track long-lived connections differently from normal HTTP connections. Timeouts need to be adjusted because a WebSocket connection that is idle is not necessarily broken — it might just be waiting for an event.</p>
+
+<p>Streaming HTTP responses, like server-sent events or chunked transfer encoding, work similarly. NGINX buffers responses to protect backends from slow clients. For streaming, you typically want to disable buffering with proxy_buffering off so that chunks are sent to the client as soon as they arrive from the backend, rather than accumulating in a buffer first.</p>
+
+<a name="Rate.Limiting.and.Security"></a>
+<h2>Rate Limiting and Security</h2>
+
+<p>NGINX implements rate limiting using the leaky bucket algorithm. You define a zone in shared memory that tracks request rates per key (usually IP address). Requests that arrive faster than the configured rate are either delayed or rejected with a 429 status.</p>
+
+<p>The two main directives are limit_req and limit_conn. limit_req controls the rate of requests over time. limit_conn controls the number of simultaneous connections from a single client. Together, they are your first line of defense against abusive clients and simple DDoS attacks.</p>
+
+<p>Rate limiting in NGINX works at the worker level, using shared memory zones that all workers can read and write. The shared memory is protected by a lightweight mutex. This is one of the few places where NGINX workers communicate during the hot path, and it is engineered to be fast.</p>
+
+<p>For DDoS mitigation at scale, NGINX rate limiting is useful but limited. It sees traffic after it has reached your server. Real DDoS protection happens further upstream at the CDN or anycast edge. But for protecting a backend against accidental traffic spikes or specific abusive clients, NGINX rate limiting is very effective.</p>
+
+<a name="NGINX.Kernel.Interaction"></a>
+<h2>NGINX Kernel Interaction</h2>
+
+<p>Understanding how NGINX interacts with the Linux kernel is what separates a deep understanding of NGINX from a surface-level one.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[NGINX Worker Process];
+B[epoll instance];
+C[Linux Kernel];
+D[TCP Socket Buffers];
+E[Network Interface];
+F[Page Cache];
+G[File System];
+
+A &#8211;>|epoll_wait| B;
+B &#8211;>|Kernel monitors fds| C;
+C &#8211;>|Packet arrives| E;
+E &#8211;>|DMA to| D;
+D &#8211;>|Readable event| B;
+B &#8211;>|Wakeup worker| A;
+A &#8211;>|read syscall| D;
+A &#8211;>|sendfile syscall| F;
+F &#8211;>|Read from disk| G;
+F &#8211;>|Write to socket| D;
+</div>
+
+
+<p>When a network packet arrives, the network interface card uses DMA (Direct Memory Access) to copy the packet into the kernel&rsquo;s socket receive buffer without CPU involvement. The kernel then fires an interrupt, processes the packet, reassembles TCP segments, and marks the associated socket as readable. Epoll, which was watching that socket, adds it to the ready list. The next time the worker calls epoll_wait(), it receives the event and calls read() to pull the data out of the buffer.</p>
+
+<p>The socket buffers are a critical resource. The kernel&rsquo;s TCP receive buffer holds incoming data until the application reads it. The send buffer holds outgoing data until it can be transmitted. If your application is slow to read, the receive buffer fills up, which causes TCP flow control to kick in — the kernel tells the sender to slow down. NGINX avoids this by always reading data promptly in its event loop.</p>
+
+<p>The kernel&rsquo;s TCP stack also handles accept queues. When connections arrive faster than NGINX can call accept(), the kernel queues them. The backlog parameter controls how many connections can wait in this queue. If the queue fills up, the kernel starts dropping SYN packets, which causes clients to see connection timeouts. In high-traffic deployments, tuning net.core.somaxconn and net.ipv4.tcp_max_syn_backlog is essential.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Kernel Parameter</th>
+        <th>What It Controls</th>
+        <th>Production Consideration</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>net.core.somaxconn</td>
+        <td>Maximum accept queue depth per socket</td>
+        <td>Increase to 65535 under heavy load</td>
+      </tr>
+      <tr>
+        <td>net.ipv4.tcp_max_syn_backlog</td>
+        <td>Maximum incomplete connections</td>
+        <td>Increase to handle connection bursts</td>
+      </tr>
+      <tr>
+        <td>net.ipv4.tcp_tw_reuse</td>
+        <td>Reuse TIME_WAIT sockets faster</td>
+        <td>Enable to reduce ephemeral port exhaustion</td>
+      </tr>
+      <tr>
+        <td>net.core.rmem_max</td>
+        <td>Maximum TCP receive buffer size</td>
+        <td>Increase for high-bandwidth connections</td>
+      </tr>
+      <tr>
+        <td>fs.file-max</td>
+        <td>Maximum open file descriptors system-wide</td>
+        <td>Must exceed total expected connections</td>
+      </tr>
+      <tr>
+        <td>worker_rlimit_nofile</td>
+        <td>Per-process file descriptor limit for NGINX</td>
+        <td>Set to match expected connections per worker</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The file descriptor limit deserves special attention. On Linux, every socket is a file descriptor. If NGINX handles 100,000 connections, it needs at least 100,000 open file descriptors. Plus more for open files, logs, and upstream connections. The default per-process limit on many systems is 1024, which is hopelessly inadequate. Production NGINX deployments set worker_rlimit_nofile to something like 100000.</p>
+
+<a name="Scaling.NGINX"></a>
+<h2>Scaling NGINX</h2>
+
+<p>A single NGINX instance can handle an enormous amount of traffic, but there are limits. At some point, you need to scale horizontally.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Anycast IP or DNS load balanced];
+B[NGINX Edge Node Region 1];
+C[NGINX Edge Node Region 2];
+D[NGINX Edge Node Region 3];
+E[Origin NGINX Cluster];
+F[Backend Application Cluster];
+G[Database Layer];
+
+A &#8211;> B;
+A &#8211;> C;
+A &#8211;> D;
+B &#8211;> E;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p>The first scaling lever is multi-core optimization. NGINX worker processes are independent, so adding CPU cores and matching workers scales linearly up to the point where the network interface card becomes the bottleneck. For a 10Gbps NIC, that bottleneck happens somewhere around 1 million requests per second for small responses.</p>
+
+<p>Beyond a single machine, you add more NGINX instances behind a hardware load balancer or DNS round robin. For geographic distribution, you deploy NGINX at edge locations in different regions and use anycast or geographic DNS routing to send clients to the nearest edge.</p>
+
+<p>Kernel-level features like SO_REUSEPORT allow multiple NGINX worker processes to each have their own accept queue for the same port. Without SO_REUSEPORT, all workers compete to call accept() on a single listening socket, which creates contention. With SO_REUSEPORT, the kernel distributes incoming connections evenly across the workers&#8217; separate accept queues, eliminating that lock contention entirely.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Zero-downtime operation is a core NGINX design goal. The hot-reload mechanism we discussed earlier handles configuration changes. Binary upgrades work similarly — you can replace the NGINX binary on disk and perform a live upgrade without dropping connections.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Backend returns 5xx];
+B[NGINX passive health check];
+C[Failure threshold reached];
+D[Backend marked unavailable];
+E[Traffic redirected to healthy backends];
+F[Retry timer expires];
+G[Test request sent];
+H[Backend healthy];
+I[Backend returns to rotation];
+
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+D &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p>When a backend fails, NGINX&rsquo;s passive health checking detects the failures and temporarily stops routing to that backend. The proxy_next_upstream directive controls what counts as a failure worth retrying. You can configure NGINX to retry on connection errors, timeouts, and specific HTTP status codes. It will try the next backend in the pool automatically.</p>
+
+<p>For observability, NGINX logs every request with configurable detail in the access log. The error log captures anything unexpected. NGINX Plus adds a real-time metrics API. In open-source NGINX, you typically use tools like Prometheus with an nginx-prometheus-exporter to scrape metrics, or parse logs with a tool like Filebeat sending to Elasticsearch.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>The event-driven architecture that makes NGINX so efficient also imposes constraints. NGINX worker processes cannot do blocking operations. If you need to run a slow computation, talk to a database, or call a blocking API, you cannot do it in the worker&rsquo;s event loop without blocking the entire worker. This is why Lua scripting in NGINX (via OpenResty) is written to be non-blocking, using coroutines that yield when waiting for I/O.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Decision</th>
+        <th>NGINX Choice</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Concurrency Model</td>
+        <td>Event loop with epoll</td>
+        <td>Scales to millions of connections, but blocking code kills performance</td>
+      </tr>
+      <tr>
+        <td>Process vs Thread</td>
+        <td>Worker processes</td>
+        <td>Isolation and stability, but no shared state between workers</td>
+      </tr>
+      <tr>
+        <td>Response Buffering</td>
+        <td>Buffer by default</td>
+        <td>Protects backends, increases latency for streaming</td>
+      </tr>
+      <tr>
+        <td>Caching</td>
+        <td>Disk-based cache</td>
+        <td>Survives restarts, slower than in-memory</td>
+      </tr>
+      <tr>
+        <td>Load Balancing</td>
+        <td>Simple algorithms</td>
+        <td>Predictable and debuggable, not adaptive</td>
+      </tr>
+      <tr>
+        <td>Configuration</td>
+        <td>Static config files</td>
+        <td>Simple to audit, requires reload for changes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Buffering versus streaming is a real tension. Buffering the full response from the backend before sending to the client protects the backend from slow clients and reduces backend connection hold time. But for streaming APIs, chatbots, or live video, buffering defeats the purpose. You want bytes flowing to the client as fast as they arrive. The right choice depends entirely on your use case.</p>
+
+<p>The static configuration file model is both a strength and a weakness. It is auditable, version-controllable, and simple to reason about. But dynamic routing changes require a reload. For Kubernetes environments where backends change constantly, this creates friction. This is why tools like NGINX Kubernetes Ingress Controller exist — they watch the Kubernetes API and dynamically generate NGINX configurations and trigger reloads.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>NGINX is written in C, which gives it direct access to Linux system calls without the overhead of a managed runtime. There is no garbage collector pausing at inconvenient moments, no JIT compilation latency, and no abstraction layers between the code and the kernel.</p>
+
+<p>OpenSSL handles all the cryptography. It is battle-tested, hardware-accelerated, and continuously audited. Some high-security deployments use BoringSSL, Google&rsquo;s fork, which has a smaller and more conservative API surface.</p>
+
+<p>Lua, through the ngx_http_lua_module (part of OpenResty), provides a scripting layer that runs inside the NGINX event loop. You can write non-blocking Lua code that talks to Redis, makes HTTP subrequests, modifies headers, and implements custom authentication logic. OpenResty effectively turns NGINX into a programmable platform.</p>
+
+<p>In Kubernetes, NGINX is widely used as the ingress controller. It watches Kubernetes Service and Ingress resources through the API server and dynamically generates and reloads its upstream configuration. This closes the gap between NGINX&rsquo;s static configuration model and Kubernetes&rsquo;s dynamic service discovery.</p>
+
+<p>HTTP/2 and HTTP/3 (QUIC) are increasingly important. HTTP/2 multiplexing reduces the overhead of many small requests. HTTP/3 moves from TCP to QUIC, which handles packet loss more gracefully and eliminates head-of-line blocking at the transport layer. NGINX has experimental HTTP/3 support, and the ecosystem is moving in that direction.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design an API gateway, a CDN edge node, or a high-throughput proxy, they are essentially asking you to design something NGINX-like. Here is how to think about it.</p>
+
+<p>Start by clarifying the problem. How many requests per second? What is the acceptable latency? Do we need TLS termination? Is the backend pool static or dynamic? Do we need caching? Rate limiting? The answers to these questions drive the architecture.</p>
+
+<p>When explaining concurrency, mention the event-driven model explicitly. Say that thread-per-connection does not scale to hundreds of thousands of connections because of memory and context-switching overhead. Explain that an event loop with non-blocking I/O handles this by never blocking — the process is always either handling a ready event or sleeping in epoll waiting for one.</p>
+
+<p>Strong candidates discuss the full lifecycle: TCP acceptance, request buffering, location matching, upstream selection, connection pooling, response buffering, and keep-alive. They also discuss what happens when things go wrong — backend timeouts, health check failures, buffer exhaustion, file descriptor limits.</p>
+
+<p>Weak answers focus only on the happy path. They describe NGINX as &ldquo;it forwards requests to backends&rdquo; without discussing the engineering underneath. They do not mention the event loop, epoll, connection pooling, zero-copy file serving, or how configuration reloads work without downtime.</p>
+
+<p>A question specifically about load balancing should cover at minimum: algorithm choices and their tradeoffs, health check mechanisms, what happens during backend failure, how you handle draining connections during a deploy, and the limits of session affinity.</p>
+
+<p>When discussing scaling, strong candidates layer the answer. Single server first: worker processes matching CPU cores, SO_REUSEPORT, kernel tuning. Then horizontal scaling with multiple NGINX instances. Then geographic distribution with anycast and edge caching. Then integration with a CDN. Each layer has a cost and a reason.</p>
+
+<p>The most impressive thing you can do in a system design interview is explain the tradeoffs honestly. If you choose buffering over streaming, explain what you gain and what you give up. If you choose round-robin over least-connections, explain when that choice breaks down. Real engineers make principled tradeoffs, not perfect decisions.</p>
+
+<p>NGINX is a masterclass in doing one set of things extremely well. It does not try to be a database, a message queue, or an application runtime. It sits on the network edge, handles connections efficiently, routes requests intelligently, and gets out of the way. That clarity of purpose, executed with deep engineering discipline, is what makes it the foundation of so much of the internet&rsquo;s infrastructure.</p>
+
+<p>The more you understand the systems underneath — epoll, socket buffers, the page cache, process isolation, zero-copy — the more natural NGINX&rsquo;s design choices feel. They are not arbitrary. Every decision traces back to a real constraint in the underlying system. That is what good systems engineering looks like.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Google Search Works?]]></title>
@@ -2609,920 +3250,6 @@ F &#8211;> G;
 <p>Understanding how YouTube works is not just useful for interviews. It is a masterclass in the engineering mindset that every distributed systems problem demands: humility about the complexity of scale, clarity about tradeoffs, and a willingness to say &ldquo;this design works until it doesn&rsquo;t, and when it doesn&rsquo;t, here is what we will do.&rdquo;</p>
 
 <p>That is the engineering that keeps a street cat video playing smoothly for all three billion of its viewers.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Airbnb Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-airbnb-works/"/>
-        <updated>2026-05-11T09:21:17+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-airbnb-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>Every time you search for a place to stay in Tokyo, lock in a booking for next weekend in Lisbon, or message a host about parking — you&rsquo;re touching a system that handles millions of concurrent users, real-time availability across 7 million listings, payment transactions in dozens of currencies, and geo-spatial searches across the entire planet. Let&rsquo;s pull back the curtain.</em></p></blockquote>
-
-<p><img src="/images/system_design/airbnb.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>Airbnb is one of the most fascinating systems to think about from an engineering standpoint. Not because any single piece is extraordinarily novel on its own, but because the combination of problems they have to solve simultaneously is genuinely hard.</p>
-
-<p>You have geo-spatial search that needs to return results in under 200ms. You have a booking system that must never double-book a property, even when two guests are clicking &ldquo;Reserve&rdquo; at the exact same millisecond. You have dynamic pricing that shifts based on local events, season, and demand signals. You have payments flowing across 220+ countries with fraud detection running on every transaction. And you have to do all of this reliably for a platform where a single outage during peak travel season means real money lost for real hosts around the world.</p>
-
-<p>As of recent years, Airbnb has over 7 million active listings in 220+ countries, serves hundreds of millions of guest arrivals per year, and sees traffic spikes that correlate with holiday seasons, major events, and even viral social media moments. That&rsquo;s the scale we&rsquo;re designing for.</p>
-
-<!--more-->
-
-
-<p>Let&rsquo;s get into it.</p>
-
-<a name="Core.Features.and.Why.They.re.Harder.Than.They.Look"></a>
-<h2>Core Features and Why They&rsquo;re Harder Than They Look</h2>
-
-<p>Before diving into architecture, it&rsquo;s worth understanding what Airbnb actually does — and specifically what makes each feature technically interesting.</p>
-
-<p><strong>Property Listings:</strong> Hosts create listings with photos, descriptions, amenities, house rules, and availability calendars. Simple to describe, but storing and serving millions of rich media listings at low latency requires careful thinking about storage, CDN strategy, and search indexing.</p>
-
-<p><strong>Search:</strong> Guests search by location, dates, guest count, price range, and amenities. The geo-spatial nature of this — &ldquo;show me listings within a 5km radius of these coordinates&rdquo; — combined with real-time availability filtering makes this one of the hardest search problems at scale.</p>
-
-<p><strong>Booking:</strong> A guest selects dates and clicks Reserve. The system must verify availability in real-time, hold the inventory, process payment, and confirm the booking — all without any other guest booking the same property for the same dates in that window. Race conditions here are not hypothetical; they happen constantly at scale.</p>
-
-<p><strong>Availability Calendar:</strong> Each listing has a calendar showing which dates are blocked (already booked, or blocked by the host) and which are open. This calendar must stay consistent across the host&rsquo;s interface, the guest-facing search, and the booking system simultaneously.</p>
-
-<p><strong>Dynamic Pricing:</strong> Hosts can set base prices, but Airbnb&rsquo;s smart pricing system suggests (and with Smart Pricing enabled, automatically adjusts) nightly rates based on local demand, comparable listings, seasonal patterns, and upcoming events. Computing this in real-time for millions of listings is a significant data pipeline challenge.</p>
-
-<p><strong>Reviews and Messaging:</strong> Both reviews and the host-guest messaging system sound straightforward. But reviews have integrity concerns (preventing fake reviews, handling disputes), and messaging needs to work reliably even when either party is offline, with proper notification delivery across email, SMS, and push.</p>
-
-<p>Each of these features alone would be a substantial engineering problem. Airbnb runs all of them simultaneously at global scale.</p>
-
-<a name="High-Level.Architecture"></a>
-<h2>High-Level Architecture</h2>
-
-<p>Let&rsquo;s start with the 30,000-foot view and then drill down.</p>
-
-<div class="mermaid">
-flowchart TB;
-
-subgraph Clients
-A1[Web Browser];
-A2[iOS App];
-A3[Android App];
-end;
-
-subgraph CDN
-B[Static Assets Images Map Tiles];
-end;
-
-subgraph Gateway
-C[Rate Limiting Auth Routing];
-end;
-
-subgraph Core
-D1[Listing Service];
-D2[Search Service];
-D3[Booking Service];
-D4[Payment Service];
-D5[User Service];
-D6[Messaging Service];
-D7[Notification Service];
-D8[Pricing Service];
-D9[Review Service];
-end;
-
-subgraph Streaming
-E[Async Event Streaming];
-end;
-
-subgraph Data
-F1[PostgreSQL];
-F2[Elasticsearch];
-F3[Redis];
-F4[Amazon S3];
-F5[Cassandra];
-end;
-
-A1 &#8211;> B;
-A2 &#8211;> B;
-A3 &#8211;> B;
-B &#8211;> C;
-C &#8211;> D1;
-D1 &#8211;> E;
-E &#8211;> D7;
-D1 &#8211;> F1;
-
-</div>
-
-
-<p>This diagram gives you the skeleton. Now let me explain each layer and why it&rsquo;s designed this way.</p>
-
-<p><strong>CDN Layer:</strong> The first interceptor for all traffic. Airbnb serves listing photos, static JavaScript bundles, CSS, and map tiles from edge nodes distributed globally. The goal is to serve as much as possible without ever hitting the origin servers. A guest in Singapore loading a listing page should get images from a CDN node in Singapore, not from a data center in Virginia.</p>
-
-<p><strong>API Gateway:</strong> Every API request from mobile or web flows through a centralized gateway. This is where authentication tokens are validated, rate limiting is enforced (so no single client can hammer your APIs), and requests are routed to the correct downstream service. The gateway is also where you implement cross-cutting concerns like request logging and circuit breaking.</p>
-
-<p><strong>Microservices:</strong> Airbnb started as a Rails monolith (as many startups do) and gradually decomposed into services as different domains scaled at different rates. The search team needed to iterate on ranking independently of the booking team. The payment system needed stricter deployment controls than the review system. Microservices solve the organizational and scaling problem simultaneously — each service can be scaled, deployed, and maintained independently.</p>
-
-<p><strong>Kafka Event Bus:</strong> The connective tissue between services. When a booking is confirmed, the Booking Service publishes a <code>booking.confirmed</code> event to Kafka. The Notification Service picks it up and sends emails. The Pricing Service picks it up and recalculates availability-based demand scores. The Calendar Service picks it up and updates the listing&rsquo;s availability. Nobody is directly coupled to anybody else.</p>
-
-<a name="Search.System.Deep.Dive"></a>
-<h2>Search System Deep Dive</h2>
-
-<p>Search is where Airbnb earns its reputation for engineering sophistication. It is not a simple keyword search. It is a geo-spatial, date-filtered, availability-aware, personalized ranking problem that must return results in under 200 milliseconds.</p>
-
-<a name="The.Query.Anatomy"></a>
-<h3>The Query Anatomy</h3>
-
-<p>When a guest searches &ldquo;Paris, France — July 4–10, 2 guests, max $200/night,&rdquo; the search system needs to:</p>
-
-<ol>
-<li>Find all listings within a reasonable radius of Paris</li>
-<li>Filter to those that are available for all nights from July 4 to July 10</li>
-<li>Filter to those that accommodate at least 2 guests</li>
-<li>Filter to those priced at $200 or under</li>
-<li>Rank the results by a combination of relevance, quality, and personalization signals</li>
-<li>Return paginated results with photos, price, and ratings</li>
-</ol>
-
-
-<p>Each of these steps has scaling implications.</p>
-
-<a name="Geo-Spatial.Indexing"></a>
-<h3>Geo-Spatial Indexing</h3>
-
-<p>The core challenge is step 1: &ldquo;find listings near Paris.&rdquo; You cannot do this with a simple SQL query scanning millions of rows. You need a spatial index.</p>
-
-<p><strong>GeoHash</strong> is one of the most common approaches. GeoHash divides the world into a grid of cells, each represented by a short string. The key property is that strings that share a prefix are geographically close to each other. A listing with GeoHash <code>u09tvw</code> is near any other listing starting with <code>u09tv</code>. This lets you turn a radius query into a prefix query — orders of magnitude faster.</p>
-
-<pre><code>GeoHash precision levels:
-- Length 1  → ~5000 km cell
-- Length 4  → ~40 km cell
-- Length 6  → ~1.2 km cell
-- Length 8  → ~38 m cell
-</code></pre>
-
-<p>For a city-level search, you might use precision 5 or 6 to find candidate cells, then compute exact distances only for candidates. This two-phase approach — coarse candidate retrieval followed by fine-grained filtering — is the backbone of geo search at scale.</p>
-
-<p><strong>QuadTree</strong> is an alternative. Instead of a fixed grid, a QuadTree recursively subdivides space into quadrants based on listing density. Areas with many listings (Manhattan) get finer subdivisions. Areas with few listings (rural Montana) stay coarse. This adapts better to uneven distribution but is more complex to implement and maintain.</p>
-
-<p>Airbnb uses Elasticsearch (now OpenSearch-compatible) as its primary search index. Elasticsearch has native support for geo-point fields and geo queries, which abstracts a lot of the spatial indexing complexity while still leveraging inverted indexes for filtering.</p>
-
-<a name="The.Search.Flow"></a>
-<h3>The Search Flow</h3>
-
-<div class="mermaid">
-flowchart LR;
-
-%% Nodes
-A[Guest Search Request];
-B[Search Service];
-C[Parse and Validate Query];
-D{Check Redis Cache same query seen recently};
-E[Return Cached Results];
-F[Build Elasticsearch Query];
-G[Geo Filter Date Filter Price Filter Amenity Filter];
-H[Retrieve Candidate Listings];
-I[Fetch Availability from Booking Service];
-J[Apply Ranking Model quality and personalization];
-K[Store in Cache TTL 60s];
-L[Return Paginated Results];
-
-%% Flow
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-
-D &#8211;>|Cache Hit| E;
-D &#8211;>|Cache Miss| F;
-
-F &#8211;> G;
-G &#8211;> H;
-H &#8211;> I;
-I &#8211;> J;
-J &#8211;> K;
-K &#8211;> L;
-
-</div>
-
-
-<p>One subtle challenge here is the availability check in step I. Elasticsearch holds listing metadata, but real-time availability (which dates are blocked) lives in the booking system. Doing a live availability check for every candidate listing on every search query would be prohibitively expensive. The solution is a periodic sync: the booking system publishes availability updates to Kafka, and a consumer updates the availability data in Elasticsearch. There&rsquo;s a small lag — usually under a minute — but for search results this is acceptable. The final availability confirmation happens at booking time, not at search time.</p>
-
-<a name="Ranking"></a>
-<h3>Ranking</h3>
-
-<p>Once you have a set of available, filtered candidates, you need to rank them. The ranking model at Airbnb is a machine learning model (reportedly a gradient boosted tree followed by neural re-ranking) that scores each listing based on:</p>
-
-<ul>
-<li><strong>Listing quality signals:</strong> number and recency of reviews, average rating, response rate, acceptance rate</li>
-<li><strong>Price competitiveness:</strong> how this listing&rsquo;s price compares to similar listings in the area</li>
-<li><strong>Guest preferences:</strong> if the guest has searched before, what types of properties did they click? What did they book?</li>
-<li><strong>Host reliability:</strong> how often does this host cancel bookings? (A host with frequent cancellations gets penalized heavily in ranking)</li>
-<li><strong>Photo quality:</strong> Airbnb has trained models to assess photo quality and penalize listings with dark, blurry, or poorly composed photos</li>
-</ul>
-
-
-<p>This ranking is computed offline and stored as a score per listing. At query time, you retrieve candidates and sort by the precomputed score adjusted for query-specific context (distance from the searched location, for instance).</p>
-
-<a name="Pagination.Challenges"></a>
-<h3>Pagination Challenges</h3>
-
-<p>Geo-spatial pagination is awkward. When you page through results sorted by distance, a new listing being added (or an existing one becoming unavailable) can shift positions, causing duplicates or gaps between pages. Airbnb handles this with cursor-based pagination tied to a session token — the search state is snapshotted at query time and paginated results are pulled from that snapshot, not live data.</p>
-
-<a name="Booking.System.Deep.Dive"></a>
-<h2>Booking System Deep Dive</h2>
-
-<p>The booking system is where correctness trumps everything else. A search result being slightly stale is annoying. A double booking — two guests showing up at the same property on the same night — is a catastrophic failure that harms real people and destroys trust.</p>
-
-<a name="The.Booking.Workflow"></a>
-<h3>The Booking Workflow</h3>
-
-<div class="mermaid">
-sequenceDiagram;
-
-participant G as Guest;
-participant BS as Booking Service;
-participant PS as Payment Service;
-participant LS as Listing Service;
-participant NS as Notification Service;
-participant K as Kafka;
-
-G->>BS: Reserve listing_id dates guests;
-BS->>BS: Validate dates not in past;
-BS->>LS: Check availability;
-LS&#8211;>>BS: Available;
-
-BS->>BS: Acquire distributed lock;
-BS->>BS: Recheck availability;
-
-BS->>PS: Authorize payment hold;
-PS&#8211;>>BS: Authorization successful;
-
-BS->>BS: Create booking record pending;
-BS->>LS: Block dates on calendar;
-
-BS->>BS: Update booking confirmed;
-BS->>K: Publish booking confirmed;
-
-K->>NS: Send confirmation emails;
-
-BS&#8211;>>G: Booking confirmed;
-
-</div>
-
-
-<p>The critical section here is the distributed lock around step 4. Without it, two guests could both check availability (both see &ldquo;available&rdquo;), both proceed to payment, and both get a confirmed booking for the same dates. This is the classic time-of-check-to-time-of-use (TOCTOU) race condition.</p>
-
-<a name="Preventing.Double.Bookings"></a>
-<h3>Preventing Double Bookings</h3>
-
-<p>Airbnb uses a combination of strategies here:</p>
-
-<p><strong>Database-level constraints:</strong> The calendar table has a unique constraint on <code>(listing_id, date, status=BOOKED)</code>. Any second booking attempt for the same listing and date will fail with a unique violation at the database level. This is the last-resort guard.</p>
-
-<p><strong>Distributed locking with Redis:</strong> Before writing, the booking service acquires a Redis lock on the key <code>lock:listing:{listing_id}:dates:{date_range_hash}</code> using the <code>SET NX PX</code> command (set if not exists, with expiry). This provides mutual exclusion at the application layer, well before the database constraint fires. The lock has a TTL (say, 10 seconds) so that if the booking service crashes while holding the lock, it automatically releases.</p>
-
-<p><strong>Optimistic locking on the listing record:</strong> The listing record has a version number. When a booking is committed, it checks that the version hasn&rsquo;t changed since it was read. If another booking sneaked in between the read and the write, the version won&rsquo;t match, and the transaction is rolled back and retried.</p>
-
-<pre><code class="sql">-- Calendar table with uniqueness enforced at DB level
-CREATE TABLE listing_calendar (
-    listing_id    UUID NOT NULL REFERENCES listings(id),
-    date          DATE NOT NULL,
-    status        VARCHAR(20) NOT NULL, -- 'AVAILABLE', 'BOOKED', 'BLOCKED'
-    booking_id    UUID REFERENCES bookings(id),
-    PRIMARY KEY (listing_id, date)
-);
-
--- A UNIQUE partial index to prevent two BOOKED entries for same listing+date
-CREATE UNIQUE INDEX idx_listing_calendar_booked
-    ON listing_calendar (listing_id, date)
-    WHERE status = 'BOOKED';
-</code></pre>
-
-<a name="Handling.Payment.Failures"></a>
-<h3>Handling Payment Failures</h3>
-
-<p>Payment processing adds another layer of complexity. The sequence is:</p>
-
-<ol>
-<li>Authorize the payment (card is valid, funds reserved but not captured)</li>
-<li>Create the booking</li>
-<li>Capture the payment (money actually moves)</li>
-</ol>
-
-
-<p>If step 2 fails after step 1, you must release the payment authorization. If step 3 fails after step 2, you need to cancel the booking and release the hold. This two-phase approach (authorize then capture) is industry standard for exactly this reason — it gives you a window to back out before money actually moves.</p>
-
-<p>For handling partial failures, Airbnb uses a saga pattern — each step in the booking workflow publishes compensating events that can undo the step if a later step fails. The booking saga coordinator (often implemented as a state machine) tracks which steps have completed and orchestrates rollback when needed.</p>
-
-<a name="Database.Design"></a>
-<h2>Database Design</h2>
-
-<a name="Schema.Overview"></a>
-<h3>Schema Overview</h3>
-
-<pre><code class="sql">-- Users
-CREATE TABLE users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email           VARCHAR(255) UNIQUE NOT NULL,
-    password_hash   TEXT NOT NULL,
-    first_name      VARCHAR(100),
-    last_name       VARCHAR(100),
-    phone           VARCHAR(20),
-    profile_photo   TEXT,
-    verified        BOOLEAN DEFAULT FALSE,
-    created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Listings
-CREATE TABLE listings (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    host_id         UUID NOT NULL REFERENCES users(id),
-    title           VARCHAR(255) NOT NULL,
-    description     TEXT,
-    property_type   VARCHAR(50),   -- 'apartment', 'house', 'villa', etc.
-    room_type       VARCHAR(50),   -- 'entire_place', 'private_room', 'shared_room'
-    max_guests      INT NOT NULL,
-    bedrooms        INT,
-    bathrooms       DECIMAL(3,1),
-    latitude        DECIMAL(9,6) NOT NULL,
-    longitude       DECIMAL(9,6) NOT NULL,
-    geohash         VARCHAR(12),
-    city            VARCHAR(100),
-    country         VARCHAR(100),
-    base_price      DECIMAL(10,2) NOT NULL,
-    currency        VARCHAR(3) DEFAULT 'USD',
-    is_active       BOOLEAN DEFAULT TRUE,
-    version         INT DEFAULT 1,  -- for optimistic locking
-    created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Bookings
-CREATE TABLE bookings (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    listing_id      UUID NOT NULL REFERENCES listings(id),
-    guest_id        UUID NOT NULL REFERENCES users(id),
-    check_in        DATE NOT NULL,
-    check_out       DATE NOT NULL,
-    total_nights    INT NOT NULL,
-    total_price     DECIMAL(10,2) NOT NULL,
-    status          VARCHAR(20) NOT NULL,  -- 'PENDING','CONFIRMED','CANCELLED','COMPLETED'
-    payment_id      UUID,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Reviews
-CREATE TABLE reviews (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    booking_id      UUID UNIQUE NOT NULL REFERENCES bookings(id),
-    reviewer_id     UUID NOT NULL REFERENCES users(id),
-    listing_id      UUID NOT NULL REFERENCES listings(id),
-    overall_rating  INT CHECK (overall_rating BETWEEN 1 AND 5),
-    cleanliness     INT CHECK (cleanliness BETWEEN 1 AND 5),
-    communication   INT CHECK (communication BETWEEN 1 AND 5),
-    body            TEXT,
-    created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-</code></pre>
-
-<a name="SQL.vs.NoSQL.Decisions"></a>
-<h3>SQL vs NoSQL Decisions</h3>
-
-<p>The bookings, payments, and user accounts all live in PostgreSQL. This is deliberate. These are domains where transactional consistency is non-negotiable. A payment that debits a guest but doesn&rsquo;t credit the host (due to an eventual consistency lag) is a real financial incident. PostgreSQL&rsquo;s ACID guarantees and row-level locking make it the right tool here.</p>
-
-<p>The messaging system, on the other hand, is a better fit for Cassandra. Messages are append-only, read by conversation ID, and need to scale horizontally without complex joins. Cassandra&rsquo;s partition key model — <code>partition key: (conversation_id), clustering key: (timestamp)</code> — retrieves all messages in a conversation in time order with a single partition scan. That&rsquo;s exactly the access pattern you need.</p>
-
-<p>Search metadata lives in Elasticsearch. You can&rsquo;t do geo-queries, full-text search, and multi-faceted filtering efficiently in PostgreSQL at millions of listing scale. Elasticsearch is purpose-built for exactly this read pattern. The tradeoff is that data is duplicated — the authoritative record is in PostgreSQL, but a denormalized copy lives in Elasticsearch. Changes must be propagated via Kafka consumers to keep them in sync.</p>
-
-<p>Redis serves as the caching layer and the distributed locking mechanism. Session tokens, search result caches, rate limit counters, and booking locks all live in Redis. The data here is ephemeral by design — if Redis loses its data, you fall through to PostgreSQL. Redis never holds the authoritative record.</p>
-
-<a name="Indexing.and.Partitioning"></a>
-<h3>Indexing and Partitioning</h3>
-
-<pre><code class="sql">-- Geospatial index for fast radius queries
-CREATE INDEX idx_listings_geohash ON listings (geohash);
-CREATE INDEX idx_listings_lat_lng ON listings (latitude, longitude);
-
--- Booking lookups by listing (for availability checks)
-CREATE INDEX idx_bookings_listing_dates ON bookings (listing_id, check_in, check_out)
-    WHERE status IN ('PENDING', 'CONFIRMED');
-
--- Review aggregations by listing
-CREATE INDEX idx_reviews_listing ON reviews (listing_id);
-
--- Calendar range queries
-CREATE INDEX idx_calendar_listing_date ON listing_calendar (listing_id, date);
-</code></pre>
-
-<p>As the bookings table grows into hundreds of millions of rows, you partition it by <code>created_at</code> (range partitioning by month or quarter). Older partitions can be archived to cheaper storage. Most booking queries are for recent or upcoming bookings, so the hot partition is small and fast.</p>
-
-<a name="Pricing.and.Availability.System"></a>
-<h2>Pricing and Availability System</h2>
-
-<a name="Dynamic.Pricing"></a>
-<h3>Dynamic Pricing</h3>
-
-<p>Airbnb&rsquo;s Smart Pricing system is effectively a demand forecasting model. For each listing on each date, it estimates how much demand there will be and suggests a price that maximizes the host&rsquo;s expected revenue (not just occupancy — a fully-booked listing at too-low prices isn&rsquo;t optimal).</p>
-
-<p>Inputs to the pricing model:
-- Base price set by the host
-- Historical booking patterns for this listing and comparable listings
-- Seasonal demand curves for this market
-- Local events (concerts, conferences, sports events) detected from external data sources
-- Day-of-week effects (weekends vs weekdays)
-- Lead time (bookings made 6 months out vs 3 days out have different price sensitivity)
-- Current occupancy rate and remaining availability</p>
-
-<p>The pricing service runs as a batch job overnight for all listings, generating per-listing, per-date price recommendations. These are stored in a pricing table and served through a cache. When a guest views a listing, the price shown is the cached recommendation, not a live computation.</p>
-
-<div class="mermaid">
-flowchart LR;
-
-%% Nodes
-A[External Event Data Concerts Conferences];
-B[Historical Booking Data];
-C[Comparable Listings Data];
-D[Pricing ML Model batch nightly];
-E[Pricing Table PostgreSQL];
-F[Redis Cache TTL 1hr];
-G[Listing Service serves price to guests];
-
-%% Flow
-A &#8211;> D;
-B &#8211;> D;
-C &#8211;> D;
-
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-
-</div>
-
-
-<a name="Calendar.Synchronization"></a>
-<h3>Calendar Synchronization</h3>
-
-<p>Many hosts list their property on multiple platforms — Airbnb, VRBO, Booking.com. To prevent double bookings across platforms, Airbnb supports iCal synchronization. External platforms export their bookings as iCal feeds, and Airbnb periodically polls these feeds (typically every few hours) to import blocked dates.</p>
-
-<p>This is a best-effort system — there&rsquo;s a polling lag. If a guest books via VRBO at 2pm and the next Airbnb iCal sync is at 4pm, there&rsquo;s a 2-hour window where Airbnb might still show those dates as available. The final guard is still the booking flow itself — but the likelihood of a collision is low.</p>
-
-<a name="Maps.and.Geo.Services"></a>
-<h2>Maps and Geo Services</h2>
-
-<a name="How.Map.Search.Works"></a>
-<h3>How Map Search Works</h3>
-
-<p>Airbnb&rsquo;s map search is one of its most distinctive UX features. As you drag and zoom the map, listings appear and disappear dynamically. Under the hood, this is a bounding-box geo query: &ldquo;give me all listings with latitude between X1 and X2 and longitude between Y1 and Y2, filtered by the current search criteria.&rdquo;</p>
-
-<div class="mermaid">
-flowchart LR;
-
-%% Nodes
-A[User Drags Map<br/>New Bounding Box];
-B[Debounced API Call<br/>Wait 200ms];
-C[Search Service];
-D[Elasticsearch<br/>Geo Bounding Box Query];
-E[Apply Filters<br/>Price Amenities Availability];
-F[Return Listing Pins<br/>lat lng price id];
-G[Render Pins on Map];
-
-%% Flow
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-
-</div>
-
-
-<p>The debouncing step (waiting 200ms) is important. Without it, every pixel of map drag would fire an API call, destroying performance for the client and the server.</p>
-
-<p>For rendering, Airbnb sends back only the minimum data needed to display map pins — listing ID, coordinates, and price. The full listing details are loaded lazily when the user hovers or clicks a pin. This reduces payload size for map responses dramatically.</p>
-
-<a name="Clustering"></a>
-<h3>Clustering</h3>
-
-<p>When a guest zooms out to see an entire country, you can&rsquo;t render thousands of individual pins — the map becomes unreadable and the client rendering performance collapses. The solution is clustering: at lower zoom levels, nearby listings are grouped into clusters showing the count. As you zoom in, clusters split into individual listings.</p>
-
-<p>Clustering can be done client-side (computationally on the frontend using libraries like Supercluster) or server-side (pre-aggregated in Elasticsearch using geo-tile aggregations). Airbnb uses a hybrid — server-side aggregations for initial load, client-side refinement for interactive zooming.</p>
-
-<a name="GeoHash.and.Distance.Calculations"></a>
-<h3>GeoHash and Distance Calculations</h3>
-
-<p>For &ldquo;nearby listings&rdquo; recommendations (shown on a listing page: &ldquo;More places near this area&rdquo;), GeoHash prefix matching is used. A listing with GeoHash <code>u09tvw</code> is shown neighbors sharing the <code>u09t</code> prefix, which covers roughly a 40km area.</p>
-
-<p>For exact distance display (&ldquo;2.3 km from city center&rdquo;), the Haversine formula is used:</p>
-
-<p>$$
-d = 2R \times \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta lat}{2}\right) + \cos(lat_1) \times \cos(lat_2) \times \sin^2\left(\frac{\Delta lon}{2}\right)}\right)
-$$</p>
-
-<p>This is computed at query time for candidate listings after the spatial index narrows down the candidates. Computing Haversine for 20 candidates is cheap; computing it for millions of listings would not be.</p>
-
-<a name="Messaging.System"></a>
-<h2>Messaging System</h2>
-
-<a name="Architecture"></a>
-<h3>Architecture</h3>
-
-<p>Host-guest messaging needs to feel instant. When a host sends a message at 11pm about check-in instructions, the guest should see it immediately — not after polling a REST endpoint every 30 seconds.</p>
-
-<p>This requires WebSocket connections for real-time delivery.</p>
-
-<div class="mermaid">
-sequenceDiagram;
-
-participant H as Host Browser;
-participant WS as WebSocket Server;
-participant MS as Message Service;
-participant K as Kafka;
-participant G as Guest Mobile;
-
-H->>WS: Connect WebSocket;
-G->>WS: Connect WebSocket;
-
-H->>MS: Send message REST;
-MS->>MS: Persist to Cassandra;
-MS->>K: Publish message created;
-
-K->>WS: Consume event;
-WS->>G: Push message;
-WS->>H: Delivery ACK;
-
-</div>
-
-
-<p>The message service persists messages to Cassandra (append-only, partition by conversation ID, cluster by timestamp). The WebSocket server is a stateful layer — each connection maps to a user, and incoming message events are fanned out to the correct socket.</p>
-
-<p>Because WebSocket servers are stateful, horizontal scaling requires a routing layer. When a guest connects to WebSocket server A, and the host is connected to WebSocket server B, a message from the host needs to reach server A to deliver to the guest. A Redis pub/sub channel (one per conversation) bridges the two servers.</p>
-
-<a name="Offline.Delivery"></a>
-<h3>Offline Delivery</h3>
-
-<p>When a user is offline (no WebSocket connection), messages are queued. When the user reconnects, the WebSocket server checks for undelivered messages and pushes them. For mobile users who might stay offline for hours, push notifications (APNs for iOS, FCM for Android) are used as the delivery channel. The notification is a nudge to open the app, which then fetches messages via REST.</p>
-
-<a name="Notification.Pipeline"></a>
-<h2>Notification Pipeline</h2>
-
-<p>Airbnb sends millions of transactional emails, push notifications, and SMS messages per day — booking confirmations, host inquiries, review reminders, payment receipts. Each of these needs to be delivered reliably with retry logic.</p>
-
-<div class="mermaid">
-flowchart TB;
-
-%% Nodes
-K[Kafka Topics<br/>booking confirmed<br/>booking cancelled<br/>message received<br/>review requested];
-NC[Notification Consumer];
-NR[Notification Router<br/>select channel];
-
-EM[Email Service<br/>SendGrid SES];
-PN[Push Notification Service<br/>APNs FCM];
-SM[SMS Service<br/>Twilio];
-
-DT[Delivery Tracking<br/>open click bounce];
-RP[Retry Queue<br/>exponential backoff];
-
-%% Flow
-K &#8211;> NC;
-NC &#8211;> NR;
-
-NR &#8211;> EM;
-NR &#8211;> PN;
-NR &#8211;> SM;
-
-EM &#8211;> DT;
-PN &#8211;> DT;
-SM &#8211;> DT;
-
-DT &#8211;> RP;
-
-</div>
-
-
-<p>The notification router applies user preferences and channel priority. If a user has push notifications enabled and their device is known to be active, prefer push. If they haven&rsquo;t opened the app recently, also send an email. For booking confirmations specifically, always send email regardless of other channels — it&rsquo;s the paper trail the guest needs.</p>
-
-<p>The retry queue handles transient failures. If SendGrid is temporarily unavailable, the notification is re-queued with exponential backoff (retry after 1 min, then 5 min, then 30 min, then give up and alert the on-call team).</p>
-
-<a name="Recommendation.System"></a>
-<h2>Recommendation System</h2>
-
-<p>When a guest opens the Airbnb app without a specific search in mind — just browsing — the recommendation system kicks in. The goal is to surface listings the guest is likely to love before they&rsquo;ve told you what they want.</p>
-
-<p>The recommendation pipeline conceptually works in three stages:</p>
-
-<p><strong>Candidate Generation:</strong> Based on the user&rsquo;s location (from device GPS or last search), pull a large candidate set of nearby listings. Also incorporate any &ldquo;Wishlist&rdquo; items the user has saved — clear signals of intent.</p>
-
-<p><strong>Feature Engineering:</strong> For each candidate listing, compute features: distance from user, price relative to user&rsquo;s historical bookings, property type match (if user always books entire apartments, downrank shared rooms), review sentiment score, photo quality score.</p>
-
-<p><strong>Ranking:</strong> A trained ranking model (typically a two-tower neural network that learns user embeddings and listing embeddings separately, then scores them by dot product) orders the candidates. Users who tend to book similar properties are grouped in embedding space, so implicit collaborative filtering emerges from the model.</p>
-
-<p><strong>Trending Destinations:</strong> Airbnb surfaces trending destinations (cities or neighborhoods with recently spiking search volume) using real-time aggregation of search events in Kafka. A Spark Streaming job computes trending destinations every few minutes and writes them to a cache served on the home screen.</p>
-
-<a name="Scaling.Airbnb"></a>
-<h2>Scaling Airbnb</h2>
-
-<a name="Horizontal.Scaling"></a>
-<h3>Horizontal Scaling</h3>
-
-<p>Every microservice runs as multiple replicas behind a load balancer. Stateless services (search, listing, pricing) scale trivially — add more replicas and distribute traffic. Stateful services (WebSocket servers, session stores) require session affinity or external state stores (Redis) so any replica can serve any request.</p>
-
-<a name="Event-Driven.Architecture"></a>
-<h3>Event-Driven Architecture</h3>
-
-<p>Kafka is the backbone of Airbnb&rsquo;s asynchronous processing. By publishing events rather than making synchronous service calls, the booking service doesn&rsquo;t need to know or care that the notification service, the pricing service, and the search indexer all need to react to a confirmed booking. Each listens independently. If the notification service is temporarily down, events accumulate in Kafka and are processed when it recovers — no data is lost.</p>
-
-<p>This matters enormously during traffic spikes. On New Year&rsquo;s Eve or during major events, booking volume can spike 10x over normal. An event-driven architecture absorbs this naturally — Kafka buffers the spike, and downstream consumers process at their own pace.</p>
-
-<a name="Cache.Strategy"></a>
-<h3>Cache Strategy</h3>
-
-<pre><code>Cache hierarchy:
-1. CDN (edge cache) — static assets, ~90% cache hit rate
-2. Redis (app cache) — search results, listing data, pricing, ~70% hit rate
-3. PostgreSQL read replicas — for cache misses, offloads from primary
-4. PostgreSQL primary — writes only
-</code></pre>
-
-<p>For listing data, a tiered cache works well. The listing detail page caches a fully assembled response (listing metadata + first photo + host info + current price) in Redis with a 5-minute TTL. For frequently viewed listings (popular cities, high-ranked results), this hit rate is very high. The miss rate is low enough that the database read replicas handle it comfortably.</p>
-
-<a name="Database.Bottlenecks.and.Hotspots"></a>
-<h3>Database Bottlenecks and Hotspots</h3>
-
-<p>Popular listings — say, a treehouse in the Smoky Mountains with 5,000 reviews and a perpetual waitlist — can become read hotspots. Every search for that region returns that listing; every view of the listing hits the cache. The cache solves the read problem.</p>
-
-<p>Write hotspots are harder. If 500 guests all try to book a listing the moment it becomes available (because the host just posted a cancellation), the booking service handles a storm of concurrent write attempts. The distributed lock serializes these writes — only one booking succeeds, and 499 guests get a &ldquo;no longer available&rdquo; response. This is by design. The lock is the correct solution. The only mitigation is ensuring the lock is implemented efficiently (Redis SET NX is sub-millisecond) and the sad-path response to guests is fast and helpful.</p>
-
-<a name="Trust..Safety..and.Fraud.Detection"></a>
-<h2>Trust, Safety, and Fraud Detection</h2>
-
-<p>Trust is the product Airbnb is actually selling. A guest hands a stranger the keys to their home. That only works if both sides trust the platform to curate, verify, and protect them.</p>
-
-<a name="Identity.Verification"></a>
-<h3>Identity Verification</h3>
-
-<p>Airbnb requires government ID verification for hosts in many markets. The ID verification pipeline works as:</p>
-
-<ol>
-<li>User uploads a photo of their ID and a selfie</li>
-<li>An OCR service extracts name, date of birth, and document number</li>
-<li>A face matching model compares the selfie to the ID photo</li>
-<li>Document authenticity checks run against known templates (fonts, security features, layout)</li>
-<li>A risk score is generated and a human review queue catches borderline cases</li>
-</ol>
-
-
-<a name="Fraud.Detection"></a>
-<h3>Fraud Detection</h3>
-
-<p>Every payment transaction runs through a fraud scoring model that evaluates:
-- Is this IP address associated with prior fraud?
-- Is the billing address consistent with the user&rsquo;s typical location?
-- Is this a newly created account booking an unusually expensive property?
-- Is the device fingerprint linked to prior fraudulent accounts?</p>
-
-<p>High-risk transactions are held for additional verification. Very-high-risk transactions are declined and the account is flagged for review.</p>
-
-<a name="Review.Integrity"></a>
-<h3>Review Integrity</h3>
-
-<p>Reviews are only possible after a completed booking — preventing hosts or guests from reviewing without a real stay. Review bombing (coordinated negative reviews) is detected using graph analysis: if a cluster of accounts all review the same listing negatively within a short window, and those accounts have no prior review history, that pattern triggers an investigation.</p>
-
-<a name="Anomaly.Detection"></a>
-<h3>Anomaly Detection</h3>
-
-<p>A real-time anomaly detection system monitors key metrics — bookings per minute by region, payment failures per merchant, new listing creation rate — and alerts when values deviate significantly from historical baselines. This catches both technical incidents (a spike in payment failures suggests a payment gateway issue) and abuse patterns (a sudden spike in new listings in a city could indicate a fake listing campaign).</p>
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<a name="Multi-Region.Deployments"></a>
-<h3>Multi-Region Deployments</h3>
-
-<p>Airbnb runs in multiple AWS regions. Traffic is globally load-balanced (using Route 53 latency-based routing or similar) so guests in Europe primarily hit EU infrastructure and guests in Asia primarily hit APAC infrastructure. Each region is independently deployable and can serve traffic for the primary use case even if another region goes down.</p>
-
-<p>The exception is financial data. Payment processing and booking records are replicated across regions, but writes go to a primary region and are replicated asynchronously. The RPO (recovery point objective) for financial data is near zero — Airbnb cannot afford to lose booking or payment records.</p>
-
-<a name="Observability.Stack"></a>
-<h3>Observability Stack</h3>
-
-<p>Without visibility into what&rsquo;s happening across hundreds of microservices, you&rsquo;re flying blind. Airbnb&rsquo;s observability stack includes:</p>
-
-<p><strong>Metrics:</strong> Every service emits latency histograms, error rates, and throughput metrics. Dashboards show real-time health. Alerts fire when error rates exceed thresholds or latency degrades.</p>
-
-<p><strong>Distributed Tracing:</strong> Using a system like Jaeger or OpenTelemetry, every request gets a trace ID that propagates through all downstream service calls. When a booking request takes 3 seconds instead of 300ms, the trace shows exactly which service call ate the time.</p>
-
-<p><strong>Log Aggregation:</strong> Structured logs from all services flow into a central system (Elasticsearch + Kibana, or similar). Engineers can search across all service logs for a specific booking ID to reconstruct exactly what happened during an incident.</p>
-
-<p><strong>Canary Deployments:</strong> New versions of services are deployed to a small percentage of traffic (say, 1%) and promoted to full rollout only if error rates remain stable. A bad deployment is caught and rolled back before it affects most users.</p>
-
-<a name="Engineering.Tradeoffs"></a>
-<h2>Engineering Tradeoffs</h2>
-
-<p>Good system design isn&rsquo;t about picking the &ldquo;right&rdquo; answer — it&rsquo;s about understanding the tradeoffs and making informed choices.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Decision</th>
-        <th>Airbnb&#8217;s Approach</th>
-        <th>Alternative</th>
-        <th>Tradeoff</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Monolith vs Microservices</td>
-        <td>Microservices</td>
-        <td>Monolith</td>
-        <td>Independent scaling and deploys, but operational complexity increases</td>
-      </tr>
-      <tr>
-        <td>SQL vs NoSQL for bookings</td>
-        <td>PostgreSQL (SQL)</td>
-        <td>Cassandra</td>
-        <td>ACID guarantees for financial data, but harder to scale horizontally</td>
-      </tr>
-      <tr>
-        <td>Real-time vs eventual consistency</td>
-        <td>Eventual for search, strong for bookings</td>
-        <td>All real-time</td>
-        <td>Lower latency and cost for search; correctness where it matters</td>
-      </tr>
-      <tr>
-        <td>Cache TTL</td>
-        <td>Short (60-300s)</td>
-        <td>Longer TTL</td>
-        <td>Freshness vs cache efficiency</td>
-      </tr>
-      <tr>
-        <td>Optimistic vs pessimistic locking</td>
-        <td>Both, layered</td>
-        <td>One or the other</td>
-        <td>Redis lock (pessimistic) for speed, DB constraint (last-resort) for safety</td>
-      </tr>
-      <tr>
-        <td>Sync vs async notifications</td>
-        <td>Async (Kafka)</td>
-        <td>Synchronous RPC</td>
-        <td>Resilience and decoupling, but introduces delivery lag</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>The most important tradeoff at Airbnb is the consistency spectrum. The search system tolerates eventual consistency — showing a listing that was booked 30 seconds ago as still available — because the cost of being slightly stale is low (the guest just sees &ldquo;no longer available&rdquo; at booking time). The booking system tolerates zero eventual consistency — it uses strong transactional guarantees — because the cost of a double booking is catastrophic. Designing each subsystem at the appropriate point on the consistency spectrum is what separates a thoughtful architecture from a one-size-fits-all one.</p>
-
-<a name="Technology.Stack"></a>
-<h2>Technology Stack</h2>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Category</th>
-        <th>Technology</th>
-        <th>Why</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Web Frontend</td>
-        <td>React</td>
-        <td>Component model scales well for complex UIs; large ecosystem</td>
-      </tr>
-      <tr>
-        <td>Mobile</td>
-        <td>React Native / Swift / Kotlin</td>
-        <td>Cross-platform code sharing where possible; native where performance demands</td>
-      </tr>
-      <tr>
-        <td>Backend Services</td>
-        <td>Java, Kotlin, Ruby (legacy)</td>
-        <td>Java/Kotlin for high-throughput services; type safety and JVM performance</td>
-      </tr>
-      <tr>
-        <td>API Gateway</td>
-        <td>Nginx / Envoy</td>
-        <td>Proven, configurable, battle-tested at massive scale</td>
-      </tr>
-      <tr>
-        <td>Search</td>
-        <td>Elasticsearch</td>
-        <td>Native geo queries, full-text search, aggregations, horizontal scaling</td>
-      </tr>
-      <tr>
-        <td>Primary Database</td>
-        <td>PostgreSQL</td>
-        <td>ACID guarantees, mature ecosystem, excellent for relational + transactional data</td>
-      </tr>
-      <tr>
-        <td>Messaging DB</td>
-        <td>Apache Cassandra</td>
-        <td>Append-only access pattern, horizontal scaling, partition-friendly</td>
-      </tr>
-      <tr>
-        <td>Cache</td>
-        <td>Redis</td>
-        <td>Sub-millisecond reads, distributed locks, pub/sub, sorted sets for leaderboards</td>
-      </tr>
-      <tr>
-        <td>Event Streaming</td>
-        <td>Apache Kafka</td>
-        <td>High-throughput, durable event log; decouples producers from consumers</td>
-      </tr>
-      <tr>
-        <td>Object Storage</td>
-        <td>Amazon S3</td>
-        <td>Globally durable, infinitely scalable photo and media storage</td>
-      </tr>
-      <tr>
-        <td>Container Orchestration</td>
-        <td>Kubernetes</td>
-        <td>Automates deployment, scaling, and self-healing of microservices</td>
-      </tr>
-      <tr>
-        <td>Cloud Infrastructure</td>
-        <td>AWS</td>
-        <td>Global footprint, managed services reduce operational overhead</td>
-      </tr>
-      <tr>
-        <td>Observability</td>
-        <td>Datadog / OpenTelemetry</td>
-        <td>Metrics, traces, and logs unified across services</td>
-      </tr>
-      <tr>
-        <td>ML Platform</td>
-        <td>Spark + custom serving</td>
-        <td>Batch training at scale; low-latency model serving for ranking and fraud</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>A word on the choice of Kafka: it&rsquo;s heavy infrastructure to run and operate. For a team of 5, Kafka is overkill. For a platform at Airbnb&rsquo;s scale with dozens of services that need to react to the same events, Kafka&rsquo;s durability and consumer group model make it the right choice. You can replay events if a consumer has a bug, which is invaluable during incidents.</p>
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>If you&rsquo;re preparing for a system design interview and Airbnb (or a similar short-term rental marketplace) comes up, here is how to approach it well.</p>
-
-<a name="What.interviewers.are.testing"></a>
-<h3>What interviewers are testing</h3>
-
-<ul>
-<li>Can you scope the problem correctly? (Don&rsquo;t design Twitter when asked to design Airbnb)</li>
-<li>Do you understand geo-spatial search challenges?</li>
-<li>Can you reason about the booking concurrency problem?</li>
-<li>Do you know when to use which database?</li>
-<li>Can you identify the consistency requirements for different parts of the system?</li>
-</ul>
-
-
-<a name="Strong.answers.include"></a>
-<h3>Strong answers include</h3>
-
-<p><strong>For search:</strong> &ldquo;I&rsquo;d use Elasticsearch with geo-point indexing for the spatial component, with a two-phase approach — GeoHash to find candidate cells, then distance calculation for ranking. Availability data is synced asynchronously from the booking system with a Kafka consumer, so search results might be 30-60 seconds stale, but the booking step is the real consistency gate.&rdquo;</p>
-
-<p><strong>For bookings:</strong> &ldquo;Double booking prevention uses a layered approach. First, a distributed Redis lock on (listing_id, date_range) serializes concurrent booking attempts. Second, a unique database constraint on (listing_id, date, BOOKED) provides a last-resort guard. Payment is authorized before the booking is committed, using the two-phase authorize-then-capture pattern.&rdquo;</p>
-
-<p><strong>For scaling:</strong> &ldquo;Search and listing reads scale horizontally — stateless services plus Redis caching handle most traffic. The booking write path is harder to scale because of the locking requirement, but because locks are narrow (per listing per date range) rather than global, you can have thousands of concurrent bookings happening in parallel as long as they&rsquo;re for different listings.&rdquo;</p>
-
-<a name="Common.mistakes.to.avoid"></a>
-<h3>Common mistakes to avoid</h3>
-
-<ul>
-<li>Designing a monolithic database. Putting search, bookings, payments, and messaging all in one PostgreSQL database will bottleneck your design. Explain why different storage systems serve different access patterns.</li>
-<li>Ignoring the concurrency problem. An answer that says &ldquo;check availability then book&rdquo; without addressing the race condition shows incomplete thinking.</li>
-<li>Over-engineering upfront. In an interview, explain that the system would start simpler (a single database, no Kafka) and describe when and why you&rsquo;d introduce complexity as you scale.</li>
-<li>Treating all data with the same consistency requirement. The hallmark of a strong answer is knowing where eventual consistency is acceptable and where it isn&rsquo;t.</li>
-</ul>
-
-
-<a name="Interview.flow.recommendation"></a>
-<h3>Interview flow recommendation</h3>
-
-<ol>
-<li>Spend 5 minutes clarifying scope: which features matter most? (Focus on search and booking — they&rsquo;re the core)</li>
-<li>Estimate scale: how many listings, searches/sec, bookings/day?</li>
-<li>Design the API layer: what are the core REST endpoints?</li>
-<li>Sketch the high-level architecture: clients → gateway → services → storage</li>
-<li>Deep-dive search: geo-spatial indexing, filtering, ranking</li>
-<li>Deep-dive booking: the locking strategy, the payment flow, the saga pattern</li>
-<li>Discuss scaling: where are the bottlenecks? How do you address them?</li>
-<li>Close with tradeoffs: what did you choose not to do, and why?</li>
-</ol>
-
-
-<a name="Closing.Thoughts"></a>
-<h2>Closing Thoughts</h2>
-
-<p>Airbnb is a masterclass in building a system where correctness, performance, and user trust are all non-negotiable simultaneously. The search system has to be fast because slow search means guests leave. The booking system has to be correct because a single double-booking is a disaster. The payment system has to be reliable because every failed transaction is lost revenue and lost trust. And all of this has to work across the globe, in dozens of currencies, for millions of properties.</p>
-
-<p>What makes Airbnb&rsquo;s architecture interesting isn&rsquo;t that it uses exotic technology — almost everything here is industry standard (PostgreSQL, Elasticsearch, Kafka, Redis). What makes it interesting is the careful reasoning about which consistency model applies where, how to handle concurrency at the transaction level, how to make geo-spatial search fast without sacrificing result quality, and how to build a trust layer for a business model that literally requires strangers to trust each other.</p>
-
-<p>Understanding the <em>why</em> behind each architectural choice — not just the <em>what</em> — is what separates an engineer who can talk about system design from one who can actually do it.</p>
-
-<hr />
-
-<p><em>Enjoyed this deep dive? The best way to internalize these concepts is to start designing systems yourself — pick a product you use every day and try to sketch its architecture from first principles. Then look at what engineers at that company have actually written about how they built it. The gap between your design and theirs is where the most learning happens.</em></p>
 ]]></content>
     </entry>
     
