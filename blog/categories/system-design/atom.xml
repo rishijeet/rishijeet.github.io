@@ -4,7 +4,7 @@
     <title><![CDATA[Category: system_design | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/system-design/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-16T09:17:50+05:30</updated>
+    <updated>2026-05-16T12:17:50+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,610 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Google Search Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-google-search-works/"/>
+        <updated>2026-05-16T12:14:14+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-google-search-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>Let me ask you something. You type three words into a text box. Half a second later, you are staring at ten blue links, a knowledge panel, an image carousel, and a featured snippet that almost perfectly answers your question. That page was assembled, ranked, and delivered to you from across the planet faster than you can blink.</em></p></blockquote>
+
+<p><img src="/images/system_design/google-search.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>Now consider what had to happen behind the scenes. Someone had to crawl hundreds of billions of web pages, extract their content, understand what each page was actually about, store all of that in a way that can be queried at low latency, figure out which of the billions of candidate results is most relevant to your specific query, personalize it a little, check it for spam, and ship it to you over the network before you notice any delay. At peak hours, Google handles tens of thousands of search queries per second, globally.</p>
+
+<p>This is not a solved problem. This is one of the hardest distributed systems problems that has ever been built and maintained in production. The reason it feels effortless is precisely because so much engineering is hidden beneath it.</p>
+
+<p>The interesting part is not just that it works. The interesting part is why it is designed the way it is. Every caching layer, every index shard, every ranking signal, every crawl scheduler exists because someone ran into a wall at scale and had to find a way through. That is what this article is about.</p>
+
+<p>We will walk through the entire system end to end. Crawling. Parsing. Indexing. Query processing. Ranking. Distributed serving. Caching. Machine learning. We will look at what happens when things go wrong, and we will talk honestly about the tradeoffs that make this architecture look the way it does.</p>
+
+<!--more-->
+
+
+<p>If you are preparing for a system design interview, you will find structure here. If you are an engineer curious about how search works at scale, you will find depth. If you have ever wondered what actually happens after you hit Enter, this is for you.</p>
+
+<a name="Core.Features.of.Google.Search"></a>
+<h2>Core Features of Google Search</h2>
+
+<p>Before diving into architecture, it is worth being precise about what the system actually does. People use the word &ldquo;search&rdquo; loosely, but Google Search is actually a collection of features that each have their own technical requirements.</p>
+
+<p><strong>Web search</strong> is the core product. Given a query, find the most relevant documents on the web. Sounds simple. Not simple.</p>
+
+<p><strong>Query understanding</strong> means figuring out what the user actually meant, not just what they typed. If you search for &ldquo;apple,&rdquo; are you looking for the fruit, the company, or the band? The system has to make that call, often without you telling it.</p>
+
+<p><strong>Autocomplete</strong> needs to predict what you are about to type in real time, with sub-100ms latency, and do it in a way that reflects trending queries without surfacing harmful suggestions. This is its own distributed system problem.</p>
+
+<p><strong>Ranking</strong> is the business of deciding which result goes first. There are hundreds of signals involved, and getting this wrong is immediately visible to billions of users.</p>
+
+<p><strong>Snippets</strong> extract the few lines from a page that best answer the query and display them below the link. This requires understanding the page&rsquo;s content and the query&rsquo;s intent simultaneously.</p>
+
+<p><strong>Knowledge Graph</strong> is a massive structured database of entities and relationships. When you search for a famous person, a city, or a movie, the panel on the right that shows you structured facts is powered by this system. It has its own storage, its own update pipeline, and its own challenges around accuracy.</p>
+
+<p><strong>Personalized search</strong> adjusts results based on your location, search history, and preferences. This introduces a whole layer of user-specific computation that has to run at query time.</p>
+
+<p><strong>Voice search, image search, and video search</strong> all have unique input modalities and their own indexing and retrieval requirements. Each could be its own blog post.</p>
+
+<p><strong>Real-time search</strong> handles breaking news, trending topics, and live events where results need to reflect things that happened minutes ago. This is in direct tension with the fact that indexing pipelines take time.</p>
+
+<a name="High-Level.Search.Architecture"></a>
+<h2>High-Level Search Architecture</h2>
+
+<p>At the highest level, Google Search has two completely separate workloads that run in parallel and interact through shared storage systems.</p>
+
+<p>The first is the <strong>offline pipeline</strong>: crawl the web, parse content, build the index, compute ranking signals. This is a massive batch and streaming system. It runs continuously. Its job is to build and maintain the data structures that search queries will read from.</p>
+
+<p>The second is the <strong>online serving path</strong>: receive a query, understand it, search the index, rank the results, assemble the response, and return it. This has to happen in under 200 milliseconds. It reads the data structures built by the offline pipeline.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Web Crawlers];
+B[Raw Page Store];
+C[Parser and Renderer];
+D[Content Extractor];
+E[Link Graph Builder];
+F[Indexing Pipeline];
+G[Distributed Index];
+H[Ranking Signal Compute];
+I[Query Frontend];
+J[Query Understanding];
+K[Index Shard Fanout];
+L[Ranking Engine];
+M[Result Assembler];
+N[Response to User];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+D &#8211;> F;
+E &#8211;> H;
+F &#8211;> G;
+H &#8211;> G;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> G;
+G &#8211;> L;
+L &#8211;> M;
+M &#8211;> N;
+</div>
+
+
+<p>This separation between the offline and online paths is not accidental. It is a fundamental design decision that makes the system manageable. The offline pipeline can be slow, fault-tolerant, and batch-oriented. It can afford to retry failed jobs. The online path has to be blazingly fast and read-only against the index. Mixing these concerns would make both worse.</p>
+
+<a name="Web.Crawling.System"></a>
+<h2>Web Crawling System</h2>
+
+<p>Everything starts with the crawler. If you have not crawled a page, you cannot index it. If you cannot index it, it cannot appear in search results. The crawler is the foundation of the entire system.</p>
+
+<p>A web crawler, sometimes called a spider, is fundamentally a breadth-first graph traversal problem. You start with a set of known URLs, called seed URLs, fetch those pages, extract all the links from them, add the new links to a queue, and repeat. The web is a graph, and the crawler is walking it.</p>
+
+<p>The challenge is doing this at planetary scale, continuously, without hammering servers into the ground.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Seed URL Store];
+B[Crawl Frontier Scheduler];
+C[URL Fetcher Workers];
+D[DNS Resolver Cache];
+E[robots.txt Cache];
+F[Raw Page Store];
+G[Link Extractor];
+H[URL Deduplicator];
+I[Crawl Priority Scorer];
+B &#8211;> C;
+A &#8211;> B;
+C &#8211;> D;
+C &#8211;> E;
+C &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> B;
+</div>
+
+
+<p><strong>The crawl frontier</strong> is the queue of URLs waiting to be fetched. Naively, this could be a simple FIFO queue. In practice, it is a sophisticated priority queue that balances many competing concerns. High-authority pages should be crawled more often. Recently discovered links should not all be fetched at once. Pages that change frequently, like news sites, should be refreshed more often than pages that never change.</p>
+
+<p><strong>Politeness</strong> is a real engineering concern, not just an etiquette concern. If you send a thousand requests per second to a single domain, you will either get banned or you will bring down a small site. Google&rsquo;s crawler maintains politeness delays per domain, configurable through <code>robots.txt</code> and its own internal heuristics. This means the crawler has to schedule fetches not just by priority but by when it is allowed to next touch a given host.</p>
+
+<p><strong>robots.txt</strong> is a plain text file at the root of a domain that tells crawlers what they are and are not allowed to fetch. Parsing and respecting this is mandatory. But it introduces a dependency: before you crawl any page on a new domain, you have to first fetch and parse the <code>robots.txt</code>. This is typically cached per domain with its own TTL.</p>
+
+<p><strong>Crawl deduplication</strong> is the problem of not fetching the same content twice. This seems straightforward until you realize that the web is full of near-duplicate pages. A news article might be syndicated across fifty sites with minor differences. A product page might have twenty URL variations with different query parameters that all render the same content. Detecting and deduplicating these requires fingerprinting page content, typically using a hash of the canonical content after stripping noise like navigation and ads.</p>
+
+<p><strong>Distributed crawling</strong> is unavoidable at this scale. Google runs enormous numbers of crawler machines, each responsible for a partition of the URL space. These machines have to coordinate on deduplication, politeness, and frontier management without creating a single coordination bottleneck.</p>
+
+<p><strong>JavaScript rendering</strong> is one of the hardest parts of modern web crawling. A large fraction of the modern web is built with JavaScript frameworks that render content dynamically on the client side. A simple HTTP fetch returns a near-empty HTML shell. To see the actual content, you have to run the JavaScript in a headless browser, wait for the page to render, and then extract the DOM. This is orders of magnitude more expensive than a simple fetch. Google maintains a separate rendering pipeline that processes pages through a headless Chrome instance. This pipeline runs at a delay relative to raw crawling because of the compute cost.</p>
+
+<a name="Parsing.and.Content.Extraction"></a>
+<h2>Parsing and Content Extraction</h2>
+
+<p>Once a raw page has been fetched and stored, it goes through a parsing pipeline that extracts the information the indexing system actually needs.</p>
+
+<p>HTML parsing handles the fact that the web is full of malformed markup. Real-world HTML violates the spec constantly. The parser has to be tolerant, the same way browsers are tolerant. In practice, this means using a parsing approach that matches browser behavior rather than strict XML parsing.</p>
+
+<p>From the parsed DOM, the system extracts the visible text content, the page title, the meta description, the heading structure, the alt text on images, the canonical URL, the outbound links, and any structured data annotations like Schema.org markup or Open Graph tags.</p>
+
+<p>Structured data is increasingly important. When a recipe site marks up their content with Schema.org, Google can extract cooking times, ingredient lists, and ratings as structured fields rather than having to infer them from unstructured text. This feeds directly into rich search results.</p>
+
+<p>Outbound link extraction is critical because links are how the web&rsquo;s graph structure is discovered and how PageRank is computed. Every outbound link on a page is a candidate URL to add to the crawl frontier.</p>
+
+<p>Language detection runs on the extracted text so the indexing system knows which language index to route the document to. Google maintains separate indexes per language.</p>
+
+<a name="Indexing.System.Deep.Dive"></a>
+<h2>Indexing System Deep Dive</h2>
+
+<p>The index is the data structure that makes low-latency search possible. Without the right data structure, answering a query like &ldquo;distributed systems&rdquo; against a trillion documents would require scanning every document linearly. That is not how any of this works.</p>
+
+<p>The fundamental data structure in information retrieval is the <strong>inverted index</strong>. Instead of storing a list of words for each document, you store a list of documents for each word. The word is the key. The value is a sorted list of document IDs that contain that word, called a posting list. To find all documents containing &ldquo;distributed,&rdquo; you look up &ldquo;distributed&rdquo; in the inverted index and get the posting list back immediately.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Raw Document];
+B[Tokenizer];
+C[Normalizer];
+D[Stop Word Filter];
+E[Stemmer];
+F[Posting List Builder];
+G[Inverted Index Shard];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p><strong>Tokenization</strong> splits the text into tokens, typically words, but the definition of a token gets complicated fast. Do you split on hyphens? How do you handle Chinese text, which has no spaces? How do you handle URLs and email addresses? All of these have to be handled explicitly.</p>
+
+<p><strong>Text normalization</strong> converts tokens to a canonical form. Lowercasing is the obvious step. Unicode normalization handles the fact that the same character can be encoded multiple ways. Accent folding optionally treats &ldquo;cafe&rdquo; and &ldquo;café&rdquo; as equivalent.</p>
+
+<p><strong>Stop words</strong> are extremely common words like &ldquo;the,&rdquo; &ldquo;a,&rdquo; &ldquo;is,&rdquo; and &ldquo;of&rdquo; that appear in almost every document. Including them in the index wastes space and rarely helps relevance. Many systems skip indexing stop words, or index them separately with different handling.</p>
+
+<p><strong>Stemming</strong> reduces words to their root form so that &ldquo;running,&rdquo; &ldquo;runs,&rdquo; and &ldquo;run&rdquo; all map to the same index term. This improves recall at some cost to precision.</p>
+
+<p><strong>Posting lists</strong> are the core of the inverted index. Each entry in a posting list is typically not just a document ID but a richer structure containing the document ID, the number of times the term appears in the document (term frequency), which fields the term appears in (title versus body carries different weight), and sometimes the position offsets of each occurrence (needed for phrase queries).</p>
+
+<p><strong>Index sharding</strong> is mandatory because no single machine can hold an index of the entire web. The index is horizontally partitioned, either by document ID range, by URL hash, or by content category. Each shard holds a portion of the posting lists. A query has to be executed against all shards in parallel and the results merged.</p>
+
+<p><strong>Index compression</strong> is a serious engineering concern. Posting lists for common words can contain billions of document IDs. Storing these naively would be prohibitively expensive. In practice, posting lists are stored as delta-compressed sorted integers. Since document IDs are stored in sorted order, you only need to store the difference between consecutive IDs rather than the full ID. These deltas are then variable-length encoded, with small deltas taking fewer bytes. Compression ratios of 5:1 or better are common.</p>
+
+<p><strong>Incremental indexing</strong> handles the continuous arrival of new and updated content. Batch re-indexing the entire web every time a page changes is not feasible. Google maintains multiple index tiers: a large stable index updated on longer cycles and a smaller fresh index updated continuously. Queries hit both and results are merged.</p>
+
+<a name="Query.Processing.System"></a>
+<h2>Query Processing System</h2>
+
+<p>Between the user typing a query and the search system executing it against the index, there is a substantial query processing layer that transforms the raw text into something the system can work with effectively.</p>
+
+<p><strong>Spell correction</strong> runs immediately. If you type &ldquo;machien learning,&rdquo; the system has to recognize this as &ldquo;machine learning.&rdquo; This requires a statistical model trained on query logs and a large dictionary. The correction has to be fast enough to not add noticeable latency.</p>
+
+<p><strong>Query rewriting</strong> goes further. If you search for &ldquo;NYC,&rdquo; the system might rewrite it to also include &ldquo;New York City&rdquo; in the search. If you search for &ldquo;buy iPhone,&rdquo; it might recognize commercial intent and weight product pages higher. These rewrites are often learned from user behavior, not hardcoded rules.</p>
+
+<p><strong>Synonym expansion</strong> handles the fact that different pages use different vocabulary to describe the same thing. A medical paper might call something &ldquo;myocardial infarction&rdquo; while a news article calls it a &ldquo;heart attack.&rdquo; Without synonym handling, the right results would not surface for many queries.</p>
+
+<p><strong>Intent detection</strong> classifies the query into a type: informational (looking to learn), navigational (looking to reach a specific site), transactional (looking to buy or download), or local (looking for something nearby). The type influences what result formats are shown and how results are ranked.</p>
+
+<p><strong>Autocomplete</strong> deserves its own mention. It runs on every keystroke with extremely tight latency requirements. It is typically powered by a prefix trie over the most popular recent queries, updated continuously from query logs. Suggestion ranking considers query popularity, freshness, and personalization signals.</p>
+
+<a name="Ranking.System.Deep.Dive"></a>
+<h2>Ranking System Deep Dive</h2>
+
+<p>Ranking is where the most engineering investment goes, and for good reason. The difference between a useful search engine and a useless one is almost entirely in ranking quality.</p>
+
+<p>Given a query, the index retrieval step returns a candidate set of potentially thousands or millions of documents. The ranking system&rsquo;s job is to sort these by relevance and return the top ten to the user. This decision, repeated billions of times a day, is what people mean when they talk about &ldquo;search quality.&rdquo;</p>
+
+<p><strong>TF-IDF</strong> is the classic starting point. Term frequency (how often the query term appears in the document) times inverse document frequency (how rare the term is across all documents) gives a basic relevance score. Rare terms that appear often in a document are strong relevance signals. Common terms that appear everywhere are weak signals. TF-IDF captures this intuition.</p>
+
+<p><strong>BM25</strong> is a better-tuned version of TF-IDF that handles document length normalization and has tunable parameters. A long document that mentions a term ten times is not necessarily ten times more relevant than a short document that mentions it once. BM25 accounts for this. It remains one of the strongest baselines in information retrieval despite being decades old.</p>
+
+<p><strong>PageRank</strong> was the original differentiator for Google. The core insight is that a link from one page to another is a vote of confidence, and votes from authoritative pages are worth more than votes from obscure pages. PageRank models this as a random walk on the web graph: the probability that a random surfer following links at random would land on a given page. Pages with many high-quality inbound links score higher.</p>
+
+<p>Computing PageRank on the entire web graph is a classic distributed graph computation problem. It is run iteratively: start with uniform scores, propagate scores along edges, normalize, repeat until convergence. This was one of the original large-scale uses of MapReduce.</p>
+
+<p><strong>User signals</strong> are arguably more powerful than any static ranking formula. If users consistently click on result number three and ignore result number one, that is a strong signal that result three is more relevant. Dwell time (how long a user spends on a page before returning to search results), pogo-sticking (bouncing immediately back), and click-through rate all feed into ranking models.</p>
+
+<p>The tricky part is using these signals without creating a rich-get-richer feedback loop where popular pages stay at the top simply because they get more clicks from being at the top.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Candidate Documents from Index];
+B[BM25 Score Computation];
+C[PageRank Score Lookup];
+D[Freshness Score];
+E[User Signal Score];
+F[ML Ranking Model];
+G[Personalization Layer];
+H[Final Ranked List];
+A &#8211;> B;
+A &#8211;> C;
+A &#8211;> D;
+A &#8211;> E;
+B &#8211;> F;
+C &#8211;> F;
+D &#8211;> F;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p><strong>Freshness ranking</strong> addresses the fact that some queries have a strong temporal dimension. If you search for &ldquo;election results&rdquo; or &ldquo;stock price,&rdquo; you want results from today, not from three years ago. But if you search for &ldquo;how to tie a bowline knot,&rdquo; freshness is irrelevant. The ranking system has to detect query freshness intent and adjust accordingly.</p>
+
+<p><strong>Learning to rank</strong> is the modern approach to combining all these signals. Rather than hand-tuning weights for each signal, you treat ranking as a supervised learning problem. You collect training data (queries, candidate documents, relevance judgments), define a loss function that captures ranking quality, and train a model to produce the optimal ranking. Gradient boosted trees were the dominant approach for years. Neural networks now play a major role.</p>
+
+<a name="Distributed.Search.Infrastructure"></a>
+<h2>Distributed Search Infrastructure</h2>
+
+<p>When a query arrives at the search system, it cannot be answered from a single machine. The index is sharded across potentially thousands of machines. The query has to be fanned out to all of them, the results collected, merged, and then re-ranked globally.</p>
+
+<p><strong>Query fanout</strong> is the pattern where a single user query is dispatched to all index shards simultaneously. Each shard searches its portion of the index and returns its top-K results. A root server collects responses from all shards and performs a final merge and re-ranking step.</p>
+
+<p>The latency of the overall query is determined not by the average shard latency but by the <strong>tail latency</strong> of the slowest shard. If you have a thousand shards and the 99th percentile latency for a single shard is 100ms, then roughly ten shards per query will take 100ms, and the overall query cannot complete until all of them respond. This is the dreaded tail latency problem in distributed systems.</p>
+
+<p>Solutions include <strong>hedging</strong>: if a shard has not responded within a time threshold, send the same request to a replica. Take whichever responds first. This adds a small amount of extra load but cuts tail latency significantly.</p>
+
+<p><strong>Replication</strong> serves two purposes. It provides fault tolerance: if a shard goes down, its replica can serve. It also provides read throughput: queries can be load-balanced across replicas of the same shard.</p>
+
+<p><strong>Load balancing</strong> at the global level routes incoming queries to the nearest healthy data center. Within a data center, it distributes queries across the available serving machines. This has to be aware of hotspots: some machines might temporarily be slower due to garbage collection pauses, network congestion, or hardware issues.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Query];
+B[Load Balancer];
+C[Query Frontend];
+D[Query Understanding Service];
+E[Root Server];
+F[Shard 1];
+G[Shard 2];
+H[Shard 3];
+I[Shard N];
+J[Result Merger];
+K[Ranking Service];
+L[Response Builder];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+E &#8211;> G;
+E &#8211;> H;
+E &#8211;> I;
+F &#8211;> J;
+G &#8211;> J;
+H &#8211;> J;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> L;
+</div>
+
+
+<p><strong>Hotspot mitigation</strong> is needed because not all queries are equal. A major news event can cause millions of queries for the same terms in a short window, creating hotspots on the shards that hold those posting lists. Shards can be dynamically split during hotspots, or popular result sets can be promoted to a caching layer.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching is everywhere in search infrastructure, and for good reason. A significant fraction of queries are repeated. If you can answer a query from cache instead of executing it against the index, you save massive amounts of compute.</p>
+
+<p><strong>Result cache</strong> stores the full ranked result set for recently executed queries, keyed by the query string and relevant context (language, location). Cache hit rates for a typical search workload can be quite high because popular queries like &ldquo;facebook,&rdquo; &ldquo;youtube,&rdquo; and &ldquo;gmail&rdquo; are submitted millions of times daily.</p>
+
+<p>The hard problem with result caching is <strong>cache invalidation</strong>. If the index is updated with a new page that should be the top result for a cached query, the cached result is now stale. You can set short TTLs to bound staleness, but this reduces effective cache hit rates. For most queries, slightly stale results are acceptable. For freshness-sensitive queries like news, they are not.</p>
+
+<p><strong>Snippet cache</strong> stores the pre-computed text snippets that appear below each result link. Generating a snippet requires reading the original document, identifying the most relevant passage, and formatting it. This is non-trivial compute. Caching snippets separately from the result set gives finer-grained control over freshness versus performance tradeoffs.</p>
+
+<p><strong>CDN caching</strong> handles the delivery of search result pages to users. Static assets (JavaScript, CSS, images) are aggressively cached at edge nodes globally. The search results themselves are dynamic and cannot be cached at the CDN layer, but the surrounding infrastructure benefits enormously from CDN offloading.</p>
+
+<a name="Machine.Learning.in.Search"></a>
+<h2>Machine Learning in Search</h2>
+
+<p>The transition from handcrafted ranking formulas to machine-learned ranking is one of the biggest shifts in search engineering over the past decade.</p>
+
+<p><strong>Learning to rank</strong> treats the ranking problem as a supervised learning problem. The key insight is that you can generate training data automatically from user behavior: if a user clicked result three instead of result one, that is evidence that three was more relevant. Over billions of queries, you accumulate a powerful implicit relevance signal. This data is used to train models that directly optimize ranking quality metrics.</p>
+
+<p><strong>BERT and transformer models</strong> changed query understanding dramatically. Earlier systems treated a query as a bag of words. Transformer models understand context and word order. &ldquo;How to catch a fly&rdquo; and &ldquo;how to catch a fly ball&rdquo; should produce very different results. BERT-style models can capture this distinction. Google deployed BERT for query understanding in 2019, and it was described as one of the biggest quality improvements in years.</p>
+
+<p><strong>Semantic embeddings</strong> enable a different kind of matching. Instead of matching on exact keywords, you represent both queries and documents as dense vectors in a shared embedding space, where semantically similar texts are close together. This allows you to surface relevant documents that do not share any keywords with the query. This is sometimes called dense retrieval or vector search.</p>
+
+<p>The challenge with vector search at web scale is that computing the distance between a query vector and hundreds of billions of document vectors in real time is not feasible. Approximate nearest neighbor algorithms and dedicated vector index structures (HNSW, FAISS, ScaNN) make this tractable by trading a small amount of recall for massive latency savings.</p>
+
+<p><strong>Ranking model serving</strong> introduces its own infrastructure challenges. Neural ranking models can be large (hundreds of millions of parameters) and expensive to run. Re-ranking every candidate document with a large neural model would be prohibitively slow. The typical approach is a multi-stage ranking pipeline: a cheap first-pass ranker (like BM25 or a small model) reduces thousands of candidates to hundreds, then an expensive neural re-ranker is applied to the smaller set.</p>
+
+<a name="Knowledge.Graph.and.Entity.Systems"></a>
+<h2>Knowledge Graph and Entity Systems</h2>
+
+<p>The Knowledge Graph is the system behind those information panels that appear when you search for a person, place, company, or concept. It is a massive structured database of entities and their relationships.</p>
+
+<p>At its core, the Knowledge Graph is a property graph: nodes are entities (Barack Obama, Paris, Python the programming language), edges are relationships (born in, capital of, creator of), and both nodes and edges have properties (dates, descriptions, aliases).</p>
+
+<p>Building this graph requires entity extraction from web documents, entity disambiguation (is &ldquo;Apple&rdquo; the company or the fruit in this context?), relationship extraction, fact verification, and continuous updating as the world changes.</p>
+
+<p><strong>Entity resolution</strong> is one of the harder problems. The same entity can be referred to by many names (New York City, NYC, New York, The City). Recognizing these as references to the same entity, and merging their information into a single node, requires both string matching and semantic understanding.</p>
+
+<p><strong>Ambiguity handling</strong> is the problem of knowing which entity a name refers to. &ldquo;Michael Jordan&rdquo; could be the basketball player, the philosopher, or thousands of other people with that name. Context from the rest of the query, the user&rsquo;s location, and their history all inform disambiguation.</p>
+
+<a name="Spam.Detection.and.Search.Quality"></a>
+<h2>Spam Detection and Search Quality</h2>
+
+<p>If ranking quality is what makes a search engine good, spam is what makes it bad. The financial incentive to appear at the top of search results is enormous, and it attracts enormous investment in manipulating those rankings.</p>
+
+<p><strong>Link spam</strong> is the practice of artificially inflating a page&rsquo;s PageRank by creating large numbers of fake inbound links from low-quality sites. Early versions of PageRank were highly vulnerable to this. Modern spam detection looks at the quality distribution of inbound links, the velocity of link acquisition, and the topical coherence of linking pages.</p>
+
+<p><strong>Keyword stuffing</strong> is the practice of cramming a page full of target keywords to boost TF-IDF scores. Modern text analysis looks at natural language statistics: a page that uses a keyword at ten times the natural rate in English is suspicious.</p>
+
+<p><strong>Content quality signals</strong> look at things like reading level, originality (detecting copied content), author expertise signals, and user engagement metrics (bounce rate, time on page, return visits). These signals are combined into quality scores that influence ranking.</p>
+
+<p>The arms race between spam and spam detection is continuous. Every time a new ranking signal is added, spammers figure out how to game it. The best defenses are signals that are either hard to fake (genuine user engagement, real inbound links from high-quality pages) or invisible to manipulators (because they are computed on user behavior data that third parties cannot access).</p>
+
+<a name="Geo-Distributed.Infrastructure"></a>
+<h2>Geo-Distributed Infrastructure</h2>
+
+<p>Google serves search globally. A user in Tokyo, Lagos, and London all expect sub-second response times. This is only possible with a massively geo-distributed infrastructure.</p>
+
+<p><strong>Data centers</strong> are distributed across multiple continents. Each data center hosts a complete or near-complete copy of the search serving infrastructure, including index shards. This means a user&rsquo;s query can be answered by the geographically nearest data center, minimizing network round-trip time.</p>
+
+<p><strong>Index replication</strong> across data centers introduces a consistency challenge. When the index is updated with fresh content, that update needs to propagate to all regional copies. This propagation takes time. Different regions may temporarily have slightly different indexes. For most queries, this is acceptable. For breaking news, it can matter.</p>
+
+<p><strong>Anycast routing</strong> allows Google to route a user&rsquo;s DNS query to the nearest data center automatically, without requiring the user to know which data center to talk to. This is invisible to users but critical to global latency performance.</p>
+
+<p><strong>Failover</strong> handles the case where a data center becomes unavailable. Traffic from that region needs to be rerouted to the next nearest data center, which may increase latency but maintains availability. Capacity planning has to account for this: every data center needs enough spare capacity to absorb traffic from a failed neighbor.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>The storage systems underlying search have to handle vastly different access patterns. The crawl store needs high write throughput as pages are continuously ingested. The index needs low-latency random reads for posting list lookups. The Knowledge Graph needs transactional writes and complex graph traversals.</p>
+
+<p><strong>Distributed file systems</strong> like Google File System (GFS, the predecessor to Colossus) provide the foundation for storing raw crawl data and intermediate pipeline artifacts. They are optimized for large sequential reads and writes, less so for small random access.</p>
+
+<p><strong>Bigtable-style wide-column stores</strong> provide the key-value storage for the web document store and crawl metadata. Each row represents a URL. Columns hold the crawl timestamp, raw content, parsed content, computed signals, and index status. The column-family model allows efficient reads of specific subsets of data.</p>
+
+<p>Below is a simplified example of what document storage schemas might look like:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Table</th>
+        <th>Key</th>
+        <th>Key Columns / Fields</th>
+        <th>Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>web_documents</td>
+        <td>url_hash</td>
+        <td>raw_html, parsed_text, title, links_out, crawl_time, language, content_hash</td>
+        <td>Write-heavy during crawl, read during indexing</td>
+      </tr>
+      <tr>
+        <td>crawl_metadata</td>
+        <td>url_hash</td>
+        <td>last_crawl_time, next_crawl_time, http_status, etag, crawl_priority, robots_allowed</td>
+        <td>Read/write by crawl scheduler</td>
+      </tr>
+      <tr>
+        <td>inverted_index</td>
+        <td>term</td>
+        <td>posting_list (doc_id, tf, field_mask, positions)</td>
+        <td>Read-heavy at query time, bulk writes during indexing</td>
+      </tr>
+      <tr>
+        <td>ranking_signals</td>
+        <td>doc_id</td>
+        <td>pagerank, freshness_score, quality_score, entity_ids, language</td>
+        <td>Read at ranking time, periodic updates</td>
+      </tr>
+      <tr>
+        <td>knowledge_graph</td>
+        <td>entity_id</td>
+        <td>name, aliases, type, properties, related_entities</td>
+        <td>Read at query time, incremental writes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Index storage</strong> is specialized. Posting lists are stored in a compact binary format with delta compression. The index is typically laid out on disk to optimize sequential scan patterns: posting lists for all terms are stored in sorted order by term, so a full index scan can proceed sequentially. Random access to a single posting list uses an in-memory term dictionary that maps terms to disk offsets.</p>
+
+<a name="Scaling.Google.Search"></a>
+<h2>Scaling Google Search</h2>
+
+<p>The scaling challenges in search are different from most web applications because of the interaction between the offline pipeline and the online serving path.</p>
+
+<p>The offline pipeline faces <strong>indexing throughput</strong> as its primary bottleneck. The web has hundreds of billions of pages. If each page takes 10ms to process end-to-end through the parsing and indexing pipeline, processing the whole web takes many thousands of machine-years. The answer is embarrassing parallelism: partition the URL space and process partitions in parallel. This is the original use case for MapReduce.</p>
+
+<p>The online serving path faces <strong>query latency</strong> as its primary constraint. More index shards mean lower per-shard latency (each shard has fewer documents to search) but more fanout overhead (coordinating more shards per query). There is an optimal shard size that balances these concerns, and it changes as hardware and network speeds improve.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Bottleneck</th>
+        <th>Root Cause</th>
+        <th>Mitigation Strategy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Indexing throughput</td>
+        <td>Web scale exceeds single pipeline capacity</td>
+        <td>Parallel MapReduce-style pipelines, partitioned by URL hash</td>
+      </tr>
+      <tr>
+        <td>Query latency</td>
+        <td>Index too large for one machine</td>
+        <td>Horizontal sharding with parallel fanout</td>
+      </tr>
+      <tr>
+        <td>Ranking compute</td>
+        <td>Neural models expensive per document</td>
+        <td>Multi-stage ranking, cheap first pass then expensive re-rank</td>
+      </tr>
+      <tr>
+        <td>Storage cost</td>
+        <td>Raw web is petabytes</td>
+        <td>Aggressive compression, tiered storage, content deduplication</td>
+      </tr>
+      <tr>
+        <td>Tail latency</td>
+        <td>Slowest shard determines overall latency</td>
+        <td>Hedged requests to replicas, shard replication</td>
+      </tr>
+      <tr>
+        <td>Hot queries</td>
+        <td>Sudden traffic spikes on popular terms</td>
+        <td>Result caching, dynamic shard replication</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Search is a service people rely on. Downtime is not just a business problem; for some users, search is how they find medical information, emergency services, or critical work resources. Reliability is a first-class engineering concern.</p>
+
+<p><strong>Multi-region serving</strong> means that no single failure can take down search globally. Each region operates as a largely independent serving unit. If a region becomes unreachable, traffic is rerouted to other regions.</p>
+
+<p><strong>Degraded modes</strong> are pre-defined fallback behaviors for when components fail. If the personalization service is down, serve non-personalized results. If the Knowledge Graph is unreachable, skip the entity panel. If freshness data is unavailable, fall back to the static index. Each of these is explicitly designed and tested, not discovered during an incident.</p>
+
+<p><strong>Index staleness</strong> is the graceful failure mode for the indexing pipeline. If the pipeline slows down or stops, the serving system continues to serve from whatever index was last built. Results become gradually more stale, but the system remains available. Alerting fires when staleness exceeds defined thresholds, giving engineers time to diagnose the pipeline issue before the index becomes too outdated to be useful.</p>
+
+<p><strong>Chaos engineering</strong> (deliberately injecting failures in production to verify that redundancy and fallback systems actually work) is standard practice for systems at this scale. The worst time to discover that your failover does not work is during a real incident.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every major architectural decision in search involves tradeoffs. Let us be explicit about the most important ones.</p>
+
+<p><strong>Freshness versus latency.</strong> Real-time indexing could surface a news article seconds after it is published. But real-time indexing means constantly updating the index while queries are running against it, which introduces locking and consistency complexity that hurts latency. Most search systems compromise: a fast-update tier for fresh content and a slow-batch tier for the bulk of the web. Query time combines both, with freshness-sensitive queries weighted toward the fast tier.</p>
+
+<p><strong>Ranking quality versus compute cost.</strong> A better neural ranking model produces better results but takes more compute per query. At billions of queries per day, the cost difference between a 5ms ranking step and a 50ms ranking step is enormous. Multi-stage ranking pipelines are the standard answer: use cheap signals to reduce the candidate set dramatically before applying expensive models.</p>
+
+<p><strong>Caching versus consistency.</strong> Heavy result caching reduces compute load and improves latency for popular queries. But cached results may not reflect the current state of the index. Short TTLs improve consistency at the cost of cache effectiveness. The optimal TTL depends on how frequently results actually change for that query type, which varies enormously.</p>
+
+<p><strong>Realtime indexing versus batch indexing.</strong> Batch indexing is simpler, more compressible, and easier to optimize. A batch-built index can be heavily optimized for read performance. Incremental indexing requires more complex data structures that support efficient updates without full rebuilds. In practice, most systems run both: a large, highly optimized batch index that is rebuilt periodically, and a smaller incremental index that captures recent changes. Query time merges results from both.</p>
+
+<p><strong>ML ranking versus deterministic ranking.</strong> Learned ranking models produce better results on average, but they are harder to debug, can have unexpected failure modes, and require continuous retraining to stay effective. Deterministic ranking formulas (BM25 + PageRank + explicit signals) are easier to audit, explain, and fix. Most production systems use a blend: deterministic signals as features fed into a learned model.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>It is worth grounding all of this in actual technology choices.</p>
+
+<p><strong>C++</strong> is used for the most performance-critical components: the serving path, the index lookup, and the core ranking engine. The latency budget for a search query is measured in milliseconds, and C++ gives the control over memory layout and CPU utilization that Java or Python cannot match in these hot paths.</p>
+
+<p><strong>Java and Go</strong> are used for more infrastructure-oriented services: crawl schedulers, pipeline coordinators, and internal services where developer productivity and maintainability matter more than raw performance. Go&rsquo;s concurrency model is particularly well-suited to the fanout-heavy query dispatching patterns in search serving.</p>
+
+<p><strong>Python</strong> is the language of the ML stack. Model training, feature engineering, and experiment tooling are almost all Python. TensorFlow and JAX are used for training ranking models. ONNX or custom C++ inference engines are used to serve those models at production latency, since Python inference would be too slow.</p>
+
+<p><strong>Bigtable</strong> (or equivalent wide-column stores) for the web document store and crawl metadata. Its ability to handle high write throughput with flexible schemas makes it a natural fit.</p>
+
+<p><strong>MapReduce and Dataflow</strong> (Google&rsquo;s stream and batch processing systems) for the offline indexing pipeline. The web-scale document processing job is a textbook MapReduce workload.</p>
+
+<p><strong>Pub/Sub or Kafka</strong> for the event streams that connect pipeline stages. When a new page is crawled, an event is published to a stream. Downstream stages (parser, indexer) consume from that stream independently. This decoupling means that a slowdown in one stage does not directly block others and allows for independent scaling.</p>
+
+<p><strong>Spanner</strong> for globally consistent metadata that needs ACID transactions. Things like URL canonical mappings and crawl scheduling state benefit from strong consistency guarantees.</p>
+
+<p><strong>Vector databases</strong> (ScaNN internally, or FAISS/HNSW in open source equivalents) for dense embedding retrieval, enabling semantic search at scale.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Google Search comes up in system design interviews, sometimes directly (&ldquo;design Google Search&rdquo;) and sometimes indirectly (&ldquo;design a search autocomplete system&rdquo; or &ldquo;design a web crawler&rdquo;). Here is how to approach it.</p>
+
+<p><strong>Start with clarification.</strong> What scale are we targeting? Global or regional? What features are in scope? Full web search or just document search within a corpus? Interviewers respect candidates who scope the problem before diving into solutions.</p>
+
+<p><strong>Explain the two-pipeline architecture early.</strong> The separation between the offline data pipeline (crawl, index, compute signals) and the online serving path is the most important architectural insight. Candidates who explain this immediately signal that they understand search at a systems level.</p>
+
+<p><strong>Go deep on the inverted index.</strong> This is where most candidates who have not specifically studied search fall short. You should be able to explain what a posting list is, why the index is sharded, how posting lists are compressed, and what incremental indexing looks like. These are real distributed systems problems, not just data structure trivia.</p>
+
+<p><strong>Discuss the ranking pipeline as a multi-stage system.</strong> Weak candidates say &ldquo;use BM25&rdquo; or &ldquo;use machine learning.&rdquo; Strong candidates explain the multi-stage architecture: retrieve with a cheap model, re-rank with an expensive one. Explain the latency rationale for this choice.</p>
+
+<p><strong>Acknowledge the tradeoffs.</strong> Interviewers love tradeoff discussions because they reveal real engineering thinking. Bring up freshness versus latency, caching versus consistency, and realtime versus batch indexing unprompted. Show that you understand why these tensions exist and how they are typically resolved.</p>
+
+<p><strong>Common mistakes to avoid.</strong> Jumping to a solution before scoping the problem. Focusing only on the happy path. Ignoring failure modes. Treating ranking as a black box. Underestimating the crawling complexity. Proposing a relational database for the inverted index.</p>
+
+<p><strong>Strong closing moves.</strong> Discuss how the system degrades gracefully when components fail. Mention what metrics you would monitor (index freshness, query latency percentiles, crawl throughput, ranking quality metrics like NDCG). Bring up the consistency model for distributed index updates.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Interview Area</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Crawling</td>
+        <td>Just fetch URLs from a queue</td>
+        <td>Distributed frontier with politeness, deduplication, priority scoring, JS rendering pipeline</td>
+      </tr>
+      <tr>
+        <td>Indexing</td>
+        <td>Store pages in a database and search them</td>
+        <td>Inverted index with sharding, delta-compressed posting lists, incremental plus batch tiers</td>
+      </tr>
+      <tr>
+        <td>Ranking</td>
+        <td>Use PageRank or machine learning</td>
+        <td>Multi-stage: BM25 retrieval, feature extraction, gradient boosted or neural re-ranking</td>
+      </tr>
+      <tr>
+        <td>Latency</td>
+        <td>Use caching</td>
+        <td>Parallel shard fanout, hedged requests for tail latency, query result cache with appropriate TTL</td>
+      </tr>
+      <tr>
+        <td>Scale</td>
+        <td>Add more servers</td>
+        <td>Horizontal index sharding, geo-distributed serving, offline pipeline parallelism</td>
+      </tr>
+      <tr>
+        <td>Freshness</td>
+        <td>Re-index frequently</td>
+        <td>Dual-tier index with fast-update layer, freshness signals in ranking, query-type aware cache TTL</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>The thing that strikes you when you study Google Search deeply is how many of the most interesting engineering decisions are not about any single component in isolation. They are about the interactions between components. The crawl schedule affects freshness, which affects ranking quality, which affects user signals, which feeds back into ranking model training. The index shard size affects both query latency and per-shard throughput during indexing. The cache TTL affects both user experience and backend load.</p>
+
+<p>Search at this scale is a system of systems, and the most challenging problems live in the boundaries between them. That is also what makes it one of the most rewarding engineering domains to study.</p>
+
+<p>The principles here, offline pipelines feeding online serving, inverted indexes with sharded posting lists, multi-stage ranking, tail latency mitigation through hedging, graceful degradation through tiered indexes, generalize well beyond search. You will find variations of all of these in recommendation systems, ad serving, fraud detection, and almost any system that has to match queries against a large corpus at low latency. Learning search architecture deeply means learning a large chunk of distributed systems architecture in general.</p>
+
+<p>The next time you type something into a search box and results appear almost instantly, you will have a better sense of what just happened.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Uber Computes ETA?]]></title>
@@ -2919,1088 +3523,6 @@ DT &#8211;> RP;
 <hr />
 
 <p><em>Enjoyed this deep dive? The best way to internalize these concepts is to start designing systems yourself — pick a product you use every day and try to sketch its architecture from first principles. Then look at what engineers at that company have actually written about how they built it. The gap between your design and theirs is where the most learning happens.</em></p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Reddit Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-reddit-works/"/>
-        <updated>2026-05-03T19:28:52+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-reddit-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>If you&rsquo;ve ever refreshed your Reddit feed at midnight, upvoted a post, or gone down a rabbit hole in a subreddit — you&rsquo;ve touched a system that serves hundreds of millions of users every day. But have you ever wondered what&rsquo;s actually happening under the hood? Let&rsquo;s find out.</em></p></blockquote>
-
-<p><img src="/images/system_design/reddit.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>Reddit calls itself &ldquo;the front page of the internet,&rdquo; and honestly, that&rsquo;s not far off. At its core, Reddit is a massive, community-driven link aggregator and discussion platform — think of it as a giant bulletin board broken into thousands of topic-specific rooms called <strong>subreddits</strong>.</p>
-
-<p>As of 2024, Reddit had:</p>
-
-<ul>
-<li><strong>~1.5 billion monthly active users</strong> visiting the site</li>
-<li><strong>~100,000 active subreddits</strong></li>
-<li>Over <strong>~500 million posts</strong> and billions of comments</li>
-<li>Multiple <strong>millions of concurrent users</strong> at peak times</li>
-</ul>
-
-
-<p>What makes Reddit an interesting system design problem is the <strong>combination of scale, real-time interaction, and community-specific complexity.</strong> You have users browsing feeds, posting content, voting, commenting in real-time, getting notifications, and all of this happening across extremely diverse communities with completely different moderation rules.</p>
-
-<p>It&rsquo;s not as real-time as Twitter (where every tweet needs instant fan-out). It&rsquo;s not as media-heavy as YouTube. But it&rsquo;s arguably more complex than both because it combines a <strong>social graph, content ranking, tree-structured comments, moderation tools, and real-time interactions</strong> all in one platform.</p>
-
-<p>Let&rsquo;s break it all down.</p>
-
-<!--more-->
-
-
-<a name="Core.Features"></a>
-<h2>Core Features</h2>
-
-<p>Before we get into architecture, let&rsquo;s quickly nail down what Reddit actually does. These features will drive every design decision we make.</p>
-
-<a name="Posts"></a>
-<h3>Posts</h3>
-
-<p>A post is the atomic unit of Reddit. It can be:</p>
-
-<ul>
-<li>A <strong>link</strong> pointing to an external URL</li>
-<li>A <strong>text post</strong> (also called a self-post)</li>
-<li>An <strong>image or video</strong></li>
-</ul>
-
-
-<p>Each post lives inside a subreddit, has an author, a title, a score (upvotes minus downvotes), and a timestamp.</p>
-
-<a name="Comments..Tree.Structure."></a>
-<h3>Comments (Tree Structure)</h3>
-
-<p>This is one of Reddit&rsquo;s most distinctive features. Comments form a <strong>tree</strong> — you can reply to a post directly, or reply to another comment, and that reply can have replies, and so on infinitely deep.</p>
-
-<div class="mermaid">
-flowchart TB;
-
-%% Nodes
-A[Post];
-B[Comment A];
-C[Reply A1];
-D[Reply A1a];
-E[Reply A2];
-F[Comment B];
-G[Reply B1];
-
-%% Tree Structure
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-B &#8211;> E;
-
-A &#8211;> F;
-F &#8211;> G;
-
-</div>
-
-
-<p>This nested tree structure needs special thought when it comes to storage and retrieval, which we&rsquo;ll cover later.</p>
-
-<a name="Upvotes...Downvotes"></a>
-<h3>Upvotes / Downvotes</h3>
-
-<p>Every post and every comment can be upvoted or downvoted. The <strong>net score</strong> (upvotes - downvotes) combined with the <strong>time of posting</strong> feeds into the ranking algorithm that determines where content appears in feeds.</p>
-
-<p>Vote counts are <strong>approximate by design</strong> — Reddit intentionally &ldquo;fuzzes&rdquo; the exact count to prevent vote manipulation. You&rsquo;ll see a score of &ldquo;1.2k&rdquo; rather than an exact number.</p>
-
-<a name="Subreddits"></a>
-<h3>Subreddits</h3>
-
-<p>Subreddits are topic-based communities: r/programming, r/worldnews, r/funny. Each one has its own:</p>
-
-<ul>
-<li>Set of moderators</li>
-<li>Custom rules and flairs</li>
-<li>Moderation tools</li>
-<li>Posting history</li>
-</ul>
-
-
-<p>Users can <strong>subscribe</strong> to subreddits, and their home feed is built from those subscriptions.</p>
-
-<a name="User.Profiles"></a>
-<h3>User Profiles</h3>
-
-<p>Each user has a profile with their post history, comment history, karma score (a rough measure of community contribution), and account settings.</p>
-
-<a name="Feed.Generation"></a>
-<h3>Feed Generation</h3>
-
-<p>The home feed is the magic. When you open Reddit, you see a curated list of posts from all the subreddits you follow, ranked by relevance and popularity. This is the hardest part to get right at scale.</p>
-
-<a name="High-Level.Architecture"></a>
-<h2>High-Level Architecture</h2>
-
-<p>Let&rsquo;s start with the big picture before drilling into specifics.</p>
-
-<div class="mermaid">
-flowchart TB
-
-%% Client Layer
-subgraph Client[&#8220;CLIENT LAYER&#8221;]
-    A[&#8220;Web Browser / iOS App / Android&#8221;]
-end
-
-%% CDN
-subgraph CDN[&#8220;CDN (CloudFront / Fastly / Akamai)&#8221;]
-    B[&#8220;Static Assets, Images, Videos&#8221;]
-end
-
-%% Load Balancer
-subgraph LB[&#8220;LOAD BALANCER (L7)&#8221;]
-    C[&#8220;HAProxy / AWS ALB / Nginx&#8221;]
-end
-
-%% Core Services
-subgraph Services[&#8220;CORE SERVICES&#8221;]
-    D[&#8220;Auth Service&#8221;]
-    E[&#8220;Post Service&#8221;]
-    F[&#8220;Feed Service&#8221;]
-    G[&#8220;Comment Service&#8221;]
-end
-
-%% Message Bus
-subgraph Kafka[&#8220;MESSAGE BUS (Kafka)&#8221;]
-    H[&#8220;Event Streaming&#8221;]
-end
-
-%% Async Services
-subgraph Async[&#8220;ASYNC SERVICES&#8221;]
-    I[&#8220;Voting Service&#8221;]
-    J[&#8220;Search Service&#8221;]
-    K[&#8220;Notification Service&#8221;]
-end
-
-%% Data Layer
-subgraph Data[&#8220;DATA LAYER&#8221;]
-    L[&#8220;PostgreSQL (Users, Subs)&#8221;]
-    M[&#8220;Cassandra (Votes, Activity)&#8221;]
-    N[&#8220;Redis (Cache, Sessions)&#8221;]
-end
-
-%% Connections
-A &#8211;>|HTTPS| B
-B &#8211;>|Cache Miss| C
-
-C &#8211;> D
-C &#8211;> E
-C &#8211;> F
-C &#8211;> G
-
-E &#8211;> H
-F &#8211;> H
-G &#8211;> H
-
-H &#8211;> I
-H &#8211;> J
-H &#8211;> K
-
-I &#8211;> L
-I &#8211;> M
-J &#8211;> L
-J &#8211;> N
-K &#8211;> N
-</div>
-
-
-<blockquote><p>💡 <strong>Image suggestion</strong>: Replace this ASCII diagram with a clean HD architecture diagram showing the service mesh, data flow arrows, and database layers.</p></blockquote>
-
-<p>Let me explain each piece:</p>
-
-<p><strong>CDN (Content Delivery Network):</strong> The first layer that intercepts requests. It serves static content — images, JavaScript bundles, CSS — from edge servers close to the user. No reason to hit your origin server for a Reddit logo.</p>
-
-<p><strong>Load Balancer:</strong> Distributes incoming traffic across multiple server instances. Uses Layer 7 (HTTP-aware) routing so it can send <code>/api/posts</code> requests to the Post Service and <code>/api/auth</code> requests to the Auth Service.</p>
-
-<p><strong>Microservices:</strong> Reddit evolved from a Python monolith (built on Pylons framework in the early days) into a set of microservices. Each service owns a specific domain — posts, comments, votes, feeds, notifications, etc.</p>
-
-<p><strong>Message Bus (Kafka):</strong> The nervous system of the backend. Events like &ldquo;new vote cast,&rdquo; &ldquo;new comment posted,&rdquo; or &ldquo;post created&rdquo; are published as messages on Kafka topics. Other services subscribe and react asynchronously. This decouples the services and allows the system to absorb spikes.</p>
-
-<p><strong>Data Layer:</strong> Multiple databases for different needs, which we&rsquo;ll explore in detail.</p>
-
-<a name="Deep.Dive:.Core.Services"></a>
-<h2>Deep Dive: Core Services</h2>
-
-<a name="Authentication.Service"></a>
-<h3>Authentication Service</h3>
-
-<p>The auth service handles login, session management, and OAuth flows (for third-party app access via Reddit&rsquo;s API).</p>
-
-<p><strong>How it works:</strong></p>
-
-<ul>
-<li>User logs in → auth service validates credentials → issues a <strong>JWT (JSON Web Token)</strong> or <strong>session cookie</strong></li>
-<li>Every subsequent request carries this token</li>
-<li>The token is verified at the API gateway level before routing to any service</li>
-</ul>
-
-
-<p>Reddit also supports OAuth 2.0, which is why apps like Apollo or third-party Reddit clients can authenticate on your behalf.</p>
-
-<p><strong>Session Storage:</strong> Sessions are stored in Redis — it&rsquo;s fast and supports TTL (time-to-live) out of the box, so expired sessions are automatically cleaned up.</p>
-
-<a name="Post.Service"></a>
-<h3>Post Service</h3>
-
-<p>This service handles CRUD operations for posts — creation, retrieval, editing, deletion.</p>
-
-<p><strong>When a user submits a post:</strong></p>
-
-<ol>
-<li>Validation (is the content within rules? Is the user banned from this subreddit?)</li>
-<li>Store the post in the primary database (PostgreSQL)</li>
-<li>Publish a <code>post.created</code> event to Kafka</li>
-<li>Other services (feed service, notification service, search indexer) listen to this event and react</li>
-</ol>
-
-
-<p><strong>Schema (simplified):</strong></p>
-
-<pre><code class="sql">CREATE TABLE posts (
-    id          UUID PRIMARY KEY,
-    author_id   UUID NOT NULL REFERENCES users(id),
-    subreddit_id UUID NOT NULL REFERENCES subreddits(id),
-    title       VARCHAR(300) NOT NULL,
-    url         TEXT,
-    body        TEXT,
-    type        ENUM('link', 'text', 'image', 'video'),
-    score       INT DEFAULT 0,
-    upvotes     INT DEFAULT 0,
-    downvotes   INT DEFAULT 0,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_deleted  BOOLEAN DEFAULT FALSE,
-    is_nsfw     BOOLEAN DEFAULT FALSE
-);
-</code></pre>
-
-<a name="Comment.Service"></a>
-<h3>Comment Service</h3>
-
-<p>Comments are the most complex data structure in Reddit. They form an <strong>unbounded tree</strong> and need to be:</p>
-
-<ul>
-<li>Retrieved efficiently for a given post</li>
-<li>Sorted (by &ldquo;best,&rdquo; &ldquo;new,&rdquo; &ldquo;top,&rdquo; &ldquo;controversial&rdquo;)</li>
-<li>Collapsible (hide a branch of replies)</li>
-</ul>
-
-
-<p><strong>Two common approaches to storing trees in a relational DB:</strong></p>
-
-<p><strong>Option 1: Adjacency List (Simple)</strong>
-<code>sql
-CREATE TABLE comments (
-    id          UUID PRIMARY KEY,
-    post_id     UUID NOT NULL,
-    parent_id   UUID REFERENCES comments(id),  -- NULL if top-level
-    author_id   UUID NOT NULL,
-    body        TEXT NOT NULL,
-    score       INT DEFAULT 0,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-</code>
-Simple but fetching an entire comment tree requires recursive queries or multiple round-trips.</p>
-
-<p><strong>Option 2: Materialized Path</strong>
-Store the full path from root to each node as a string:
-<code>sql
--- path: "root_id.child_id.grandchild_id"
-id: "comment_abc"
-path: "comment_xyz.comment_abc"
-</code>
-This makes it trivially fast to fetch all descendants with a <code>LIKE 'root_id%'</code> query, at the cost of slightly more storage.</p>
-
-<p>Reddit actually uses a <strong>hybrid approach</strong> — storing the parent ID in PostgreSQL for writes, but caching fully assembled comment trees in Redis for reads. When you load a post page, Reddit fetches the pre-built tree from cache rather than reassembling it from the DB every time.</p>
-
-<a name="Voting.System"></a>
-<h3>Voting System</h3>
-
-<p>Voting is <strong>one of the highest-write-volume operations</strong> on Reddit. Every thumb press is a write. At scale, this needs to be handled carefully.</p>
-
-<p><strong>The naive approach</strong> — directly updating the <code>score</code> column on the post row — would destroy your database. You&rsquo;d have thousands of concurrent writes to the same row, causing lock contention.</p>
-
-<p><strong>Reddit&rsquo;s approach:</strong></p>
-
-<ol>
-<li>Write votes to a fast write-optimized store first (Redis sorted sets or Cassandra)</li>
-<li>Periodically batch-aggregate votes and update the main score in PostgreSQL</li>
-<li>The score displayed to users is read from cache, not the database</li>
-</ol>
-
-
-<pre><code class="python"># Pseudo-code for handling a vote
-def handle_vote(user_id, post_id, vote_direction):  # +1 or -1
-    # Check if user has already voted
-    existing = redis.get(f"vote:{user_id}:{post_id}")
-
-    if existing == vote_direction:
-        return  # Same vote, no-op (toggle off would be another case)
-
-    # Store user's vote in Redis
-    redis.set(f"vote:{user_id}:{post_id}", vote_direction, ex=86400*30)
-
-    # Increment score in Redis sorted set
-    redis.zincrby("post_scores", vote_direction, post_id)
-
-    # Publish to Kafka for async persistence
-    kafka.publish("votes", {
-        "user_id": user_id,
-        "post_id": post_id,
-        "direction": vote_direction,
-        "timestamp": now()
-    })
-</code></pre>
-
-<p>A background consumer reads from the Kafka <code>votes</code> topic and periodically flushes aggregated vote counts to PostgreSQL. This is a classic <strong>write-behind caching</strong> pattern.</p>
-
-<a name="Subreddit.Service"></a>
-<h3>Subreddit Service</h3>
-
-<p>Handles subreddit creation, subscription management, moderation settings, and rules.</p>
-
-<p>A <strong>subscription</strong> is a many-to-many relationship between users and subreddits:</p>
-
-<pre><code class="sql">CREATE TABLE subscriptions (
-    user_id      UUID NOT NULL,
-    subreddit_id UUID NOT NULL,
-    subscribed_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (user_id, subreddit_id)
-);
-</code></pre>
-
-<p>The list of subreddits a user follows is small enough to be cached in Redis as a set: <code>SMEMBERS user:12345:subscriptions</code>.</p>
-
-<a name="Notification.System"></a>
-<h3>Notification System</h3>
-
-<p>Notifications are <strong>event-driven by nature</strong>. When something happens (your comment got a reply, you got a mention, a mod action was taken), a notification needs to reach the right user.</p>
-
-<p><strong>Flow:</strong></p>
-
-<ol>
-<li>Event published to Kafka (e.g., <code>comment.created</code>)</li>
-<li>Notification service consumes the event</li>
-<li>Checks who needs to be notified (post author, parent comment author, mentioned users)</li>
-<li>Stores notification in DB + pushes via WebSocket or Firebase Cloud Messaging (FCM) for mobile</li>
-</ol>
-
-
-<p>The notification service maintains a user notification inbox — essentially a list of notification records with read/unread status.</p>
-
-<a name="Moderation.System"></a>
-<h3>Moderation System</h3>
-
-<p>This is often overlooked in system design interviews but it&rsquo;s genuinely one of Reddit&rsquo;s hardest problems. Reddit has:</p>
-
-<ul>
-<li>Volunteer moderators (subreddit-specific)</li>
-<li>Reddit admins (site-wide)</li>
-<li>Automated moderation bots (e.g., AutoModerator)</li>
-<li>ML-based spam detection</li>
-</ul>
-
-
-<p><strong>Tools in the moderation toolkit:</strong></p>
-
-<ul>
-<li><strong>AutoModerator:</strong> A rule engine that runs on every post/comment. Rules are YAML-based and can match on keywords, account age, karma thresholds, etc.</li>
-<li><strong>Spam detection:</strong> ML models trained on known spam patterns</li>
-<li><strong>Shadow banning / Content filtering:</strong> Soft-banning users (they think their posts are public, but they&rsquo;re hidden from others)</li>
-<li><strong>Report queue:</strong> User reports flow into a moderation queue. High-volume subreddits use tools to triage these at scale.</li>
-</ul>
-
-
-<a name="Database.Design"></a>
-<h2>Database Design</h2>
-
-<p>Reddit uses a <strong>polyglot persistence</strong> approach — different data stores for different access patterns.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Data Type</th>
-        <th>Database</th>
-        <th>Why</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Users, Posts, Subreddits</td>
-        <td>PostgreSQL</td>
-        <td>Strong ACID guarantees, rich querying</td>
-      </tr>
-      <tr>
-        <td>Votes (raw events)</td>
-        <td>Cassandra</td>
-        <td>High write throughput, append-only</td>
-      </tr>
-      <tr>
-        <td>Sessions, Cache</td>
-        <td>Redis</td>
-        <td>Sub-millisecond reads, TTL support</td>
-      </tr>
-      <tr>
-        <td>Full-text search</td>
-        <td>Elasticsearch</td>
-        <td>Complex query patterns, relevance ranking</td>
-      </tr>
-      <tr>
-        <td>Media (images, videos)</td>
-        <td>S3 + CDN</td>
-        <td>Blob storage at scale</td>
-      </tr>
-      <tr>
-        <td>Time-series metrics</td>
-        <td>InfluxDB / Prometheus</td>
-        <td>High-cardinality time-series data</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Key.Schema.Examples"></a>
-<h3>Key Schema Examples</h3>
-
-<p><strong>Users Table:</strong>
-<code>sql
-CREATE TABLE users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username        VARCHAR(20) UNIQUE NOT NULL,
-    email           VARCHAR(255) UNIQUE NOT NULL,
-    password_hash   VARCHAR(255) NOT NULL,
-    post_karma      INT DEFAULT 0,
-    comment_karma   INT DEFAULT 0,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    is_verified     BOOLEAN DEFAULT FALSE,
-    is_suspended    BOOLEAN DEFAULT FALSE
-);
-</code></p>
-
-<p><strong>Subreddits Table:</strong>
-<code>sql
-CREATE TABLE subreddits (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name            VARCHAR(21) UNIQUE NOT NULL,  -- max r/ name length
-    description     TEXT,
-    subscriber_count INT DEFAULT 0,
-    created_by      UUID REFERENCES users(id),
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    is_nsfw         BOOLEAN DEFAULT FALSE,
-    is_quarantined  BOOLEAN DEFAULT FALSE
-);
-</code></p>
-
-<a name="SQL.vs.NoSQL:.The.Tradeoff"></a>
-<h3>SQL vs NoSQL: The Tradeoff</h3>
-
-<p>The big question in any system design is: relational or not?</p>
-
-<p><strong>For Reddit&rsquo;s core data (posts, comments, users):</strong> PostgreSQL makes sense. These are highly relational, need transactions, and benefit from complex joins (e.g., &ldquo;fetch all posts by user X in subreddit Y that have score > 100&rdquo;).</p>
-
-<p><strong>For votes:</strong> You don&rsquo;t need ACID guarantees for an upvote. You need <strong>high write throughput and eventual consistency</strong>. Cassandra wins here — it&rsquo;s designed for append-heavy, time-series-like data.</p>
-
-<p><strong>The key tradeoff:</strong></p>
-
-<ul>
-<li><strong>Consistency vs. Availability:</strong> If Cassandra is temporarily unavailable, your vote might not be counted immediately — but that&rsquo;s acceptable. Users won&rsquo;t notice a 2-second delay in vote count updates.</li>
-<li><strong>Normalization vs. Denormalization:</strong> Relational DBs normalize (one source of truth). NoSQL often denormalizes (duplicate data for read performance). Reddit&rsquo;s feed, for example, stores pre-computed post data so reads are fast.</li>
-</ul>
-
-
-<a name="Feed.Generation"></a>
-<h2>Feed Generation</h2>
-
-<p>This is the most interesting and most debated part of Reddit&rsquo;s design. The home feed is a ranked list of posts from all subreddits you follow. How do you build this efficiently for hundreds of millions of users?</p>
-
-<a name="The.Two.Models"></a>
-<h3>The Two Models</h3>
-
-<p><strong>Option 1: Pull Model (Fan-in on Read)</strong></p>
-
-<p>When a user opens their feed, the server:</p>
-
-<ol>
-<li>Fetches the list of subreddits the user follows</li>
-<li>Queries for top posts from each subreddit</li>
-<li>Merges and re-ranks everything</li>
-<li>Returns the sorted feed</li>
-</ol>
-
-
-<p><strong>Pros:</strong> Simple to implement. No storage overhead. Always fresh.</p>
-
-<p><strong>Cons:</strong> Very slow at scale. If you follow 500 subreddits, that&rsquo;s potentially 500 database queries per feed load. Unacceptable latency.</p>
-
-<p><strong>Option 2: Push Model (Fan-out on Write)</strong></p>
-
-<p>When a new post is created:</p>
-
-<ol>
-<li>Find all subscribers of that subreddit</li>
-<li>Insert the post ID into each subscriber&rsquo;s &ldquo;feed queue&rdquo;</li>
-</ol>
-
-
-<p>When a user loads their feed, just read from their pre-built queue.</p>
-
-<p><strong>Pros:</strong> Feed reads are O(1) — just fetch from the user&rsquo;s queue.</p>
-
-<p><strong>Cons:</strong> Writing a post to r/AskReddit (30M+ subscribers) means 30 million writes. Fan-out on write is a nightmare for large subreddits.</p>
-
-<a name="Reddit.s.Hybrid.Approach"></a>
-<h3>Reddit&rsquo;s Hybrid Approach</h3>
-
-<p>Reddit (like most platforms at this scale) uses a <strong>hybrid model:</strong></p>
-
-<ul>
-<li>For <strong>small subreddits</strong> (&lt; X subscribers): Fan-out on write. When a post is created, push it to all subscriber feeds.</li>
-<li>For <strong>large subreddits</strong> (> X subscribers, like r/funny or r/worldnews): Pull model at read time. These posts are fetched separately and merged into the feed.</li>
-<li>User feeds are <strong>cached in Redis</strong> with a short TTL (a few minutes). Stale feeds are invalidated and rebuilt on the next load.</li>
-</ul>
-
-
-<div class="mermaid">
-flowchart TB;
-
-A[User Request] &#8211;> B;
-B{Cache Check Redis};
-
-B &#8211;>|HIT sub-10ms| C[Return Cached Feed];
-B &#8211;>|MISS| D[Build Feed];
-
-D &#8211;> E[Fetch Followed Subreddits Redis Set];
-E &#8211;> F[Small Subs Prebuilt Feed Queue];
-E &#8211;> G[Large Subs Top Posts Directly];
-
-F &#8211;> H[Merge and Rank];
-G &#8211;> H;
-
-H &#8211;> I[Write to Cache TTL 5-10 min];
-I &#8211;> J[Return to User];
-
-</div>
-
-
-<a name="Personalization"></a>
-<h3>Personalization</h3>
-
-<p>Reddit also personalizes feeds based on:</p>
-
-<ul>
-<li>Your <strong>vote history</strong> (if you consistently upvote posts in r/golang, more Go content bubbles up)</li>
-<li><strong>Time of day</strong> (people consume different content at night vs. morning)</li>
-<li><strong>Flagged preferences</strong> (you can mark certain flairs to filter out)</li>
-</ul>
-
-
-<p>This personalization layer sits on top of the base ranked feed and re-scores posts before returning results.</p>
-
-<a name="Caching..amp..Performance"></a>
-<h2>Caching &amp; Performance</h2>
-
-<p>Reddit is <strong>read-heavy by a wide margin.</strong> For every 1 person posting, thousands are reading. Every caching decision should optimize for read performance.</p>
-
-<a name="Redis.for.Hot.Data"></a>
-<h3>Redis for Hot Data</h3>
-
-<p>Redis is used everywhere:</p>
-
-<ul>
-<li><strong>Session storage</strong> — JWT → session data lookup</li>
-<li><strong>Vote counts</strong> — current score of a post/comment</li>
-<li><strong>Subscriber counts</strong> — number of members in a subreddit</li>
-<li><strong>Comment trees</strong> — fully assembled JSON trees for hot posts</li>
-<li><strong>User feeds</strong> — pre-built feed lists with TTL</li>
-<li><strong>Rate limiting</strong> — sliding window counters to throttle API abuse</li>
-</ul>
-
-
-<div class="mermaid">
-flowchart TB;
-
-%% Nodes
-A[user:user_id:subscriptions SET of subreddit IDs];
-B[post:post_id:score STRING integer score];
-C[post:post_id:comments JSON comment tree];
-D[feed:user_id:home LIST of post IDs];
-E[subreddit:sub_id:hot_posts ZSET sorted by score];
-F[ratelimit:user_id:endpoint STRING counter];
-
-%% Grouping
-subgraph UserData
-A;
-D;
-F;
-end;
-
-subgraph PostData
-B;
-C;
-end;
-
-subgraph SubredditData
-E;
-end;
-
-</div>
-
-
-<a name="CDN.for.Static.Content"></a>
-<h3>CDN for Static Content</h3>
-
-<p>All images, videos, and static assets go through a CDN (Reddit uses Fastly). This means:</p>
-
-<ul>
-<li>User-uploaded images are stored in S3</li>
-<li>Served through CDN edge servers globally</li>
-<li>Cache headers are set aggressively for immutable content</li>
-</ul>
-
-
-<a name="Read.Replicas"></a>
-<h3>Read Replicas</h3>
-
-<p>For database reads, Reddit routes traffic to <strong>read replicas</strong> of PostgreSQL. Writes go to the primary, reads are distributed across multiple replicas. This multiplies read capacity without increasing write complexity.</p>
-
-<a name="Approximate.Counts"></a>
-<h3>Approximate Counts</h3>
-
-<p>Displaying exact vote counts requires precise aggregation. Instead, Reddit uses <strong>approximate counting</strong> with HyperLogLog or similar probabilistic data structures. This trades a tiny margin of error for enormous performance gains on high-cardinality counts.</p>
-
-<a name="Scaling.the.System"></a>
-<h2>Scaling the System</h2>
-
-<a name="How.Reddit.Scaled.Over.Time"></a>
-<h3>How Reddit Scaled Over Time</h3>
-
-<p>Reddit started as a <strong>Python monolith</strong> in 2005. As traffic grew, they hit walls repeatedly. Here&rsquo;s roughly how the evolution went:</p>
-
-<ol>
-<li><strong>Vertical scaling</strong> — bigger servers. Temporary fix.</li>
-<li><strong>Read replicas</strong> — separated reads from writes.</li>
-<li><strong>Caching (Memcached, then Redis)</strong> — kept hot data in memory.</li>
-<li><strong>Service extraction</strong> — broke out search, media, etc. into separate services.</li>
-<li><strong>Full microservices</strong> — by the early 2020s, most features run as independent services.</li>
-</ol>
-
-
-<a name="Horizontal.Scaling"></a>
-<h3>Horizontal Scaling</h3>
-
-<p>Every service is stateless — no local state is stored on the server. All state lives in Redis, Postgres, or Kafka. This means you can add more instances of any service behind the load balancer without coordination.</p>
-
-<div class="mermaid">
-flowchart TB;
-
-%% Nodes
-A[Load Balancer];
-B[Post Service Instance 1];
-C[Post Service Instance 2];
-D[Post Service Instance 3];
-E[Post Service Instance N];
-
-%% Connections
-A &#8211;> B;
-A &#8211;> C;
-A &#8211;> D;
-A &#8211;> E;
-
-</div>
-
-
-<p>Auto-scaling groups (in AWS or GCP) spin up new instances under load and tear them down when traffic subsides.</p>
-
-<a name="Kafka.as.the.Backbone"></a>
-<h3>Kafka as the Backbone</h3>
-
-<p>Kafka is used for <strong>event-driven communication</strong> between services. Instead of Service A calling Service B directly (synchronous, tightly coupled), Service A publishes an event and Service B (or C, D, E) can consume it independently.</p>
-
-<p>Real-world event topics in Reddit&rsquo;s system might look like:</p>
-
-<div class="mermaid">
-flowchart TB;
-
-%% Topics
-T1[posts.created];
-T2[comments.created];
-T3[votes.cast];
-T4[users.banned];
-T5[reports.filed];
-
-%% Consumers
-A[Search Indexer];
-B[Feed Service];
-C[Notification Service];
-D[Moderation Queue];
-E[Vote Aggregator];
-F[Ranking Service];
-G[Content Visibility Service];
-H[Auth Service];
-
-%% Connections
-T1 &#8211;> A;
-T1 &#8211;> B;
-T1 &#8211;> C;
-
-T2 &#8211;> C;
-T2 &#8211;> B;
-T2 &#8211;> D;
-
-T3 &#8211;> E;
-T3 &#8211;> F;
-
-T4 &#8211;> G;
-T4 &#8211;> H;
-
-T5 &#8211;> D;
-
-</div>
-
-
-<p>This design makes the system <strong>fault-tolerant</strong> — if the notification service goes down, events pile up in Kafka and are processed when the service recovers. Nothing is lost.</p>
-
-<a name="Database.Sharding"></a>
-<h3>Database Sharding</h3>
-
-<p>For tables that grow extremely large (like <code>votes</code> or <code>comments</code>), you can <strong>shard</strong> the data. Sharding means splitting a table across multiple database instances based on some key (often user ID or post ID).</p>
-
-<p>For example, vote records can be sharded by <code>post_id % N</code> where N is the number of shards. All votes for a given post live on the same shard, making aggregation fast.</p>
-
-<a name="Real-Time.Features"></a>
-<h2>Real-Time Features</h2>
-
-<a name="Live.Comment.Updates"></a>
-<h3>Live Comment Updates</h3>
-
-<p>When you&rsquo;re reading a popular post, new comments sometimes appear without you refreshing. This is done via <strong>WebSockets</strong>.</p>
-
-<p>Flow:</p>
-
-<ol>
-<li>Browser opens a WebSocket connection to Reddit&rsquo;s real-time service when viewing a post</li>
-<li>When a new comment is submitted, it&rsquo;s published to Kafka</li>
-<li>The real-time service consumes from Kafka and pushes the new comment to all WebSocket clients subscribed to that post ID</li>
-</ol>
-
-
-<div class="mermaid">
-flowchart TB;
-
-%% Nodes
-A[Comment Service];
-B[comments.created Topic];
-C[Kafka Consumer];
-D[Real-time Service];
-E[Client Web App];
-F[WebSocket Connection];
-
-%% Forward Flow
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-
-%% Real-time Push (reverse direction concept)
-D &#8211;> F;
-F &#8211;> E;
-
-</div>
-
-
-<p>For lower-priority updates (like notification badges), Reddit may fall back to <strong>Server-Sent Events (SSE)</strong> or even <strong>long polling</strong> — simpler, lower overhead alternatives to WebSockets.</p>
-
-<a name="Push.Notifications"></a>
-<h3>Push Notifications</h3>
-
-<p>Mobile notifications go through platform-specific push systems:</p>
-
-<ul>
-<li><strong>Apple Push Notification Service (APNs)</strong> for iOS</li>
-<li><strong>Firebase Cloud Messaging (FCM)</strong> for Android</li>
-</ul>
-
-
-<p>Reddit&rsquo;s notification service formats the notification payload and sends it to the appropriate push gateway based on the user&rsquo;s device type.</p>
-
-<a name="The.Ranking.Algorithm"></a>
-<h2>The Ranking Algorithm</h2>
-
-<p>Reddit&rsquo;s ranking algorithm is what makes the front page feel useful rather than just chronological. Let&rsquo;s break it down.</p>
-
-<a name="The..Hot..Algorithm"></a>
-<h3>The &ldquo;Hot&rdquo; Algorithm</h3>
-
-<p>Reddit&rsquo;s hot ranking is based on a formula originally developed by Randall Munroe (yes, the xkcd guy). Here&rsquo;s a simplified version:</p>
-
-<pre><code class="python">import math
-from datetime import datetime
-
-EPOCH = datetime(1970, 1, 1)
-
-def epoch_seconds(date):
-    td = date - EPOCH
-    return td.days * 86400 + td.seconds
-
-def score(ups, downs):
-    return ups - downs
-
-def hot(ups, downs, date):
-    s = score(ups, downs)
-    order = math.log(max(abs(s), 1), 10)
-    sign = 1 if s &gt; 0 else (-1 if s &lt; 0 else 0)
-    seconds = epoch_seconds(date) - 1134028003  # Reddit's epoch
-    return round(sign * order + seconds / 45000, 7)
-</code></pre>
-
-<p>The key insight is this: <strong>the ranking combines score with time</strong>, and <strong>time decays the score</strong>. A post with 1,000 upvotes an hour ago beats a post with 10,000 upvotes from yesterday. The <code>45000</code> constant controls how fast posts decay — roughly every 12.5 hours, a post needs 10x more votes to stay at the same rank.</p>
-
-<a name="Other.Sort.Modes"></a>
-<h3>Other Sort Modes</h3>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Mode</th>
-        <th>Logic</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>New</strong></td>
-        <td>Simple chronological sort by <code>created_at DESC</code></td>
-      </tr>
-      <tr>
-        <td><strong>Top</strong></td>
-        <td>Sort by raw score (upvotes - downvotes) within a time window</td>
-      </tr>
-      <tr>
-        <td><strong>Controversial</strong></td>
-        <td>High votes but nearly equal upvotes and downvotes</td>
-      </tr>
-      <tr>
-        <td><strong>Rising</strong></td>
-        <td>Posts gaining velocity quickly — score increasing faster than expected</td>
-      </tr>
-      <tr>
-        <td><strong>Best</strong></td>
-        <td>Wilson score interval — accounts for post age and vote confidence</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p><strong>Controversial</strong> posts are particularly interesting. The formula roughly computes posts where the ratio of upvotes to total votes is close to 0.5, and the total vote count is high:</p>
-
-<pre><code class="python">def controversial(ups, downs):
-    if ups &lt;= 0 or downs &lt;= 0:
-        return 0
-    magnitude = ups + downs
-    balance = downs / ups if ups &gt; downs else ups / downs
-    return magnitude ** balance
-</code></pre>
-
-<p>The higher the magnitude and the closer to 50/50 the split, the higher the controversial score.</p>
-
-<a name="Challenges..amp..Tradeoffs"></a>
-<h2>Challenges &amp; Tradeoffs</h2>
-
-<a name="L1..Consistency.vs..Availability"></a>
-<h3>1. Consistency vs. Availability</h3>
-
-<p>When you upvote a post, you don&rsquo;t get an error — you get an optimistic UI update. But behind the scenes, that vote might take a few seconds to fully propagate. Reddit chooses <strong>availability over strict consistency</strong> for votes (following the CAP theorem, when you&rsquo;re distributed, you pick two of three: Consistency, Availability, Partition Tolerance).</p>
-
-<p>For things like bans and moderation actions, however, Reddit needs <strong>stronger consistency</strong> — you don&rsquo;t want a banned user to keep posting because one replica didn&rsquo;t get the update. This is why different parts of the system use different consistency models.</p>
-
-<a name="L2..Spam..amp..Vote.Manipulation"></a>
-<h3>2. Spam &amp; Vote Manipulation</h3>
-
-<p>Vote manipulation is a constant battle. Bad actors create armies of accounts to upvote their own posts or downvote competitors. Reddit counters this with:</p>
-
-<ul>
-<li><strong>IP-based rate limiting</strong> on vote actions</li>
-<li><strong>ML models</strong> trained to detect coordinated voting patterns</li>
-<li><strong>Vote fuzzing</strong> — slightly obscuring the exact vote count makes it harder to confirm if manipulation is working</li>
-<li><strong>Account age and karma requirements</strong> — new or low-karma accounts have their votes weighted less</li>
-</ul>
-
-
-<a name="L3..Moderation.at.Scale"></a>
-<h3>3. Moderation at Scale</h3>
-
-<p>Reddit has ~100,000 subreddits, each moderated by volunteers. The quality and consistency of moderation varies wildly. Reddit&rsquo;s technical approach includes:</p>
-
-<ul>
-<li>AutoModerator (rules engine built on YAML configs)</li>
-<li>Site-wide spam detection feeding into mod queues</li>
-<li>Quarantine system for problematic communities</li>
-<li>Improved reporting UX to surface actionable reports</li>
-</ul>
-
-
-<p>The challenge isn&rsquo;t the technology — it&rsquo;s the <strong>policy and human coordination</strong> at scale.</p>
-
-<a name="L4..The.Thundering.Herd"></a>
-<h3>4. The Thundering Herd</h3>
-
-<p>When a mega-popular post goes viral, suddenly millions of people request the same resource simultaneously. A <strong>cache miss</strong> on that resource causes every request to hit the database — causing what&rsquo;s known as the &ldquo;thundering herd&rdquo; problem.</p>
-
-<p>Mitigation strategies:</p>
-
-<ul>
-<li><strong>Cache locking:</strong> Only one request rebuilds the cache; others wait briefly</li>
-<li><strong>Short TTLs with background refresh:</strong> Cache is refreshed before expiry in background, so users never hit a cold cache</li>
-<li><strong>Request coalescing:</strong> Multiple identical requests in-flight are coalesced into one database query</li>
-</ul>
-
-
-<a name="L5..Cold.Start.for.New.Users"></a>
-<h3>5. Cold Start for New Users</h3>
-
-<p>New users have no history. Their feeds are empty. Reddit handles this with:</p>
-
-<ul>
-<li>Default subscriptions to popular subreddits (r/announcements, r/popular)</li>
-<li>Onboarding flow that asks for interests</li>
-<li>Trending/popular content as fallback when personalized feed is sparse</li>
-</ul>
-
-
-<a name="System.Design.Interview.Tips"></a>
-<h2>System Design Interview Tips</h2>
-
-<p>If you&rsquo;re asked to design Reddit in an interview, here&rsquo;s how I&rsquo;d approach it:</p>
-
-<a name="Step.1:.Clarify.Requirements..5.minutes."></a>
-<h3>Step 1: Clarify Requirements (5 minutes)</h3>
-
-<p>Don&rsquo;t start coding or drawing. Ask:</p>
-
-<ul>
-<li>&ldquo;Are we focusing on the feed? Post creation? Voting?&rdquo;</li>
-<li>&ldquo;What&rsquo;s the scale? 1M users? 100M?&rdquo;</li>
-<li>&ldquo;Should we handle real-time features like live comment updates?&rdquo;</li>
-<li>&ldquo;Is media upload in scope?&rdquo;</li>
-</ul>
-
-
-<p>Interviewers reward candidates who <strong>scope properly</strong> before diving in.</p>
-
-<a name="Step.2:.Estimate.Scale..5.minutes."></a>
-<h3>Step 2: Estimate Scale (5 minutes)</h3>
-
-<p>Do quick back-of-envelope math:</p>
-
-<div class="mermaid">
-flowchart TB;
-
-%% Assumptions
-subgraph Assumptions
-A[500M daily active users];
-B[Avg 20 posts per user per day];
-C[10 percent users create content];
-D[50M actions per day];
-end;
-
-%% Traffic
-subgraph Traffic
-E[Read QPS about 115k per sec];
-F[Write QPS about 580 per sec];
-end;
-
-%% Storage
-subgraph Storage
-G[1M posts per day];
-H[1.8B posts over 5 years];
-I[2KB per post];
-J[Approx 3.6 TB total storage];
-end;
-
-%% Logical Flow
-A &#8211;> B;
-A &#8211;> C;
-C &#8211;> D;
-
-B &#8211;> E;
-D &#8211;> F;
-
-G &#8211;> H;
-H &#8211;> J;
-I &#8211;> J;
-
-</div>
-
-
-<p>This math tells you: this is a <strong>read-heavy system</strong> that needs aggressive caching.</p>
-
-<a name="Step.3:.High-Level.Design..10.minutes."></a>
-<h3>Step 3: High-Level Design (10 minutes)</h3>
-
-<p>Draw the big boxes: client → CDN → load balancer → services → databases. Don&rsquo;t get lost in details yet. Make sure your interviewer nods along.</p>
-
-<a name="Step.4:.Deep.Dive..15-20.minutes."></a>
-<h3>Step 4: Deep Dive (15-20 minutes)</h3>
-
-<p>Pick 2-3 components and go deep. The interviewer will often guide you. Good candidates for deep dives:</p>
-
-<ul>
-<li><strong>Feed generation</strong> (pull vs. push vs. hybrid)</li>
-<li><strong>Voting system</strong> (write-heavy, eventual consistency)</li>
-<li><strong>Comment tree storage and retrieval</strong></li>
-<li><strong>Ranking algorithm</strong></li>
-</ul>
-
-
-<a name="Step.5:.Address.Non-Functional.Requirements"></a>
-<h3>Step 5: Address Non-Functional Requirements</h3>
-
-<p>Always cover:</p>
-
-<ul>
-<li><strong>Scalability</strong>: How does it handle 10x traffic?</li>
-<li><strong>Availability</strong>: What happens if one service goes down?</li>
-<li><strong>Consistency</strong>: Where do you accept eventual consistency?</li>
-<li><strong>Performance</strong>: What are your p99 latency targets?</li>
-</ul>
-
-
-<a name="Common.Mistakes.to.Avoid"></a>
-<h3>Common Mistakes to Avoid</h3>
-
-<ul>
-<li><strong>Jumping straight to microservices</strong> without justification. Start with a sensible monolith, then explain where you&rsquo;d split.</li>
-<li><strong>Ignoring caching</strong> in a read-heavy system. This is a red flag.</li>
-<li><strong>Using a single database</strong> for everything. Show awareness of different workload patterns.</li>
-<li><strong>Forgetting about failures.</strong> What if Kafka goes down? What if a cache goes cold? Good engineers design for failure.</li>
-</ul>
-
-
-<a name="Final.Thoughts"></a>
-<h2>Final Thoughts</h2>
-
-<p>The best part about learning from real systems like Reddit is that the solutions aren&rsquo;t magic. Every design choice is a tradeoff — consistency vs. speed, simplicity vs. scale, real-time vs. eventual consistency. The job of a good engineer isn&rsquo;t to find the &ldquo;right&rdquo; answer — it&rsquo;s to understand the tradeoffs and pick the one that fits the problem.</p>
-
-<p>Next time you&rsquo;re scrolling through Reddit at midnight, remember: somewhere, a Kafka consumer is chugging through vote events, a Redis sorted set is keeping your feed in order, and a Python service is running Wilson score calculations on millions of posts. All so you can find out whether cats or dogs are better.</p>
-
-<p><em>Thanks for reading. If this was helpful, share it with someone preparing for their next system design interview. And if you have corrections or additions, I&rsquo;d genuinely love to hear them.</em></p>
-
-<a name="Further.Reading"></a>
-<h3>Further Reading</h3>
-
-<ul>
-<li><a href="https://www.reddit.com/r/RedditEng/">Reddit&rsquo;s Engineering Blog</a></li>
-<li><a href="https://www.evanmiller.org/how-not-to-sort-by-average-rating.html">Evan Miller&rsquo;s &ldquo;How Not To Sort By Average Rating&rdquo;</a> — explains the Wilson score</li>
-<li><a href="https://dataintensive.net/">Designing Data-Intensive Applications</a> by Martin Kleppmann — required reading for any engineer working at scale</li>
-<li><a href="https://github.com/reddit-archive/reddit">The original Reddit source code (2008)</a> — worth a look if you want to see where it all started</li>
-</ul>
-
 ]]></content>
     </entry>
     

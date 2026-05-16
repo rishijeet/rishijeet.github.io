@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-16T09:17:50+05:30</updated>
+    <updated>2026-05-16T12:17:50+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,610 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Google Search Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-google-search-works/"/>
+        <updated>2026-05-16T12:14:14+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-google-search-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>Let me ask you something. You type three words into a text box. Half a second later, you are staring at ten blue links, a knowledge panel, an image carousel, and a featured snippet that almost perfectly answers your question. That page was assembled, ranked, and delivered to you from across the planet faster than you can blink.</em></p></blockquote>
+
+<p><img src="https://rishijeet.github.io/images/system_design/google-search.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>Now consider what had to happen behind the scenes. Someone had to crawl hundreds of billions of web pages, extract their content, understand what each page was actually about, store all of that in a way that can be queried at low latency, figure out which of the billions of candidate results is most relevant to your specific query, personalize it a little, check it for spam, and ship it to you over the network before you notice any delay. At peak hours, Google handles tens of thousands of search queries per second, globally.</p>
+
+<p>This is not a solved problem. This is one of the hardest distributed systems problems that has ever been built and maintained in production. The reason it feels effortless is precisely because so much engineering is hidden beneath it.</p>
+
+<p>The interesting part is not just that it works. The interesting part is why it is designed the way it is. Every caching layer, every index shard, every ranking signal, every crawl scheduler exists because someone ran into a wall at scale and had to find a way through. That is what this article is about.</p>
+
+<p>We will walk through the entire system end to end. Crawling. Parsing. Indexing. Query processing. Ranking. Distributed serving. Caching. Machine learning. We will look at what happens when things go wrong, and we will talk honestly about the tradeoffs that make this architecture look the way it does.</p>
+
+<!--more-->
+
+
+<p>If you are preparing for a system design interview, you will find structure here. If you are an engineer curious about how search works at scale, you will find depth. If you have ever wondered what actually happens after you hit Enter, this is for you.</p>
+
+<a name="Core.Features.of.Google.Search"></a>
+<h2>Core Features of Google Search</h2>
+
+<p>Before diving into architecture, it is worth being precise about what the system actually does. People use the word &ldquo;search&rdquo; loosely, but Google Search is actually a collection of features that each have their own technical requirements.</p>
+
+<p><strong>Web search</strong> is the core product. Given a query, find the most relevant documents on the web. Sounds simple. Not simple.</p>
+
+<p><strong>Query understanding</strong> means figuring out what the user actually meant, not just what they typed. If you search for &ldquo;apple,&rdquo; are you looking for the fruit, the company, or the band? The system has to make that call, often without you telling it.</p>
+
+<p><strong>Autocomplete</strong> needs to predict what you are about to type in real time, with sub-100ms latency, and do it in a way that reflects trending queries without surfacing harmful suggestions. This is its own distributed system problem.</p>
+
+<p><strong>Ranking</strong> is the business of deciding which result goes first. There are hundreds of signals involved, and getting this wrong is immediately visible to billions of users.</p>
+
+<p><strong>Snippets</strong> extract the few lines from a page that best answer the query and display them below the link. This requires understanding the page&rsquo;s content and the query&rsquo;s intent simultaneously.</p>
+
+<p><strong>Knowledge Graph</strong> is a massive structured database of entities and relationships. When you search for a famous person, a city, or a movie, the panel on the right that shows you structured facts is powered by this system. It has its own storage, its own update pipeline, and its own challenges around accuracy.</p>
+
+<p><strong>Personalized search</strong> adjusts results based on your location, search history, and preferences. This introduces a whole layer of user-specific computation that has to run at query time.</p>
+
+<p><strong>Voice search, image search, and video search</strong> all have unique input modalities and their own indexing and retrieval requirements. Each could be its own blog post.</p>
+
+<p><strong>Real-time search</strong> handles breaking news, trending topics, and live events where results need to reflect things that happened minutes ago. This is in direct tension with the fact that indexing pipelines take time.</p>
+
+<a name="High-Level.Search.Architecture"></a>
+<h2>High-Level Search Architecture</h2>
+
+<p>At the highest level, Google Search has two completely separate workloads that run in parallel and interact through shared storage systems.</p>
+
+<p>The first is the <strong>offline pipeline</strong>: crawl the web, parse content, build the index, compute ranking signals. This is a massive batch and streaming system. It runs continuously. Its job is to build and maintain the data structures that search queries will read from.</p>
+
+<p>The second is the <strong>online serving path</strong>: receive a query, understand it, search the index, rank the results, assemble the response, and return it. This has to happen in under 200 milliseconds. It reads the data structures built by the offline pipeline.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Web Crawlers];
+B[Raw Page Store];
+C[Parser and Renderer];
+D[Content Extractor];
+E[Link Graph Builder];
+F[Indexing Pipeline];
+G[Distributed Index];
+H[Ranking Signal Compute];
+I[Query Frontend];
+J[Query Understanding];
+K[Index Shard Fanout];
+L[Ranking Engine];
+M[Result Assembler];
+N[Response to User];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+D &#8211;> F;
+E &#8211;> H;
+F &#8211;> G;
+H &#8211;> G;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> G;
+G &#8211;> L;
+L &#8211;> M;
+M &#8211;> N;
+</div>
+
+
+<p>This separation between the offline and online paths is not accidental. It is a fundamental design decision that makes the system manageable. The offline pipeline can be slow, fault-tolerant, and batch-oriented. It can afford to retry failed jobs. The online path has to be blazingly fast and read-only against the index. Mixing these concerns would make both worse.</p>
+
+<a name="Web.Crawling.System"></a>
+<h2>Web Crawling System</h2>
+
+<p>Everything starts with the crawler. If you have not crawled a page, you cannot index it. If you cannot index it, it cannot appear in search results. The crawler is the foundation of the entire system.</p>
+
+<p>A web crawler, sometimes called a spider, is fundamentally a breadth-first graph traversal problem. You start with a set of known URLs, called seed URLs, fetch those pages, extract all the links from them, add the new links to a queue, and repeat. The web is a graph, and the crawler is walking it.</p>
+
+<p>The challenge is doing this at planetary scale, continuously, without hammering servers into the ground.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Seed URL Store];
+B[Crawl Frontier Scheduler];
+C[URL Fetcher Workers];
+D[DNS Resolver Cache];
+E[robots.txt Cache];
+F[Raw Page Store];
+G[Link Extractor];
+H[URL Deduplicator];
+I[Crawl Priority Scorer];
+B &#8211;> C;
+A &#8211;> B;
+C &#8211;> D;
+C &#8211;> E;
+C &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> B;
+</div>
+
+
+<p><strong>The crawl frontier</strong> is the queue of URLs waiting to be fetched. Naively, this could be a simple FIFO queue. In practice, it is a sophisticated priority queue that balances many competing concerns. High-authority pages should be crawled more often. Recently discovered links should not all be fetched at once. Pages that change frequently, like news sites, should be refreshed more often than pages that never change.</p>
+
+<p><strong>Politeness</strong> is a real engineering concern, not just an etiquette concern. If you send a thousand requests per second to a single domain, you will either get banned or you will bring down a small site. Google&rsquo;s crawler maintains politeness delays per domain, configurable through <code>robots.txt</code> and its own internal heuristics. This means the crawler has to schedule fetches not just by priority but by when it is allowed to next touch a given host.</p>
+
+<p><strong>robots.txt</strong> is a plain text file at the root of a domain that tells crawlers what they are and are not allowed to fetch. Parsing and respecting this is mandatory. But it introduces a dependency: before you crawl any page on a new domain, you have to first fetch and parse the <code>robots.txt</code>. This is typically cached per domain with its own TTL.</p>
+
+<p><strong>Crawl deduplication</strong> is the problem of not fetching the same content twice. This seems straightforward until you realize that the web is full of near-duplicate pages. A news article might be syndicated across fifty sites with minor differences. A product page might have twenty URL variations with different query parameters that all render the same content. Detecting and deduplicating these requires fingerprinting page content, typically using a hash of the canonical content after stripping noise like navigation and ads.</p>
+
+<p><strong>Distributed crawling</strong> is unavoidable at this scale. Google runs enormous numbers of crawler machines, each responsible for a partition of the URL space. These machines have to coordinate on deduplication, politeness, and frontier management without creating a single coordination bottleneck.</p>
+
+<p><strong>JavaScript rendering</strong> is one of the hardest parts of modern web crawling. A large fraction of the modern web is built with JavaScript frameworks that render content dynamically on the client side. A simple HTTP fetch returns a near-empty HTML shell. To see the actual content, you have to run the JavaScript in a headless browser, wait for the page to render, and then extract the DOM. This is orders of magnitude more expensive than a simple fetch. Google maintains a separate rendering pipeline that processes pages through a headless Chrome instance. This pipeline runs at a delay relative to raw crawling because of the compute cost.</p>
+
+<a name="Parsing.and.Content.Extraction"></a>
+<h2>Parsing and Content Extraction</h2>
+
+<p>Once a raw page has been fetched and stored, it goes through a parsing pipeline that extracts the information the indexing system actually needs.</p>
+
+<p>HTML parsing handles the fact that the web is full of malformed markup. Real-world HTML violates the spec constantly. The parser has to be tolerant, the same way browsers are tolerant. In practice, this means using a parsing approach that matches browser behavior rather than strict XML parsing.</p>
+
+<p>From the parsed DOM, the system extracts the visible text content, the page title, the meta description, the heading structure, the alt text on images, the canonical URL, the outbound links, and any structured data annotations like Schema.org markup or Open Graph tags.</p>
+
+<p>Structured data is increasingly important. When a recipe site marks up their content with Schema.org, Google can extract cooking times, ingredient lists, and ratings as structured fields rather than having to infer them from unstructured text. This feeds directly into rich search results.</p>
+
+<p>Outbound link extraction is critical because links are how the web&rsquo;s graph structure is discovered and how PageRank is computed. Every outbound link on a page is a candidate URL to add to the crawl frontier.</p>
+
+<p>Language detection runs on the extracted text so the indexing system knows which language index to route the document to. Google maintains separate indexes per language.</p>
+
+<a name="Indexing.System.Deep.Dive"></a>
+<h2>Indexing System Deep Dive</h2>
+
+<p>The index is the data structure that makes low-latency search possible. Without the right data structure, answering a query like &ldquo;distributed systems&rdquo; against a trillion documents would require scanning every document linearly. That is not how any of this works.</p>
+
+<p>The fundamental data structure in information retrieval is the <strong>inverted index</strong>. Instead of storing a list of words for each document, you store a list of documents for each word. The word is the key. The value is a sorted list of document IDs that contain that word, called a posting list. To find all documents containing &ldquo;distributed,&rdquo; you look up &ldquo;distributed&rdquo; in the inverted index and get the posting list back immediately.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Raw Document];
+B[Tokenizer];
+C[Normalizer];
+D[Stop Word Filter];
+E[Stemmer];
+F[Posting List Builder];
+G[Inverted Index Shard];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p><strong>Tokenization</strong> splits the text into tokens, typically words, but the definition of a token gets complicated fast. Do you split on hyphens? How do you handle Chinese text, which has no spaces? How do you handle URLs and email addresses? All of these have to be handled explicitly.</p>
+
+<p><strong>Text normalization</strong> converts tokens to a canonical form. Lowercasing is the obvious step. Unicode normalization handles the fact that the same character can be encoded multiple ways. Accent folding optionally treats &ldquo;cafe&rdquo; and &ldquo;café&rdquo; as equivalent.</p>
+
+<p><strong>Stop words</strong> are extremely common words like &ldquo;the,&rdquo; &ldquo;a,&rdquo; &ldquo;is,&rdquo; and &ldquo;of&rdquo; that appear in almost every document. Including them in the index wastes space and rarely helps relevance. Many systems skip indexing stop words, or index them separately with different handling.</p>
+
+<p><strong>Stemming</strong> reduces words to their root form so that &ldquo;running,&rdquo; &ldquo;runs,&rdquo; and &ldquo;run&rdquo; all map to the same index term. This improves recall at some cost to precision.</p>
+
+<p><strong>Posting lists</strong> are the core of the inverted index. Each entry in a posting list is typically not just a document ID but a richer structure containing the document ID, the number of times the term appears in the document (term frequency), which fields the term appears in (title versus body carries different weight), and sometimes the position offsets of each occurrence (needed for phrase queries).</p>
+
+<p><strong>Index sharding</strong> is mandatory because no single machine can hold an index of the entire web. The index is horizontally partitioned, either by document ID range, by URL hash, or by content category. Each shard holds a portion of the posting lists. A query has to be executed against all shards in parallel and the results merged.</p>
+
+<p><strong>Index compression</strong> is a serious engineering concern. Posting lists for common words can contain billions of document IDs. Storing these naively would be prohibitively expensive. In practice, posting lists are stored as delta-compressed sorted integers. Since document IDs are stored in sorted order, you only need to store the difference between consecutive IDs rather than the full ID. These deltas are then variable-length encoded, with small deltas taking fewer bytes. Compression ratios of 5:1 or better are common.</p>
+
+<p><strong>Incremental indexing</strong> handles the continuous arrival of new and updated content. Batch re-indexing the entire web every time a page changes is not feasible. Google maintains multiple index tiers: a large stable index updated on longer cycles and a smaller fresh index updated continuously. Queries hit both and results are merged.</p>
+
+<a name="Query.Processing.System"></a>
+<h2>Query Processing System</h2>
+
+<p>Between the user typing a query and the search system executing it against the index, there is a substantial query processing layer that transforms the raw text into something the system can work with effectively.</p>
+
+<p><strong>Spell correction</strong> runs immediately. If you type &ldquo;machien learning,&rdquo; the system has to recognize this as &ldquo;machine learning.&rdquo; This requires a statistical model trained on query logs and a large dictionary. The correction has to be fast enough to not add noticeable latency.</p>
+
+<p><strong>Query rewriting</strong> goes further. If you search for &ldquo;NYC,&rdquo; the system might rewrite it to also include &ldquo;New York City&rdquo; in the search. If you search for &ldquo;buy iPhone,&rdquo; it might recognize commercial intent and weight product pages higher. These rewrites are often learned from user behavior, not hardcoded rules.</p>
+
+<p><strong>Synonym expansion</strong> handles the fact that different pages use different vocabulary to describe the same thing. A medical paper might call something &ldquo;myocardial infarction&rdquo; while a news article calls it a &ldquo;heart attack.&rdquo; Without synonym handling, the right results would not surface for many queries.</p>
+
+<p><strong>Intent detection</strong> classifies the query into a type: informational (looking to learn), navigational (looking to reach a specific site), transactional (looking to buy or download), or local (looking for something nearby). The type influences what result formats are shown and how results are ranked.</p>
+
+<p><strong>Autocomplete</strong> deserves its own mention. It runs on every keystroke with extremely tight latency requirements. It is typically powered by a prefix trie over the most popular recent queries, updated continuously from query logs. Suggestion ranking considers query popularity, freshness, and personalization signals.</p>
+
+<a name="Ranking.System.Deep.Dive"></a>
+<h2>Ranking System Deep Dive</h2>
+
+<p>Ranking is where the most engineering investment goes, and for good reason. The difference between a useful search engine and a useless one is almost entirely in ranking quality.</p>
+
+<p>Given a query, the index retrieval step returns a candidate set of potentially thousands or millions of documents. The ranking system&rsquo;s job is to sort these by relevance and return the top ten to the user. This decision, repeated billions of times a day, is what people mean when they talk about &ldquo;search quality.&rdquo;</p>
+
+<p><strong>TF-IDF</strong> is the classic starting point. Term frequency (how often the query term appears in the document) times inverse document frequency (how rare the term is across all documents) gives a basic relevance score. Rare terms that appear often in a document are strong relevance signals. Common terms that appear everywhere are weak signals. TF-IDF captures this intuition.</p>
+
+<p><strong>BM25</strong> is a better-tuned version of TF-IDF that handles document length normalization and has tunable parameters. A long document that mentions a term ten times is not necessarily ten times more relevant than a short document that mentions it once. BM25 accounts for this. It remains one of the strongest baselines in information retrieval despite being decades old.</p>
+
+<p><strong>PageRank</strong> was the original differentiator for Google. The core insight is that a link from one page to another is a vote of confidence, and votes from authoritative pages are worth more than votes from obscure pages. PageRank models this as a random walk on the web graph: the probability that a random surfer following links at random would land on a given page. Pages with many high-quality inbound links score higher.</p>
+
+<p>Computing PageRank on the entire web graph is a classic distributed graph computation problem. It is run iteratively: start with uniform scores, propagate scores along edges, normalize, repeat until convergence. This was one of the original large-scale uses of MapReduce.</p>
+
+<p><strong>User signals</strong> are arguably more powerful than any static ranking formula. If users consistently click on result number three and ignore result number one, that is a strong signal that result three is more relevant. Dwell time (how long a user spends on a page before returning to search results), pogo-sticking (bouncing immediately back), and click-through rate all feed into ranking models.</p>
+
+<p>The tricky part is using these signals without creating a rich-get-richer feedback loop where popular pages stay at the top simply because they get more clicks from being at the top.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Candidate Documents from Index];
+B[BM25 Score Computation];
+C[PageRank Score Lookup];
+D[Freshness Score];
+E[User Signal Score];
+F[ML Ranking Model];
+G[Personalization Layer];
+H[Final Ranked List];
+A &#8211;> B;
+A &#8211;> C;
+A &#8211;> D;
+A &#8211;> E;
+B &#8211;> F;
+C &#8211;> F;
+D &#8211;> F;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p><strong>Freshness ranking</strong> addresses the fact that some queries have a strong temporal dimension. If you search for &ldquo;election results&rdquo; or &ldquo;stock price,&rdquo; you want results from today, not from three years ago. But if you search for &ldquo;how to tie a bowline knot,&rdquo; freshness is irrelevant. The ranking system has to detect query freshness intent and adjust accordingly.</p>
+
+<p><strong>Learning to rank</strong> is the modern approach to combining all these signals. Rather than hand-tuning weights for each signal, you treat ranking as a supervised learning problem. You collect training data (queries, candidate documents, relevance judgments), define a loss function that captures ranking quality, and train a model to produce the optimal ranking. Gradient boosted trees were the dominant approach for years. Neural networks now play a major role.</p>
+
+<a name="Distributed.Search.Infrastructure"></a>
+<h2>Distributed Search Infrastructure</h2>
+
+<p>When a query arrives at the search system, it cannot be answered from a single machine. The index is sharded across potentially thousands of machines. The query has to be fanned out to all of them, the results collected, merged, and then re-ranked globally.</p>
+
+<p><strong>Query fanout</strong> is the pattern where a single user query is dispatched to all index shards simultaneously. Each shard searches its portion of the index and returns its top-K results. A root server collects responses from all shards and performs a final merge and re-ranking step.</p>
+
+<p>The latency of the overall query is determined not by the average shard latency but by the <strong>tail latency</strong> of the slowest shard. If you have a thousand shards and the 99th percentile latency for a single shard is 100ms, then roughly ten shards per query will take 100ms, and the overall query cannot complete until all of them respond. This is the dreaded tail latency problem in distributed systems.</p>
+
+<p>Solutions include <strong>hedging</strong>: if a shard has not responded within a time threshold, send the same request to a replica. Take whichever responds first. This adds a small amount of extra load but cuts tail latency significantly.</p>
+
+<p><strong>Replication</strong> serves two purposes. It provides fault tolerance: if a shard goes down, its replica can serve. It also provides read throughput: queries can be load-balanced across replicas of the same shard.</p>
+
+<p><strong>Load balancing</strong> at the global level routes incoming queries to the nearest healthy data center. Within a data center, it distributes queries across the available serving machines. This has to be aware of hotspots: some machines might temporarily be slower due to garbage collection pauses, network congestion, or hardware issues.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Query];
+B[Load Balancer];
+C[Query Frontend];
+D[Query Understanding Service];
+E[Root Server];
+F[Shard 1];
+G[Shard 2];
+H[Shard 3];
+I[Shard N];
+J[Result Merger];
+K[Ranking Service];
+L[Response Builder];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+E &#8211;> G;
+E &#8211;> H;
+E &#8211;> I;
+F &#8211;> J;
+G &#8211;> J;
+H &#8211;> J;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> L;
+</div>
+
+
+<p><strong>Hotspot mitigation</strong> is needed because not all queries are equal. A major news event can cause millions of queries for the same terms in a short window, creating hotspots on the shards that hold those posting lists. Shards can be dynamically split during hotspots, or popular result sets can be promoted to a caching layer.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching is everywhere in search infrastructure, and for good reason. A significant fraction of queries are repeated. If you can answer a query from cache instead of executing it against the index, you save massive amounts of compute.</p>
+
+<p><strong>Result cache</strong> stores the full ranked result set for recently executed queries, keyed by the query string and relevant context (language, location). Cache hit rates for a typical search workload can be quite high because popular queries like &ldquo;facebook,&rdquo; &ldquo;youtube,&rdquo; and &ldquo;gmail&rdquo; are submitted millions of times daily.</p>
+
+<p>The hard problem with result caching is <strong>cache invalidation</strong>. If the index is updated with a new page that should be the top result for a cached query, the cached result is now stale. You can set short TTLs to bound staleness, but this reduces effective cache hit rates. For most queries, slightly stale results are acceptable. For freshness-sensitive queries like news, they are not.</p>
+
+<p><strong>Snippet cache</strong> stores the pre-computed text snippets that appear below each result link. Generating a snippet requires reading the original document, identifying the most relevant passage, and formatting it. This is non-trivial compute. Caching snippets separately from the result set gives finer-grained control over freshness versus performance tradeoffs.</p>
+
+<p><strong>CDN caching</strong> handles the delivery of search result pages to users. Static assets (JavaScript, CSS, images) are aggressively cached at edge nodes globally. The search results themselves are dynamic and cannot be cached at the CDN layer, but the surrounding infrastructure benefits enormously from CDN offloading.</p>
+
+<a name="Machine.Learning.in.Search"></a>
+<h2>Machine Learning in Search</h2>
+
+<p>The transition from handcrafted ranking formulas to machine-learned ranking is one of the biggest shifts in search engineering over the past decade.</p>
+
+<p><strong>Learning to rank</strong> treats the ranking problem as a supervised learning problem. The key insight is that you can generate training data automatically from user behavior: if a user clicked result three instead of result one, that is evidence that three was more relevant. Over billions of queries, you accumulate a powerful implicit relevance signal. This data is used to train models that directly optimize ranking quality metrics.</p>
+
+<p><strong>BERT and transformer models</strong> changed query understanding dramatically. Earlier systems treated a query as a bag of words. Transformer models understand context and word order. &ldquo;How to catch a fly&rdquo; and &ldquo;how to catch a fly ball&rdquo; should produce very different results. BERT-style models can capture this distinction. Google deployed BERT for query understanding in 2019, and it was described as one of the biggest quality improvements in years.</p>
+
+<p><strong>Semantic embeddings</strong> enable a different kind of matching. Instead of matching on exact keywords, you represent both queries and documents as dense vectors in a shared embedding space, where semantically similar texts are close together. This allows you to surface relevant documents that do not share any keywords with the query. This is sometimes called dense retrieval or vector search.</p>
+
+<p>The challenge with vector search at web scale is that computing the distance between a query vector and hundreds of billions of document vectors in real time is not feasible. Approximate nearest neighbor algorithms and dedicated vector index structures (HNSW, FAISS, ScaNN) make this tractable by trading a small amount of recall for massive latency savings.</p>
+
+<p><strong>Ranking model serving</strong> introduces its own infrastructure challenges. Neural ranking models can be large (hundreds of millions of parameters) and expensive to run. Re-ranking every candidate document with a large neural model would be prohibitively slow. The typical approach is a multi-stage ranking pipeline: a cheap first-pass ranker (like BM25 or a small model) reduces thousands of candidates to hundreds, then an expensive neural re-ranker is applied to the smaller set.</p>
+
+<a name="Knowledge.Graph.and.Entity.Systems"></a>
+<h2>Knowledge Graph and Entity Systems</h2>
+
+<p>The Knowledge Graph is the system behind those information panels that appear when you search for a person, place, company, or concept. It is a massive structured database of entities and their relationships.</p>
+
+<p>At its core, the Knowledge Graph is a property graph: nodes are entities (Barack Obama, Paris, Python the programming language), edges are relationships (born in, capital of, creator of), and both nodes and edges have properties (dates, descriptions, aliases).</p>
+
+<p>Building this graph requires entity extraction from web documents, entity disambiguation (is &ldquo;Apple&rdquo; the company or the fruit in this context?), relationship extraction, fact verification, and continuous updating as the world changes.</p>
+
+<p><strong>Entity resolution</strong> is one of the harder problems. The same entity can be referred to by many names (New York City, NYC, New York, The City). Recognizing these as references to the same entity, and merging their information into a single node, requires both string matching and semantic understanding.</p>
+
+<p><strong>Ambiguity handling</strong> is the problem of knowing which entity a name refers to. &ldquo;Michael Jordan&rdquo; could be the basketball player, the philosopher, or thousands of other people with that name. Context from the rest of the query, the user&rsquo;s location, and their history all inform disambiguation.</p>
+
+<a name="Spam.Detection.and.Search.Quality"></a>
+<h2>Spam Detection and Search Quality</h2>
+
+<p>If ranking quality is what makes a search engine good, spam is what makes it bad. The financial incentive to appear at the top of search results is enormous, and it attracts enormous investment in manipulating those rankings.</p>
+
+<p><strong>Link spam</strong> is the practice of artificially inflating a page&rsquo;s PageRank by creating large numbers of fake inbound links from low-quality sites. Early versions of PageRank were highly vulnerable to this. Modern spam detection looks at the quality distribution of inbound links, the velocity of link acquisition, and the topical coherence of linking pages.</p>
+
+<p><strong>Keyword stuffing</strong> is the practice of cramming a page full of target keywords to boost TF-IDF scores. Modern text analysis looks at natural language statistics: a page that uses a keyword at ten times the natural rate in English is suspicious.</p>
+
+<p><strong>Content quality signals</strong> look at things like reading level, originality (detecting copied content), author expertise signals, and user engagement metrics (bounce rate, time on page, return visits). These signals are combined into quality scores that influence ranking.</p>
+
+<p>The arms race between spam and spam detection is continuous. Every time a new ranking signal is added, spammers figure out how to game it. The best defenses are signals that are either hard to fake (genuine user engagement, real inbound links from high-quality pages) or invisible to manipulators (because they are computed on user behavior data that third parties cannot access).</p>
+
+<a name="Geo-Distributed.Infrastructure"></a>
+<h2>Geo-Distributed Infrastructure</h2>
+
+<p>Google serves search globally. A user in Tokyo, Lagos, and London all expect sub-second response times. This is only possible with a massively geo-distributed infrastructure.</p>
+
+<p><strong>Data centers</strong> are distributed across multiple continents. Each data center hosts a complete or near-complete copy of the search serving infrastructure, including index shards. This means a user&rsquo;s query can be answered by the geographically nearest data center, minimizing network round-trip time.</p>
+
+<p><strong>Index replication</strong> across data centers introduces a consistency challenge. When the index is updated with fresh content, that update needs to propagate to all regional copies. This propagation takes time. Different regions may temporarily have slightly different indexes. For most queries, this is acceptable. For breaking news, it can matter.</p>
+
+<p><strong>Anycast routing</strong> allows Google to route a user&rsquo;s DNS query to the nearest data center automatically, without requiring the user to know which data center to talk to. This is invisible to users but critical to global latency performance.</p>
+
+<p><strong>Failover</strong> handles the case where a data center becomes unavailable. Traffic from that region needs to be rerouted to the next nearest data center, which may increase latency but maintains availability. Capacity planning has to account for this: every data center needs enough spare capacity to absorb traffic from a failed neighbor.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>The storage systems underlying search have to handle vastly different access patterns. The crawl store needs high write throughput as pages are continuously ingested. The index needs low-latency random reads for posting list lookups. The Knowledge Graph needs transactional writes and complex graph traversals.</p>
+
+<p><strong>Distributed file systems</strong> like Google File System (GFS, the predecessor to Colossus) provide the foundation for storing raw crawl data and intermediate pipeline artifacts. They are optimized for large sequential reads and writes, less so for small random access.</p>
+
+<p><strong>Bigtable-style wide-column stores</strong> provide the key-value storage for the web document store and crawl metadata. Each row represents a URL. Columns hold the crawl timestamp, raw content, parsed content, computed signals, and index status. The column-family model allows efficient reads of specific subsets of data.</p>
+
+<p>Below is a simplified example of what document storage schemas might look like:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Table</th>
+        <th>Key</th>
+        <th>Key Columns / Fields</th>
+        <th>Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>web_documents</td>
+        <td>url_hash</td>
+        <td>raw_html, parsed_text, title, links_out, crawl_time, language, content_hash</td>
+        <td>Write-heavy during crawl, read during indexing</td>
+      </tr>
+      <tr>
+        <td>crawl_metadata</td>
+        <td>url_hash</td>
+        <td>last_crawl_time, next_crawl_time, http_status, etag, crawl_priority, robots_allowed</td>
+        <td>Read/write by crawl scheduler</td>
+      </tr>
+      <tr>
+        <td>inverted_index</td>
+        <td>term</td>
+        <td>posting_list (doc_id, tf, field_mask, positions)</td>
+        <td>Read-heavy at query time, bulk writes during indexing</td>
+      </tr>
+      <tr>
+        <td>ranking_signals</td>
+        <td>doc_id</td>
+        <td>pagerank, freshness_score, quality_score, entity_ids, language</td>
+        <td>Read at ranking time, periodic updates</td>
+      </tr>
+      <tr>
+        <td>knowledge_graph</td>
+        <td>entity_id</td>
+        <td>name, aliases, type, properties, related_entities</td>
+        <td>Read at query time, incremental writes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Index storage</strong> is specialized. Posting lists are stored in a compact binary format with delta compression. The index is typically laid out on disk to optimize sequential scan patterns: posting lists for all terms are stored in sorted order by term, so a full index scan can proceed sequentially. Random access to a single posting list uses an in-memory term dictionary that maps terms to disk offsets.</p>
+
+<a name="Scaling.Google.Search"></a>
+<h2>Scaling Google Search</h2>
+
+<p>The scaling challenges in search are different from most web applications because of the interaction between the offline pipeline and the online serving path.</p>
+
+<p>The offline pipeline faces <strong>indexing throughput</strong> as its primary bottleneck. The web has hundreds of billions of pages. If each page takes 10ms to process end-to-end through the parsing and indexing pipeline, processing the whole web takes many thousands of machine-years. The answer is embarrassing parallelism: partition the URL space and process partitions in parallel. This is the original use case for MapReduce.</p>
+
+<p>The online serving path faces <strong>query latency</strong> as its primary constraint. More index shards mean lower per-shard latency (each shard has fewer documents to search) but more fanout overhead (coordinating more shards per query). There is an optimal shard size that balances these concerns, and it changes as hardware and network speeds improve.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Bottleneck</th>
+        <th>Root Cause</th>
+        <th>Mitigation Strategy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Indexing throughput</td>
+        <td>Web scale exceeds single pipeline capacity</td>
+        <td>Parallel MapReduce-style pipelines, partitioned by URL hash</td>
+      </tr>
+      <tr>
+        <td>Query latency</td>
+        <td>Index too large for one machine</td>
+        <td>Horizontal sharding with parallel fanout</td>
+      </tr>
+      <tr>
+        <td>Ranking compute</td>
+        <td>Neural models expensive per document</td>
+        <td>Multi-stage ranking, cheap first pass then expensive re-rank</td>
+      </tr>
+      <tr>
+        <td>Storage cost</td>
+        <td>Raw web is petabytes</td>
+        <td>Aggressive compression, tiered storage, content deduplication</td>
+      </tr>
+      <tr>
+        <td>Tail latency</td>
+        <td>Slowest shard determines overall latency</td>
+        <td>Hedged requests to replicas, shard replication</td>
+      </tr>
+      <tr>
+        <td>Hot queries</td>
+        <td>Sudden traffic spikes on popular terms</td>
+        <td>Result caching, dynamic shard replication</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Search is a service people rely on. Downtime is not just a business problem; for some users, search is how they find medical information, emergency services, or critical work resources. Reliability is a first-class engineering concern.</p>
+
+<p><strong>Multi-region serving</strong> means that no single failure can take down search globally. Each region operates as a largely independent serving unit. If a region becomes unreachable, traffic is rerouted to other regions.</p>
+
+<p><strong>Degraded modes</strong> are pre-defined fallback behaviors for when components fail. If the personalization service is down, serve non-personalized results. If the Knowledge Graph is unreachable, skip the entity panel. If freshness data is unavailable, fall back to the static index. Each of these is explicitly designed and tested, not discovered during an incident.</p>
+
+<p><strong>Index staleness</strong> is the graceful failure mode for the indexing pipeline. If the pipeline slows down or stops, the serving system continues to serve from whatever index was last built. Results become gradually more stale, but the system remains available. Alerting fires when staleness exceeds defined thresholds, giving engineers time to diagnose the pipeline issue before the index becomes too outdated to be useful.</p>
+
+<p><strong>Chaos engineering</strong> (deliberately injecting failures in production to verify that redundancy and fallback systems actually work) is standard practice for systems at this scale. The worst time to discover that your failover does not work is during a real incident.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every major architectural decision in search involves tradeoffs. Let us be explicit about the most important ones.</p>
+
+<p><strong>Freshness versus latency.</strong> Real-time indexing could surface a news article seconds after it is published. But real-time indexing means constantly updating the index while queries are running against it, which introduces locking and consistency complexity that hurts latency. Most search systems compromise: a fast-update tier for fresh content and a slow-batch tier for the bulk of the web. Query time combines both, with freshness-sensitive queries weighted toward the fast tier.</p>
+
+<p><strong>Ranking quality versus compute cost.</strong> A better neural ranking model produces better results but takes more compute per query. At billions of queries per day, the cost difference between a 5ms ranking step and a 50ms ranking step is enormous. Multi-stage ranking pipelines are the standard answer: use cheap signals to reduce the candidate set dramatically before applying expensive models.</p>
+
+<p><strong>Caching versus consistency.</strong> Heavy result caching reduces compute load and improves latency for popular queries. But cached results may not reflect the current state of the index. Short TTLs improve consistency at the cost of cache effectiveness. The optimal TTL depends on how frequently results actually change for that query type, which varies enormously.</p>
+
+<p><strong>Realtime indexing versus batch indexing.</strong> Batch indexing is simpler, more compressible, and easier to optimize. A batch-built index can be heavily optimized for read performance. Incremental indexing requires more complex data structures that support efficient updates without full rebuilds. In practice, most systems run both: a large, highly optimized batch index that is rebuilt periodically, and a smaller incremental index that captures recent changes. Query time merges results from both.</p>
+
+<p><strong>ML ranking versus deterministic ranking.</strong> Learned ranking models produce better results on average, but they are harder to debug, can have unexpected failure modes, and require continuous retraining to stay effective. Deterministic ranking formulas (BM25 + PageRank + explicit signals) are easier to audit, explain, and fix. Most production systems use a blend: deterministic signals as features fed into a learned model.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>It is worth grounding all of this in actual technology choices.</p>
+
+<p><strong>C++</strong> is used for the most performance-critical components: the serving path, the index lookup, and the core ranking engine. The latency budget for a search query is measured in milliseconds, and C++ gives the control over memory layout and CPU utilization that Java or Python cannot match in these hot paths.</p>
+
+<p><strong>Java and Go</strong> are used for more infrastructure-oriented services: crawl schedulers, pipeline coordinators, and internal services where developer productivity and maintainability matter more than raw performance. Go&rsquo;s concurrency model is particularly well-suited to the fanout-heavy query dispatching patterns in search serving.</p>
+
+<p><strong>Python</strong> is the language of the ML stack. Model training, feature engineering, and experiment tooling are almost all Python. TensorFlow and JAX are used for training ranking models. ONNX or custom C++ inference engines are used to serve those models at production latency, since Python inference would be too slow.</p>
+
+<p><strong>Bigtable</strong> (or equivalent wide-column stores) for the web document store and crawl metadata. Its ability to handle high write throughput with flexible schemas makes it a natural fit.</p>
+
+<p><strong>MapReduce and Dataflow</strong> (Google&rsquo;s stream and batch processing systems) for the offline indexing pipeline. The web-scale document processing job is a textbook MapReduce workload.</p>
+
+<p><strong>Pub/Sub or Kafka</strong> for the event streams that connect pipeline stages. When a new page is crawled, an event is published to a stream. Downstream stages (parser, indexer) consume from that stream independently. This decoupling means that a slowdown in one stage does not directly block others and allows for independent scaling.</p>
+
+<p><strong>Spanner</strong> for globally consistent metadata that needs ACID transactions. Things like URL canonical mappings and crawl scheduling state benefit from strong consistency guarantees.</p>
+
+<p><strong>Vector databases</strong> (ScaNN internally, or FAISS/HNSW in open source equivalents) for dense embedding retrieval, enabling semantic search at scale.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Google Search comes up in system design interviews, sometimes directly (&ldquo;design Google Search&rdquo;) and sometimes indirectly (&ldquo;design a search autocomplete system&rdquo; or &ldquo;design a web crawler&rdquo;). Here is how to approach it.</p>
+
+<p><strong>Start with clarification.</strong> What scale are we targeting? Global or regional? What features are in scope? Full web search or just document search within a corpus? Interviewers respect candidates who scope the problem before diving into solutions.</p>
+
+<p><strong>Explain the two-pipeline architecture early.</strong> The separation between the offline data pipeline (crawl, index, compute signals) and the online serving path is the most important architectural insight. Candidates who explain this immediately signal that they understand search at a systems level.</p>
+
+<p><strong>Go deep on the inverted index.</strong> This is where most candidates who have not specifically studied search fall short. You should be able to explain what a posting list is, why the index is sharded, how posting lists are compressed, and what incremental indexing looks like. These are real distributed systems problems, not just data structure trivia.</p>
+
+<p><strong>Discuss the ranking pipeline as a multi-stage system.</strong> Weak candidates say &ldquo;use BM25&rdquo; or &ldquo;use machine learning.&rdquo; Strong candidates explain the multi-stage architecture: retrieve with a cheap model, re-rank with an expensive one. Explain the latency rationale for this choice.</p>
+
+<p><strong>Acknowledge the tradeoffs.</strong> Interviewers love tradeoff discussions because they reveal real engineering thinking. Bring up freshness versus latency, caching versus consistency, and realtime versus batch indexing unprompted. Show that you understand why these tensions exist and how they are typically resolved.</p>
+
+<p><strong>Common mistakes to avoid.</strong> Jumping to a solution before scoping the problem. Focusing only on the happy path. Ignoring failure modes. Treating ranking as a black box. Underestimating the crawling complexity. Proposing a relational database for the inverted index.</p>
+
+<p><strong>Strong closing moves.</strong> Discuss how the system degrades gracefully when components fail. Mention what metrics you would monitor (index freshness, query latency percentiles, crawl throughput, ranking quality metrics like NDCG). Bring up the consistency model for distributed index updates.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Interview Area</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Crawling</td>
+        <td>Just fetch URLs from a queue</td>
+        <td>Distributed frontier with politeness, deduplication, priority scoring, JS rendering pipeline</td>
+      </tr>
+      <tr>
+        <td>Indexing</td>
+        <td>Store pages in a database and search them</td>
+        <td>Inverted index with sharding, delta-compressed posting lists, incremental plus batch tiers</td>
+      </tr>
+      <tr>
+        <td>Ranking</td>
+        <td>Use PageRank or machine learning</td>
+        <td>Multi-stage: BM25 retrieval, feature extraction, gradient boosted or neural re-ranking</td>
+      </tr>
+      <tr>
+        <td>Latency</td>
+        <td>Use caching</td>
+        <td>Parallel shard fanout, hedged requests for tail latency, query result cache with appropriate TTL</td>
+      </tr>
+      <tr>
+        <td>Scale</td>
+        <td>Add more servers</td>
+        <td>Horizontal index sharding, geo-distributed serving, offline pipeline parallelism</td>
+      </tr>
+      <tr>
+        <td>Freshness</td>
+        <td>Re-index frequently</td>
+        <td>Dual-tier index with fast-update layer, freshness signals in ranking, query-type aware cache TTL</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>The thing that strikes you when you study Google Search deeply is how many of the most interesting engineering decisions are not about any single component in isolation. They are about the interactions between components. The crawl schedule affects freshness, which affects ranking quality, which affects user signals, which feeds back into ranking model training. The index shard size affects both query latency and per-shard throughput during indexing. The cache TTL affects both user experience and backend load.</p>
+
+<p>Search at this scale is a system of systems, and the most challenging problems live in the boundaries between them. That is also what makes it one of the most rewarding engineering domains to study.</p>
+
+<p>The principles here, offline pipelines feeding online serving, inverted indexes with sharded posting lists, multi-stage ranking, tail latency mitigation through hedging, graceful degradation through tiered indexes, generalize well beyond search. You will find variations of all of these in recommendation systems, ad serving, fraud detection, and almost any system that has to match queries against a large corpus at low latency. Learning search architecture deeply means learning a large chunk of distributed systems architecture in general.</p>
+
+<p>The next time you type something into a search box and results appear almost instantly, you will have a better sense of what just happened.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Uber Computes ETA?]]></title>
@@ -7878,253 +8482,6 @@ least one function as of 2025, up from 65% in early 2024, driven by investments 
 <h2>Conclusion</h2>
 
 <p>Chain of Thought applications transform LLMs from black boxes into transparent reasoners. By building step-by-step processing into your prompts and code, you create tools that not only solve problems but explain how.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Understanding ReAct in Large Language Models]]></title>
-        <link href="https://rishijeet.github.io/blog/understanding-react-in-large-language-models/"/>
-        <updated>2025-08-28T08:48:16+05:30</updated>
-        <id>https://rishijeet.github.io/blog/understanding-react-in-large-language-models</id>
-        <content type="html"><![CDATA[<p>ReAct, short for Reasoning and Acting, is a paradigm for enhancing large language models (LLMs) by integrating verbal reasoning traces with task-specific actions. Introduced in a 2022 paper, it addresses limitations in chain-of-thought (CoT) prompting by allowing models to interact with external environments, such as APIs or databases, to gather real-time data. This makes LLMs more reliable for tasks requiring factual accuracy or multi-step planning.</p>
-
-<p>In the evolving field of artificial intelligence, large language models (LLMs) have transformed how we approach problem-solving, but they often struggle with hallucinations—generating plausible but incorrect information—or handling tasks requiring real-world interaction. Enter ReAct (Reasoning and Acting), a prompting framework that synergizes reasoning traces with actionable steps, enabling LLMs to behave more like intelligent agents. This detailed blog explores ReAct&rsquo;s foundations, mechanics, advantages, and practical implementation, culminating in a sample Python application using LangChain. We&rsquo;ll draw on established research and code examples to provide a comprehensive guide, updated with insights as of 2025.</p>
-
-<a name="How.ReAct.Works"></a>
-<h2>How ReAct Works</h2>
-
-<p>In ReAct, the LLM generates a &ldquo;thought&rdquo; to plan, selects an &ldquo;action&rdquo; from available tools, observes the outcome, and iterates. This loop continues until the model outputs a final answer. For example, answering &ldquo;What is Olivia Wilde&rsquo;s boyfriend&rsquo;s age raised to the 0.23 power?&rdquo; might involve searching for the boyfriend, then calculating the power.</p>
-
-<p><img src="https://rishijeet.github.io/images/2025/reAct.gif" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Key.Points"></a>
-<h2>Key Points</h2>
-
-<ul>
-<li><strong>ReAct Framework</strong>: It seems likely that ReAct is a prompting technique enabling LLMs to alternate between reasoning (thinking step-by-step) and acting (using tools like searches or calculations), improving accuracy on complex tasks by reducing hallucinations and incorporating external information.</li>
-<li><strong>Core Process</strong>: Evidence leans toward a loop of Thought (reasoning), Action (tool invocation), Observation (results), repeating until a final answer, mimicking human problem-solving.</li>
-<li><strong>Benefits and Limitations</strong>: Research suggests ReAct enhances interpretability and performance on knowledge-intensive and decision-making tasks, though it may increase computational costs and rely on well-defined tools; it&rsquo;s particularly useful for dynamic environments but less so for simple queries.</li>
-</ul>
-
-
-<!--more-->
-
-
-<a name="Foundations.of.ReAct"></a>
-<h2>Foundations of ReAct</h2>
-
-<p>ReAct was introduced in the 2022 paper &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; by Shunyu Yao et al. It builds on chain-of-thought (CoT) prompting, where LLMs break down problems into intermediate reasoning steps for better performance on tasks like arithmetic or commonsense reasoning. However, CoT relies solely on the model&rsquo;s internal knowledge, leading to issues like factual errors or outdated information.</p>
-
-<p>ReAct addresses this by interleaving reasoning (&ldquo;thoughts&rdquo;) with actions, allowing the model to query external sources (e.g., search engines, calculators, or databases) and incorporate observations back into its reasoning process. This creates a feedback loop inspired by human cognition: think, act, observe, and adjust. As of 2025, ReAct remains a cornerstone for building LLM agents, integrated into frameworks like LangChain and LangGraph, with enhancements for multi-agent systems and reduced latency.</p>
-
-<p>Key components include:</p>
-
-<ul>
-<li><strong>Thought</strong>: A verbalized reasoning step where the LLM plans or reflects.</li>
-<li><strong>Action</strong>: Invocation of a tool, such as searching Wikipedia or running a calculation.</li>
-<li><strong>Observation</strong>: The result from the action, fed back to the LLM.</li>
-<li><strong>Final Answer</strong>: Output when the loop concludes, often after several iterations.</li>
-</ul>
-
-
-<p>This structure improves trustworthiness by making the process interpretable—users can trace how the model arrived at an answer.</p>
-
-<a name="How.ReAct.Works:.A.Step-by-Step.Breakdown"></a>
-<h2>How ReAct Works: A Step-by-Step Breakdown</h2>
-
-<p>ReAct operates in an iterative loop, typically capped at a maximum number of turns to control costs and latency. Here&rsquo;s the flow:</p>
-
-<ol>
-<li><strong>Initialization</strong>: The LLM receives a prompt outlining the ReAct format (e.g., &ldquo;You run in a loop of Thought, Action, PAUSE, Observation&rdquo;).</li>
-<li><strong>Thought Generation</strong>: The model reasons about the query, deciding on the next action.</li>
-<li><strong>Action Execution</strong>: If an action is needed, the system pauses, executes the tool, and returns an observation.</li>
-<li><strong>Observation Integration</strong>: The observation is appended to the prompt, and the loop repeats.</li>
-<li><strong>Termination</strong>: The model outputs &ldquo;Answer&rdquo; when confident, or hits the iteration limit.</li>
-</ol>
-
-
-<p>For instance, in a knowledge-intensive task like HotpotQA (multi-hop question answering), ReAct might search for &ldquo;Colorado orogeny,&rdquo; observe the result, reason about the eastern sector, and lookup further details until answering the elevation range.</p>
-
-<p>ReAct excels in domains like:</p>
-
-<ul>
-<li><strong>Knowledge Tasks</strong>: Outperforms CoT by accessing external info, reducing hallucinations.</li>
-<li><strong>Decision-Making</strong>: Handles interactive environments (e.g., games or web navigation) via tools.</li>
-<li><strong>Agentic Workflows</strong>: Integrates with RAG or multi-agent systems for complex automation.</li>
-</ul>
-
-
-<p>However, challenges include dependency on tool quality, potential for infinite loops without safeguards, and higher token usage compared to simpler prompts.</p>
-
-<a name="Comparisons:.ReAct.vs..Other.LLM.Techniques"></a>
-<h2>Comparisons: ReAct vs. Other LLM Techniques</h2>
-
-<p>To contextualize ReAct, consider this comparison table:</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-  <thead>
-    <tr>
-      <th>Technique</th>
-      <th>Description</th>
-      <th>Strengths</th>
-      <th>Weaknesses</th>
-      <th>Use Cases</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><b>Chain-of-Thought (CoT)</b></td>
-      <td>Prompts LLMs to reason step-by-step without external actions.</td>
-      <td>Simple, low-cost; good for internal logic.</td>
-      <td>Prone to hallucinations; no real-world interaction.</td>
-      <td>Arithmetic, commonsense QA.</td>
-    </tr>
-    <tr>
-      <td><b>ReAct</b></td>
-      <td>Interleaves reasoning with tool-based actions and observations.</td>
-      <td>Dynamic, factual; interpretable loop.</td>
-      <td>Higher latency; tool-dependent.</td>
-      <td>Multi-hop QA, web tasks, agents.</td>
-    </tr>
-    <tr>
-      <td><b>Function Calling</b></td>
-      <td>Fine-tuned models output JSON for tool calls, without explicit reasoning.</td>
-      <td>Fast, structured; efficient for predictable tasks.</td>
-      <td>Less adaptable; opaque reasoning.</td>
-      <td>API integrations, simple tools.</td>
-    </tr>
-    <tr>
-      <td><b>ReAct + CoT</b></td>
-      <td>Hybrid: Uses ReAct for actions and CoT for pure reasoning switches.</td>
-      <td>Optimal performance; flexible.</td>
-      <td>Complex implementation.</td>
-      <td>Advanced agents, hybrid tasks.</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
-<p>ReAct often outperforms baselines on benchmarks like HotpotQA, Fever, ALFWorld, and WebShop, with gains in accuracy and efficiency when combined with CoT.</p>
-
-<a name="Building.a.Sample.ReAct.Application.in.Python"></a>
-<h2>Building a Sample ReAct Application in Python</h2>
-
-<p>A basic ReAct agent can be built using Python libraries like LangChain. The sample below creates an agent that searches the web and performs math, demonstrating the loop in action. You&rsquo;ll need API keys for an LLM (e.g., OpenAI) and tools (e.g., Google Serper for search). For full code and setup, see the detailed survey below. This sample creates an agent that answers questions by searching the web (via Tavily) and performing calculations. It demonstrates the full loop and includes conversational memory for multi-turn interactions.</p>
-
-<a name="Prerequisites"></a>
-<h3>Prerequisites</h3>
-
-<ul>
-<li>Python 3.10+.</li>
-<li>Install dependencies: <code>pip install -U langgraph langchain-tavily langgraph-checkpoint-sqlite langchain-openai</code>.</li>
-<li>API Keys: Obtain OpenAI (for the LLM) and Tavily (for search) keys. Set them as environment variables:
-<code>python
-import os
-import getpass
-os.environ["OPENAI_API_KEY"] = getpass.getpass("OpenAI API Key: ")
-os.environ["TAVILY_API_KEY"] = getpass.getpass("Tavily API Key: ")
-</code></li>
-<li>For tracing (optional): Set LangSmith keys.</li>
-</ul>
-
-
-<a name="Code.Implementation"></a>
-<h3>Code Implementation</h3>
-
-<p>The application uses LangGraph&rsquo;s <code>create_react_agent</code> for the ReAct logic. Here&rsquo;s the complete code:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="c"># Import necessary modules</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_tavily</span> <span class="kn">import</span> <span class="n">TavilySearchResults</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_openai</span> <span class="kn">import</span> <span class="n">ChatOpenAI</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langgraph.prebuilt</span> <span class="kn">import</span> <span class="n">create_react_agent</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langgraph.checkpointer</span> <span class="kn">import</span> <span class="n">MemorySaver</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.messages</span> <span class="kn">import</span> <span class="n">HumanMessage</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Define tools</span>
-</span><span class='line'><span class="n">tool</span> <span class="o">=</span> <span class="n">TavilySearchResults</span><span class="p">(</span><span class="n">max_results</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span class='line'><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">tool</span><span class="p">]</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Initialize the LLM (using OpenAI&#39;s GPT-4o-mini for efficiency)</span>
-</span><span class='line'><span class="n">model</span> <span class="o">=</span> <span class="n">ChatOpenAI</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Bind tools to the model</span>
-</span><span class='line'><span class="n">model_with_tools</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">bind_tools</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Create the agent with memory (using MemorySaver for conversational state)</span>
-</span><span class='line'><span class="n">memory</span> <span class="o">=</span> <span class="n">MemorySaver</span><span class="p">()</span>
-</span><span class='line'><span class="n">agent_executor</span> <span class="o">=</span> <span class="n">create_react_agent</span><span class="p">(</span><span class="n">model_with_tools</span><span class="p">,</span> <span class="n">tools</span><span class="p">,</span> <span class="n">checkpointer</span><span class="o">=</span><span class="n">memory</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Configuration for conversational thread (use a unique ID for each conversation)</span>
-</span><span class='line'><span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;configurable&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s">&quot;thread_id&quot;</span><span class="p">:</span> <span class="s">&quot;conversation-1&quot;</span><span class="p">}}</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Function to run the agent</span>
-</span><span class='line'><span class="k">def</span> <span class="nf">run_agent</span><span class="p">(</span><span class="n">query</span><span class="p">):</span>
-</span><span class='line'>    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;User Query: {query}&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent_executor</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span>
-</span><span class='line'>        <span class="p">{</span><span class="s">&quot;messages&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">HumanMessage</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="n">query</span><span class="p">)]},</span> <span class="n">config</span>
-</span><span class='line'>    <span class="p">):</span>
-</span><span class='line'>        <span class="k">print</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
-</span><span class='line'>        <span class="k">print</span><span class="p">(</span><span class="s">&quot;----&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="c"># Extract final response</span>
-</span><span class='line'>    <span class="n">response</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;agent&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;messages&quot;</span><span class="p">,</span> <span class="p">[{}])[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">content</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">response</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Example usage</span>
-</span><span class='line'><span class="n">query</span> <span class="o">=</span> <span class="s">&quot;Who is the current CEO of xAI? What is their age squared?&quot;</span>
-</span><span class='line'><span class="n">response</span> <span class="o">=</span> <span class="n">run_agent</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
-</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">&quot;Final Answer: {response}&quot;</span><span class="p">)</span>
-</span></code></pre></div></figure>
-
-
-<a name="Detailed.Explanation"></a>
-<h3>Detailed Explanation</h3>
-
-<ol>
-<li><strong>Tools Definition</strong>: <code>TavilySearchResults</code> is a web search tool returning up to 2 results. It&rsquo;s added to <code>tools</code> for the agent to use.</li>
-<li><strong>LLM Setup</strong>: <code>ChatOpenAI</code> initializes the model (e.g., GPT-4o-mini for cost-effectiveness). <code>bind_tools</code> informs the model about available actions.</li>
-<li><strong>Agent Creation</strong>: <code>create_react_agent</code> builds the ReAct loop, with <code>MemorySaver</code> enabling state persistence for follow-ups (e.g., &ldquo;Tell me more about them&rdquo;).</li>
-<li><strong>Execution</strong>: The <code>stream</code> method runs the agent, printing intermediate thoughts, actions, and observations. For the example query:
-
-<ul>
-<li>Thought: Reason about searching for xAI CEO.</li>
-<li>Action: Invoke Tavily search.</li>
-<li>Observation: Retrieve CEO (e.g., Elon Musk) and age.</li>
-<li>Thought: Calculate age squared.</li>
-<li>Final Answer: Output the result (e.g., &ldquo;Elon Musk, age 54 squared is 2916&rdquo;).</li>
-</ul>
-</li>
-<li><strong>Extensions</strong>: Add more tools (e.g., math via <code>LLMMathChain</code>) or integrate with databases for custom applications.</li>
-</ol>
-
-
-<a name="Testing.and.Output"></a>
-<h3>Testing and Output</h3>
-
-<p>Running the code might yield:</p>
-
-<ul>
-<li>Intermediate: Thought → Action (search) → Observation → Thought (calculate) → Answer.
-This ensures factual grounding, e.g., verifying current data as of 2025.</li>
-</ul>
-
-
-<a name="Advanced.Variations.and.Best.Practices"></a>
-<h2>Advanced Variations and Best Practices</h2>
-
-<ul>
-<li><strong>Simple Non-LangChain Implementation</strong>: For a lightweight version, use a custom loop with OpenAI&rsquo;s API, as in Simon Willison&rsquo;s example. Define actions like <code>wikipedia</code> and parse responses with regex.</li>
-<li><strong>With LangGraph</strong>: For production, use LangGraph for visual workflows and error handling.</li>
-<li><strong>Best Practices</strong>: Limit iterations (e.g., max_turns=5), use verbose mode for debugging, and combine with CoT for hybrid prompting. Monitor token usage, as ReAct can be resource-intensive.</li>
-<li><strong>2025 Updates</strong>: Recent integrations include multimodal support (e.g., image analysis tools) and edge deployment for low-latency agents.</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>ReAct represents a pivotal shift toward agentic AI, empowering LLMs to not just generate text but actively engage with the world. By implementing the sample above, developers can experiment and scale to real-world applications like automated research or virtual assistants.</p>
 ]]></content>
     </entry>
     
