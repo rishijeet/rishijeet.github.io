@@ -4,7 +4,7 @@
     <title><![CDATA[Category: system_design | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/system-design/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-14T11:24:53+05:30</updated>
+    <updated>2026-05-16T09:17:50+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,605 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Uber Computes ETA?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-uber-computes-eta/"/>
+        <updated>2026-05-16T08:57:52+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-uber-computes-eta</id>
+        <content type="html"><![CDATA[<blockquote><p><em>The magic of Uber doesn’t begin when the car arrives. It begins the instant the app tells you &ldquo;how long&rdquo; the wait will be. A tiny estimate — “2 minutes away” or “6 minutes away” — flashes onto your screen so casually that most people never think twice about it. Yet producing that single number requires a planet-scale system constantly processing live GPS streams, road traffic, driver movement, rider demand, map intelligence, and prediction models in real time. What looks like a simple countdown is actually the visible tip of one of the most advanced distributed systems ever engineered for everyday consumers.</em></p></blockquote>
+
+<p>That number is the Estimated Time of Arrival, and computing it correctly — at global scale, in real time, across millions of concurrent users — is genuinely one of the hardest problems in applied engineering.</p>
+
+<p><img src="/images/system_design/uber.svg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This post is a deep walkthrough of how a system like Uber&rsquo;s ETA engine works. We will go through the GPS infrastructure, the map matching algorithms, the routing engines, the machine learning prediction pipelines, the streaming systems, the geo-spatial indexing, and the tradeoffs that engineers make every day to keep that number accurate and fast.</p>
+
+<!--more-->
+
+
+<a name="Introduction"></a>
+<h2>Introduction</h2>
+
+<p>Before we talk about systems, let us talk about why this problem is hard.</p>
+
+<p>ETA is not just &ldquo;distance divided by speed.&rdquo; That formula might work on an empty highway at 3am. It does not work in Manhattan at 5pm on a Tuesday when there is a Yankees game and a water main just broke on 8th Avenue.</p>
+
+<p>Real ETA computation has to account for live traffic conditions, driver behavior, road geometry, traffic signals, historical patterns for that specific road segment at that specific hour, weather, road closures, construction zones, the accuracy of GPS signals bouncing off buildings, the time it takes a driver to find parking near a pickup, and the probability that the driver will take a slightly longer route because the GPS told them to avoid a slow road that just cleared up thirty seconds ago.</p>
+
+<p>At Uber&rsquo;s scale, millions of trips are happening simultaneously across hundreds of cities. Each active driver sends GPS pings every few seconds. Each trip involves continuous ETA recalculations. The system has to handle all of this in under 200 milliseconds, because if the ETA on your screen is stale by more than a few seconds, the experience falls apart.</p>
+
+<p>And here is the thing that most people miss: a wrong ETA does not just frustrate users. It creates a cascade of downstream problems. Riders show up at the wrong time. Drivers sit waiting. Pool pickups get miscoordinated. Pricing algorithms based on ETA drift become inaccurate. The entire marketplace depends on ETA being right.</p>
+
+<a name="Core.Features.Behind.ETA.Calculation"></a>
+<h2>Core Features Behind ETA Calculation</h2>
+
+<p>Let us ground ourselves in what the system actually has to compute before we get into the architecture.</p>
+
+<p>Driver location tracking is the most fundamental input. You need to know where every active driver is, right now, with as little latency as possible. This is a continuous stream problem, not a query problem.</p>
+
+<p>Rider pickup estimation is the first ETA users see. How long until the driver reaches the pickup location? This depends on the driver&rsquo;s current position, the route to the pickup, live traffic, and how long the driver takes to pull over and start moving.</p>
+
+<p>Trip duration estimation is the second ETA users care about. Once the trip starts, how long until they arrive? This needs to account for the entire route ahead, not just current conditions.</p>
+
+<p>Real-time rerouting is what happens when conditions change mid-trip. A road closes. Traffic suddenly backs up. The system has to detect this, compute a new route, and update the ETA without the user even noticing the recalculation.</p>
+
+<p>Traffic prediction fills in the gaps between what the system knows right now and what it expects will happen in the next ten, twenty, thirty minutes as the trip progresses through different parts of the city.</p>
+
+<a name="High-Level.ETA.System.Architecture"></a>
+<h2>High-Level ETA System Architecture</h2>
+
+<p>Here is how the major systems talk to each other:</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Driver Mobile App];
+B[GPS Ingestion Service];
+C[Map Matching Service];
+D[Traffic Aggregation Service];
+E[Routing Engine];
+F[ETA Prediction Service];
+G[ML Inference Service];
+H[Rider Mobile App];
+I[Trip Orchestration Service];
+J[Kafka Event Bus];
+K[Redis Cache];
+L[Cassandra DB];
+A &#8211;>|GPS ping every 4s| B;
+B &#8211;>|raw location event| J;
+J &#8211;> C;
+J &#8211;> D;
+C &#8211;>|matched road position| E;
+D &#8211;>|traffic snapshot| E;
+E &#8211;>|candidate routes| F;
+F &#8211;> G;
+G &#8211;>|adjusted ETA| F;
+F &#8211;>|ETA result| K;
+I &#8211;>|trip state| F;
+H &#8211;>|ETA request| I;
+F &#8211;>|cached ETA| H;
+F &#8211;> L;
+</div>
+
+
+<p>The key insight in this architecture is that the ETA pipeline is event-driven, not request-driven. The system does not wait for someone to ask &ldquo;what is the ETA?&rdquo; before computing it. It continuously processes GPS events, traffic updates, and route recalculations in the background. When a rider&rsquo;s app asks for an ETA, the answer is already sitting in cache, ready to be served in single-digit milliseconds.</p>
+
+<p>This distinction matters enormously at scale. If every ETA request triggered a fresh route computation, you would need orders of magnitude more compute just to serve the read traffic.</p>
+
+<a name="GPS.Tracking.Pipeline"></a>
+<h2>GPS Tracking Pipeline</h2>
+
+<p>The GPS pipeline is the nervous system of the entire ETA operation. Without accurate, low-latency location data, everything else breaks.</p>
+
+<p>Every driver&rsquo;s phone runs an SDK that collects GPS readings. On a typical ride, the SDK sends a location update every four seconds. That might not sound like much, but multiply four-second pings across two million active drivers globally and you are processing roughly 500,000 GPS events per second at peak.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Driver Phone GPS];
+B[Location SDK];
+C[Mobile Network];
+D[GPS Ingestion Gateway];
+E[Kafka Topic: raw-gps];
+F[GPS Validator];
+G[Outlier Filter];
+H[Kafka Topic: clean-gps];
+A &#8211;>|raw coordinates| B;
+B &#8211;>|batched pings| C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>Raw GPS data is messy. Urban environments create what engineers call the &ldquo;urban canyon&rdquo; problem: tall buildings reflect and scatter GPS signals, causing the reported position to jump around by tens of meters even when a driver is sitting still. A driver traveling on an elevated highway might briefly appear to be on the surface street directly below. A driver going through a tunnel disappears entirely.</p>
+
+<p>The GPS validator handles basic sanity checks: speed limits (if the reported position implies the car is moving at 300 kilometers per hour, something is wrong), coordinate bounds, timestamp ordering, and signal quality scores.</p>
+
+<p>The outlier filter uses a Kalman filter or similar smoothing algorithm to maintain a best-guess position estimate and flag readings that deviate too far from the expected path. A Kalman filter essentially says: &ldquo;given where this driver was and how fast they were going, where should they be now?&rdquo; If the new reading is wildly different, it is weighted down or discarded.</p>
+
+<p>Battery optimization is a real constraint here. Aggressive GPS polling drains the driver&rsquo;s battery faster, which creates a bad driver experience and can cause drivers to turn off the app. The SDK uses adaptive polling — more frequent updates when the driver is actively navigating, less frequent when they are parked. It also leans on the phone&rsquo;s motion sensors to detect when the driver has stopped moving and back off the GPS frequency accordingly.</p>
+
+<a name="Map.Matching.System"></a>
+<h2>Map Matching System</h2>
+
+<p>Raw GPS coordinates tell you where a device thinks it is. Map matching tells you where the driver actually is on the road network.</p>
+
+<p>The difference is significant. If a driver is on a highway overpass, raw GPS might put them somewhere on the surface street below. If they are at an intersection, the GPS might float between three possible roads. Map matching takes the noisy GPS stream and snaps it to the most plausible road in the road graph.</p>
+
+<p>The standard approach is the Hidden Markov Model. The idea is elegant: you have a sequence of GPS observations, and a set of candidate road positions for each observation. The HMM asks: what sequence of road positions is most likely, given both how close each candidate is to the observed GPS point and how plausible the transitions between consecutive candidates are?</p>
+
+<p>The transition probability accounts for things like: is it physically possible to go from road segment A at time T to road segment B at time T+1 given the driver&rsquo;s speed? Are these segments connected in the road graph? Would this transition require making an illegal turn?</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Raw GPS Sequence];
+B[Candidate Road Segments];
+C[HMM Emission Probability];
+D[HMM Transition Probability];
+E[Viterbi Algorithm];
+F[Matched Road Position];
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+</div>
+
+
+<p>Tunnels are the hardest case. The driver disappears from GPS for 30-60 seconds and reappears somewhere else. The map matcher needs to look at the entry point, the exit point, and the road graph to figure out the most likely path through the tunnel. In most cases this works well because tunnel paths are fixed. The failure mode is when a driver exits early or the tunnel has multiple exit points.</p>
+
+<p>Dense urban intersections are also tricky. A driver stopped at a light on a street with four lanes in each direction might be matching to any of eight possible road segments. Getting this wrong does not just affect position accuracy — it feeds incorrect traffic speed data back into the system, which then corrupts future ETA calculations for everyone on that road.</p>
+
+<a name="Routing.Engine.Deep.Dive"></a>
+<h2>Routing Engine Deep Dive</h2>
+
+<p>The routing engine is where ETA computation actually starts to take shape. Given a driver&rsquo;s current matched position and a destination, the engine needs to find the fastest route in real time.</p>
+
+<p>Road networks are modeled as directed weighted graphs. Every intersection is a node. Every road segment between intersections is a directed edge. The weight of each edge is not just its physical length — it is a composite cost function that includes estimated travel time based on current traffic speeds, turn penalties (left turns across traffic cost more time than right turns), road type (highway vs arterial vs residential), and historical speed data for this time of day.</p>
+
+<p>Classic Dijkstra&rsquo;s algorithm finds the shortest path in a graph with non-negative edge weights. It is correct, but it explores too many nodes to be practical on a road graph covering an entire city. Starting from a source and expanding outward in all directions, it wastes computation on nodes that are clearly not on the path toward the destination.</p>
+
+<p>A* improves on Dijkstra by using a heuristic — usually straight-line distance to the destination — to guide the search toward the goal. This dramatically reduces the number of nodes explored and makes routing fast enough for real-time use in moderately dense road graphs.</p>
+
+<p>For continental-scale routing or fast query performance over very large graphs, Uber and similar systems use Contraction Hierarchies. The idea is to preprocess the graph by &ldquo;contracting&rdquo; less important nodes and adding shortcut edges that represent multi-hop paths. At query time, the search runs on a much smaller graph and reconstructs the full path afterward.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Driver Position];
+B[Destination];
+C[Road Graph];
+D[Traffic Weights];
+E[Turn Penalties];
+F[A-Star Search];
+G[Candidate Route];
+H[Route Scorer];
+I[Optimal Route];
+A &#8211;> F;
+B &#8211;> F;
+C &#8211;> F;
+D &#8211;> H;
+E &#8211;> H;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p>The routing engine also handles rerouting during active trips. When the system detects that a driver has deviated from the planned route or that traffic conditions have changed significantly, it triggers a re-route. The challenge here is avoiding flip-flopping: if two routes have nearly identical costs, you do not want the driver being bounced between them every 30 seconds as minor traffic fluctuations tip the balance. Engineers add hysteresis to the rerouting logic — only reroute if the new path is significantly faster than the current one, not just marginally.</p>
+
+<a name="Real-Time.Traffic.System"></a>
+<h2>Real-Time Traffic System</h2>
+
+<p>Traffic state is the most important input to ETA after the route itself. Getting it right is a continuous data engineering problem.</p>
+
+<p>The primary source of traffic data is the drivers themselves. Every GPS update from every active driver carries implicit speed information: if a driver on a known road segment was at position A four seconds ago and is now at position B, you can compute their speed on that segment. Aggregate this across all drivers on the same segment and you have a real-time speed estimate.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Driver GPS Stream];
+B[Speed Inference Service];
+C[Road Segment Speed Store];
+D[Historical Speed Patterns];
+E[Traffic Aggregator];
+F[Traffic Snapshot];
+G[Routing Engine];
+H[ETA Service];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+F &#8211;> H;
+</div>
+
+
+<p>This is a beautiful example of turning a byproduct (location data collected for dispatch purposes) into a product feature (real-time traffic). But it has a cold start problem: in areas with few active Uber drivers, the traffic signal is sparse or absent. In those cases, the system falls back to historical patterns and whatever external traffic data sources it can access.</p>
+
+<p>Historical traffic patterns are stored as speed profiles for each road segment, indexed by day of week and hour of day. Monday morning rush hour on the 101 in San Francisco has a very predictable signature. The system builds these profiles from months of accumulated trip data and uses them to fill in gaps in real-time coverage.</p>
+
+<p>Event detection is another layer. The traffic system watches for sudden changes in speed patterns that might indicate an accident or road closure. If a segment that normally flows at 60 km/h suddenly drops to 10 km/h, that is a signal worth propagating to the routing engine immediately, not waiting for the next scheduled update.</p>
+
+<a name="Machine.Learning.ETA.Prediction"></a>
+<h2>Machine Learning ETA Prediction</h2>
+
+<p>Here is the uncomfortable truth about rule-based ETA systems: they are wrong in predictable ways, and machine learning can fix most of those systematic errors.</p>
+
+<p>A pure routing-based ETA takes the planned route, applies current and historical traffic speeds, and computes an expected travel time. This ignores dozens of factors that a trained model can learn: the tendency for pickups near certain venues to take longer because of loading zone situations; the pattern where certain highway on-ramps add 3-4 minutes during specific hours that the speed data does not fully capture; the fact that certain drivers consistently arrive 90 seconds faster than the route prediction suggests.</p>
+
+<p>The ETA prediction model sits on top of the routing output and corrects it.</p>
+
+<p>Feature engineering for this model is where most of the work happens. The features include the raw route-based ETA from the routing engine, real-time speeds on key segments along the route, historical speed variance for those segments at this time and day, weather conditions, the number of other Uber trips currently on the same route segments, the driver&rsquo;s historical ETA accuracy (some drivers are systematically faster or slower than average), pickup zone type, and more.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Route ETA from Routing Engine];
+B[Real-Time Traffic Features];
+C[Historical Pattern Features];
+D[Driver Behavior Features];
+E[Weather Features];
+F[City Context Features];
+G[Feature Vector Assembly];
+H[ML Model Inference];
+I[Corrected ETA];
+A &#8211;> G;
+B &#8211;> G;
+C &#8211;> G;
+D &#8211;> G;
+E &#8211;> G;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p>The model architecture that tends to work best for this kind of structured prediction problem is gradient boosted trees (XGBoost, LightGBM). These models handle tabular features well, are fast to inference, can be updated incrementally as new trip data arrives, and produce well-calibrated predictions. Deep learning approaches (LSTMs for capturing temporal sequence patterns, graph neural networks for road topology) are used for specific subproblems but add latency and complexity.</p>
+
+<p>One of the most important things the ML system does is quantify uncertainty. Rather than just predicting &ldquo;14 minutes,&rdquo; the system can predict &ldquo;14 minutes with a 90% confidence interval of 12-18 minutes.&rdquo; This is used downstream for things like showing ranges in the app and for the ride matching algorithm to account for uncertainty in supply-demand balancing.</p>
+
+<p>Online learning is the practice of updating the model continuously as new labeled examples arrive. Each completed trip generates a ground truth: the predicted ETA at trip start versus the actual duration. These examples can be used to retrain the model or update its parameters in near-real-time. The challenge is avoiding training on biased samples — if drivers who take longer routes are less likely to complete trips, the training data skews toward fast completions.</p>
+
+<a name="Geo-Spatial.Infrastructure"></a>
+<h2>Geo-Spatial Infrastructure</h2>
+
+<p>Finding drivers near a pickup location, or finding which road segments are relevant to a query, requires efficient geo-spatial indexing. Doing this at scale means you cannot afford expensive distance calculations on every record.</p>
+
+<p>GeoHash divides the Earth&rsquo;s surface into a hierarchical grid of cells. Each cell is identified by a short string, and cells with similar prefixes are geographically close to each other. This turns 2D proximity queries into 1D prefix searches, which traditional databases can handle with index scans.</p>
+
+<p>QuadTrees are an alternative spatial index that recursively divides a 2D region into four quadrants. They work well when data is unevenly distributed (like drivers, who cluster in city centers) because the tree adapts its density to match the data density.</p>
+
+<p>For road graph queries, Uber partitions the global road graph into geographic tiles. Each tile contains the full topology of its region plus information about how to join the edges that cross tile boundaries. This lets the routing engine load only the tiles relevant to a given trip, rather than the entire global graph.</p>
+
+<p>The nearby driver search is a classic problem in geo-spatial systems. Given a pickup location, find all drivers within X kilometers. With GeoHash, you convert the pickup location to a GeoHash cell and query all drivers in that cell and its neighbors. The neighbor lookup is the tricky part — with GeoHash, you have to handle cell boundaries carefully to avoid missing drivers just on the other side of a cell edge.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Pickup Location];
+B[GeoHash Encoder];
+C[Cell and Neighbors];
+D[Driver Location Store];
+E[Candidate Drivers];
+F[Distance Filter];
+G[Available Drivers];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<a name="Streaming.Systems.and.Real-Time.Pipelines"></a>
+<h2>Streaming Systems and Real-Time Pipelines</h2>
+
+<p>Everything we have described so far — GPS processing, traffic aggregation, ETA updates — happens continuously, not in batch. The backbone is a streaming data platform.</p>
+
+<p>Kafka is the message bus that connects these systems. GPS events flow from drivers into Kafka topics. Stream processors consume from these topics, do their work (map matching, speed aggregation, ETA recalculation), and produce into other Kafka topics. The result is a series of processing stages, each consuming and producing events, with the final ETA sitting in a cache ready to serve.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[GPS Events Topic];
+B[Map Matcher Consumer];
+C[Matched Location Topic];
+D[Speed Aggregator];
+E[Traffic Topic];
+F[ETA Recompute Service];
+G[ETA Cache];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+C &#8211;> F;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p>Windowed aggregations are how the traffic system computes road segment speeds. A sliding window over the last 5 minutes of GPS events for a given road segment gives you the current average speed. Flink and similar stream processing frameworks handle this natively.</p>
+
+<p>Late-arriving events are a real operational problem. GPS pings sometimes get buffered on the device because of network connectivity and arrive out of order. A naive system that processes events in arrival order will compute incorrect speeds. The proper handling is to use event time (the timestamp from the device) rather than processing time (when the system received it), and to hold a short watermark window to allow late events to be incorporated before finalizing computations.</p>
+
+<p>Exactly-once processing matters when events drive state changes. If a GPS event is processed twice (due to a consumer restart), you do not want it counted twice in the traffic average. Kafka and Flink together support exactly-once semantics through transactional commits.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The ETA system touches several different data stores, each chosen for specific access patterns.</p>
+
+<p>Cassandra stores driver location history and GPS event archives. It is designed for high write throughput, which matches the GPS ingestion workload. Reads are by driver ID and time range, which fits Cassandra&rsquo;s partition key model well. Cassandra&rsquo;s eventual consistency is acceptable here because we do not need perfect accuracy for historical location data.</p>
+
+<p>Redis is the primary cache for current driver positions and recent ETA computations. Sub-millisecond read latency is essential when the app is refreshing the driver&rsquo;s position on the map every few seconds. Redis Sorted Sets are particularly useful for geo-spatial queries — you can store driver IDs scored by GeoHash and do range queries to find nearby drivers.</p>
+
+<p>A time-series database like InfluxDB or TimescaleDB stores traffic speed snapshots per road segment over time. The access pattern is: give me the average speed on segment X for the last 30 days at 5pm on Tuesdays. Time-series databases have native support for these kinds of downsampled historical queries.</p>
+
+<p>PostgreSQL with PostGIS handles the road graph and map data. Road segments, intersection topology, turn restrictions, and speed limits are relational data with complex relationships. PostGIS adds the geo-spatial query capability needed to find all road segments within a bounding box or compute the length of a geometry.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Data Store</th>
+        <th>What It Stores</th>
+        <th>Why This Choice</th>
+        <th>Key Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Cassandra</td>
+        <td>GPS events, driver history</td>
+        <td>High write throughput, time-series partitioning</td>
+        <td>Write-heavy, read by driver + time range</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Current driver positions, ETA cache</td>
+        <td>Sub-millisecond reads, geo-sorted sets</td>
+        <td>Point reads, nearby driver lookup</td>
+      </tr>
+      <tr>
+        <td>InfluxDB / TimescaleDB</td>
+        <td>Road segment speed history</td>
+        <td>Native time-series aggregations</td>
+        <td>Historical speed profiles by segment + time</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL + PostGIS</td>
+        <td>Road graph, map topology</td>
+        <td>Relational integrity, spatial queries</td>
+        <td>Road graph traversal, spatial bounding box queries</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Address search, place names</td>
+        <td>Full-text search, geo-distance queries</td>
+        <td>Destination autocomplete, address resolution</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>GPS event schema in Cassandra might look like this:</p>
+
+<pre><code class="sql">CREATE TABLE gps_events (
+  driver_id    UUID,
+  event_time   TIMESTAMP,
+  latitude     DOUBLE,
+  longitude    DOUBLE,
+  speed_kmh    FLOAT,
+  heading      FLOAT,
+  accuracy_m   FLOAT,
+  PRIMARY KEY (driver_id, event_time)
+) WITH CLUSTERING ORDER BY (event_time DESC);
+</code></pre>
+
+<p>The partition key is driver_id so all events for a driver land on the same partition. The clustering key is event_time descending so the most recent events come back first on any range scan.</p>
+
+<a name="Caching.and.Performance.Optimization"></a>
+<h2>Caching and Performance Optimization</h2>
+
+<p>The ETA system has to serve sub-200ms responses to millions of concurrent users. Caching is not an optimization — it is a core architectural requirement.</p>
+
+<p>Route caching stores the computed route between two fixed points. If a driver is picking up a rider at a major landmark, there might be thousands of pickups from that location per day. The optimal route from a given origin-destination pair does not change dramatically minute-to-minute. The routing engine can serve cached routes for common pairs and only run the full graph traversal for novel queries.</p>
+
+<p>ETA results are cached at the trip level and invalidated when conditions change meaningfully. The definition of &ldquo;meaningfully&rdquo; matters here. A 10-second change in ETA does not warrant a cache invalidation. A 2-minute change does, especially if the trip has just started. Engineers tune these thresholds based on user research about when ETA changes are noticeable and frustrating.</p>
+
+<p>Traffic tile caching stores pre-computed traffic overlays for geographic tiles. Instead of assembling the traffic picture from raw speed data on every routing request, the system periodically bakes traffic speeds into the road graph weights and serves those cached weights. This shifts computation from query time to background processing.</p>
+
+<p>Hotspot mitigation handles the &ldquo;stadium effect&rdquo;: when a venue lets out and thousands of riders all request Uber simultaneously from the same location, the nearby driver search and ETA computation for that area gets hammered. One approach is to pre-compute and warm the cache for known high-demand zones before events end, using venue calendars and historical demand patterns.</p>
+
+<a name="Scaling.Uber.ETA.Systems"></a>
+<h2>Scaling Uber ETA Systems</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>System Component</th>
+        <th>Primary Bottleneck</th>
+        <th>Scaling Strategy</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPS Ingestion</td>
+        <td>Write throughput at peak</td>
+        <td>Kafka partition scaling, stateless consumers</td>
+        <td>More partitions increase consumer coordination overhead</td>
+      </tr>
+      <tr>
+        <td>Map Matching</td>
+        <td>HMM computation per driver</td>
+        <td>Stateful stream processors sharded by driver ID</td>
+        <td>Rebalancing shards is expensive when consumers restart</td>
+      </tr>
+      <tr>
+        <td>Routing Engine</td>
+        <td>Graph traversal CPU</td>
+        <td>Geo-sharded routing nodes, precomputed hierarchies</td>
+        <td>Cross-shard queries needed for long trips</td>
+      </tr>
+      <tr>
+        <td>ML Inference</td>
+        <td>Model load and feature assembly</td>
+        <td>Model server clusters, feature store caching</td>
+        <td>Model freshness vs inference latency tradeoff</td>
+      </tr>
+      <tr>
+        <td>Geo Queries</td>
+        <td>Nearby driver lookup frequency</td>
+        <td>Redis geo-sorted sets, read replicas</td>
+        <td>Eventual consistency on driver position reads</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The GPS ingestion service is horizontally scaled: add more Kafka partitions and more consumer instances. Because GPS events from a given driver need to be processed in order, events for the same driver are routed to the same partition using driver ID as the partition key. This ensures ordering within a driver&rsquo;s event stream without requiring global ordering across all drivers.</p>
+
+<p>The routing engine is geo-sharded. Each routing node is responsible for a geographic region and holds the road graph for that region in memory. Routing queries within a single region are served locally. Long trips that cross shard boundaries require coordination between routing nodes, which is handled by a routing federation layer.</p>
+
+<p>Multi-region deployment is critical for latency. A rider in Mumbai should not have their ETA computed in a data center in Virginia. Routing and ETA services run in regional clusters close to the users they serve. Global state (like model weights) is replicated to all regions. Regional state (like driver positions) lives in the regional cluster and is not globally replicated.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>The ETA system has multiple failure modes that need graceful degradation rather than hard failures.</p>
+
+<p>GPS outages happen when drivers lose network connectivity. The map matcher maintains a dead reckoning estimate: given the last known position, heading, and speed, project forward in time to estimate the current position. This estimate degrades quickly (30-60 seconds before it becomes unreliable) but it is better than showing no position at all.</p>
+
+<p>Stale traffic data is handled by aging: if a road segment&rsquo;s speed data has not been refreshed in the last five minutes, the system starts blending it with historical averages, weighting toward historical as the data gets older. After a configurable threshold, the segment is treated as having only historical data.</p>
+
+<p>The fallback ETA system is a simplified rule-based model that can run without ML inference or live traffic data. It uses road type, distance, and time of day to produce a rough ETA. This fallback is less accurate but far more reliable — it has almost no external dependencies. When the full pipeline degrades, the fallback keeps the product functional.</p>
+
+<p>Monitoring the ETA system requires multiple layers:</p>
+
+<ul>
+<li>Infrastructure metrics: Kafka consumer lag, routing engine latency percentiles, ML model inference latency, cache hit rates</li>
+<li>Data quality metrics: GPS event rate per region (a sudden drop suggests ingestion issues), map matching confidence scores, ETA prediction confidence</li>
+<li>Business metrics: prediction accuracy measured against completed trips, the percentage of trips where actual duration exceeded predicted ETA by more than 20%, and driver arrival time accuracy</li>
+</ul>
+
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Real-time traffic versus historical traffic is the most fundamental tradeoff. Real-time data is more accurate for current conditions but noisy and sparse. Historical data is reliable but may be wrong when conditions deviate from norms. The right answer is a weighted blend, and the optimal weights change by scenario: for short trips in well-covered areas, real-time dominates; for long trips in sparse areas, historical patterns carry more weight.</p>
+
+<p>Latency versus accuracy is the tension every ML inference pipeline faces. A more complex model might produce 5% more accurate ETAs, but if it adds 50ms to the response time, the user experience degrades. Uber&rsquo;s serving infrastructure runs ML models behind latency SLAs — if a model cannot respond within its budget, the system falls back to a simpler model rather than waiting.</p>
+
+<p>Route freshness versus compute cost is a cache management problem. Recomputing routes continuously would give the most up-to-date routing decisions but would require enormous compute capacity. Caching routes for 2-3 minutes is cheap but might miss a road that closed 90 seconds ago. The engineering decision is to cache most routes but subscribe to real-time road closure events and invalidate affected cached routes immediately.</p>
+
+<p>The ML model update cadence involves a tradeoff between recency and stability. A model retrained daily incorporates recent driving patterns but might overfit to anomalies. A model retrained weekly is more stable but slower to adapt to new construction patterns or changed traffic conditions. Production systems typically run a shadow evaluation: the new model runs alongside the old one for a period before being promoted, with accuracy metrics compared before any traffic is switched.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Role in ETA System</th>
+        <th>Why It Fits</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Go</td>
+        <td>GPS ingestion, routing service</td>
+        <td>Low latency, high concurrency, small memory footprint per goroutine</td>
+      </tr>
+      <tr>
+        <td>Java / Kotlin</td>
+        <td>Core platform services, stream processing</td>
+        <td>JVM ecosystem, mature Kafka client libraries, Flink runs on JVM</td>
+      </tr>
+      <tr>
+        <td>Python</td>
+        <td>ML model training, feature engineering</td>
+        <td>Rich ML ecosystem (XGBoost, TensorFlow, Pandas), fast prototyping</td>
+      </tr>
+      <tr>
+        <td>Kafka</td>
+        <td>Event streaming backbone</td>
+        <td>High throughput, durable, consumer group scaling, replay capability</td>
+      </tr>
+      <tr>
+        <td>Flink</td>
+        <td>Stateful stream processing</td>
+        <td>Exactly-once semantics, event-time windowing, managed state</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Driver position cache, ETA cache</td>
+        <td>Sub-millisecond reads, geo-sorted sets, atomic operations</td>
+      </tr>
+      <tr>
+        <td>Cassandra</td>
+        <td>GPS event store, driver history</td>
+        <td>Linear write scalability, tunable consistency, time-series friendly</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL + PostGIS</td>
+        <td>Road graph, map data</td>
+        <td>Spatial indexing, complex relational queries, battle-tested</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Service orchestration</td>
+        <td>Pod autoscaling for traffic bursts, rolling deployments, health checks</td>
+      </tr>
+      <tr>
+        <td>XGBoost / LightGBM</td>
+        <td>ETA correction model</td>
+        <td>Fast inference, handles tabular features, well-calibrated predictions</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Go is particularly well-suited for the high-concurrency ingestion services because its goroutine model handles tens of thousands of concurrent connections cheaply. A single Go service can ingest GPS events from hundreds of thousands of drivers without the thread-per-connection overhead that would bottleneck a Java service.</p>
+
+<p>Flink over raw Kafka consumers for stream processing is worth the operational overhead because Flink manages state consistency through checkpointing. If a stream processor crashes, Flink restores its state from the last checkpoint and resumes processing from exactly where it left off. Without this, a crash would either reprocess events (causing double-counting in traffic aggregations) or miss events entirely.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design Uber&rsquo;s ETA system, they are testing several things simultaneously: your ability to decompose a complex problem, your knowledge of distributed systems primitives, your understanding of data pipelines, and your sense for what actually matters versus what is premature optimization.</p>
+
+<p>Start with the problem definition. Many candidates jump straight into drawing services and databases. Better candidates start by asking: what does the system need to do? What are the latency requirements? How accurate does the ETA need to be? How many concurrent users? This framing shows you understand that architecture follows requirements.</p>
+
+<p>Then establish the data flows before the system components. Where does the input data come from? (GPS events from drivers.) Where does it need to go? (ETA on the rider&rsquo;s screen.) What transformations happen in between? (Map matching, routing, ML adjustment, caching.) This mental model of data flow makes the architectural diagram feel inevitable rather than arbitrary.</p>
+
+<p>When you draw the architecture, focus on the critical path first. The critical path for ETA is: GPS event from driver arrives, gets map-matched, goes into routing, gets ML-adjusted, gets cached, gets served to the rider&rsquo;s app. Everything else is supporting infrastructure. Candidates who get lost designing the admin dashboard or the reporting pipeline before the critical path has been addressed are not demonstrating good engineering judgment.</p>
+
+<p>Interviewers will probe your bottlenecks. &ldquo;What breaks first when your system gets 10x more drivers?&rdquo; Be ready to walk through: GPS ingestion throughput, Kafka partition limits, stream processing consumer lag, routing engine CPU, ML inference latency, and cache memory. For each one, know the mitigation: horizontal scaling, sharding strategy, caching, async processing, or model simplification.</p>
+
+<p>Common mistakes to avoid: designing a request-response system where ETA is computed on-demand rather than pre-computed; forgetting the map matching step and assuming raw GPS is usable directly; treating ML as a magic box without discussing features and training data; ignoring the failure modes and assuming happy path throughout; focusing on exact consistency when eventual consistency is perfectly acceptable for ETA data.</p>
+
+<p>Strong candidates discuss the ML model&rsquo;s role with nuance. They explain why static routing is not enough, what features the model would use, how the model is trained and updated, and what the fallback is when ML inference is unavailable. They also acknowledge the feedback loop: ETA predictions affect driver and rider behavior, which affects the actual trip duration, which feeds back into training data.</p>
+
+<p>The best answers in these interviews feel like the candidate has actually thought about building this system rather than having memorized a template. That means discussing real tradeoffs, acknowledging uncertainty, and being willing to say &ldquo;here I would run an experiment to determine the right threshold&rdquo; rather than inventing a precise number with false confidence.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>That number on your screen — &ldquo;3 minutes&rdquo; — is the output of a genuinely impressive engineering system. GPS streams flowing from hundreds of thousands of devices every few seconds. Map matching algorithms keeping every driver pinned to the correct road. A routing engine traversing a weighted graph of continental scale in milliseconds. Traffic aggregation systems turning driver speed data into real-time congestion maps. ML models layered on top to correct for all the systematic biases that physics-based models cannot capture. Caches keeping the whole thing fast enough to feel instantaneous.</p>
+
+<p>What makes this system interesting to study is that almost every design decision has a clear reason rooted in real engineering constraints. The pre-computation model exists because ETA read traffic dwarfs write traffic. The Kafka event bus exists because the system is fundamentally event-driven. The hybrid traffic model exists because real-time data is noisy and historical data is stale. The geo-sharded routing engine exists because road graph traversal is CPU-intensive and network round trips add latency.</p>
+
+<p>If you are preparing for a system design interview or trying to build something similar, the key takeaway is this: understand the data flows first, understand the access patterns second, and let the component choices follow naturally from those constraints. The technology stack matters far less than the clarity of thought about what problem each part of the system is actually solving.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How ChatGPT Works?]]></title>
@@ -3402,336 +4001,6 @@ I &#8211;> J;
 <li><a href="https://github.com/reddit-archive/reddit">The original Reddit source code (2008)</a> — worth a look if you want to see where it all started</li>
 </ul>
 
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How WhatsApp Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-whatsapp-works/"/>
-        <updated>2026-05-01T22:30:48+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-whatsapp-works</id>
-        <content type="html"><![CDATA[<a name="The.Insane.Scale.of.WhatsApp"></a>
-<h2>The Insane Scale of WhatsApp</h2>
-
-<p>Let&rsquo;s start with numbers, because they&rsquo;re genuinely mind-blowing. WhatsApp isn&rsquo;t just a chat app — it&rsquo;s one of the largest distributed systems ever built by humans.</p>
-
-<p><img src="/images/system_design/whatsapp.png" height="300" width="900" alt="Alt text" /></p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Metric</th>
-        <th>Number</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Monthly Active Users</td>
-        <td>2 billion+</td>
-      </tr>
-      <tr>
-        <td>Messages sent per day</td>
-        <td>100 billion</td>
-      </tr>
-      <tr>
-        <td>Peak messages per second</td>
-        <td>1 million+</td>
-      </tr>
-      <tr>
-        <td>Photos shared daily</td>
-        <td>60 billion</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>And here&rsquo;s the kicker — in 2012, when WhatsApp hit 27 billion messages per day, they had only <strong>32 engineers</strong>. That&rsquo;s the kind of engineering efficiency that makes the rest of the tech world jealous.</p>
-
-<!--more-->
-
-
-<blockquote><p><em>&ldquo;WhatsApp is proof that you don&rsquo;t need thousands of engineers to build something used by billions — you need brilliant architecture.&rdquo;</em></p></blockquote>
-
-<a name="Bird.s-Eye.Architecture"></a>
-<h2>Bird&rsquo;s-Eye Architecture</h2>
-
-<p>At the highest level, WhatsApp is built around a few key ideas: keep the servers as dumb as possible, push logic to the clients, store as little as possible centrally, and make delivery fast and reliable.</p>
-
-<p>Here&rsquo;s how the major layers stack up:</p>
-
-<p><img src="/images/system_design/whatsapp-architecture.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>WhatsApp originally built on <strong>XMPP</strong> (Extensible Messaging and Presence Protocol) — an open standard for real-time messaging. They heavily modified it over the years to fit their scale, but the core idea remains: a protocol designed for real-time, push-based communication.</p>
-
-<a name="The.Journey.of.a.Single.Message"></a>
-<h2>The Journey of a Single Message</h2>
-
-<p>You tap send. What happens next? Let&rsquo;s trace the path of a single &ldquo;Hey! 👋&rdquo; from your phone to your friend&rsquo;s screen.</p>
-
-<ul>
-<li><strong>Step 1 — You hit send</strong>
-
-<ul>
-<li>Your app <strong>encrypts the message on-device</strong> using the Signal Protocol (more on this below). The raw text never leaves your phone unencrypted.</li>
-</ul>
-</li>
-<li><strong>Step 2 — Sent to WhatsApp&rsquo;s chat server</strong>
-
-<ul>
-<li>The encrypted blob travels over a persistent <strong>WebSocket connection</strong> (or TCP connection) that your app keeps open with the nearest WhatsApp data center. This is why WhatsApp feels instant — there&rsquo;s no &ldquo;dialing in&rdquo; every time you send a message.</li>
-</ul>
-</li>
-<li><strong>Step 3 — Server acknowledges receipt</strong>
-
-<ul>
-<li>The server sends back an acknowledgement to your app — this is when you see the <strong>single grey tick ✓</strong>. The server received it. Job done on your side.</li>
-</ul>
-</li>
-<li><strong>Step 4 — Server looks up the recipient</strong>
-
-<ul>
-<li>WhatsApp checks if your friend is online (has an active connection). If yes, it pushes the message immediately. If not, it queues the message and waits.</li>
-</ul>
-</li>
-<li><strong>Step 5 — Message delivered to the recipient&rsquo;s device</strong>
-
-<ul>
-<li>The encrypted message arrives on your friend&rsquo;s phone. Their app decrypts it locally. You see the <strong>double grey tick ✓✓</strong> — delivered.</li>
-</ul>
-</li>
-<li><strong>Step 6 — Read receipt fires back</strong>
-
-<ul>
-<li>When your friend opens the chat and the message is displayed, their app fires a &ldquo;read&rdquo; event back to the server, which relays it to you — turning those ticks <strong>blue ✓✓</strong>.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="End-to-End.Encryption.....The.Signal.Protocol"></a>
-<h2>End-to-End Encryption — The Signal Protocol</h2>
-
-<p>This is one of WhatsApp&rsquo;s most impressive engineering decisions. Every message is end-to-end encrypted, meaning <strong>even WhatsApp cannot read your messages</strong>. Not even if a government asks nicely.</p>
-
-<p>They use the <strong>Signal Protocol</strong> — the same protocol built by Open Whisper Systems. Here&rsquo;s how it works at a conceptual level.</p>
-
-<a name="Key.Exchange.....The.Double.Ratchet.Algorithm"></a>
-<h3>Key Exchange — The Double Ratchet Algorithm</h3>
-
-<p>When you first message someone, your apps do a cryptographic handshake — they exchange <strong>public keys</strong> without ever revealing private keys. Think of it like passing padlocks through the mail. Anyone can lock something with your padlock, but only you have the key to open it.</p>
-
-<p>WhatsApp uses a mechanism called the <strong>Double Ratchet Algorithm</strong>, which does something clever: every single message gets its own unique encryption key. Even if a hacker somehow got the key for message #47, they still can&rsquo;t decrypt message #48. This is called <strong>forward secrecy</strong>.</p>
-
-<blockquote><p><strong>Why this matters for system design:</strong> WhatsApp&rsquo;s servers are essentially routing encrypted blobs they cannot understand. This massively simplifies their legal liability and trust model — they genuinely cannot be a surveillance back-door, because the math makes it impossible.</p></blockquote>
-
-<a name="What.Happens.When.You.re.Offline."></a>
-<h2>What Happens When You&rsquo;re Offline?</h2>
-
-<p>This is where <strong>message queuing</strong> comes in. If your friend is offline when you send a message, WhatsApp&rsquo;s server holds onto it — encrypted — in a message store.</p>
-
-<p>The moment your friend&rsquo;s phone reconnects (opens the app, comes back online), their device establishes a persistent connection to WhatsApp&rsquo;s servers. The server notices the connection, looks up any queued messages, and pushes them all immediately.</p>
-
-<p>One important detail: <strong>WhatsApp only stores messages on their servers until delivery.</strong> Once a message is delivered to your device, it&rsquo;s deleted from the server. Your chat history lives on your phone, not in a central WhatsApp database. This is a deliberate design choice — it&rsquo;s cheaper to store, more private, and reduces liability.</p>
-
-<a name="Push.Notifications"></a>
-<h3>Push Notifications</h3>
-
-<p>If your app is killed in the background, WhatsApp uses:
-- <strong>APNs</strong> (Apple Push Notification Service) for iOS
-- <strong>Firebase Cloud Messaging (FCM)</strong> for Android</p>
-
-<p>&hellip;to wake up your app when a message arrives. This is how you see notifications even when the app isn&rsquo;t running.</p>
-
-<a name="How.Media.Works.....Photos..Videos..amp..Documents"></a>
-<h2>How Media Works — Photos, Videos &amp; Documents</h2>
-
-<p>Text messages are tiny. A photo is 2–5 MB. A video might be 50 MB. You can&rsquo;t run these through the same messaging pipeline without everything grinding to a halt. So WhatsApp separates the two completely.</p>
-
-<p>When you send a photo, here&rsquo;s what actually happens:</p>
-
-<ul>
-<li><strong>Step 1 — Compress and encrypt on-device</strong>
-
-<ul>
-<li>Your app compresses the image and encrypts it with a one-time key generated just for this file.</li>
-</ul>
-</li>
-<li><strong>Step 2 — Upload to WhatsApp&rsquo;s media servers</strong>
-
-<ul>
-<li>The encrypted file is uploaded to blob storage (backed by data centers globally). You get back a URL.</li>
-</ul>
-</li>
-<li><strong>Step 3 — Send a tiny text message</strong>
-
-<ul>
-<li>Instead of sending the photo through the chat server, WhatsApp sends a small text message containing:</li>
-<li>The URL of the encrypted file</li>
-<li>The decryption key</li>
-<li>Metadata (thumbnail, dimensions, file size)</li>
-<li>The chat server only ever sees tiny, fast-moving messages.</li>
-</ul>
-</li>
-<li><strong>Step 4 — Recipient downloads &amp; decrypts</strong>
-
-<ul>
-<li>Your friend&rsquo;s app receives the message, fetches the encrypted file from the CDN, decrypts it with the embedded key, and shows you the photo. Clean separation of concerns.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="Read.Receipts..amp..Presence.....The.Ticks.Explained"></a>
-<h2>Read Receipts &amp; Presence — The Ticks Explained</h2>
-
-<p>The humble tick is one of the most data-efficient features in WhatsApp. Here&rsquo;s what each state actually represents in system terms:</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Status</th>
-        <th>What it means technically</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>🕐</td>
-        <td>Sending</td>
-        <td>Message is in the outgoing queue on your device, not yet sent to server</td>
-      </tr>
-      <tr>
-        <td>✓</td>
-        <td>Sent</td>
-        <td>Server received and acknowledged the message</td>
-      </tr>
-      <tr>
-        <td>✓✓</td>
-        <td>Delivered</td>
-        <td>Message pushed to recipient&#8217;s device; their app sent a delivery ack</td>
-      </tr>
-      <tr>
-        <td>✓✓ (blue)</td>
-        <td>Read</td>
-        <td>Recipient opened the chat; their app fired a &#8220;seen&#8221; event</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="L.Last.Seen......How.Presence.Works"></a>
-<h3>&ldquo;Last Seen&rdquo; — How Presence Works</h3>
-
-<p>When you open WhatsApp, your client tells the server you&rsquo;re <strong>online</strong>. When you close it, it sends an offline event with a timestamp. That timestamp becomes your <strong>last seen</strong> time. WhatsApp stores this in a fast in-memory store (like Redis) so it can serve it to your contacts instantly.</p>
-
-<a name="Group.Chats.....The.Fan-Out.Problem"></a>
-<h2>Group Chats — The Fan-Out Problem</h2>
-
-<p>Here&rsquo;s where things get tricky. When you send a message to a group of 256 people, WhatsApp needs to deliver that message to 255 other devices — each with their own encryption key, potentially on different servers, with different online/offline states.</p>
-
-<p>This is called the <strong>fan-out problem</strong>: one message needs to branch out to many recipients.</p>
-
-<a name="WhatsApp.s.Solution.....Sender.Key"></a>
-<h3>WhatsApp&rsquo;s Solution — Sender Key</h3>
-
-<p>Instead of encrypting the message separately 255 times (once for each recipient), the sender encrypts the message <strong>once</strong> with a group key. This group key is then distributed to all members using individual encrypted sessions.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Scenario</th>
-        <th>Breakdown</th>
-        <th>Result</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Without Sender Key</td>
-        <td>1 message × 255 encryptions</td>
-        <td>= 255 encrypt operations</td>
-      </tr>
-      <tr>
-        <td>With Sender Key</td>
-        <td>1 message × 1 encryption + 255 small key deliveries</td>
-        <td>= Much cheaper at scale</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>The result? Sending a group message requires roughly the same server-side effort whether you&rsquo;re sending to 5 people or 256.</p>
-
-<blockquote><p><strong>Group metadata vs. message content:</strong> Group membership info, admin roles, and settings are stored on WhatsApp&rsquo;s servers. But the actual message content is end-to-end encrypted — the server routes the encrypted blob without reading it.</p></blockquote>
-
-<a name="Why.WhatsApp.Runs.on.Erlang"></a>
-<h2>Why WhatsApp Runs on Erlang</h2>
-
-<p>Most startups reach for Node.js or Go. WhatsApp chose <strong>Erlang</strong> — a 1986 language designed by Ericsson for telecom switches. This sounds like a weird choice until you understand what Erlang was built for: handling millions of concurrent connections with incredibly high reliability.</p>
-
-<a name="What.makes.Erlang.special"></a>
-<h3>What makes Erlang special</h3>
-
-<p><strong>Lightweight processes</strong>
-Erlang can run millions of tiny concurrent &ldquo;processes&rdquo; (not OS threads). Each user connection gets its own process — this maps perfectly to WhatsApp&rsquo;s model where every user session is stateful and persistent.</p>
-
-<p><strong>&ldquo;Let it crash&rdquo; philosophy</strong>
-Erlang&rsquo;s approach is to write simple code and let the runtime handle failures gracefully. Processes crash, supervisors restart them automatically, the user never notices. This is how WhatsApp achieves high uptime without heroic error handling.</p>
-
-<p><strong>Hot code reloading</strong>
-You can deploy new code to a running Erlang system <strong>without restarting it</strong>. Zero-downtime deployments are built into the language itself.</p>
-
-<p>The modified Ejabberd XMPP server WhatsApp runs could handle <strong>2 million TCP connections per server</strong> — a number that would make most Java developers weep.</p>
-
-<a name="Key.Takeaways.for.System.Designers"></a>
-<h2>Key Takeaways for System Designers</h2>
-
-<p>If you&rsquo;re studying system design or building your own messaging feature, here&rsquo;s what WhatsApp teaches us:</p>
-
-<ul>
-<li><strong>Use persistent connections, not polling</strong>
-
-<ul>
-<li>WebSockets/TCP keep-alive connections are why WhatsApp feels instant. HTTP polling at scale would be catastrophically expensive.</li>
-</ul>
-</li>
-<li><strong>Separate text from binary data</strong>
-
-<ul>
-<li>Never run large files through your messaging pipeline. Upload to blob storage, pass a reference. Keep your message broker handling only small, fast-moving messages.</li>
-</ul>
-</li>
-<li><strong>Message queues are your offline strategy</strong>
-
-<ul>
-<li>Assume recipients are offline. Queue messages server-side and push on reconnect. This is more reliable than any &ldquo;retry from client&rdquo; approach.</li>
-</ul>
-</li>
-<li><strong>Store as little centrally as possible</strong>
-
-<ul>
-<li>WhatsApp deletes messages from servers after delivery. Less data = lower cost, simpler architecture, and better privacy by default.</li>
-</ul>
-</li>
-<li><strong>Pick your tech for the problem, not the hype</strong>
-
-<ul>
-<li>Erlang was 30 years old when WhatsApp picked it. It was simply the right tool. Be boring, be reliable, be scalable.</li>
-</ul>
-</li>
-</ul>
-
-
-<blockquote><p><em>&ldquo;The best system design is usually the one with the fewest moving parts that still solves the problem reliably at scale.&rdquo;</em></p></blockquote>
-
-<p>WhatsApp is a masterclass in restraint — minimal central state, maximum client responsibility, clever use of encryption to simplify the trust model, and a language ecosystem built for exactly this kind of concurrent, fault-tolerant problem.</p>
-
-<p>Not bad for an app that started as a simple status update tool.</p>
 ]]></content>
     </entry>
     
