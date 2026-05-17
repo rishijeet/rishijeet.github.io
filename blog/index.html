@@ -86,6 +86,84 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-pastebin-works/">How Pastebin Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-17T08:37:50+05:30" pubdate><i class="fa fa-calendar"></i> May 17th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/pastebin/'>pastebin</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is something deceptively simple about Pastebin. You paste some text, click a button, and get a short URL back. You share that URL with someone else, they open it, and they see your text. That is the entire product in one sentence. And yet, building Pastebin at the scale of tens of millions of daily users, billions of stored pastes, and a global audience requires you to make dozens of careful engineering decisions that would fill a whiteboard wall from top to bottom.</em></p></blockquote>
+
+<p>The reason Pastebin is a classic system design interview question is not because it is hard to understand — it is because it forces you to think through the full lifecycle of a piece of data in a distributed system: write it, store it, serve it to millions of readers, expire it gracefully, cache it intelligently, and make sure no one abuses it to host malware or leak credentials. Each of those steps has gotchas.</p>
+
+<p><img src="/images/system_design/pastebin.jpeg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This post is a full engineering deep dive. We will go through the architecture layer by layer, explain every major decision, and make sure you understand not just what Pastebin does but why it is built the way it is.</p>
+
+<a name="What.Pastebin.Actually.Is"></a>
+<h2>What Pastebin Actually Is</h2>
+
+<p>Before we go deep into the systems, let us be clear about the product. Pastebin is a text-sharing service. Users paste raw text, often source code, configuration files, log dumps, or command output, and get a short URL they can share. The core workflow is:</p>
+
+<ul>
+<li>A user submits a block of text</li>
+<li>The system assigns it a unique short ID and URL</li>
+<li>Other users visit that URL and read the text</li>
+<li>The paste may expire after a set time or persist forever</li>
+</ul>
+
+
+
+        <a class="btn pull-right" href="/blog/how-pastebin-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-tinder-works/">How Tinder Works</a>
         </h1>
     
@@ -114,6 +192,8 @@
                 <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
             
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/tinder/'>tinder</a></li>
             
             
         </ul>
@@ -251,6 +331,8 @@
             
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
             
+                <li><a class='category' href='/blog/categories/google/'>google</a></li>
+            
             
         </ul>
     </div>
@@ -318,6 +400,8 @@
             
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
             
+                <li><a class='category' href='/blog/categories/uber/'>uber</a></li>
+            
             
         </ul>
     </div>
@@ -342,69 +426,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-uber-computes-eta/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-chatgpt-works/">How ChatGPT Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-14T11:15:39+05:30" pubdate><i class="fa fa-calendar"></i> May 14th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a moment, maybe you have felt it yourself, where you type a question into ChatGPT and within seconds you get a response that feels remarkably thoughtful. It does not just return a keyword match. It understands context, it reasons through problems, it can write code and explain concepts and help you draft emails. And it does all of this for millions of people simultaneously, in real time.</em></p></blockquote>
-
-<p><img src="/images/system_design/chatgpt.avif" height="300" width="900" alt="Alt text" /></p>
-
-<p>If you are an engineer looking at that and thinking &ldquo;okay, but what is actually happening behind that text box?&rdquo;, this post is for you.</p>
-
-<p>We are going to go deep. Not just &ldquo;there&rsquo;s a transformer model and it predicts tokens&rdquo; deep. We are going to talk about the full engineering stack: how prompts flow through distributed systems, how GPUs communicate across data centers, how the inference pipeline is optimized for latency, how memory and context are managed, and what tradeoffs the engineering teams at OpenAI are navigating every single day. By the end, you should have a genuine mental model of how a system like ChatGPT is actually built.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-chatgpt-works/">Read on &rarr;</a>
     </div>
 
         </article>

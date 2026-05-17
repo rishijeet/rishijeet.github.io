@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2026-05-16T15:32:02+05:30</updated>
+  <updated>2026-05-17T09:54:05+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,709 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[How Pastebin Works?]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/how-pastebin-works/"/>
+    <updated>2026-05-17T08:37:50+05:30</updated>
+    <id>https://rishijeet.github.io/blog/how-pastebin-works</id>
+    <content type="html"><![CDATA[<blockquote><p><em>There is something deceptively simple about Pastebin. You paste some text, click a button, and get a short URL back. You share that URL with someone else, they open it, and they see your text. That is the entire product in one sentence. And yet, building Pastebin at the scale of tens of millions of daily users, billions of stored pastes, and a global audience requires you to make dozens of careful engineering decisions that would fill a whiteboard wall from top to bottom.</em></p></blockquote>
+
+<p>The reason Pastebin is a classic system design interview question is not because it is hard to understand — it is because it forces you to think through the full lifecycle of a piece of data in a distributed system: write it, store it, serve it to millions of readers, expire it gracefully, cache it intelligently, and make sure no one abuses it to host malware or leak credentials. Each of those steps has gotchas.</p>
+
+<p><img src="https://rishijeet.github.io/images/system_design/pastebin.jpeg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This post is a full engineering deep dive. We will go through the architecture layer by layer, explain every major decision, and make sure you understand not just what Pastebin does but why it is built the way it is.</p>
+
+<a name="What.Pastebin.Actually.Is"></a>
+<h2>What Pastebin Actually Is</h2>
+
+<p>Before we go deep into the systems, let us be clear about the product. Pastebin is a text-sharing service. Users paste raw text, often source code, configuration files, log dumps, or command output, and get a short URL they can share. The core workflow is:</p>
+
+<ul>
+<li>A user submits a block of text</li>
+<li>The system assigns it a unique short ID and URL</li>
+<li>Other users visit that URL and read the text</li>
+<li>The paste may expire after a set time or persist forever</li>
+</ul>
+
+
+<!--more-->
+
+
+<p>The platform also supports optional features: syntax highlighting for dozens of programming languages, public vs private paste visibility, user accounts, paste search, trending paste lists, API access, and raw text mode. These features add complexity, but the core is surprisingly minimal.</p>
+
+<p>What makes it hard is scale. Pastebin reportedly handles hundreds of millions of page views per month. Even modest competitors need to handle read traffic that can be orders of magnitude higher than write traffic. A paste can be written once and read tens of thousands of times, especially if it goes viral on a developer forum or Reddit. The read-to-write ratio sits somewhere around 10:1 to 100:1 depending on traffic patterns. That asymmetry shapes every architectural decision.</p>
+
+<a name="Core.Features.and.Their.Engineering.Implications"></a>
+<h2>Core Features and Their Engineering Implications</h2>
+
+<p>Let us map each feature to its engineering challenge before we look at the full architecture.</p>
+
+<p><strong>Paste creation</strong> seems like a simple write operation, but at millions of pastes per day, it becomes a high-throughput write pipeline with questions around ID generation, duplicate detection, and metadata extraction.</p>
+
+<p><strong>Paste retrieval</strong> is the hot path. Most reads are anonymous users loading a paste URL. This has to be fast — sub-100ms ideally — regardless of whether the paste was created five seconds ago or two years ago.</p>
+
+<p><strong>Syntax highlighting</strong> requires the system to detect what programming language a block of text is written in and then render colored HTML output from it. Doing this on every request is expensive. Caching the rendered HTML is critical.</p>
+
+<p><strong>Expiration</strong> sounds simple but distributed cleanup at scale requires coordination. You cannot just set a database TTL and call it a day.</p>
+
+<p><strong>Anonymous access</strong> is a double-edged sword. It lowers the barrier to sharing, but it also means you have no accountability. Spam, malware, credential dumps, and illegal content become persistent threats.</p>
+
+<p><strong>Trending pastes</strong> require view counting, aggregation, and ranking, all of which must work under heavy read load without slowing down the read path itself.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>Let us start with the bird&rsquo;s-eye view and then drill down into each subsystem.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Web Browser or API Client];
+  B[CDN Edge Node];
+  C[API Gateway];
+  D[Paste Service];
+  E[Metadata Service];
+  F[Syntax Highlight Service];
+  G[Redis Cache Cluster];
+  H[PostgreSQL Metadata DB];
+  I[Object Storage S3];
+  J[Kafka Queue];
+  K[Background Workers];
+  L[Elasticsearch];
+  M[Moderation Service];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> G;
+  D &#8211;> H;
+  D &#8211;> I;
+  D &#8211;> J;
+  J &#8211;> F;
+  J &#8211;> K;
+  J &#8211;> M;
+  K &#8211;> L;
+  E &#8211;> H;
+</div>
+
+
+<p>The CDN edge nodes handle the majority of read traffic. For pastes that have already been served, the CDN can return the cached HTML or raw text without touching the origin at all. This is where the biggest scaling wins come from.</p>
+
+<p>The API Gateway handles authentication, rate limiting, and request routing. Every request from a browser or API client passes through here.</p>
+
+<p>The Paste Service is the core write and read handler. It coordinates between the cache, metadata database, and object storage.</p>
+
+<p>Kafka sits in the middle as a durable event bus. When a paste is created, an event is published to Kafka, and background workers pick it up for syntax highlighting, search indexing, and moderation scanning asynchronously. This keeps the write path fast by not doing expensive work inline.</p>
+
+<a name="Paste.Creation.Pipeline"></a>
+<h2>Paste Creation Pipeline</h2>
+
+<p>When a user submits a paste, here is what happens step by step.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[User Submits Paste];
+  B[API Gateway Rate Check];
+  C[Paste Service Receives Request];
+  D[Validate Input Length and Content];
+  E[Generate Unique Short ID];
+  F[Detect Programming Language];
+  G[Compress Text Content];
+  H[Write to Object Storage];
+  I[Write Metadata to PostgreSQL];
+  J[Publish Event to Kafka];
+  K[Return Short URL to User];
+  L[Async Syntax Highlight Worker];
+  M[Async Moderation Worker];
+  N[Async Search Index Worker];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  H &#8211;> I;
+  I &#8211;> J;
+  J &#8211;> K;
+  J &#8211;> L;
+  J &#8211;> M;
+  J &#8211;> N;
+</div>
+
+
+<p><strong>Input validation</strong> happens first. You check text length, reject obviously malformed requests, and enforce per-user or per-IP rate limits. This should be as early as possible in the pipeline to avoid doing any expensive work for bad requests.</p>
+
+<p><strong>ID generation</strong> is a critical subsystem we will cover in depth shortly. The short ID needs to be unique, short, non-sequential (to prevent scraping), and generated fast.</p>
+
+<p><strong>Language detection</strong> is done upfront as a lightweight heuristic to populate the syntax type field in metadata. A more thorough highlighting pass happens asynchronously.</p>
+
+<p><strong>Compression</strong> matters more than most engineers expect. A typical paste of 5,000 characters of Python code compresses to less than 40% of its original size with zstd. At billions of pastes, that storage saving is substantial.</p>
+
+<p><strong>The write path splits here.</strong> The compressed text blob goes to object storage. The metadata, including paste ID, owner, creation time, expiry time, visibility, and language hint, goes to the relational database. Keeping content and metadata separate is a foundational design choice.</p>
+
+<p>The write to Kafka is the last step before returning the URL to the user. The heavy lifting of syntax highlighting and search indexing happens outside the critical path, which keeps paste creation fast even when the highlighting pipeline is under load.</p>
+
+<a name="Unique.ID.Generation.System"></a>
+<h2>Unique ID Generation System</h2>
+
+<p>This is deceptively complex. The ID is what becomes the URL. A paste at <code>pastebin.com/aB3xK</code> has the ID <code>aB3xK</code>. You need this ID to be:</p>
+
+<ul>
+<li>Short enough to fit in a tweet or a chat message</li>
+<li>Unique across all pastes ever created</li>
+<li>Not guessable or predictable (to prevent scraping private pastes)</li>
+<li>Generated fast without a central coordination bottleneck</li>
+</ul>
+
+
+<p>The standard approach is Base62 encoding. Base62 uses characters a-z, A-Z, and 0-9, which gives you 62 possible characters per position. A 6-character Base62 string can represent 62<sup>6</sup> = approximately 56 billion unique values. That is enough headroom for a very long time.</p>
+
+<p>How you generate the raw number matters a lot. Sequential IDs from a database autoincrement are fast and collision-free but predictable — an attacker can iterate through them to scrape all pastes. Random UUIDs eliminate predictability but introduce collision risk and require checking for duplicates on every write.</p>
+
+<p>A smarter approach used in production systems is to pre-generate a pool of short IDs. A background service generates batches of random 6-character Base62 IDs, verifies uniqueness against the database, and stores them in a Redis set. The paste creation service pops an ID from this pool atomically. This gives you randomness, uniqueness guarantees, and fast generation without a blocking database write on the hot path.</p>
+
+<p>Another approach is to use a distributed ID generation system similar to Twitter&rsquo;s Snowflake: a 64-bit ID composed of a timestamp, machine ID, and sequence number. This is truly decentralized but produces numeric IDs that need Base62 encoding to become short URL slugs.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Strategy</th>
+        <th>Uniqueness</th>
+        <th>Predictability</th>
+        <th>Scalability</th>
+        <th>Collision Handling</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>DB Auto-increment + Base62</td>
+        <td>Guaranteed</td>
+        <td>High risk</td>
+        <td>Bottleneck at DB</td>
+        <td>Not needed</td>
+      </tr>
+      <tr>
+        <td>Random + Collision Check</td>
+        <td>High</td>
+        <td>Low risk</td>
+        <td>Moderate</td>
+        <td>Retry on collision</td>
+      </tr>
+      <tr>
+        <td>Pre-generated ID Pool</td>
+        <td>Guaranteed</td>
+        <td>Low risk</td>
+        <td>Excellent</td>
+        <td>Not needed</td>
+      </tr>
+      <tr>
+        <td>Snowflake-style Distributed ID</td>
+        <td>Guaranteed</td>
+        <td>Moderate risk</td>
+        <td>Excellent</td>
+        <td>Not needed</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Paste.Storage.Architecture"></a>
+<h2>Paste Storage Architecture</h2>
+
+<p>The storage layer is where most of the interesting engineering decisions live.</p>
+
+<p><strong>Content storage</strong> and <strong>metadata storage</strong> are deliberately separated. Here is why.</p>
+
+<p>The text of a paste can be anywhere from 10 bytes to 500 kilobytes. You have billions of these. Storing them in a relational database as large text columns creates serious problems: it bloats table sizes, makes backups enormous, slows down index scans, and makes it hard to apply storage tiering. Object storage, such as Amazon S3, Google Cloud Storage, or a self-hosted system like MinIO, is purpose-built for storing arbitrary binary blobs cheaply and reliably. It scales to exabytes. It handles replication natively. And it is significantly cheaper per gigabyte than database storage.</p>
+
+<p><strong>Metadata</strong>, by contrast, is small and highly structured. Each paste has an ID, owner user ID, creation timestamp, expiry timestamp, visibility flag, language type, view count, content hash for deduplication, and storage path pointing to the blob in object storage. This fits perfectly in a relational database like PostgreSQL, where you get strong consistency, indexing, and complex queries.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Paste Service];
+  B[Redis Hot Cache];
+  C[PostgreSQL Metadata Store];
+  D[Object Storage Blob Store];
+  E[Cold Archive Storage];
+  A &#8211;> B;
+  A &#8211;> C;
+  A &#8211;> D;
+  D &#8211;> E;
+</div>
+
+
+<p><strong>Hot vs cold storage tiering</strong> is an important optimization. Most pastes get the vast majority of their traffic in the first 48 hours after creation. After that, traffic drops dramatically. You can tier your storage accordingly: recently created or frequently accessed pastes live in fast, more expensive storage with low latency. Older, infrequently accessed pastes are migrated to cheaper archival storage like S3 Glacier or equivalent. A lifecycle policy automates this migration based on last-access time.</p>
+
+<p><strong>Compression</strong> is applied before writing to object storage. The zstd algorithm is preferred in modern systems because it offers a very good compression ratio with fast decompression speed. Source code, configuration files, and log dumps all compress extremely well. A system storing a billion pastes with an average compressed size of 2KB is storing 2 terabytes of blob data — very manageable.</p>
+
+<p><strong>Deduplication</strong> is worth doing if your traffic patterns include a lot of repeated pastes. A SHA-256 hash of the raw content, stored in the metadata database, lets you detect exact duplicates. If the same content is pasted twice, you store one blob and two metadata records pointing to it. This can save significant storage at scale.</p>
+
+<a name="Syntax.Highlighting.Pipeline"></a>
+<h2>Syntax Highlighting Pipeline</h2>
+
+<p>Syntax highlighting sounds like a frontend concern, but at scale it becomes a backend infrastructure problem.</p>
+
+<p>The naive approach is: user loads paste, backend detects language, runs a parser, generates colored HTML, sends it to the browser. The problem is that parsing and tokenizing source code is CPU-intensive. A single server can do thousands of highlighting operations per second, but at millions of requests per minute, you need either serious horizontal scaling or a smarter approach.</p>
+
+<p>The smarter approach is to treat the highlighted HTML as a derived, cacheable artifact. When a paste is created, a background worker runs the syntax highlighter and stores the resulting HTML in object storage alongside the raw text blob. When a user later loads that paste, the pre-rendered HTML is served directly. The highlighting computation happens once, not on every request.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Paste Created Event on Kafka];
+  B[Highlight Worker Consumes Event];
+  C[Load Raw Text from Object Storage];
+  D[Detect Language If Not Specified];
+  E[Run Syntax Parser Pygments or Tree-sitter];
+  F[Generate HTML with CSS Classes];
+  G[Store Highlighted HTML in Object Storage];
+  H[Update Metadata Record with Highlight Path];
+  I[Invalidate Cache Entry If Exists];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  H &#8211;> I;
+</div>
+
+
+<p><strong>Language detection</strong> uses a combination of signals: the file extension the user specified, the explicit language selection from a dropdown, and fallback heuristics based on the content itself. Libraries like Linguist (used by GitHub) or Pygments&#8217; built-in lexer guessing can handle this reasonably well for common languages.</p>
+
+<p><strong>Security</strong> is a real concern in the highlighting pipeline. Syntax highlighting libraries parse untrusted user input. A maliciously crafted input that exploits a parser bug could cause resource exhaustion or even code execution. Highlighting workers should run in isolated sandboxes with memory limits and CPU quotas. Any input that causes the parser to take more than a few hundred milliseconds should be killed and logged.</p>
+
+<p><strong>Client-side vs server-side highlighting</strong> is a legitimate tradeoff. Libraries like highlight.js and Prism.js run in the browser, which offloads the CPU cost from your servers entirely. The tradeoff is that the browser has to download a parsing library (100-200KB gzipped), and initial render requires JavaScript execution. For a read-heavy service with anonymous users who visit once and leave, client-side highlighting can be a good choice because it reduces server cost dramatically.</p>
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>Caching is the most important performance lever in a Pastebin-like system. Without aggressive caching, the raw database and object storage cannot handle the read volume cost-effectively.</p>
+
+<p><strong>CDN caching</strong> is the outermost layer. When a paste URL is accessed for the first time, the CDN fetches it from the origin and caches it at the edge node closest to the user. Every subsequent request for that paste from the same geographic region gets served from the CDN cache in a few milliseconds. For a popular paste, CDN offload can be 99% or higher — meaning 99 out of every 100 requests never reach your application servers at all.</p>
+
+<p>The challenge with CDN caching is cache invalidation. If a user creates a paste and then deletes it, or if the system expires a paste, you need to tell the CDN to stop serving it. Most CDN providers offer API-based cache purge, but it is not instantaneous — it can take seconds to propagate across all edge nodes globally.</p>
+
+<p><strong>Redis caching</strong> sits between the application servers and the database. Hot pastes, meaning those receiving frequent traffic, are cached in Redis as serialized metadata objects and raw text. A typical Redis entry for a paste looks like this:</p>
+
+<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>KEY: paste:{id}:meta
+</span><span class='line'>VALUE: {id, owner, created_at, expires_at, language, view_count, storage_path}
+</span><span class='line'>TTL: 3600 seconds
+</span><span class='line'>
+</span><span class='line'>KEY: paste:{id}:raw
+</span><span class='line'>VALUE: &lt;compressed raw text&gt;
+</span><span class='line'>TTL: 1800 seconds
+</span><span class='line'>
+</span><span class='line'>KEY: paste:{id}:html
+</span><span class='line'>VALUE: &lt;pre-rendered highlighted HTML&gt;
+</span><span class='line'>TTL: 3600 seconds</span></code></pre></div></figure>
+
+
+<p>The raw text and highlighted HTML are cached separately because different API consumers want different things. Raw mode requests skip the HTML cache.</p>
+
+<p><strong>Hotspot mitigation</strong> is a real problem. If a paste goes viral — say, a popular developer posts it on Hacker News — the request rate can spike to thousands of hits per second in minutes. A single Redis key for that paste becomes a thundering herd problem: thousands of requests simultaneously miss the cache, all rush to the database, and you overwhelm the origin. The standard solution is request coalescing: only one request goes to the database when there is a cache miss, and all other concurrent requests wait for that one result. Libraries like Singleflight in Go implement this pattern cleanly.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Layer</th>
+        <th>What It Stores</th>
+        <th>TTL Strategy</th>
+        <th>Eviction Policy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>CDN Edge</td>
+        <td>Full HTTP responses</td>
+        <td>Cache-Control headers</td>
+        <td>LRU per edge node</td>
+      </tr>
+      <tr>
+        <td>Redis Cluster</td>
+        <td>Metadata, raw text, HTML</td>
+        <td>Seconds to hours</td>
+        <td>allkeys-lru</td>
+      </tr>
+      <tr>
+        <td>Application Memory</td>
+        <td>Ultra-hot paste metadata</td>
+        <td>Seconds</td>
+        <td>Fixed-size LRU map</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Expiration.and.Cleanup.System"></a>
+<h2>Expiration and Cleanup System</h2>
+
+<p>Pastes can have expiry times ranging from ten minutes to never. The expiry system needs to:</p>
+
+<ul>
+<li>Track when each paste expires</li>
+<li>Stop serving expired pastes promptly</li>
+<li>Reclaim storage from expired pastes</li>
+<li>Handle the cleanup at scale without blocking the read path</li>
+</ul>
+
+
+<p>The simplest approach is to store an <code>expires_at</code> timestamp in the metadata database and check it on every read. If <code>expires_at</code> is in the past, return a 404. This works and is very reliable, but it means expired pastes still occupy storage until a background job cleans them up.</p>
+
+<p>The background cleanup system runs as a scheduled job. It queries the metadata database for pastes where <code>expires_at &lt; now()</code> and deletes them in batches: remove the metadata record, issue a delete request to object storage, and remove any cache entries. This is done in small batches to avoid locking up the database.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Scheduled Cleanup Job Every 5 Minutes];
+  B[Query PostgreSQL for Expired Pastes];
+  C[Batch Process Up to 1000 IDs];
+  D[Delete Object Storage Blobs];
+  E[Delete Metadata Records];
+  F[Purge Redis Cache Entries];
+  G[Publish Deletion Events to Kafka];
+  H[CDN Purge API Call];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+</div>
+
+
+<p>For very high-volume expiry systems, a dedicated time-series store or a sorted set in Redis works well. You store paste IDs in a Redis sorted set where the score is the expiry Unix timestamp. A worker periodically calls <code>ZRANGEBYSCORE</code> to get all IDs that expired before now and processes them. This is faster than a full database scan for recent expirations.</p>
+
+<p>The CDN purge is the most operationally annoying part of expiration. Expired pastes might still be cached at CDN edges. The cleanup job needs to call the CDN&rsquo;s purge API. Most providers rate-limit purge requests, so you need to batch them and handle throttling.</p>
+
+<a name="Read.Path.Optimization"></a>
+<h2>Read Path Optimization</h2>
+
+<p>The read path is where you spend the most engineering effort in a system like this, because it is the hot path that most users experience.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[User Opens Paste URL];
+  B[CDN Edge Cache Hit?];
+  C[Return Cached Response];
+  D[CDN Forwards to API Gateway];
+  E[Paste Service Receives Request];
+  F[Check Redis Cache];
+  G[Return Cached Paste Data];
+  H[Check PostgreSQL for Metadata];
+  I[Paste Expired or Not Found?];
+  J[Return 404];
+  K[Fetch Blob from Object Storage];
+  L[Populate Redis Cache];
+  M[Return Paste to User];
+  N[CDN Caches Response];
+  A &#8211;> B;
+  B &#8211;>|Yes| C;
+  B &#8211;>|No| D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;>|Hit| G;
+  F &#8211;>|Miss| H;
+  H &#8211;> I;
+  I &#8211;>|Yes| J;
+  I &#8211;>|No| K;
+  K &#8211;> L;
+  L &#8211;> M;
+  M &#8211;> N;
+</div>
+
+
+<p>The happy path for a popular paste is: CDN edge hit, response returned in under 10 milliseconds. The user never reaches your servers.</p>
+
+<p>The second happy path is: CDN miss, Redis hit, response returned in 20-50 milliseconds. One fast network round trip to your cache cluster.</p>
+
+<p>The slow path is: CDN miss, Redis miss, metadata DB lookup, object storage fetch. This might take 100-300 milliseconds. You want this to happen as rarely as possible for pastes that are actually being accessed. Your cache sizing and TTL strategy determines how often you fall through to this path.</p>
+
+<p><strong>View counting</strong> is a subtle problem. You want to track how many times a paste has been viewed, but incrementing a database counter on every page view is a terrible idea at scale. The standard solution is to use a Redis counter with periodic flush. On each request, you do a Redis INCR on the paste&rsquo;s view counter. A background job periodically reads these counters and flushes them to the database in batch. You trade real-time accuracy for performance, which is almost always the right call.</p>
+
+<a name="Search.and.Trending.Systems"></a>
+<h2>Search and Trending Systems</h2>
+
+<p>Full-text search over billions of pastes is a hard problem. You cannot do this in PostgreSQL with standard B-tree indexes. You need a dedicated search engine.</p>
+
+<p>Elasticsearch or OpenSearch is the typical choice. When a paste is created and passes moderation, a background worker indexes it in the search engine. The document includes the paste ID, content text, language, creation time, and visibility flag. Private pastes are excluded from the index.</p>
+
+<p>The indexing pipeline is asynchronous, which means there is a lag between paste creation and search availability. For most use cases this is acceptable — a few seconds of indexing lag is fine for a search feature.</p>
+
+<p><strong>Trending pastes</strong> are calculated using view counts aggregated over a time window. A simple approach is to maintain a Redis sorted set where the score is the number of views in the last hour, updated on each page view. A background job reads the top N entries from this sorted set to populate the trending page. The sorted set is updated incrementally, and the trending page is cached so it does not need to be recalculated on every request.</p>
+
+<a name="Security.and.Abuse.Prevention"></a>
+<h2>Security and Abuse Prevention</h2>
+
+<p>Pastebin-style platforms are attractive to bad actors. The anonymous, no-friction paste creation model is exactly what spammers, malware distributors, and credential dumpers want. If you build Pastebin, you will spend a significant amount of engineering time fighting abuse.</p>
+
+<p><strong>Rate limiting</strong> is the first line of defense. Per-IP and per-user-account rate limits on paste creation prevent automated bulk creation. Anonymous IPs get stricter limits than authenticated accounts. Rate limit state is stored in Redis using a sliding window counter.</p>
+
+<p><strong>Content scanning</strong> runs asynchronously after paste creation. A moderation worker pulls the paste content and runs it through several checks:</p>
+
+<ul>
+<li>Known malware signatures using YARA rules</li>
+<li>URL blacklists to detect phishing links</li>
+<li>Leaked credential patterns using regex matching</li>
+<li>Text classifiers trained to detect spam content</li>
+</ul>
+
+
+<p>If a paste triggers these checks, it is flagged for human review or automatically deleted depending on confidence level.</p>
+
+<p><strong>CAPTCHA</strong> is gating for anonymous paste creation at high traffic times. If an IP is creating pastes at a rate that looks automated, force a CAPTCHA challenge before accepting further pastes.</p>
+
+<p><strong>Private paste visibility</strong> requires that the access control system actually works. Private pastes should never appear in search results, trending lists, or any public index. The system needs to enforce this at every layer: the search indexer skips private pastes, the CDN caches should never be shared across users for private content, and metadata queries must always filter by visibility.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Abuse Type</th>
+        <th>Detection Method</th>
+        <th>Response</th>
+        <th>Engineering Cost</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Spam paste creation</td>
+        <td>Rate limiting, IP reputation</td>
+        <td>Block, CAPTCHA</td>
+        <td>Low</td>
+      </tr>
+      <tr>
+        <td>Malware hosting</td>
+        <td>YARA rules, signature scanning</td>
+        <td>Auto-delete, report</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>Credential dumps</td>
+        <td>Pattern matching, entropy analysis</td>
+        <td>Flag for review</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>Phishing links</td>
+        <td>URL blacklist, ML classifier</td>
+        <td>Block URLs, delete paste</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>Bulk scraping</td>
+        <td>Request pattern detection</td>
+        <td>Rate limit, block</td>
+        <td>Low</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The metadata database needs to support fast reads by paste ID, efficient expiry queries, and user-specific paste listings. Here is a representative schema.</p>
+
+<div class="highlight"><pre><code class="language-sql" data-lang="sql"><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">pastes</span> <span class="p">(</span>
+  <span class="n">id</span>            <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+  <span class="n">owner_id</span>      <span class="n">UUID</span><span class="p">,</span>
+  <span class="n">title</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+  <span class="k">language</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
+  <span class="n">visibility</span>    <span class="nb">SMALLINT</span>      <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>  <span class="c1">-- 0=public, 1=unlisted, 2=private</span>
+  <span class="n">storage_path</span>  <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">512</span><span class="p">)</span>  <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="n">content_hash</span>  <span class="nb">CHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
+  <span class="n">byte_size</span>     <span class="nb">INT</span><span class="p">,</span>
+  <span class="n">view_count</span>    <span class="nb">BIGINT</span>        <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
+  <span class="n">expires_at</span>    <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
+  <span class="n">deleted_at</span>    <span class="n">TIMESTAMPTZ</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_owner</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">owner_id</span><span class="p">,</span> <span class="n">created_at</span> <span class="k">DESC</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_expires</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">expires_at</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">expires_at</span> <span class="k">IS</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">;</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_hash</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">content_hash</span><span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+  <span class="n">id</span>            <span class="n">UUID</span>          <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+  <span class="n">username</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="n">email</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>  <span class="k">UNIQUE</span><span class="p">,</span>
+  <span class="n">password_hash</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">128</span><span class="p">),</span>
+  <span class="n">api_key</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span><span class="p">,</span>
+  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
+  <span class="n">is_banned</span>     <span class="nb">BOOLEAN</span>       <span class="k">DEFAULT</span> <span class="k">false</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">paste_views</span> <span class="p">(</span>
+  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="n">viewed_at</span>     <span class="nb">DATE</span>          <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="n">view_count</span>    <span class="nb">INT</span>           <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">paste_id</span><span class="p">,</span> <span class="n">viewed_at</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">reports</span> <span class="p">(</span>
+  <span class="n">id</span>            <span class="nb">SERIAL</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="n">reporter_id</span>   <span class="n">UUID</span><span class="p">,</span>
+  <span class="n">reason</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
+  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
+  <span class="n">resolved_at</span>   <span class="n">TIMESTAMPTZ</span>
+<span class="p">);</span></code></pre></div>
+
+
+<p>The <code>expires_at</code> index is partial, covering only rows where the column is not null. This keeps the index small and fast for the cleanup job.</p>
+
+<p>The <code>paste_views</code> table uses daily aggregation rather than individual row per view. Inserting one row per view at millions of views per day would be catastrophically slow. Instead, a background worker flushes Redis view counters into this table as daily aggregates.</p>
+
+<p><strong>Sharding</strong> becomes necessary when the pastes table grows beyond what a single PostgreSQL instance can handle efficiently. The natural shard key is the paste ID. Because IDs are random Base62 strings, they distribute evenly across shards without hotspots. A consistent hashing layer routes reads and writes to the correct shard.</p>
+
+<a name="CDN.and.Global.Delivery"></a>
+<h2>CDN and Global Delivery</h2>
+
+<p>The CDN is one of the most impactful infrastructure decisions for a service like Pastebin. Without it, a popular paste creates a traffic spike that hits your origin servers directly. With it, that spike is absorbed at the edge.</p>
+
+<p>The cache key for a paste response is the paste ID combined with the requested format: HTML view, raw text, or highlighted HTML. Different formats need separate cache entries because a user hitting the raw format should not get the rendered HTML.</p>
+
+<p><strong>Cache-Control headers</strong> need to be set thoughtfully. For public pastes, a <code>Cache-Control: public, max-age=300</code> header tells the CDN and browsers to cache the response for 5 minutes. For private pastes, <code>Cache-Control: private, no-store</code> prevents CDN caching entirely — you must never let private paste content sit in a shared CDN cache where another user might get it.</p>
+
+<p><strong>Edge regions</strong> matter for latency. A Pastebin user in Tokyo getting their response from a CDN edge node in Singapore will have a much better experience than one getting it from a server in Virginia. Providers like Cloudflare, Fastly, and AWS CloudFront operate thousands of edge nodes globally.</p>
+
+<a name="API.Infrastructure"></a>
+<h2>API Infrastructure</h2>
+
+<p>The public API is a significant traffic source for Pastebin. Developer tools, IDE plugins, CI/CD scripts, and custom automation all create and read pastes programmatically.</p>
+
+<p>API requests carry an API key in the header, which the API gateway validates before forwarding the request. Keys are hashed before storage in the database — you never store the raw API key, only its SHA-256 hash.</p>
+
+<p>Rate limiting for API traffic is per API key with configurable quotas. Free tier keys might allow 100 paste creations per day. Paid tiers get higher quotas. Redis is used to track usage counters per key with daily reset windows.</p>
+
+<p>API versioning is handled via URL path prefix: <code>/v1/paste</code>, <code>/v2/paste</code>. This lets the team evolve the API without breaking existing integrations.</p>
+
+<a name="Scaling.Pastebin"></a>
+<h2>Scaling Pastebin</h2>
+
+<p>Let us think through scaling from 10 requests per second to 10,000 requests per second.</p>
+
+<p>At 10 RPS, a single application server with a single PostgreSQL instance and local file storage handles everything. Paste creation and retrieval both work fine.</p>
+
+<p>At 100 RPS, you add Redis for caching hot pastes and move content storage to a managed object store. Read traffic drops significantly because popular pastes are served from Redis.</p>
+
+<p>At 1,000 RPS, you need multiple application server instances behind a load balancer. The paste creation pipeline becomes async with Kafka workers. The CDN absorbs most of the read traffic.</p>
+
+<p>At 10,000 RPS, database read replicas are necessary for metadata queries. Redis becomes a cluster. Object storage is handled by a globally distributed provider with regional replication. The syntax highlighting and moderation pipelines scale horizontally as independent worker pools.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Bottleneck</th>
+        <th>Symptom</th>
+        <th>Solution</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PostgreSQL write throughput</td>
+        <td>High paste creation latency</td>
+        <td>Write batching, async writes, partitioning</td>
+      </tr>
+      <tr>
+        <td>Redis single node</td>
+        <td>High cache latency, OOM failures</td>
+        <td>Redis Cluster with sharding</td>
+      </tr>
+      <tr>
+        <td>Object storage GET latency</td>
+        <td>Slow read path on cache misses</td>
+        <td>Regional replication, CDN offload</td>
+      </tr>
+      <tr>
+        <td>Kafka consumer lag</td>
+        <td>Delayed syntax highlighting</td>
+        <td>More partitions, more consumers</td>
+      </tr>
+      <tr>
+        <td>Search indexing</td>
+        <td>Search returning stale results</td>
+        <td>More Elasticsearch nodes, priority queues</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>A paste service going down is not life-critical, but it is still a bad experience. Engineering for high availability means thinking through every failure scenario.</p>
+
+<p><strong>Database failures</strong> are handled by read replicas with automatic failover. PostgreSQL with Patroni or AWS RDS Multi-AZ provides automatic failover in 30-60 seconds. During failover, the application continues reading from replicas. Writes fail until the new primary is elected.</p>
+
+<p><strong>Redis cluster failures</strong> are partially degraded, not full outages. If a Redis node fails, the cluster reroutes requests to other nodes. Cache hit rates drop temporarily, increasing load on the database, but the system continues serving paste reads and writes.</p>
+
+<p><strong>Object storage outages</strong> are rare with managed providers but can happen. A regional failure might make some paste content temporarily unavailable. Multi-region replication provides redundancy. The application can return a 503 with a friendly message for pastes it cannot retrieve rather than hanging indefinitely.</p>
+
+<p><strong>Monitoring</strong> needs to cover all critical paths: paste creation success rate, paste retrieval latency at p50/p95/p99, cache hit ratio, error rate by endpoint, queue consumer lag, storage write failure rate, and CDN offload ratio. Dashboards and alerting on these metrics let the on-call engineer know within minutes when something is wrong.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>These are the decisions where reasonable engineers disagree, and where the right answer depends on your specific constraints.</p>
+
+<p><strong>SQL vs NoSQL for metadata</strong>: PostgreSQL gives you strong consistency, rich querying, and ACID transactions. Cassandra gives you write throughput and horizontal scalability with weaker consistency guarantees. For a read-heavy system where most reads are by primary key, PostgreSQL with read replicas wins on simplicity and operability. Cassandra makes sense if write volume is extreme and you have the operational expertise.</p>
+
+<p><strong>Server-side vs client-side syntax highlighting</strong>: Server-side pre-rendering means every user gets highlighted content without JavaScript. Client-side means faster initial page loads and zero server CPU for highlighting, but requires JavaScript and adds complexity for search engine indexing. The right choice depends on your user base and infrastructure budget.</p>
+
+<p><strong>Aggressive caching vs strong consistency</strong>: Caching paste metadata means that if a paste is deleted, some users may still see it for up to the cache TTL. This is usually acceptable. If your product requires instant deletion (for compliance or content moderation), you need cache purge APIs and accept the operational complexity that comes with them.</p>
+
+<p><strong>Compression vs CPU</strong>: zstd compression saves significant storage and bandwidth but costs CPU on every read and write. At very high volumes, the CPU cost matters. The tradeoff generally favors compression because storage and bandwidth are more expensive than CPU in modern cloud environments.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>Here is a realistic technology stack for a production Pastebin:</p>
+
+<p><strong>API servers in Go</strong>: Go&rsquo;s goroutine model handles high concurrency with low memory overhead. Fast startup time makes it great for containerized deployments. The standard library and ecosystem for building HTTP services are excellent.</p>
+
+<p><strong>PostgreSQL for metadata</strong>: Battle-tested, well-understood operationally, excellent tooling. pgBouncer for connection pooling, Patroni for HA.</p>
+
+<p><strong>Redis Cluster for caching</strong>: The industry standard for application-level caching. Supports the data structures you need: strings for raw text, hashes for metadata, sorted sets for trending.</p>
+
+<p><strong>Apache Kafka for async processing</strong>: Durable, high-throughput, replayable. Kafka&rsquo;s consumer group model makes it easy to scale highlighting workers independently of the write path.</p>
+
+<p><strong>S3 or compatible object storage for content blobs</strong>: Near-infinite scale, built-in replication, cheap storage costs, lifecycle policies for tiering.</p>
+
+<p><strong>Elasticsearch for search</strong>: Mature full-text search engine with good Python and Go clients, support for complex scoring, and horizontal scalability.</p>
+
+<p><strong>Kubernetes for container orchestration</strong>: Stateless application servers run as Kubernetes deployments with horizontal pod autoscaling. Kafka and Elasticsearch run on separate node pools.</p>
+
+<p><strong>Cloudflare or Fastly for CDN</strong>: Both offer strong developer APIs, fast purge propagation, and global edge networks.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Pastebin is one of the most commonly asked system design questions because it is well-scoped, has clear requirements, and touches a wide range of distributed systems concepts.</p>
+
+<p><strong>What interviewers want to see</strong>: They want you to drive the conversation. Start with requirements clarification — how many pastes per day, what is the expected read-to-write ratio, what features are in scope. Then sketch the high-level architecture. Then dive deep into the areas the interviewer cares about: storage, caching, ID generation, or expiration.</p>
+
+<p><strong>Common mistakes</strong>: Jumping straight into low-level details without establishing the big picture. Over-engineering with too many components before justifying the need. Ignoring the read-heavy nature of the workload and designing a write-optimized system. Forgetting about abuse prevention. Treating ID generation as trivial.</p>
+
+<p><strong>Strong answers</strong> demonstrate clear reasoning about why each design choice is made. When you say &ldquo;I would use Redis to cache hot pastes,&rdquo; follow it with &ldquo;because the read-to-write ratio is high, paste content is immutable, and cache hit rates will be very high for popular pastes, which eliminates most database reads.&rdquo; That is what separates a strong candidate from an average one.</p>
+
+<p><strong>Areas to go deep on</strong> if asked to dive deeper: the ID generation system and collision prevention, the caching strategy and cache invalidation on expiry, the expiry cleanup pipeline and storage reclamation, the content moderation pipeline, and the database schema with indexing strategy.</p>
+
+<p><strong>Scaling discussion</strong>: Be ready to say how the system changes as it scales. What breaks first at 10x current load? Usually it is the write path to the database. What breaks at 100x? Usually the single-region architecture. Walk through these scaling conversations confidently, and your interviewer will know you understand distributed systems at a real depth.</p>
+
+<p>Building Pastebin well is about understanding that simple products have non-trivial infrastructure requirements when millions of people use them every day. The database does not just store text. The cache is not just an optimization. The expiry system is not just a scheduled job. Each of these is a distributed systems problem in its own right, with failure modes, performance tradeoffs, and scaling concerns that deserve careful thought. That is the lesson Pastebin teaches, and it is why it remains one of the best system design learning exercises out there.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[How Tinder Works]]></title>
