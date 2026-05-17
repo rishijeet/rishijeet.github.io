@@ -4,7 +4,7 @@
     <title><![CDATA[Category: architecture | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/architecture/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-17T10:48:31+05:30</updated>
+    <updated>2026-05-17T14:04:39+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,530 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Kafka Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-kafka-works/"/>
+        <updated>2026-05-17T10:59:43+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-kafka-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>There is a moment in every backend engineer&rsquo;s career when a simple queue stops being enough. Maybe you&rsquo;re logging user activity to a database and the writes start choking the system. Maybe you&rsquo;re moving data between microservices with REST calls and latency starts creeping up. Maybe a product team asks for &ldquo;real-time analytics&rdquo; and you start wondering what that even means at scale.</em></p></blockquote>
+
+<p><img src="/images/system_design/kafka.avif" height="300" width="900" alt="Alt text" /></p>
+
+<p>That&rsquo;s when engineers usually discover Kafka.</p>
+
+<p>Apache Kafka was originally built at LinkedIn to solve a very unglamorous problem: moving enormous amounts of log data between systems without breaking everything. What they ended up building wasn&rsquo;t just a message queue. It was a distributed commit log, a unified event backbone, and arguably one of the most influential pieces of infrastructure in modern software engineering.</p>
+
+<p>But here&rsquo;s the thing nobody tells beginners: distributed messaging is genuinely hard. Not hard like &ldquo;this will take an afternoon.&rdquo; Hard like &ldquo;this is a decade of systems research made practical.&rdquo;</p>
+
+<p>Think about what you&rsquo;re actually trying to do when you build a distributed messaging system. You want to accept millions of messages per second from producers that don&rsquo;t know or care about consumers. You want to store those messages durably on disk so nothing gets lost even if half your servers crash. You want to replay old messages if a consumer fails and needs to reprocess. You want ordering guarantees for related events. You want to fan out a single message to dozens of different consumers. You want horizontal scalability so you can throw more hardware at the problem as traffic grows. And you want to do all of this with single-digit millisecond latency.</p>
+
+<!--more-->
+
+
+<p>Every one of those goals pulls in a different direction from the others. Durability requires writing to disk, which is slower. Ordering across multiple consumers requires coordination, which adds latency. Replication for fault tolerance means you&rsquo;re doing more network I/O. Horizontal scalability means you now have a distributed system, which means you need to think about split-brain scenarios, network partitions, and leader elections.</p>
+
+<p>Kafka navigated these tradeoffs in a set of architectural decisions that, looking back, feel almost obvious in their elegance. Almost.</p>
+
+<p>This blog walks through how Kafka actually works, from the high-level concept of a distributed log to the low-level details of how bytes move off disk and across a network. By the end, you should understand not just what Kafka does, but why it was designed the way it is.</p>
+
+<a name="Core.Features.of.Kafka"></a>
+<h2>Core Features of Kafka</h2>
+
+<p>Before going deep, it helps to have a clear picture of what Kafka&rsquo;s fundamental primitives actually are.</p>
+
+<p>A <strong>topic</strong> is the basic unit of organization. Think of it as a named feed or channel. You might have a topic called <code>user-clicks</code>, another called <code>payment-events</code>, another called <code>order-status-updates</code>. Producers write to topics. Consumers read from topics. Topics are how you separate different streams of events.</p>
+
+<p>A <strong>producer</strong> is any client that writes messages to a topic. Producers don&rsquo;t decide which consumer gets their messages. They just send messages and Kafka handles the rest. This decoupling is one of Kafka&rsquo;s most powerful design choices.</p>
+
+<p>A <strong>consumer</strong> is any client that reads from a topic. Consumers track their own position in the log using something called an <strong>offset</strong>, which is just a sequential integer. Consumer A and Consumer B can both read the same topic and maintain completely independent positions. One might be at offset 1000, the other at offset 50. Neither one affects the other.</p>
+
+<p>A <strong>partition</strong> is how Kafka splits a topic across multiple servers. A topic with a single partition is a single ordered log. A topic with ten partitions is ten independent ordered logs, spread across brokers. Partitions are the fundamental unit of parallelism in Kafka.</p>
+
+<p>A <strong>consumer group</strong> is how you build parallel consumption. Multiple consumers in a group divide up the partitions of a topic. One consumer might handle partitions 0 through 3, another handles 4 through 7. Together they process the whole topic faster than any single consumer could.</p>
+
+<p><strong>Replication</strong> means each partition has multiple copies stored on different brokers. If the broker holding the primary copy crashes, another broker that holds a replica can take over. This is Kafka&rsquo;s primary mechanism for fault tolerance.</p>
+
+<p><strong>Retention</strong> controls how long messages are kept on disk. Kafka doesn&rsquo;t delete messages the moment a consumer reads them. Messages stay around for a configured period (often 7 days), which means consumers can replay old events, new consumers can catch up from the beginning, and teams can reprocess data after a bug fix.</p>
+
+<p><strong>Stream processing</strong> in Kafka refers to the Kafka Streams API and the ecosystem around it, which lets you build stateful, real-time processing pipelines that consume from topics, transform or aggregate data, and write results back to topics.</p>
+
+<p>Also read <i><a href="https://rishijeet.github.io/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components/">Advanced Apache Kafka Anatomy</a></i> for fundamental concepts.</p>
+
+<a name="High-Level.Kafka.Architecture"></a>
+<h2>High-Level Kafka Architecture</h2>
+
+<p>A Kafka cluster looks deceptively simple from the outside. Producers send messages in. Consumers read messages out. Between them sit brokers that store and serve the data.</p>
+
+<div class="mermaid">
+flowchart TD;
+P1[Producer App 1];
+P2[Producer App 2];
+P3[Producer App 3];
+B1[Broker 1];
+B2[Broker 2];
+B3[Broker 3];
+ZK[ZooKeeper or KRaft Controller];
+CG1[Consumer Group A];
+CG2[Consumer Group B];
+P1 &#8211;> B1;
+P2 &#8211;> B2;
+P3 &#8211;> B3;
+B1 &#8211;> ZK;
+B2 &#8211;> ZK;
+B3 &#8211;> ZK;
+B1 &#8211;> CG1;
+B2 &#8211;> CG1;
+B3 &#8211;> CG1;
+B1 &#8211;> CG2;
+B2 &#8211;> CG2;
+B3 &#8211;> CG2;
+</div>
+
+
+<p>Each broker in the cluster is responsible for a subset of partitions. For any given partition, one broker is designated the <strong>leader</strong> and handles all reads and writes for that partition. The other brokers that hold replicas of that partition are <strong>followers</strong>.</p>
+
+<p>Historically, Kafka used Apache ZooKeeper as its metadata coordination layer. ZooKeeper tracked which brokers were alive, which broker was the leader for which partition, and stored configuration information. More recently, Kafka introduced KRaft mode, which replaces ZooKeeper with a consensus protocol built directly into Kafka using Raft. This simplifies operations significantly.</p>
+
+<p>The message lifecycle looks like this: A producer connects to any broker (called a bootstrap broker), fetches cluster metadata to learn which broker is the leader for its target partition, then sends messages directly to that leader. The leader writes the messages to its local log, and followers fetch those messages asynchronously. Once enough replicas have confirmed they&rsquo;ve stored the message (based on the configured acknowledgment level), the producer gets a success response. Consumers connect to partition leaders and fetch messages using long-polling, tracking their own offset as they go.</p>
+
+<div class="mermaid">
+flowchart LR;
+PR[Producer];
+LB[Leader Broker];
+F1[Follower 1];
+F2[Follower 2];
+CO[Consumer];
+PR &#8211;>|Send Message| LB;
+LB &#8211;>|Replicate| F1;
+LB &#8211;>|Replicate| F2;
+F1 &#8211;>|Ack| LB;
+F2 &#8211;>|Ack| LB;
+LB &#8211;>|Ack to Producer| PR;
+CO &#8211;>|Fetch by Offset| LB;
+</div>
+
+
+<a name="Distributed.Log.Architecture.Deep.Dive"></a>
+<h2>Distributed Log Architecture Deep Dive</h2>
+
+<p>The most important mental model for understanding Kafka is this: Kafka is a distributed log. Everything else flows from that.</p>
+
+<p>A log, in the computer science sense, is an append-only, sequentially ordered record of events. You can only add to the end. You never modify or delete entries in the middle. Every entry has a position (an offset). Given an offset, you can find the corresponding entry in O(1) time.</p>
+
+<p>This might sound like a limitation, but it&rsquo;s actually the source of Kafka&rsquo;s performance. Modern spinning hard drives are slow at random I/O but remarkably fast at sequential I/O. SSDs are fast at both, but sequential reads still win. By writing data only to the end of a log, Kafka turns every write into a sequential append. The OS can buffer these writes in page cache and flush them to disk efficiently. There&rsquo;s no seeking around looking for free blocks to write into.</p>
+
+<div class="mermaid">
+flowchart LR;
+W[Incoming Write];
+A[Append to Log End];
+S[Log Segment File];
+I[Index File];
+W &#8211;> A;
+A &#8211;> S;
+A &#8211;> I;
+</div>
+
+
+<p>Kafka organizes each partition&rsquo;s log into <strong>segments</strong>. A segment is a pair of files: a <code>.log</code> file that holds the actual message data, and a <code>.index</code> file that maps offsets to byte positions in the log file. When a segment grows too large (configurable, often 1 GB), Kafka rolls over to a new segment. Old segments are eligible for retention cleanup.</p>
+
+<p>The index file is sparse, not dense. Kafka doesn&rsquo;t store an index entry for every single message. It stores entries at intervals, so to find offset N, you look up the nearest indexed offset below N, then scan forward linearly from that point. This keeps the index small while still enabling fast lookups.</p>
+
+<p>One of the subtler performance decisions is Kafka&rsquo;s aggressive use of the OS page cache. Kafka doesn&rsquo;t maintain its own in-memory cache of messages. It writes to disk and trusts the OS page cache to keep recently written and recently read data in memory. On a healthy, not-overloaded broker, most reads are served entirely from page cache with no actual disk I/O. The side effect is that brokers should have generous amounts of RAM, not necessarily for the JVM heap, but for the OS to use as page cache.</p>
+
+<a name="Topic.and.Partition.System"></a>
+<h2>Topic and Partition System</h2>
+
+<p>A topic is just a logical name. The physical reality is that a topic is implemented as one or more partitions, and each partition is an independent ordered log.</p>
+
+<div class="mermaid">
+flowchart TD;
+T[Topic: user-clicks];
+P0[Partition 0 on Broker 1];
+P1[Partition 1 on Broker 2];
+P2[Partition 2 on Broker 3];
+T &#8211;> P0;
+T &#8211;> P1;
+T &#8211;> P2;
+</div>
+
+
+<p>When a producer sends a message, it decides which partition to send to based on one of three strategies. If a partition key is specified, Kafka hashes the key and consistently maps it to a partition. The same key always goes to the same partition, which gives you ordering guarantees for all messages with that key. If no key is specified, Kafka distributes messages round-robin or in batches across partitions. Producers can also implement completely custom partitioning logic.</p>
+
+<p>Key-based partitioning solves a real problem. Imagine you&rsquo;re streaming order events and you need all events for a given order ID to be processed in sequence. If events for the same order can land on different partitions, you lose ordering guarantees because different consumers process different partitions independently. By using the order ID as the partition key, all events for order <code>abc123</code> always go to partition 4 (for example), and the consumer handling partition 4 sees them in the exact order they were produced.</p>
+
+<p>The tradeoff here is the <strong>hotspot problem</strong>. If your partition key has poor cardinality or heavily skewed distribution (imagine an e-commerce site where one large enterprise customer generates 60% of all orders), one partition receives a disproportionate share of traffic. That partition&rsquo;s leader broker becomes a bottleneck. Consumer lag grows on the overloaded partition while other partitions sit mostly idle.</p>
+
+<p>Partition count is a design decision that&rsquo;s hard to reverse. You can increase partition count, but you cannot decrease it. Adding partitions to an existing topic doesn&rsquo;t redistribute existing data; only new messages land on the new partitions. And each partition has overhead: memory for the leader broker to track ISR status, file descriptors for the log segments, and metadata stored in the controller.</p>
+
+<p>A practical rule in production: use enough partitions to enable the parallelism you need, but don&rsquo;t over-partition. A commonly cited heuristic is to target about 10 to 20 partitions per broker per topic, adjusting based on throughput requirements.</p>
+
+<a name="Producer.Architecture"></a>
+<h2>Producer Architecture</h2>
+
+<p>Producers in Kafka are more sophisticated than they look from the outside.</p>
+
+<p>When you call <code>producer.send()</code>, you&rsquo;re not immediately making a network request. The producer batches messages in memory before sending them over the wire. It maintains a buffer per partition. When either a batch is full (controlled by <code>batch.size</code>) or a timeout expires (controlled by <code>linger.ms</code>), the batch is sent to the broker. This batching dramatically improves throughput because each network round trip carries many messages instead of one.</p>
+
+<p>Producers also support compression. A batch of messages can be compressed as a unit using Snappy, LZ4, GZIP, or Zstd before transmission. The broker stores the compressed batch as-is, and consumers decompress on their end. Compression can reduce network and storage overhead by 3x to 5x for text-heavy payloads like JSON.</p>
+
+<p>The acknowledgment mode (<code>acks</code>) is one of the most important producer configuration choices.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Acks Setting</th>
+        <th>Behavior</th>
+        <th>Durability</th>
+        <th>Latency</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>acks=0</td>
+        <td>Producer does not wait for any acknowledgment</td>
+        <td>Lowest - messages can be lost</td>
+        <td>Lowest</td>
+      </tr>
+      <tr>
+        <td>acks=1</td>
+        <td>Leader broker acknowledges after writing to its local log</td>
+        <td>Medium - lost if leader crashes before replication</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>acks=all</td>
+        <td>All in-sync replicas must acknowledge</td>
+        <td>Highest - survives broker failures</td>
+        <td>Highest</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Idempotent producers, introduced to address exactly-once delivery semantics, are worth understanding deeply. By default, if a producer times out waiting for an ack and retries the send, it might produce a duplicate if the original message actually did succeed. With idempotent producers enabled (<code>enable.idempotence=true</code>), the broker assigns each producer a unique ID and sequences all messages. If a duplicate arrives, the broker detects and discards it. This gives you at-least-once delivery behavior with the duplicates silently removed, effectively achieving exactly-once at the producer level.</p>
+
+<a name="Consumer.Group.Deep.Dive"></a>
+<h2>Consumer Group Deep Dive</h2>
+
+<p>Consumer groups are how Kafka scales consumption horizontally. Each consumer group independently reads a topic. Within a group, partitions are divided among consumers.</p>
+
+<div class="mermaid">
+flowchart TD;
+T[Topic with 6 Partitions];
+P0[Partition 0];
+P1[Partition 1];
+P2[Partition 2];
+P3[Partition 3];
+P4[Partition 4];
+P5[Partition 5];
+C1[Consumer 1];
+C2[Consumer 2];
+C3[Consumer 3];
+T &#8211;> P0;
+T &#8211;> P1;
+T &#8211;> P2;
+T &#8211;> P3;
+T &#8211;> P4;
+T &#8211;> P5;
+P0 &#8211;> C1;
+P1 &#8211;> C1;
+P2 &#8211;> C2;
+P3 &#8211;> C2;
+P4 &#8211;> C3;
+P5 &#8211;> C3;
+</div>
+
+
+<p>If a topic has 6 partitions and a consumer group has 3 consumers, each consumer handles 2 partitions. If a consumer dies, Kafka triggers a <strong>rebalance</strong>: partitions are redistributed among the surviving consumers. If you add a fourth consumer, another rebalance happens. A consumer group can never have more active consumers than partitions, because there&rsquo;s nothing for the extra consumers to do.</p>
+
+<p>Consumers commit their current offset periodically, either automatically or manually. The offset represents &ldquo;I have successfully processed everything up to here.&rdquo; If a consumer crashes before committing, the next consumer assigned to that partition starts from the last committed offset and reprocesses some messages. This is the &ldquo;at-least-once&rdquo; delivery model that most Kafka consumers use.</p>
+
+<p>Rebalances deserve special attention in production systems. During a rebalance, consumption from the affected partitions stops until partition assignments stabilize. In large consumer groups with many partitions, this pause can be several seconds. There are things you can do to reduce rebalance impact: use static group membership with stable consumer IDs so Kafka can avoid rebalancing when a consumer restarts quickly, configure longer session timeouts to avoid false positives on consumer failure detection, and use incremental cooperative rebalancing (the default since Kafka 2.4) which only reassigns partitions that actually need to move rather than revoking everything at once.</p>
+
+<p>Consumer lag is one of the most important metrics in a Kafka-based system. Lag is the difference between the latest offset in a partition and the consumer group&rsquo;s committed offset for that partition. Growing lag means consumers are falling behind. This could mean consumer processing is too slow, the consumer crashed and isn&rsquo;t running, or the upstream producers suddenly increased their write rate. Monitoring lag per consumer group, per topic, per partition gives you early warning of problems before they cascade.</p>
+
+<a name="Replication.and.Fault.Tolerance"></a>
+<h2>Replication and Fault Tolerance</h2>
+
+<p>Replication is how Kafka survives hardware failures without losing data. Every partition has a configurable replication factor. With <code>replication.factor=3</code>, there are three copies of each partition: one leader and two followers.</p>
+
+<div class="mermaid">
+flowchart TD;
+PR[Producer];
+LB[Leader Broker - Partition 0];
+FB1[Follower Broker A - Replica];
+FB2[Follower Broker B - Replica];
+PR &#8211;>|Write| LB;
+LB &#8211;>|Replicate| FB1;
+LB &#8211;>|Replicate| FB2;
+</div>
+
+
+<p>The <strong>In-Sync Replica (ISR)</strong> set is the list of followers that are caught up to the leader within a configurable time window (<code>replica.lag.time.max.ms</code>). A follower that is too far behind falls out of the ISR. This is significant because when <code>acks=all</code>, the leader waits for acknowledgment from all replicas in the ISR, not all replicas in total. If a follower is struggling and falls out of the ISR, the remaining ISR members determine the durability guarantee.</p>
+
+<p>The <code>min.insync.replicas</code> setting is where things get interesting. If you have <code>replication.factor=3</code> and <code>min.insync.replicas=2</code>, Kafka requires at least 2 in-sync replicas (including the leader) before acknowledging writes with <code>acks=all</code>. If two brokers go down and only one remains, writes will fail rather than proceed and risk data loss. This is a deliberate consistency-over-availability tradeoff.</p>
+
+<p>When a leader broker crashes, the Kafka controller (either ZooKeeper-mediated or KRaft-based) detects the failure and elects a new leader from the ISR. This happens within seconds, and producers and consumers automatically discover the new leader through metadata refresh. The messages that were committed (acknowledged to ISR) before the crash are safe on the remaining replicas.</p>
+
+<p>The scenario you want to avoid is a follower with significant replication lag being elected as leader. The <code>unclean.leader.election.enable</code> setting controls whether Kafka is allowed to elect an out-of-sync replica as leader when no in-sync replica is available. With this disabled (the safe default), Kafka will refuse to elect an unclean leader and the partition will be unavailable until a clean replica comes back. With it enabled, Kafka sacrifices consistency for availability: the out-of-sync leader may have missed some committed messages, causing data loss.</p>
+
+<a name="Storage.Internals"></a>
+<h2>Storage Internals</h2>
+
+<p>The storage layer is where Kafka&rsquo;s performance characteristics come from, and it is worth understanding in detail.</p>
+
+<p>Each partition is stored as a directory on the broker&rsquo;s filesystem. Inside that directory, Kafka writes pairs of files: <code>.log</code> files containing message data and <code>.index</code> files for offset-to-byte-position lookups. When a segment exceeds the configured size (default 1 GB) or age (default 7 days), Kafka rolls a new segment. The old segments become candidates for retention cleanup.</p>
+
+<div class="mermaid">
+flowchart TD;
+PD[Partition Directory];
+S1[Segment 0 Log File];
+S1I[Segment 0 Index File];
+S2[Segment 1 Log File];
+S2I[Segment 1 Index File];
+S3[Active Segment Log File];
+S3I[Active Segment Index File];
+PD &#8211;> S1;
+PD &#8211;> S1I;
+PD &#8211;> S2;
+PD &#8211;> S2I;
+PD &#8211;> S3;
+PD &#8211;> S3I;
+</div>
+
+
+<p>Zero-copy networking is one of the most impactful optimizations in Kafka&rsquo;s read path. Normally, serving data from disk to a network socket involves four copies: disk to kernel buffer, kernel buffer to userspace application buffer, userspace buffer back to kernel socket buffer, socket buffer to network. This is wasteful. Kafka uses the <code>sendfile</code> system call (or its equivalent), which allows the OS to transfer data directly from the page cache to the network socket without involving userspace at all. This reduces CPU usage significantly and allows a single broker to sustain network throughput close to the hardware limit of the NIC.</p>
+
+<p>Combined with page cache behavior, this creates an interesting property: if consumers are reading messages that were recently produced (i.e., they&rsquo;re not far behind), the data is likely still in the OS page cache, and the entire read path involves no disk I/O at all. Data goes from the network receive buffer, into page cache on write, and from page cache out through sendfile to the consumer. The disk is barely involved.</p>
+
+<p>This is why broker memory is often more important than disk speed. Disk throughput matters for catching up from large lags, but for the common case of low-lag consumers, the system is mostly memory-bound.</p>
+
+<a name="Retention.and.Cleanup.System"></a>
+<h2>Retention and Cleanup System</h2>
+
+<p>Kafka keeps messages for a configurable duration regardless of whether they&rsquo;ve been consumed. This is fundamentally different from traditional queues that delete messages after delivery. The default retention is 7 days, but this can be set to hours, days, or even set to retain data indefinitely.</p>
+
+<p>There are two retention models. <strong>Delete retention</strong> removes old log segments once they exceed the configured time or size limit. This is the default and is what you want for high-volume, short-lived event streams.</p>
+
+<p><strong>Log compaction</strong> is a more sophisticated mechanism designed for a different use case. With compaction enabled, Kafka guarantees that the log contains at least the most recent message for each key. Think of it as a continuously maintained key-value store built on top of a log. Kafka runs a background compaction thread that merges segments, keeps the latest value per key, and discards older values for the same key. Deleting a key is done by sending a <strong>tombstone message</strong>: a message with the target key and a null value. Compaction eventually removes the original messages and the tombstone.</p>
+
+<p>Log compaction is perfect for changelog topics that track the current state of something: user profile updates, configuration changes, account balance updates. Consumers who restart can replay the compacted topic to rebuild state without needing years of history.</p>
+
+<a name="Kafka.Networking.Model"></a>
+<h2>Kafka Networking Model</h2>
+
+<p>Kafka uses a custom binary protocol over TCP. There is no HTTP, no JSON, no overhead from a generic protocol. Requests and responses have fixed wire formats with tight encoding. This keeps parsing overhead minimal.</p>
+
+<p>Brokers use a non-blocking I/O model internally. A small number of network threads handle all connection I/O, routing requests to request queues, and responses back to clients. A separate pool of request handler threads processes the actual requests (reads and writes). This design allows brokers to handle thousands of concurrent connections without thread-per-connection overhead.</p>
+
+<p>Consumers use long-polling to fetch messages. A <code>FetchRequest</code> specifies a partition, an offset to start from, a minimum number of bytes to return, and a maximum wait time. If less data than the minimum threshold is available, the broker waits (holds the request) until either enough data arrives or the timeout expires before responding. This reduces empty fetch responses and their associated overhead when topics are relatively quiet.</p>
+
+<p>Producers use a pipeline model. Multiple batches can be in-flight simultaneously without waiting for previous ones to be acknowledged, up to the configured <code>max.in.flight.requests.per.connection</code> limit. This keeps producer throughput high without sacrificing ordering (since Kafka processes requests from a given producer in order).</p>
+
+<a name="Stream.Processing.Architecture"></a>
+<h2>Stream Processing Architecture</h2>
+
+<p>Beyond being a message bus, Kafka is increasingly used as a stream processing platform via Kafka Streams, a client library that runs inside your application process.</p>
+
+<div class="mermaid">
+flowchart LR;
+ST[Source Topic];
+KS[Kafka Streams App];
+RS[RocksDB State Store];
+SK[Sink Topic];
+ST &#8211;>|Read Events| KS;
+KS &#8211;>|Query and Update| RS;
+KS &#8211;>|Write Results| SK;
+</div>
+
+
+<p>Kafka Streams processes records one at a time or in windows. For stateful operations like counts, aggregations, or joins, Kafka Streams maintains state in an embedded <strong>RocksDB</strong> instance on local disk. This is called a state store. The state store is backed by a Kafka changelog topic (a compacted topic), so if the application crashes and restarts, it can rebuild state from the changelog rather than reprocessing the entire history. State stores make stateful stream processing practical at scale.</p>
+
+<p><strong>Windowed aggregations</strong> are a common pattern. Imagine counting how many times each user ID appears in a 5-minute tumbling window. Kafka Streams buffers records within the window, aggregates, and emits results when the window closes. Event-time processing (using timestamps embedded in messages rather than wall-clock time) means late-arriving events can be attributed to the correct window, up to a configurable grace period.</p>
+
+<p>Exactly-once semantics in stream processing require coordination between reading, processing, and writing. Kafka Streams achieves this using transactions: reads, state store updates, and writes to output topics are all committed atomically. Either all of it happens or none of it does. This eliminates the scenario where a message is processed, output is written, but the consumer fails before committing its offset and the message gets processed again with a duplicate output.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Kafka scales horizontally at every layer, but each dimension of scaling has its own ceiling and its own set of gotchas.</p>
+
+<p><strong>Broker scaling</strong> is the most straightforward. Adding brokers to a cluster gives you more storage capacity and more network bandwidth. But Kafka doesn&rsquo;t automatically rebalance partitions when you add brokers. You need to run a partition reassignment tool to move partition replicas to the new brokers. This reassignment involves inter-broker data copying, which consumes network bandwidth and can affect broker performance during the migration.</p>
+
+<p><strong>Partition scaling</strong> is how you increase parallelism. More partitions means more consumers can work in parallel. But each partition has overhead: the Kafka controller tracks leader and ISR state for every partition, and this metadata coordination becomes a bottleneck as partition count grows into the hundreds of thousands. A practical ceiling in most Kafka deployments is around 200,000 to 500,000 partitions per cluster.</p>
+
+<p><strong>Producer scaling</strong> is almost unbounded in practice. Producers are stateless and can be scaled independently. The bottleneck is usually partition leaders: each partition leader has a finite throughput capacity. If a single partition receives more writes than the leader can handle, you need to increase partition count to spread load.</p>
+
+<p><strong>Consumer scaling</strong> within a group is limited by partition count. If you have 10 partitions and 20 consumers in a group, 10 consumers sit idle. If you need more consumer parallelism, you need more partitions.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Scaling Dimension</th>
+        <th>Mechanism</th>
+        <th>Bottleneck</th>
+        <th>Practical Ceiling</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Brokers</td>
+        <td>Add broker nodes to cluster</td>
+        <td>Partition reassignment I/O</td>
+        <td>Hundreds of brokers</td>
+      </tr>
+      <tr>
+        <td>Partitions</td>
+        <td>Increase partition count per topic</td>
+        <td>Controller metadata overhead</td>
+        <td>~200K-500K per cluster</td>
+      </tr>
+      <tr>
+        <td>Producers</td>
+        <td>Add producer instances</td>
+        <td>Partition leader throughput</td>
+        <td>Effectively unlimited</td>
+      </tr>
+      <tr>
+        <td>Consumers</td>
+        <td>Add consumers to group</td>
+        <td>Partition count (hard ceiling)</td>
+        <td>One per partition max</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Running Kafka reliably in production requires thinking about several failure modes simultaneously.</p>
+
+<p>For multi-region deployments, Confluent and open-source projects offer MirrorMaker 2, which replicates topics from one Kafka cluster to another. This is asynchronous replication, so there&rsquo;s always some lag between the primary and the secondary. In a disaster recovery scenario, failing over to the secondary cluster means accepting potential data loss for the most recent messages.</p>
+
+<p>Monitoring a Kafka cluster means watching several key metrics. Under-replicated partitions (partitions where not all replicas are in the ISR) are a critical signal: they mean you&rsquo;re operating with reduced durability and one more broker failure could cause data loss. Consumer group lag tells you whether consumers are keeping up. Producer request error rates tell you whether writes are succeeding. Broker disk utilization is important because Kafka brokers need to retain data, and full disks cause write failures.</p>
+
+<p>Request latency on brokers, particularly the produce and fetch latency percentiles (p99, p999), tell you about tail latency that real clients experience but averages miss. A broker where the p999 produce latency is 10 seconds will cause producer timeouts and retries even if the median latency is 5ms.</p>
+
+<p>Alerting strategies that work in practice: alert on under-replicated partitions immediately (this is always a problem), alert on consumer lag crossing a threshold that&rsquo;s relevant to your SLAs, alert on disk utilization above 80% (you want time to react before full disk causes an outage), and alert on producer error rates above a small threshold.</p>
+
+<a name="Performance.Optimization"></a>
+<h2>Performance Optimization</h2>
+
+<p>The defaults Kafka ships with are conservative. Production systems frequently tune several parameters.</p>
+
+<p>On the producer side, increasing <code>batch.size</code> and <code>linger.ms</code> trades latency for throughput. A producer with <code>linger.ms=5</code> will wait up to 5 milliseconds to accumulate more messages before sending, resulting in larger batches and better network utilization at the cost of 5ms of additional latency. For high-throughput pipelines where a few milliseconds of added latency is acceptable, this is a significant win.</p>
+
+<p>Compression is almost always worth enabling. LZ4 has an excellent compression-to-CPU-cost ratio. Zstd achieves better compression ratios at slightly higher CPU cost. Snappy is a good middle ground. For JSON-heavy payloads, 4x compression ratios are common, which cuts network and storage costs by 75%.</p>
+
+<p>On the broker side, the most impactful thing is ensuring the OS has abundant memory for page cache. Running brokers with JVM heaps of 4-6 GB and leaving the rest of a 64 GB machine as page cache is a common production configuration. Kafka&rsquo;s JVM heap doesn&rsquo;t need to be enormous because Kafka doesn&rsquo;t cache data in Java objects; it relies on the OS.</p>
+
+<p>Disk choice matters when consumers are behind. For consumers close to the head of the log (recent messages), data is likely in page cache and disk is irrelevant. For consumers far behind, they&rsquo;ll be doing actual disk reads. SSDs eliminate disk seek time entirely and are strongly preferred for Kafka brokers, even though sequential read patterns partially mitigate HDD seek penalties.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Let&rsquo;s talk about the real decisions that engineers make and why.</p>
+
+<p><strong>Durability versus latency</strong>: Using <code>acks=all</code> with <code>min.insync.replicas=2</code> gives you strong durability guarantees at the cost of producer latency (waiting for replication). For an analytics pipeline where losing a few events is acceptable, <code>acks=1</code> or even <code>acks=0</code> may be the right call. For a financial events system, <code>acks=all</code> is non-negotiable.</p>
+
+<p><strong>Consistency versus availability</strong>: Disabling unclean leader election keeps data consistent but means a partition can go unavailable if all in-sync replicas are down. Enabling it keeps the partition available but risks data loss. Most production systems disable it, accepting reduced availability in exchange for consistency.</p>
+
+<p><strong>Batching versus real-time delivery</strong>: Larger batches improve throughput dramatically but add latency. If you&rsquo;re building a fraud detection system where every millisecond matters, you tune for low latency and accept higher per-message overhead. If you&rsquo;re building a clickstream analytics pipeline, you batch aggressively.</p>
+
+<p><strong>Partition count versus operational complexity</strong>: More partitions mean more parallelism but also more file descriptors, more leader elections to manage, longer rebalance times, and more metadata overhead in the controller. Starting with fewer partitions and increasing as needed is usually wiser than over-provisioning.</p>
+
+<p><strong>Replayability versus storage cost</strong>: Kafka&rsquo;s ability to replay history is incredibly valuable. But storing 90 days of high-volume event data is expensive. The tradeoff is configured per topic. Short-lived operational events might have 24-hour retention. Business-critical events might retain indefinitely with log compaction.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>Understanding why each technology in the Kafka stack was chosen illuminates the design philosophy.</p>
+
+<p><strong>Java</strong> is the language Kafka is written in. The JVM&rsquo;s mature garbage collector, extensive monitoring ecosystem, and cross-platform reliability make it appropriate for infrastructure software, despite the overhead that sometimes accompanies JVM applications. Kafka mitigates GC pauses by keeping its hot data path in off-heap memory (via page cache) rather than Java objects.</p>
+
+<p><strong>Linux page cache</strong> is not a technology Kafka chose so much as a constraint it was designed around. Linux aggressively caches file data in available RAM. Kafka&rsquo;s design, particularly its choice to write to disk rather than maintain an application-level cache, means that the OS&rsquo;s page cache effectively becomes Kafka&rsquo;s cache. This is elegant: Kafka doesn&rsquo;t need to write its own cache eviction logic, and the cache survives Kafka process restarts.</p>
+
+<p><strong>RocksDB</strong> backs stateful stream processing in Kafka Streams. RocksDB is an LSM-tree-based embedded key-value store optimized for write-heavy workloads. It persists state durably on local disk and provides fast point lookups, making it suitable for the aggregation state stores that stream processing applications maintain.</p>
+
+<p><strong>KRaft</strong> (Kafka&rsquo;s Raft-based metadata mode) replaces ZooKeeper by running a metadata quorum directly inside Kafka brokers. This eliminates an operationally separate ZooKeeper cluster, simplifies deployment, and allows Kafka to scale to more partitions because the KRaft controller is more efficient at handling metadata operations.</p>
+
+<p><strong>TCP/IP</strong> with the <code>sendfile</code> optimization forms the core of Kafka&rsquo;s network layer. Unlike HTTP/REST protocols that require parsing overhead, Kafka&rsquo;s binary protocol over raw TCP is as lean as you can get without going to UDP.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Kafka-style questions appear frequently in system design interviews, usually framed as: &ldquo;Design a distributed messaging system&rdquo; or &ldquo;Design a real-time analytics pipeline&rdquo; or &ldquo;How would you design an event-driven order processing system?&rdquo;</p>
+
+<p>Interviewers are not looking for you to recite Kafka&rsquo;s documentation. They want to see how you reason about distributed systems tradeoffs.</p>
+
+<p>Strong answers typically begin by clarifying requirements: How many messages per second? What are the durability requirements? Do consumers need ordering guarantees? What is the acceptable consumer lag? These questions signal that you understand that architectural decisions are driven by requirements, not convention.</p>
+
+<p>Then, walk through the core components one layer at a time. Start with the problem (how to decouple producers from consumers at scale), introduce the concept of a durable log, explain why partitioning is necessary for scalability, explain how replication provides fault tolerance, explain how consumer groups enable parallel consumption. Show that you understand the why behind each decision.</p>
+
+<p>Common mistakes candidates make include conflating Kafka with a traditional message queue (Kafka keeps messages after consumption, queues typically don&rsquo;t), not discussing replication and durability at all (reliability is half of what makes distributed messaging hard), and failing to discuss failure scenarios (what happens when a broker goes down, when a consumer crashes, when a network partition occurs).</p>
+
+<p>For strong answers, discuss the specific tradeoffs you would make given the requirements stated, explain how you would monitor the system in production (what metrics matter, what alerts you would set), and be honest about where the design has weaknesses.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Interview Topic</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Durability</td>
+        <td>Messages are stored on disk</td>
+        <td>Explains acks, ISR, min.insync.replicas, and the consistency-availability tradeoff</td>
+      </tr>
+      <tr>
+        <td>Scalability</td>
+        <td>Add more Kafka nodes</td>
+        <td>Discusses partition-based parallelism, consumer group limits, partition count tradeoffs</td>
+      </tr>
+      <tr>
+        <td>Ordering</td>
+        <td>Kafka preserves order</td>
+        <td>Explains per-partition ordering, key-based partitioning, ordering across partitions is not guaranteed</td>
+      </tr>
+      <tr>
+        <td>Failure handling</td>
+        <td>Kafka automatically recovers</td>
+        <td>Describes ISR, leader election, unclean election risks, rebalance behavior</td>
+      </tr>
+      <tr>
+        <td>Delivery semantics</td>
+        <td>At-least-once by default</td>
+        <td>Contrasts at-most-once, at-least-once, exactly-once, explains idempotent producers and transactions</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>One interview tip that separates good candidates from great ones: bring up operational concerns. Mention consumer lag monitoring, under-replicated partition alerting, disk capacity planning, and rebalance overhead. Real distributed systems don&rsquo;t just work in theory; they get deployed, monitored, and debugged in production. Showing that you&rsquo;ve thought about the operational dimension of the system tells the interviewer you&rsquo;ve operated distributed systems before, not just read about them.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Kafka feels complex when you first encounter it. There are brokers, partitions, consumer groups, ISRs, offsets, log segments, retention policies. The terminology is dense and the failure modes are subtle.</p>
+
+<p>But underneath all of that is a simple and powerful idea: treat your data as an ordered, durable, replayable log. Let producers write to the end of that log. Let consumers read from any position in that log. Replicate the log across machines so no single failure loses data. Partition the log so the system can scale beyond what a single machine can handle.</p>
+
+<p>Everything in Kafka&rsquo;s architecture is a consequence of that core idea, shaped by the realities of distributed systems: network partitions happen, disk seeks are slow, memory is finite, and consumers sometimes fall behind. Understanding the idea and the constraints that shaped it is what makes Kafka&rsquo;s design not just intelligible but intuitive.</p>
+
+<p>The engineers who built Kafka at LinkedIn were solving a real problem under real production constraints. The result was not the last word in distributed messaging (there are systems with different tradeoffs worth knowing), but it was a remarkably well-considered answer to the question of how you move large amounts of data between systems reliably, at scale, and without tight coupling. That question doesn&rsquo;t go away. If anything, it becomes more pressing as systems grow. Which is probably why Kafka is still here, still evolving, and still worth understanding deeply.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Pastebin Works?]]></title>
@@ -2620,605 +3144,6 @@ K &#8211;> L;
 <p>The principles here, offline pipelines feeding online serving, inverted indexes with sharded posting lists, multi-stage ranking, tail latency mitigation through hedging, graceful degradation through tiered indexes, generalize well beyond search. You will find variations of all of these in recommendation systems, ad serving, fraud detection, and almost any system that has to match queries against a large corpus at low latency. Learning search architecture deeply means learning a large chunk of distributed systems architecture in general.</p>
 
 <p>The next time you type something into a search box and results appear almost instantly, you will have a better sense of what just happened.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Uber Computes ETA?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-uber-computes-eta/"/>
-        <updated>2026-05-16T08:57:52+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-uber-computes-eta</id>
-        <content type="html"><![CDATA[<blockquote><p><em>The magic of Uber doesn’t begin when the car arrives. It begins the instant the app tells you &ldquo;how long&rdquo; the wait will be. A tiny estimate — “2 minutes away” or “6 minutes away” — flashes onto your screen so casually that most people never think twice about it. Yet producing that single number requires a planet-scale system constantly processing live GPS streams, road traffic, driver movement, rider demand, map intelligence, and prediction models in real time. What looks like a simple countdown is actually the visible tip of one of the most advanced distributed systems ever engineered for everyday consumers.</em></p></blockquote>
-
-<p>That number is the Estimated Time of Arrival, and computing it correctly — at global scale, in real time, across millions of concurrent users — is genuinely one of the hardest problems in applied engineering.</p>
-
-<p><img src="/images/system_design/uber.svg" height="300" width="900" alt="Alt text" /></p>
-
-<p>This post is a deep walkthrough of how a system like Uber&rsquo;s ETA engine works. We will go through the GPS infrastructure, the map matching algorithms, the routing engines, the machine learning prediction pipelines, the streaming systems, the geo-spatial indexing, and the tradeoffs that engineers make every day to keep that number accurate and fast.</p>
-
-<!--more-->
-
-
-<a name="Introduction"></a>
-<h2>Introduction</h2>
-
-<p>Before we talk about systems, let us talk about why this problem is hard.</p>
-
-<p>ETA is not just &ldquo;distance divided by speed.&rdquo; That formula might work on an empty highway at 3am. It does not work in Manhattan at 5pm on a Tuesday when there is a Yankees game and a water main just broke on 8th Avenue.</p>
-
-<p>Real ETA computation has to account for live traffic conditions, driver behavior, road geometry, traffic signals, historical patterns for that specific road segment at that specific hour, weather, road closures, construction zones, the accuracy of GPS signals bouncing off buildings, the time it takes a driver to find parking near a pickup, and the probability that the driver will take a slightly longer route because the GPS told them to avoid a slow road that just cleared up thirty seconds ago.</p>
-
-<p>At Uber&rsquo;s scale, millions of trips are happening simultaneously across hundreds of cities. Each active driver sends GPS pings every few seconds. Each trip involves continuous ETA recalculations. The system has to handle all of this in under 200 milliseconds, because if the ETA on your screen is stale by more than a few seconds, the experience falls apart.</p>
-
-<p>And here is the thing that most people miss: a wrong ETA does not just frustrate users. It creates a cascade of downstream problems. Riders show up at the wrong time. Drivers sit waiting. Pool pickups get miscoordinated. Pricing algorithms based on ETA drift become inaccurate. The entire marketplace depends on ETA being right.</p>
-
-<a name="Core.Features.Behind.ETA.Calculation"></a>
-<h2>Core Features Behind ETA Calculation</h2>
-
-<p>Let us ground ourselves in what the system actually has to compute before we get into the architecture.</p>
-
-<p>Driver location tracking is the most fundamental input. You need to know where every active driver is, right now, with as little latency as possible. This is a continuous stream problem, not a query problem.</p>
-
-<p>Rider pickup estimation is the first ETA users see. How long until the driver reaches the pickup location? This depends on the driver&rsquo;s current position, the route to the pickup, live traffic, and how long the driver takes to pull over and start moving.</p>
-
-<p>Trip duration estimation is the second ETA users care about. Once the trip starts, how long until they arrive? This needs to account for the entire route ahead, not just current conditions.</p>
-
-<p>Real-time rerouting is what happens when conditions change mid-trip. A road closes. Traffic suddenly backs up. The system has to detect this, compute a new route, and update the ETA without the user even noticing the recalculation.</p>
-
-<p>Traffic prediction fills in the gaps between what the system knows right now and what it expects will happen in the next ten, twenty, thirty minutes as the trip progresses through different parts of the city.</p>
-
-<a name="High-Level.ETA.System.Architecture"></a>
-<h2>High-Level ETA System Architecture</h2>
-
-<p>Here is how the major systems talk to each other:</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Driver Mobile App];
-B[GPS Ingestion Service];
-C[Map Matching Service];
-D[Traffic Aggregation Service];
-E[Routing Engine];
-F[ETA Prediction Service];
-G[ML Inference Service];
-H[Rider Mobile App];
-I[Trip Orchestration Service];
-J[Kafka Event Bus];
-K[Redis Cache];
-L[Cassandra DB];
-A &#8211;>|GPS ping every 4s| B;
-B &#8211;>|raw location event| J;
-J &#8211;> C;
-J &#8211;> D;
-C &#8211;>|matched road position| E;
-D &#8211;>|traffic snapshot| E;
-E &#8211;>|candidate routes| F;
-F &#8211;> G;
-G &#8211;>|adjusted ETA| F;
-F &#8211;>|ETA result| K;
-I &#8211;>|trip state| F;
-H &#8211;>|ETA request| I;
-F &#8211;>|cached ETA| H;
-F &#8211;> L;
-</div>
-
-
-<p>The key insight in this architecture is that the ETA pipeline is event-driven, not request-driven. The system does not wait for someone to ask &ldquo;what is the ETA?&rdquo; before computing it. It continuously processes GPS events, traffic updates, and route recalculations in the background. When a rider&rsquo;s app asks for an ETA, the answer is already sitting in cache, ready to be served in single-digit milliseconds.</p>
-
-<p>This distinction matters enormously at scale. If every ETA request triggered a fresh route computation, you would need orders of magnitude more compute just to serve the read traffic.</p>
-
-<a name="GPS.Tracking.Pipeline"></a>
-<h2>GPS Tracking Pipeline</h2>
-
-<p>The GPS pipeline is the nervous system of the entire ETA operation. Without accurate, low-latency location data, everything else breaks.</p>
-
-<p>Every driver&rsquo;s phone runs an SDK that collects GPS readings. On a typical ride, the SDK sends a location update every four seconds. That might not sound like much, but multiply four-second pings across two million active drivers globally and you are processing roughly 500,000 GPS events per second at peak.</p>
-
-<div class="mermaid">
-flowchart LR;
-A[Driver Phone GPS];
-B[Location SDK];
-C[Mobile Network];
-D[GPS Ingestion Gateway];
-E[Kafka Topic: raw-gps];
-F[GPS Validator];
-G[Outlier Filter];
-H[Kafka Topic: clean-gps];
-A &#8211;>|raw coordinates| B;
-B &#8211;>|batched pings| C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-</div>
-
-
-<p>Raw GPS data is messy. Urban environments create what engineers call the &ldquo;urban canyon&rdquo; problem: tall buildings reflect and scatter GPS signals, causing the reported position to jump around by tens of meters even when a driver is sitting still. A driver traveling on an elevated highway might briefly appear to be on the surface street directly below. A driver going through a tunnel disappears entirely.</p>
-
-<p>The GPS validator handles basic sanity checks: speed limits (if the reported position implies the car is moving at 300 kilometers per hour, something is wrong), coordinate bounds, timestamp ordering, and signal quality scores.</p>
-
-<p>The outlier filter uses a Kalman filter or similar smoothing algorithm to maintain a best-guess position estimate and flag readings that deviate too far from the expected path. A Kalman filter essentially says: &ldquo;given where this driver was and how fast they were going, where should they be now?&rdquo; If the new reading is wildly different, it is weighted down or discarded.</p>
-
-<p>Battery optimization is a real constraint here. Aggressive GPS polling drains the driver&rsquo;s battery faster, which creates a bad driver experience and can cause drivers to turn off the app. The SDK uses adaptive polling — more frequent updates when the driver is actively navigating, less frequent when they are parked. It also leans on the phone&rsquo;s motion sensors to detect when the driver has stopped moving and back off the GPS frequency accordingly.</p>
-
-<a name="Map.Matching.System"></a>
-<h2>Map Matching System</h2>
-
-<p>Raw GPS coordinates tell you where a device thinks it is. Map matching tells you where the driver actually is on the road network.</p>
-
-<p>The difference is significant. If a driver is on a highway overpass, raw GPS might put them somewhere on the surface street below. If they are at an intersection, the GPS might float between three possible roads. Map matching takes the noisy GPS stream and snaps it to the most plausible road in the road graph.</p>
-
-<p>The standard approach is the Hidden Markov Model. The idea is elegant: you have a sequence of GPS observations, and a set of candidate road positions for each observation. The HMM asks: what sequence of road positions is most likely, given both how close each candidate is to the observed GPS point and how plausible the transitions between consecutive candidates are?</p>
-
-<p>The transition probability accounts for things like: is it physically possible to go from road segment A at time T to road segment B at time T+1 given the driver&rsquo;s speed? Are these segments connected in the road graph? Would this transition require making an illegal turn?</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Raw GPS Sequence];
-B[Candidate Road Segments];
-C[HMM Emission Probability];
-D[HMM Transition Probability];
-E[Viterbi Algorithm];
-F[Matched Road Position];
-A &#8211;> B;
-B &#8211;> C;
-B &#8211;> D;
-C &#8211;> E;
-D &#8211;> E;
-E &#8211;> F;
-</div>
-
-
-<p>Tunnels are the hardest case. The driver disappears from GPS for 30-60 seconds and reappears somewhere else. The map matcher needs to look at the entry point, the exit point, and the road graph to figure out the most likely path through the tunnel. In most cases this works well because tunnel paths are fixed. The failure mode is when a driver exits early or the tunnel has multiple exit points.</p>
-
-<p>Dense urban intersections are also tricky. A driver stopped at a light on a street with four lanes in each direction might be matching to any of eight possible road segments. Getting this wrong does not just affect position accuracy — it feeds incorrect traffic speed data back into the system, which then corrupts future ETA calculations for everyone on that road.</p>
-
-<a name="Routing.Engine.Deep.Dive"></a>
-<h2>Routing Engine Deep Dive</h2>
-
-<p>The routing engine is where ETA computation actually starts to take shape. Given a driver&rsquo;s current matched position and a destination, the engine needs to find the fastest route in real time.</p>
-
-<p>Road networks are modeled as directed weighted graphs. Every intersection is a node. Every road segment between intersections is a directed edge. The weight of each edge is not just its physical length — it is a composite cost function that includes estimated travel time based on current traffic speeds, turn penalties (left turns across traffic cost more time than right turns), road type (highway vs arterial vs residential), and historical speed data for this time of day.</p>
-
-<p>Classic Dijkstra&rsquo;s algorithm finds the shortest path in a graph with non-negative edge weights. It is correct, but it explores too many nodes to be practical on a road graph covering an entire city. Starting from a source and expanding outward in all directions, it wastes computation on nodes that are clearly not on the path toward the destination.</p>
-
-<p>A* improves on Dijkstra by using a heuristic — usually straight-line distance to the destination — to guide the search toward the goal. This dramatically reduces the number of nodes explored and makes routing fast enough for real-time use in moderately dense road graphs.</p>
-
-<p>For continental-scale routing or fast query performance over very large graphs, Uber and similar systems use Contraction Hierarchies. The idea is to preprocess the graph by &ldquo;contracting&rdquo; less important nodes and adding shortcut edges that represent multi-hop paths. At query time, the search runs on a much smaller graph and reconstructs the full path afterward.</p>
-
-<div class="mermaid">
-flowchart LR;
-A[Driver Position];
-B[Destination];
-C[Road Graph];
-D[Traffic Weights];
-E[Turn Penalties];
-F[A-Star Search];
-G[Candidate Route];
-H[Route Scorer];
-I[Optimal Route];
-A &#8211;> F;
-B &#8211;> F;
-C &#8211;> F;
-D &#8211;> H;
-E &#8211;> H;
-F &#8211;> G;
-G &#8211;> H;
-H &#8211;> I;
-</div>
-
-
-<p>The routing engine also handles rerouting during active trips. When the system detects that a driver has deviated from the planned route or that traffic conditions have changed significantly, it triggers a re-route. The challenge here is avoiding flip-flopping: if two routes have nearly identical costs, you do not want the driver being bounced between them every 30 seconds as minor traffic fluctuations tip the balance. Engineers add hysteresis to the rerouting logic — only reroute if the new path is significantly faster than the current one, not just marginally.</p>
-
-<a name="Real-Time.Traffic.System"></a>
-<h2>Real-Time Traffic System</h2>
-
-<p>Traffic state is the most important input to ETA after the route itself. Getting it right is a continuous data engineering problem.</p>
-
-<p>The primary source of traffic data is the drivers themselves. Every GPS update from every active driver carries implicit speed information: if a driver on a known road segment was at position A four seconds ago and is now at position B, you can compute their speed on that segment. Aggregate this across all drivers on the same segment and you have a real-time speed estimate.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Driver GPS Stream];
-B[Speed Inference Service];
-C[Road Segment Speed Store];
-D[Historical Speed Patterns];
-E[Traffic Aggregator];
-F[Traffic Snapshot];
-G[Routing Engine];
-H[ETA Service];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> E;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-F &#8211;> H;
-</div>
-
-
-<p>This is a beautiful example of turning a byproduct (location data collected for dispatch purposes) into a product feature (real-time traffic). But it has a cold start problem: in areas with few active Uber drivers, the traffic signal is sparse or absent. In those cases, the system falls back to historical patterns and whatever external traffic data sources it can access.</p>
-
-<p>Historical traffic patterns are stored as speed profiles for each road segment, indexed by day of week and hour of day. Monday morning rush hour on the 101 in San Francisco has a very predictable signature. The system builds these profiles from months of accumulated trip data and uses them to fill in gaps in real-time coverage.</p>
-
-<p>Event detection is another layer. The traffic system watches for sudden changes in speed patterns that might indicate an accident or road closure. If a segment that normally flows at 60 km/h suddenly drops to 10 km/h, that is a signal worth propagating to the routing engine immediately, not waiting for the next scheduled update.</p>
-
-<a name="Machine.Learning.ETA.Prediction"></a>
-<h2>Machine Learning ETA Prediction</h2>
-
-<p>Here is the uncomfortable truth about rule-based ETA systems: they are wrong in predictable ways, and machine learning can fix most of those systematic errors.</p>
-
-<p>A pure routing-based ETA takes the planned route, applies current and historical traffic speeds, and computes an expected travel time. This ignores dozens of factors that a trained model can learn: the tendency for pickups near certain venues to take longer because of loading zone situations; the pattern where certain highway on-ramps add 3-4 minutes during specific hours that the speed data does not fully capture; the fact that certain drivers consistently arrive 90 seconds faster than the route prediction suggests.</p>
-
-<p>The ETA prediction model sits on top of the routing output and corrects it.</p>
-
-<p>Feature engineering for this model is where most of the work happens. The features include the raw route-based ETA from the routing engine, real-time speeds on key segments along the route, historical speed variance for those segments at this time and day, weather conditions, the number of other Uber trips currently on the same route segments, the driver&rsquo;s historical ETA accuracy (some drivers are systematically faster or slower than average), pickup zone type, and more.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Route ETA from Routing Engine];
-B[Real-Time Traffic Features];
-C[Historical Pattern Features];
-D[Driver Behavior Features];
-E[Weather Features];
-F[City Context Features];
-G[Feature Vector Assembly];
-H[ML Model Inference];
-I[Corrected ETA];
-A &#8211;> G;
-B &#8211;> G;
-C &#8211;> G;
-D &#8211;> G;
-E &#8211;> G;
-F &#8211;> G;
-G &#8211;> H;
-H &#8211;> I;
-</div>
-
-
-<p>The model architecture that tends to work best for this kind of structured prediction problem is gradient boosted trees (XGBoost, LightGBM). These models handle tabular features well, are fast to inference, can be updated incrementally as new trip data arrives, and produce well-calibrated predictions. Deep learning approaches (LSTMs for capturing temporal sequence patterns, graph neural networks for road topology) are used for specific subproblems but add latency and complexity.</p>
-
-<p>One of the most important things the ML system does is quantify uncertainty. Rather than just predicting &ldquo;14 minutes,&rdquo; the system can predict &ldquo;14 minutes with a 90% confidence interval of 12-18 minutes.&rdquo; This is used downstream for things like showing ranges in the app and for the ride matching algorithm to account for uncertainty in supply-demand balancing.</p>
-
-<p>Online learning is the practice of updating the model continuously as new labeled examples arrive. Each completed trip generates a ground truth: the predicted ETA at trip start versus the actual duration. These examples can be used to retrain the model or update its parameters in near-real-time. The challenge is avoiding training on biased samples — if drivers who take longer routes are less likely to complete trips, the training data skews toward fast completions.</p>
-
-<a name="Geo-Spatial.Infrastructure"></a>
-<h2>Geo-Spatial Infrastructure</h2>
-
-<p>Finding drivers near a pickup location, or finding which road segments are relevant to a query, requires efficient geo-spatial indexing. Doing this at scale means you cannot afford expensive distance calculations on every record.</p>
-
-<p>GeoHash divides the Earth&rsquo;s surface into a hierarchical grid of cells. Each cell is identified by a short string, and cells with similar prefixes are geographically close to each other. This turns 2D proximity queries into 1D prefix searches, which traditional databases can handle with index scans.</p>
-
-<p>QuadTrees are an alternative spatial index that recursively divides a 2D region into four quadrants. They work well when data is unevenly distributed (like drivers, who cluster in city centers) because the tree adapts its density to match the data density.</p>
-
-<p>For road graph queries, Uber partitions the global road graph into geographic tiles. Each tile contains the full topology of its region plus information about how to join the edges that cross tile boundaries. This lets the routing engine load only the tiles relevant to a given trip, rather than the entire global graph.</p>
-
-<p>The nearby driver search is a classic problem in geo-spatial systems. Given a pickup location, find all drivers within X kilometers. With GeoHash, you convert the pickup location to a GeoHash cell and query all drivers in that cell and its neighbors. The neighbor lookup is the tricky part — with GeoHash, you have to handle cell boundaries carefully to avoid missing drivers just on the other side of a cell edge.</p>
-
-<div class="mermaid">
-flowchart LR;
-A[Pickup Location];
-B[GeoHash Encoder];
-C[Cell and Neighbors];
-D[Driver Location Store];
-E[Candidate Drivers];
-F[Distance Filter];
-G[Available Drivers];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-</div>
-
-
-<a name="Streaming.Systems.and.Real-Time.Pipelines"></a>
-<h2>Streaming Systems and Real-Time Pipelines</h2>
-
-<p>Everything we have described so far — GPS processing, traffic aggregation, ETA updates — happens continuously, not in batch. The backbone is a streaming data platform.</p>
-
-<p>Kafka is the message bus that connects these systems. GPS events flow from drivers into Kafka topics. Stream processors consume from these topics, do their work (map matching, speed aggregation, ETA recalculation), and produce into other Kafka topics. The result is a series of processing stages, each consuming and producing events, with the final ETA sitting in a cache ready to serve.</p>
-
-<div class="mermaid">
-flowchart LR;
-A[GPS Events Topic];
-B[Map Matcher Consumer];
-C[Matched Location Topic];
-D[Speed Aggregator];
-E[Traffic Topic];
-F[ETA Recompute Service];
-G[ETA Cache];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-C &#8211;> F;
-E &#8211;> F;
-F &#8211;> G;
-</div>
-
-
-<p>Windowed aggregations are how the traffic system computes road segment speeds. A sliding window over the last 5 minutes of GPS events for a given road segment gives you the current average speed. Flink and similar stream processing frameworks handle this natively.</p>
-
-<p>Late-arriving events are a real operational problem. GPS pings sometimes get buffered on the device because of network connectivity and arrive out of order. A naive system that processes events in arrival order will compute incorrect speeds. The proper handling is to use event time (the timestamp from the device) rather than processing time (when the system received it), and to hold a short watermark window to allow late events to be incorporated before finalizing computations.</p>
-
-<p>Exactly-once processing matters when events drive state changes. If a GPS event is processed twice (due to a consumer restart), you do not want it counted twice in the traffic average. Kafka and Flink together support exactly-once semantics through transactional commits.</p>
-
-<a name="Database.Design"></a>
-<h2>Database Design</h2>
-
-<p>The ETA system touches several different data stores, each chosen for specific access patterns.</p>
-
-<p>Cassandra stores driver location history and GPS event archives. It is designed for high write throughput, which matches the GPS ingestion workload. Reads are by driver ID and time range, which fits Cassandra&rsquo;s partition key model well. Cassandra&rsquo;s eventual consistency is acceptable here because we do not need perfect accuracy for historical location data.</p>
-
-<p>Redis is the primary cache for current driver positions and recent ETA computations. Sub-millisecond read latency is essential when the app is refreshing the driver&rsquo;s position on the map every few seconds. Redis Sorted Sets are particularly useful for geo-spatial queries — you can store driver IDs scored by GeoHash and do range queries to find nearby drivers.</p>
-
-<p>A time-series database like InfluxDB or TimescaleDB stores traffic speed snapshots per road segment over time. The access pattern is: give me the average speed on segment X for the last 30 days at 5pm on Tuesdays. Time-series databases have native support for these kinds of downsampled historical queries.</p>
-
-<p>PostgreSQL with PostGIS handles the road graph and map data. Road segments, intersection topology, turn restrictions, and speed limits are relational data with complex relationships. PostGIS adds the geo-spatial query capability needed to find all road segments within a bounding box or compute the length of a geometry.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Data Store</th>
-        <th>What It Stores</th>
-        <th>Why This Choice</th>
-        <th>Key Access Pattern</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Cassandra</td>
-        <td>GPS events, driver history</td>
-        <td>High write throughput, time-series partitioning</td>
-        <td>Write-heavy, read by driver + time range</td>
-      </tr>
-      <tr>
-        <td>Redis</td>
-        <td>Current driver positions, ETA cache</td>
-        <td>Sub-millisecond reads, geo-sorted sets</td>
-        <td>Point reads, nearby driver lookup</td>
-      </tr>
-      <tr>
-        <td>InfluxDB / TimescaleDB</td>
-        <td>Road segment speed history</td>
-        <td>Native time-series aggregations</td>
-        <td>Historical speed profiles by segment + time</td>
-      </tr>
-      <tr>
-        <td>PostgreSQL + PostGIS</td>
-        <td>Road graph, map topology</td>
-        <td>Relational integrity, spatial queries</td>
-        <td>Road graph traversal, spatial bounding box queries</td>
-      </tr>
-      <tr>
-        <td>Elasticsearch</td>
-        <td>Address search, place names</td>
-        <td>Full-text search, geo-distance queries</td>
-        <td>Destination autocomplete, address resolution</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>GPS event schema in Cassandra might look like this:</p>
-
-<pre><code class="sql">CREATE TABLE gps_events (
-  driver_id    UUID,
-  event_time   TIMESTAMP,
-  latitude     DOUBLE,
-  longitude    DOUBLE,
-  speed_kmh    FLOAT,
-  heading      FLOAT,
-  accuracy_m   FLOAT,
-  PRIMARY KEY (driver_id, event_time)
-) WITH CLUSTERING ORDER BY (event_time DESC);
-</code></pre>
-
-<p>The partition key is driver_id so all events for a driver land on the same partition. The clustering key is event_time descending so the most recent events come back first on any range scan.</p>
-
-<a name="Caching.and.Performance.Optimization"></a>
-<h2>Caching and Performance Optimization</h2>
-
-<p>The ETA system has to serve sub-200ms responses to millions of concurrent users. Caching is not an optimization — it is a core architectural requirement.</p>
-
-<p>Route caching stores the computed route between two fixed points. If a driver is picking up a rider at a major landmark, there might be thousands of pickups from that location per day. The optimal route from a given origin-destination pair does not change dramatically minute-to-minute. The routing engine can serve cached routes for common pairs and only run the full graph traversal for novel queries.</p>
-
-<p>ETA results are cached at the trip level and invalidated when conditions change meaningfully. The definition of &ldquo;meaningfully&rdquo; matters here. A 10-second change in ETA does not warrant a cache invalidation. A 2-minute change does, especially if the trip has just started. Engineers tune these thresholds based on user research about when ETA changes are noticeable and frustrating.</p>
-
-<p>Traffic tile caching stores pre-computed traffic overlays for geographic tiles. Instead of assembling the traffic picture from raw speed data on every routing request, the system periodically bakes traffic speeds into the road graph weights and serves those cached weights. This shifts computation from query time to background processing.</p>
-
-<p>Hotspot mitigation handles the &ldquo;stadium effect&rdquo;: when a venue lets out and thousands of riders all request Uber simultaneously from the same location, the nearby driver search and ETA computation for that area gets hammered. One approach is to pre-compute and warm the cache for known high-demand zones before events end, using venue calendars and historical demand patterns.</p>
-
-<a name="Scaling.Uber.ETA.Systems"></a>
-<h2>Scaling Uber ETA Systems</h2>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>System Component</th>
-        <th>Primary Bottleneck</th>
-        <th>Scaling Strategy</th>
-        <th>Tradeoff</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>GPS Ingestion</td>
-        <td>Write throughput at peak</td>
-        <td>Kafka partition scaling, stateless consumers</td>
-        <td>More partitions increase consumer coordination overhead</td>
-      </tr>
-      <tr>
-        <td>Map Matching</td>
-        <td>HMM computation per driver</td>
-        <td>Stateful stream processors sharded by driver ID</td>
-        <td>Rebalancing shards is expensive when consumers restart</td>
-      </tr>
-      <tr>
-        <td>Routing Engine</td>
-        <td>Graph traversal CPU</td>
-        <td>Geo-sharded routing nodes, precomputed hierarchies</td>
-        <td>Cross-shard queries needed for long trips</td>
-      </tr>
-      <tr>
-        <td>ML Inference</td>
-        <td>Model load and feature assembly</td>
-        <td>Model server clusters, feature store caching</td>
-        <td>Model freshness vs inference latency tradeoff</td>
-      </tr>
-      <tr>
-        <td>Geo Queries</td>
-        <td>Nearby driver lookup frequency</td>
-        <td>Redis geo-sorted sets, read replicas</td>
-        <td>Eventual consistency on driver position reads</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>The GPS ingestion service is horizontally scaled: add more Kafka partitions and more consumer instances. Because GPS events from a given driver need to be processed in order, events for the same driver are routed to the same partition using driver ID as the partition key. This ensures ordering within a driver&rsquo;s event stream without requiring global ordering across all drivers.</p>
-
-<p>The routing engine is geo-sharded. Each routing node is responsible for a geographic region and holds the road graph for that region in memory. Routing queries within a single region are served locally. Long trips that cross shard boundaries require coordination between routing nodes, which is handled by a routing federation layer.</p>
-
-<p>Multi-region deployment is critical for latency. A rider in Mumbai should not have their ETA computed in a data center in Virginia. Routing and ETA services run in regional clusters close to the users they serve. Global state (like model weights) is replicated to all regions. Regional state (like driver positions) lives in the regional cluster and is not globally replicated.</p>
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<p>The ETA system has multiple failure modes that need graceful degradation rather than hard failures.</p>
-
-<p>GPS outages happen when drivers lose network connectivity. The map matcher maintains a dead reckoning estimate: given the last known position, heading, and speed, project forward in time to estimate the current position. This estimate degrades quickly (30-60 seconds before it becomes unreliable) but it is better than showing no position at all.</p>
-
-<p>Stale traffic data is handled by aging: if a road segment&rsquo;s speed data has not been refreshed in the last five minutes, the system starts blending it with historical averages, weighting toward historical as the data gets older. After a configurable threshold, the segment is treated as having only historical data.</p>
-
-<p>The fallback ETA system is a simplified rule-based model that can run without ML inference or live traffic data. It uses road type, distance, and time of day to produce a rough ETA. This fallback is less accurate but far more reliable — it has almost no external dependencies. When the full pipeline degrades, the fallback keeps the product functional.</p>
-
-<p>Monitoring the ETA system requires multiple layers:</p>
-
-<ul>
-<li>Infrastructure metrics: Kafka consumer lag, routing engine latency percentiles, ML model inference latency, cache hit rates</li>
-<li>Data quality metrics: GPS event rate per region (a sudden drop suggests ingestion issues), map matching confidence scores, ETA prediction confidence</li>
-<li>Business metrics: prediction accuracy measured against completed trips, the percentage of trips where actual duration exceeded predicted ETA by more than 20%, and driver arrival time accuracy</li>
-</ul>
-
-
-<a name="Engineering.Tradeoffs"></a>
-<h2>Engineering Tradeoffs</h2>
-
-<p>Real-time traffic versus historical traffic is the most fundamental tradeoff. Real-time data is more accurate for current conditions but noisy and sparse. Historical data is reliable but may be wrong when conditions deviate from norms. The right answer is a weighted blend, and the optimal weights change by scenario: for short trips in well-covered areas, real-time dominates; for long trips in sparse areas, historical patterns carry more weight.</p>
-
-<p>Latency versus accuracy is the tension every ML inference pipeline faces. A more complex model might produce 5% more accurate ETAs, but if it adds 50ms to the response time, the user experience degrades. Uber&rsquo;s serving infrastructure runs ML models behind latency SLAs — if a model cannot respond within its budget, the system falls back to a simpler model rather than waiting.</p>
-
-<p>Route freshness versus compute cost is a cache management problem. Recomputing routes continuously would give the most up-to-date routing decisions but would require enormous compute capacity. Caching routes for 2-3 minutes is cheap but might miss a road that closed 90 seconds ago. The engineering decision is to cache most routes but subscribe to real-time road closure events and invalidate affected cached routes immediately.</p>
-
-<p>The ML model update cadence involves a tradeoff between recency and stability. A model retrained daily incorporates recent driving patterns but might overfit to anomalies. A model retrained weekly is more stable but slower to adapt to new construction patterns or changed traffic conditions. Production systems typically run a shadow evaluation: the new model runs alongside the old one for a period before being promoted, with accuracy metrics compared before any traffic is switched.</p>
-
-<a name="Real-World.Technology.Stack"></a>
-<h2>Real-World Technology Stack</h2>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Technology</th>
-        <th>Role in ETA System</th>
-        <th>Why It Fits</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Go</td>
-        <td>GPS ingestion, routing service</td>
-        <td>Low latency, high concurrency, small memory footprint per goroutine</td>
-      </tr>
-      <tr>
-        <td>Java / Kotlin</td>
-        <td>Core platform services, stream processing</td>
-        <td>JVM ecosystem, mature Kafka client libraries, Flink runs on JVM</td>
-      </tr>
-      <tr>
-        <td>Python</td>
-        <td>ML model training, feature engineering</td>
-        <td>Rich ML ecosystem (XGBoost, TensorFlow, Pandas), fast prototyping</td>
-      </tr>
-      <tr>
-        <td>Kafka</td>
-        <td>Event streaming backbone</td>
-        <td>High throughput, durable, consumer group scaling, replay capability</td>
-      </tr>
-      <tr>
-        <td>Flink</td>
-        <td>Stateful stream processing</td>
-        <td>Exactly-once semantics, event-time windowing, managed state</td>
-      </tr>
-      <tr>
-        <td>Redis</td>
-        <td>Driver position cache, ETA cache</td>
-        <td>Sub-millisecond reads, geo-sorted sets, atomic operations</td>
-      </tr>
-      <tr>
-        <td>Cassandra</td>
-        <td>GPS event store, driver history</td>
-        <td>Linear write scalability, tunable consistency, time-series friendly</td>
-      </tr>
-      <tr>
-        <td>PostgreSQL + PostGIS</td>
-        <td>Road graph, map data</td>
-        <td>Spatial indexing, complex relational queries, battle-tested</td>
-      </tr>
-      <tr>
-        <td>Kubernetes</td>
-        <td>Service orchestration</td>
-        <td>Pod autoscaling for traffic bursts, rolling deployments, health checks</td>
-      </tr>
-      <tr>
-        <td>XGBoost / LightGBM</td>
-        <td>ETA correction model</td>
-        <td>Fast inference, handles tabular features, well-calibrated predictions</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>Go is particularly well-suited for the high-concurrency ingestion services because its goroutine model handles tens of thousands of concurrent connections cheaply. A single Go service can ingest GPS events from hundreds of thousands of drivers without the thread-per-connection overhead that would bottleneck a Java service.</p>
-
-<p>Flink over raw Kafka consumers for stream processing is worth the operational overhead because Flink manages state consistency through checkpointing. If a stream processor crashes, Flink restores its state from the last checkpoint and resumes processing from exactly where it left off. Without this, a crash would either reprocess events (causing double-counting in traffic aggregations) or miss events entirely.</p>
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>When an interviewer asks you to design Uber&rsquo;s ETA system, they are testing several things simultaneously: your ability to decompose a complex problem, your knowledge of distributed systems primitives, your understanding of data pipelines, and your sense for what actually matters versus what is premature optimization.</p>
-
-<p>Start with the problem definition. Many candidates jump straight into drawing services and databases. Better candidates start by asking: what does the system need to do? What are the latency requirements? How accurate does the ETA need to be? How many concurrent users? This framing shows you understand that architecture follows requirements.</p>
-
-<p>Then establish the data flows before the system components. Where does the input data come from? (GPS events from drivers.) Where does it need to go? (ETA on the rider&rsquo;s screen.) What transformations happen in between? (Map matching, routing, ML adjustment, caching.) This mental model of data flow makes the architectural diagram feel inevitable rather than arbitrary.</p>
-
-<p>When you draw the architecture, focus on the critical path first. The critical path for ETA is: GPS event from driver arrives, gets map-matched, goes into routing, gets ML-adjusted, gets cached, gets served to the rider&rsquo;s app. Everything else is supporting infrastructure. Candidates who get lost designing the admin dashboard or the reporting pipeline before the critical path has been addressed are not demonstrating good engineering judgment.</p>
-
-<p>Interviewers will probe your bottlenecks. &ldquo;What breaks first when your system gets 10x more drivers?&rdquo; Be ready to walk through: GPS ingestion throughput, Kafka partition limits, stream processing consumer lag, routing engine CPU, ML inference latency, and cache memory. For each one, know the mitigation: horizontal scaling, sharding strategy, caching, async processing, or model simplification.</p>
-
-<p>Common mistakes to avoid: designing a request-response system where ETA is computed on-demand rather than pre-computed; forgetting the map matching step and assuming raw GPS is usable directly; treating ML as a magic box without discussing features and training data; ignoring the failure modes and assuming happy path throughout; focusing on exact consistency when eventual consistency is perfectly acceptable for ETA data.</p>
-
-<p>Strong candidates discuss the ML model&rsquo;s role with nuance. They explain why static routing is not enough, what features the model would use, how the model is trained and updated, and what the fallback is when ML inference is unavailable. They also acknowledge the feedback loop: ETA predictions affect driver and rider behavior, which affects the actual trip duration, which feeds back into training data.</p>
-
-<p>The best answers in these interviews feel like the candidate has actually thought about building this system rather than having memorized a template. That means discussing real tradeoffs, acknowledging uncertainty, and being willing to say &ldquo;here I would run an experiment to determine the right threshold&rdquo; rather than inventing a precise number with false confidence.</p>
-
-<a name="Closing.Thoughts"></a>
-<h2>Closing Thoughts</h2>
-
-<p>That number on your screen — &ldquo;3 minutes&rdquo; — is the output of a genuinely impressive engineering system. GPS streams flowing from hundreds of thousands of devices every few seconds. Map matching algorithms keeping every driver pinned to the correct road. A routing engine traversing a weighted graph of continental scale in milliseconds. Traffic aggregation systems turning driver speed data into real-time congestion maps. ML models layered on top to correct for all the systematic biases that physics-based models cannot capture. Caches keeping the whole thing fast enough to feel instantaneous.</p>
-
-<p>What makes this system interesting to study is that almost every design decision has a clear reason rooted in real engineering constraints. The pre-computation model exists because ETA read traffic dwarfs write traffic. The Kafka event bus exists because the system is fundamentally event-driven. The hybrid traffic model exists because real-time data is noisy and historical data is stale. The geo-sharded routing engine exists because road graph traversal is CPU-intensive and network round trips add latency.</p>
-
-<p>If you are preparing for a system design interview or trying to build something similar, the key takeaway is this: understand the data flows first, understand the access patterns second, and let the component choices follow naturally from those constraints. The technology stack matters far less than the clarity of thought about what problem each part of the system is actually solving.</p>
 ]]></content>
     </entry>
     

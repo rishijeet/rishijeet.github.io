@@ -1,24 +1,121 @@
-<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-
-    <title><![CDATA[Category: kafka | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
-    <link href="https://rishijeet.github.io/blog/categories/kafka/atom.xml" rel="self"/>
-    <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-17T14:04:39+05:30</updated>
-    <id>https://rishijeet.github.io/</id>
-    <author>
-        <name><![CDATA[Rishijeet Mishra]]></name>
-        <email><![CDATA[rishijeet@gmail.com]]></email>
-      </author>
-    <generator uri="http://octopress.org/">Octopress</generator>
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
 
     
-    <entry>
-        <title type="html"><![CDATA[How Kafka Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-kafka-works/"/>
-        <updated>2026-05-17T10:59:43+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-kafka-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>There is a moment in every backend engineer&rsquo;s career when a simple queue stops being enough. Maybe you&rsquo;re logging user activity to a database and the writes start choking the system. Maybe you&rsquo;re moving data between microservices with REST calls and latency starts creeping up. Maybe a product team asks for &ldquo;real-time analytics&rdquo; and you start wondering what that even means at scale.</em></p></blockquote>
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>How Kafka Works? - Rishijeet Mishra | Technologist | Tech Trends & Development Blog</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Bridging tech and education - Rishijeet Mishra's insights on digital learning">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/how-kafka-works">
+
+        <link href='https://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+         <!--adding the font awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra | Technologist | Tech Trends & Development Blog" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/system-design/">System Design</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">How Kafka Works?</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-17T10:59:43+05:30" pubdate><i class="fa fa-calendar"></i> May 17th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/kafka/'>kafka</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <blockquote><p><em>There is a moment in every backend engineer&rsquo;s career when a simple queue stops being enough. Maybe you&rsquo;re logging user activity to a database and the writes start choking the system. Maybe you&rsquo;re moving data between microservices with REST calls and latency starts creeping up. Maybe a product team asks for &ldquo;real-time analytics&rdquo; and you start wondering what that even means at scale.</em></p></blockquote>
 
 <p><img src="/images/system_design/kafka.avif" height="300" width="900" alt="Alt text" /></p>
 
@@ -60,7 +157,7 @@
 
 <p><strong>Stream processing</strong> in Kafka refers to the Kafka Streams API and the ecosystem around it, which lets you build stateful, real-time processing pipelines that consume from topics, transform or aggregate data, and write results back to topics.</p>
 
-<p>Also read <i><a href="https://rishijeet.github.io/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components/">Advanced Apache Kafka Anatomy</a></i> for fundamental concepts.</p>
+<p>Also read <i><a href="/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components/">Advanced Apache Kafka Anatomy</a></i> for fundamental concepts.</p>
 
 <a name="High-Level.Kafka.Architecture"></a>
 <h2>High-Level Kafka Architecture</h2>
@@ -534,461 +631,247 @@ KS &#8211;>|Write Results| SK;
 <p>Everything in Kafka&rsquo;s architecture is a consequence of that core idea, shaped by the realities of distributed systems: network partitions happen, disk seeks are slow, memory is finite, and consumers sometimes fall behind. Understanding the idea and the constraints that shaped it is what makes Kafka&rsquo;s design not just intelligible but intuitive.</p>
 
 <p>The engineers who built Kafka at LinkedIn were solving a real problem under real production constraints. The result was not the last word in distributed messaging (there are systems with different tradeoffs worth knowing), but it was a remarkably well-considered answer to the question of how you move large amounts of data between systems reliably, at scale, and without tight coupling. That question doesn&rsquo;t go away. If anything, it becomes more pressing as systems grow. Which is probably why Kafka is still here, still evolving, and still worth understanding deeply.</p>
-]]></content>
-    </entry>
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
     
-    <entry>
-        <title type="html"><![CDATA[Advanced Apache Kafka Anatomy: Delving Deep into the Core Components]]></title>
-        <link href="https://rishijeet.github.io/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components/"/>
-        <updated>2024-06-27T09:55:12+05:30</updated>
-        <id>https://rishijeet.github.io/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components</id>
-        <content type="html"><![CDATA[<p>Apache Kafka has become a cornerstone of modern data architectures, renowned for its ability to handle high-throughput, low-latency data streams. While its fundamental concepts are widely understood, a deeper dive into Kafka’s advanced components and features reveals the true power and flexibility of this distributed event streaming platform. This blog aims to unravel the advanced anatomy of Apache Kafka, offering insights into its core components, configurations, and best practices for optimizing performance.</p>
-
-<a name="Core.Components.of.Kafka"></a>
-<h2>Core Components of Kafka</h2>
-
-<a name="Brokers"></a>
-<h3>Brokers</h3>
-
-<p><strong>Brokers</strong> are the backbone of a Kafka cluster, responsible for managing data storage, processing requests from clients, and replicating data to ensure fault tolerance.</p>
-
-<p><img src="/images/2024/kafka_broker.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<ul>
-<li><strong>Leader and Follower Roles</strong>: Each topic partition has a leader broker that handles all read and write requests for that partition, while follower brokers replicate the leader’s data to ensure high availability.</li>
-<li><strong>Scalability</strong>: Kafka’s design allows for easy scaling by adding more brokers to distribute the load and improve throughput.</li>
-</ul>
-
-
-<a name="Topics.and.Partitions"></a>
-<h3>Topics and Partitions</h3>
-
-<p><strong>Topics</strong> are categories to which records are published. Each topic can be divided into multiple partitions, which are the basic unit of parallelism and scalability in Kafka.</p>
-
-<ul>
-<li><strong>Partitioning Strategy</strong>: Proper partitioning is crucial for load balancing and ensuring efficient data distribution across the cluster. Common strategies include key-based partitioning and round-robin distribution.</li>
-<li><strong>Replication</strong>: Partitions can be replicated across multiple brokers to provide redundancy and high availability. The replication factor determines the number of copies of a partition in the cluster.</li>
-</ul>
-
-
-<!--more-->
-
-
-<a name="Producers"></a>
-<h3>Producers</h3>
-
-<p><strong>Producers</strong> are responsible for publishing records to Kafka topics.</p>
-
-<p><img src="/images/2024/kafka_producers.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<ul>
-<li><strong>Acknowledgments</strong>: Configurable acknowledgment settings (<code>acks</code>) determine how many broker acknowledgments the producer requires before considering a request complete (<code>acks=0</code>, <code>acks=1</code>, or <code>acks=all</code>).</li>
-<li><strong>Batching and Compression</strong>: Producers can batch multiple records into a single request to improve throughput and enable data compression to reduce the size of the data being transferred.</li>
-</ul>
-
-
-<a name="Consumers"></a>
-<h3>Consumers</h3>
-
-<p><strong>Consumers</strong> subscribe to topics and process the records published to them.</p>
-
-<ul>
-<li><strong>Consumer Groups</strong>: Consumers operate as part of a group, where each consumer in a group reads from a unique set of partitions. This allows for parallel processing and ensures that records are processed by a single consumer.</li>
-<li><strong>Offset Management</strong>: Consumers track their position in each partition by maintaining offsets, which can be automatically committed at intervals or manually managed for precise control over record processing.</li>
-</ul>
-
-
-<a name="ZooKeeper"></a>
-<h3>ZooKeeper</h3>
-
-<p><strong>ZooKeeper</strong> is a critical component in Kafka&rsquo;s ecosystem, used for cluster coordination and configuration management.</p>
-
-<ul>
-<li><strong>Leader Election</strong>: ZooKeeper helps manage the leader election process for partition leaders and the Kafka controller.</li>
-<li><strong>Metadata Storage</strong>: Stores metadata about the Kafka cluster, including broker information, topic configurations, and access control lists.</li>
-</ul>
-
-
-<a name="Advanced.Kafka.Features"></a>
-<h2>Advanced Kafka Features</h2>
-
-<a name="Kafka.Connect"></a>
-<h3>Kafka Connect</h3>
-
-<p><strong>Kafka Connect</strong> is a robust framework for integrating Kafka with external systems.</p>
-
-<p><img src="/images/2024/kafka_connect.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<ul>
-<li><strong>Source Connectors</strong>: Import data from external systems (e.g., databases, file systems) into Kafka topics.</li>
-<li><strong>Sink Connectors</strong>: Export data from Kafka topics to external systems (e.g., databases, data lakes).</li>
-</ul>
-
-
-<a name="Kafka.Streams"></a>
-<h3>Kafka Streams</h3>
-
-<p><strong>Kafka Streams</strong> is a powerful library for building stream processing applications on top of Kafka.</p>
-
-<p><img src="/images/2024/kafka_streams.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<ul>
-<li><strong>KStream and KTable</strong>: Core abstractions for modeling streams of records and tables of changelog records, respectively.</li>
-<li><strong>Stateful Processing</strong>: Enables operations like joins, aggregations, and windowing, with support for local state stores and fault-tolerant state management.</li>
-</ul>
-
-
-<a name="Schema.Registry"></a>
-<h3>Schema Registry</h3>
-
-<p><strong>Schema Registry</strong> is a centralized service for managing and validating schemas used by Kafka producers and consumers.</p>
-
-<p><img src="/images/2024/schema-registry-and-kafka.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<ul>
-<li><strong>Avro, JSON, and Protobuf</strong>: Supports multiple schema formats, ensuring data consistency and compatibility across different applications.</li>
-<li><strong>Schema Evolution</strong>: Facilitates schema versioning and evolution, allowing for backward and forward compatibility.</li>
-</ul>
-
-
-<a name="Best.Practices.for.Kafka.Performance.Optimization"></a>
-<h2>Best Practices for Kafka Performance Optimization</h2>
-
-<a name="Configuring.Brokers"></a>
-<h3>Configuring Brokers</h3>
-
-<ul>
-<li><strong>Heap Size</strong>: Set an appropriate heap size for Kafka brokers to prevent memory issues. Typically, 4-8 GB is recommended.</li>
-<li><strong>Log Retention</strong>: Configure log retention policies (<code>log.retention.hours</code>, <code>log.retention.bytes</code>) to manage disk usage and comply with data retention requirements.</li>
-</ul>
-
-
-<a name="Optimizing.Producers"></a>
-<h3>Optimizing Producers</h3>
-
-<ul>
-<li><strong>Batch Size and Linger</strong>: Adjust <code>batch.size</code> and <code>linger.ms</code> to balance latency and throughput. Larger batch sizes and longer linger times can improve throughput at the cost of increased latency.</li>
-<li><strong>Compression Type</strong>: Enable compression (<code>compression.type</code>) to reduce network bandwidth usage. Common options include <code>gzip</code>, <code>snappy</code>, and <code>lz4</code>.</li>
-</ul>
-
-
-<a name="Tuning.Consumers"></a>
-<h3>Tuning Consumers</h3>
-
-<ul>
-<li><strong>Fetch Size</strong>: Configure <code>fetch.min.bytes</code> and <code>fetch.max.wait.ms</code> to control the amount of data fetched in each request and the maximum wait time, balancing latency and throughput.</li>
-<li><strong>Offset Commit Frequency</strong>: Adjust <code>auto.commit.interval.ms</code> for automatic offset commits or implement manual offset management for finer control over record processing.</li>
-</ul>
-
-
-<a name="Ensuring.High.Availability"></a>
-<h3>Ensuring High Availability</h3>
-
-<ul>
-<li><strong>Replication Factor</strong>: Set an appropriate replication factor for topics to ensure data redundancy and fault tolerance. A replication factor of 3 is common in production environments.</li>
-<li><strong>ISR (In-Sync Replicas)</strong>: Monitor the number of in-sync replicas (<code>min.insync.replicas</code>) to ensure that there are enough replicas to maintain data consistency and durability.</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>Apache Kafka’s advanced anatomy reveals a powerful and flexible system capable of handling the most demanding data streaming requirements. By understanding its core components, leveraging advanced features like Kafka Connect and Kafka Streams, and adhering to best practices for performance optimization, you can harness the full potential of Kafka in your data architecture. Whether you’re building real-time analytics, event-driven microservices, or data integration pipelines, Kafka provides the foundation for scalable, resilient, and high-performance data streaming solutions.</p>
-]]></content>
-    </entry>
     
-    <entry>
-        <title type="html"><![CDATA[Event-Driven Architecture: Unlocking Modern Application Potential]]></title>
-        <link href="https://rishijeet.github.io/blog/event-driven-architecture-unlocking-modern-application-potential/"/>
-        <updated>2024-06-26T09:27:40+05:30</updated>
-        <id>https://rishijeet.github.io/blog/event-driven-architecture-unlocking-modern-application-potential</id>
-        <content type="html"><![CDATA[<p>In today&rsquo;s fast-paced digital landscape, real-time data processing and responsive systems are becoming increasingly crucial. Traditional request-response architectures often struggle to keep up with the demands of modern applications, which require scalable, resilient, and decoupled systems. Enter event-based architecture—a paradigm that addresses these challenges by enabling systems to react to changes and events as they happen.</p>
-
-<p>In this blog, we&rsquo;ll explore the key concepts, benefits, and components of modern event-based architecture, along with practical examples and best practices for implementation.</p>
-
-<a name="What.is.Event-Based.Architecture."></a>
-<h2>What is Event-Based Architecture?</h2>
-
-<p>Event-based architecture is a design pattern in which system components communicate by producing and consuming events. An event is a significant change in state or an occurrence that is meaningful to the system, such as a user action, a data update, or an external trigger. Instead of directly calling methods or services, components publish events to an event bus, and other components subscribe to these events to perform actions in response.</p>
-
-<p><img src="/images/2024/glossary-eda.svg" height="300" width="900" alt="Alt text" /><em>Source: Hazelcast</em></p>
-
-<a name="Components.of.Modern.Event-Based.Architecture"></a>
-<h2>Components of Modern Event-Based Architecture</h2>
-
-<a name="Event.Producers"></a>
-<h3>Event Producers</h3>
-
-<p>Event producers are responsible for generating events. These can be user interfaces, IoT devices, data ingestion services, or any other source that generates meaningful events. Producers publish events to the event bus without needing to know who will consume them.</p>
-
-<a name="Event.Consumers"></a>
-<h3>Event Consumers</h3>
-
-<p>Event consumers subscribe to specific events and react to them. Consumers can perform various actions, such as updating databases, triggering workflows, sending notifications, or invoking other services. Each consumer processes events independently, allowing for parallel and asynchronous processing.</p>
-
-<a name="Event.Bus"></a>
-<h3>Event Bus</h3>
-
-<p>The event bus is the backbone of an event-based architecture. It routes events from producers to consumers, ensuring reliable and scalable communication. Common implementations of an event bus include message brokers like Apache Kafka, RabbitMQ, and Amazon SNS/SQS.</p>
-
-<a name="Event.Streams.and.Storage"></a>
-<h3>Event Streams and Storage</h3>
-
-<p>Event streams are continuous flows of events that can be processed in real-time or stored for batch processing and historical analysis. Stream processing frameworks like Apache Kafka Streams, Apache Flink, and Apache Storm enable real-time processing of event streams.</p>
-
-<a name="Event.Processing.and.Transformation"></a>
-<h3>Event Processing and Transformation</h3>
-
-<p>Event processing involves filtering, aggregating, and transforming events to derive meaningful insights and trigger actions. Complex Event Processing (CEP) engines and stream processing frameworks are often used to handle sophisticated event processing requirements.</p>
-
-<!--more-->
 
 
-<a name="Practical.Example"></a>
-<h2>Practical Example</h2>
-
-<p>Let&rsquo;s map the modern event-based architecture to a coffee shop scenario with four key services: Product Service, Counter Service, Barista Service, and Kitchen Service. This analogy will help visualize how event-based systems work in a real-world context.</p>
-
-<p><img src="/images/2024/coffeeshop.svg" height="300" width="900" alt="Alt text" /><em>Source: <a href="https://github.com/thangchung/go-coffeeshop">Github</a></em></p>
-
-<a name="Services.in.the.Coffee.Shop"></a>
-<h3>Services in the Coffee Shop</h3>
-
-<ul>
-<li><strong>Product Service</strong>: Manages the menu and availability of items.</li>
-<li><strong>Counter Service</strong>: Handles customer orders and payments.</li>
-<li><strong>Barista Service</strong>: Prepares coffee and other beverages.</li>
-<li><strong>Kitchen Service</strong>: Prepares food items like pastries and sandwiches.</li>
-</ul>
 
 
-<a name="Event.Flow.in.the.Coffee.Shop"></a>
-<h3>Event Flow in the Coffee Shop</h3>
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2026 - Rishijeet Mishra
+</p>
 
-<a name="Customer.Places.an.Order"></a>
-<h4>Customer Places an Order</h4>
-
-<ul>
-<li><strong>Order Received</strong>: A customer places an order at the counter. The Counter Service generates an &ldquo;OrderPlaced&rdquo; event
-containing details of the order.</li>
-<li><strong>Inventory Check</strong>: The Product Service subscribes to &ldquo;OrderPlaced&rdquo; events to verify the availability of items. If
-an item is out of stock, it can trigger an &ldquo;ItemOutOfStock&rdquo; event to update the menu.</li>
-</ul>
-
-
-<a name="Order.Processing"></a>
-<h4>Order Processing</h4>
-
-<ul>
-<li><strong>Beverage Preparation</strong>: The Barista Service subscribes to &ldquo;OrderPlaced&rdquo; events to start preparing beverages. Once
-a beverage is ready, it generates an &ldquo;BeverageReady&rdquo; event.</li>
-<li><strong>Food Preparation</strong>: The Kitchen Service subscribes to &ldquo;OrderPlaced&rdquo; events to start preparing food items. Once a
-food item is ready, it generates an &ldquo;FoodReady&rdquo; event.</li>
-</ul>
-
-
-<a name="Customer.Notification"></a>
-<h4>Customer Notification</h4>
-
-<ul>
-<li><strong>Order Ready Notification</strong>: The Counter Service subscribes to &ldquo;BeverageReady&rdquo; and &ldquo;FoodReady&rdquo; events. When all
-items in an order are ready, it generates an &ldquo;OrderReady&rdquo; event and notifies the customer.</li>
-</ul>
-
-
-<a name="Detailed.Event.Flow"></a>
-<h3>Detailed Event Flow</h3>
-
-<p><strong>Order Placed</strong>:
-    - A customer orders a cappuccino and a sandwich at the counter.
-    - The Counter Service generates an &ldquo;OrderPlaced&rdquo; event:</p>
-
-<pre><code class="json">{
-    "orderId": "12345",
-    "items": [
-        {"type": "beverage", "name": "cappuccino"},
-        {"type": "food", "name": "sandwich"}
-    ]
-}
-</code></pre>
-
-<p><strong>Inventory Check</strong>:
-    - The Product Service receives the &ldquo;OrderPlaced&rdquo; event and checks inventory.
-    - If the cappuccino is out of stock, it generates an &ldquo;ItemOutOfStock&rdquo; event.
-    - If all items are available, no further action is taken by the Product Service.</p>
-
-<p><strong>Beverage Preparation</strong>:
-    - The Barista Service receives the &ldquo;OrderPlaced&rdquo; event and starts preparing the cappuccino.
-    - Once the cappuccino is ready, it generates a &ldquo;BeverageReady&rdquo; event:</p>
-
-<pre><code class="json">{
-    "orderId": "12345",
-    "item": "cappuccino"
-}
-</code></pre>
-
-<p><strong>Food Preparation</strong>:
-    - The Kitchen Service receives the &ldquo;OrderPlaced&rdquo; event and starts preparing the sandwich.
-    - Once the sandwich is ready, it generates a &ldquo;FoodReady&rdquo; event:</p>
-
-<pre><code class="json">{
-    "orderId": "12345",
-    "item": "sandwich"
-}
-</code></pre>
-
-<p><strong>Order Ready Notification</strong>:
-    - The Counter Service receives both &ldquo;BeverageReady&rdquo; and &ldquo;FoodReady&rdquo; events.
-    - Once all items for order 12345 are ready, it generates an &ldquo;OrderReady&rdquo; event and notifies the customer:</p>
-
-<pre><code class="json">{
-    "orderId": "12345",
-    "status": "ready"
-}
-</code></pre>
-
-<a name="Best.Practices.for.Implementing.Event-Based.Architecture"></a>
-<h2>Best Practices for Implementing Event-Based Architecture</h2>
-
-<ul>
-<li><strong>Design for Idempotency</strong>: Ensure that event consumers can handle duplicate events gracefully, as network issues
-might cause events to be delivered multiple times.</li>
-<li><strong>Use Schemas</strong>: Define clear schemas for events to ensure consistent and reliable communication between producers
-and consumers.</li>
-<li><strong>Monitor and Log</strong>: Implement robust monitoring and logging to track event flows, detect anomalies, and
-troubleshoot issues.</li>
-<li><strong>Handle Event Ordering</strong>: If event order is important, ensure that your event bus or stream processing framework
-preserves the order of events.</li>
-<li><strong>Ensure Fault Tolerance</strong>: Design your system to handle failures gracefully, with retry mechanisms and fallback
-strategies.</li>
-</ul>
-
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>Modern event-based architecture provides a robust and flexible approach to building scalable, resilient, and real-time systems. By decoupling components and enabling asynchronous communication through events, this architecture pattern addresses many challenges of traditional systems. Whether you&rsquo;re building an e-commerce platform, a real-time analytics system, or an IoT solution, event-based architecture can help you achieve better performance, scalability, and agility.</p>
-
-<p>Embracing this architectural style requires careful planning, but the benefits it offers make it a worthwhile investment for any modern application.</p>
-]]></content>
-    </entry>
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div>
     
-    <entry>
-        <title type="html"><![CDATA[Tuning Apache Kafka’s performance]]></title>
-        <link href="https://rishijeet.github.io/blog/tuning-apache-kafkas-performance/"/>
-        <updated>2019-07-11T11:42:32+05:30</updated>
-        <id>https://rishijeet.github.io/blog/tuning-apache-kafkas-performance</id>
-        <content type="html"><![CDATA[<p>Well, Apache Kafka is one of the best pub-sub messaging system used widely across several technology’s based industries. Originated at LinkedIn and was open sourced in early 2011.</p>
-
-<p>Ok, so what so special about <strong>Apache Kafka</strong> ? Here are the few things Kafka is meant to handle.</p>
-
-<ul>
-<li>High throughput to support large volume event feeds.</li>
-<li>Real time processing of enormous amount of data.</li>
-<li>Support large data backlogs to handle periodic ingestion from offline systems.</li>
-<li>Support low - latency delivery of the messages compared to other messaging systems</li>
-<li>High Availability, Fault Tolerance.</li>
-</ul>
 
 
-<p>So what else are you looking ?</p>
 
-<!--more-->
-
-
-<p>Now if you know about Apache Kafka a bit, here are few things we can fine tune to make it better in terms of performance. Let’s categories the system into the following aspects and see what could be done in each space.</p>
-
-<ul>
-<li>Producers</li>
-<li>Brokers</li>
-<li>Consumers</li>
-</ul>
-
-
-<a name="Producers"></a>
-<h2>Producers</h2>
-
-<a name="Asynchronous"></a>
-<h3>Asynchronous</h3>
-
-<p>Now think, how long you want to wait for the ack on the message sent to the broker ? Answer to this question will change the speed of handling the messages in the Kafka.</p>
-
-<p>request.required.acks is the property of the producer.</p>
-
-<p>Possible values for this are:</p>
-
-<ul>
-<li><code>0</code> = producer never waits for the ack from the broker. This will give you “Least durability and least latency”.</li>
-<li><code>1</code> = producer gets ack from the master replica. This will give you “some durability and less latency”.</li>
-<li><code>-1</code> = producer gets ack from the all the replicas. This will give you “most durability and most latency”.</li>
-</ul>
-
-
-<a name="Batching"></a>
-<h3>Batching</h3>
-
-<p>How about batching the messages ? Let’s use the asynchronous producers.</p>
-
-<p><code>producer.type=1</code> to make the producers run async.</p>
-
-<p>You can get the “callback” for the messages here to know their status. Now batch your messages to the brokers in different threads, this will improve the throughput. Some configuration to handle the messages in this scenario are:</p>
-
-<ul>
-<li><code>queue.buffer.max.ms</code> - Duration of the batch window.</li>
-<li><code>batch.num.messages</code> - Number of messages to be sent in a batch.</li>
-</ul>
-
-
-<a name="Compression"></a>
-<h3>Compression</h3>
-
-<p>Use the compression property to reduces the I/O on the machine. We might also want to think of the CPU load when it decompresses the message object back. So, maintain a balance between the two. compression.codec - Values are none, gzip and snappy</p>
-
-<p>For presumably large messages say - 10G , you might want to pass the file location of the share drive in the maessage rather than the payload itself. This would be tremendously faster.</p>
-
-<a name="Timeout"></a>
-<h3>Timeout</h3>
-
-<p>Don’t wait for the message unnecessarily unless its is really really required. Have a “timeout”</p>
-
-<p><code>request.timeout.ms</code> - The time until the broker waits before sending error back to the client.
-Amount of time to block before dropping the messages when running in async mode ( default = indefinitely )</p>
-
-<a name="Brokers"></a>
-<h2>Brokers</h2>
-
-<a name="Partition"></a>
-<h3>Partition</h3>
-
-<p>Plan to have as number of partitions = number of consumers. This will increase the concurrency, the more the partitions the more the concurrency. Remember, more the partitions more the latency too. Also, recommended to have one partition per physical disk to ensure I/O is not the bottleneck while writing the logs.</p>
-
-<p>Use “kafka-reassign-partitions.sh” to ensure partition is not overloaded.</p>
-
-<p>Some of the configurations worth mentioning here are:</p>
-
-<ul>
-<li><code>num.io.threads</code> - The number of I/O threads server uses to execute the requests.</li>
-<li><code>num.partitions</code> - Number of partitions per topic</li>
-<li><code>log.flush.interval,messages</code> - The number of messages written to the log partition before we force an fsync on the log.</li>
-</ul>
-
-
-<a name="Consumers"></a>
-<h2>Consumers</h2>
-
-<p>The max number of consumers for the topic is equal to number of partitions. Have enough partitions to handle all the consumers in your Kafka’s ecosystem.</p>
-
-<p>Consumer in the same consumer group split the partitions among themselves. Adding more consumers to a group can enhance performance.</p>
-
-<p>Performance is not affected by adding more consumer groups</p>
-
-<p><code>replica.high.watermark.checkpoint.interval.ms</code> can affect the throughput. When reading from partition, you can mark the last point where you read the information. If you set checkpoint watermark for every event, you will have high durability but hit on the performance. Rather, set it to check the offset for every x number of messages wherein you have margin of safety and will less impact your throughput.</p>
-
-<a name="Timeout"></a>
-<h3>Timeout</h3>
-
-<p>Choose the timeouts and onward pipeline properly. Also, refer to Apache Kafka doc for setting fetch size, time, auto-commit etc.</p>
-]]></content>
-    </entry>
     
-</feed>
+
+
+
+
+<div class="hire hire--unavailable">
+    
+        
+    
+</div>
+
+</div>
+        </div>
+        
+    </div>
+</footer>
+
+
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/how-kafka-works/';
+        var disqus_url = 'https://rishijeet.github.io/blog/how-kafka-works/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+        <!--adding fancybox -->
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>
