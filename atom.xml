@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-17T14:04:39+05:30</updated>
+    <updated>2026-05-17T14:23:11+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,712 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Amazon S3 Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-amazon-s3-works/"/>
+        <updated>2026-05-17T14:17:39+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-amazon-s3-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>There is a particular kind of quiet confidence in systems that just work. You upload a file, get a URL back, and years later that file is still exactly where you left it. No corruption. No missing bytes. The same object, bit-for-bit identical, retrieved in milliseconds from the other side of the planet. That is Amazon S3 in everyday terms. But the engineering underneath that simplicity is anything but simple.</em></p></blockquote>
+
+<p>Amazon Simple Storage Service launched in 2006 and redefined what developers expected from infrastructure. Before S3, running storage at scale meant buying racks of hardware, managing replication yourself, worrying about disk failures, planning for capacity, and building your own data durability systems. S3 flipped that model completely. You pay for what you store, you never think about the hardware, and the system promises eleven nines of durability — meaning you would expect to lose one object for every 100 billion objects stored every 10,000 years.</p>
+
+<p><img src="https://rishijeet.github.io/images/system_design/s3.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>That number sounds like marketing. It is also one of the hardest engineering targets in existence.</p>
+
+<p>This article is a real engineering walkthrough of how S3 works at the architecture level. We will go from the basics of what object storage actually is, through upload pipelines, metadata infrastructure, replication systems, consistency models, and scaling strategies. By the end, you should have a clear mental model of what makes S3 tick — and why the decisions its architects made were the right ones.</p>
+
+<!--more-->
+
+
+<a name="What.Makes.Object.Storage.Different"></a>
+<h2>What Makes Object Storage Different</h2>
+
+<p>Before understanding S3&rsquo;s architecture, it helps to understand why object storage exists at all. Most engineers grow up thinking in files and directories. You have a folder, it contains files, files live in a hierarchy. That model comes from traditional filesystems like ext4 or NTFS, and it is perfectly fine for a single machine. But when you try to scale that model across thousands of machines, it becomes extremely painful.</p>
+
+<p>The core problem with hierarchical filesystems at scale is the namespace. Every file operation — reading, writing, renaming, deleting — needs to touch some shared metadata about the directory structure. At small scale that metadata fits in memory. At Google-scale or AWS-scale it becomes a distributed systems nightmare. Directory traversals lock subtrees. Renames are expensive. The hierarchy itself becomes a bottleneck.</p>
+
+<p>Block storage, the other common model, gives you raw disk sectors organized into volumes. Block storage is fast and flexible, but it is fundamentally single-machine. Block volumes attach to one server at a time. Sharing block storage across machines requires additional infrastructure like SAN or NFS, which introduce their own failure modes.</p>
+
+<p>Object storage throws out both hierarchies and block semantics. It gives you a completely flat namespace. Objects live in buckets, but buckets are not directories. There is no nesting, no tree traversal, no parent-child relationship. Every object is identified by a globally unique key within a bucket, and that key is just a string. The system does not care if you use forward slashes in your key names to simulate directory structure. Those slashes are just characters.</p>
+
+<p>This flatness is what makes object storage scale. There is no tree to lock, no hierarchy to maintain, no parent directory to update when you add a file. Writes are independent. Reads are independent. Metadata can be partitioned based on key ranges. The system can spread objects across thousands of machines without any of them needing to coordinate on directory structure.</p>
+
+<p>Object storage also treats objects as immutable. You do not modify a file in place. You write a new version or overwrite the key entirely. This immutability is a gift to distributed systems. It means nodes do not need to coordinate on partial writes. It means caches never serve stale partial data. It means checksums computed at write time remain valid for the lifetime of the object.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Storage Type</th>
+        <th>Namespace Model</th>
+        <th>Ideal For</th>
+        <th>Scale Limitation</th>
+        <th>Mutability</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Block Storage</td>
+        <td>Byte offsets on a volume</td>
+        <td>Databases, VMs, OS disks</td>
+        <td>Single machine attachment</td>
+        <td>Mutable in-place</td>
+      </tr>
+      <tr>
+        <td>File Storage (NFS/SMB)</td>
+        <td>Hierarchical directories</td>
+        <td>Shared file access, legacy apps</td>
+        <td>Namespace bottlenecks at scale</td>
+        <td>Mutable in-place</td>
+      </tr>
+      <tr>
+        <td>Object Storage</td>
+        <td>Flat key-value namespace</td>
+        <td>Backups, media, cloud-native apps</td>
+        <td>Metadata partitioning complexity</td>
+        <td>Immutable (write-new semantics)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Core.Features.of.Amazon.S3"></a>
+<h2>Core Features of Amazon S3</h2>
+
+<p>Before going deep on architecture, it is worth grounding ourselves in what S3 actually exposes to users, because every feature has architectural implications.</p>
+
+<p><strong>Buckets</strong> are the top-level containers. Bucket names are globally unique across all of AWS. A bucket belongs to a specific AWS region, and that region determines where data is primarily stored. Bucket names are also part of the URL structure for accessing objects.</p>
+
+<p><strong>Objects</strong> are the actual data stored in S3. An object is the combination of the data itself (called the object body) plus metadata. Objects can range from zero bytes to five terabytes. Everything above 100MB should use multipart upload for reliability.</p>
+
+<p><strong>Object metadata</strong> comes in two flavors. System metadata is managed by S3 itself — content type, content length, ETag (a checksum), last modified date, and so on. User metadata is arbitrary key-value pairs you attach at upload time. Metadata is stored separately from the object body and has a size limit (typically 8KB total for user metadata).</p>
+
+<p><strong>Versioning</strong> lets you keep multiple versions of the same key in a bucket. When versioning is enabled, overwriting an object does not destroy the previous version. Deleting adds a delete marker rather than removing data. This gives you a complete audit trail and makes accidental deletion recoverable.</p>
+
+<p><strong>Lifecycle policies</strong> automate object management. You define rules like &ldquo;transition objects older than 30 days to Infrequent Access storage&rdquo; or &ldquo;expire objects after 365 days.&rdquo; The lifecycle system runs as a background job, applying these rules continuously without user intervention.</p>
+
+<p><strong>Multipart uploads</strong> allow you to split large files into parts, upload parts in parallel, and then tell S3 to assemble them. This improves throughput, allows resuming failed uploads, and is required for files above 5GB.</p>
+
+<p><strong>Pre-signed URLs</strong> are time-limited URLs that grant temporary access to a specific object without requiring AWS credentials. This is how you share private files with users without exposing your access keys.</p>
+
+<p><strong>Storage classes</strong> let you optimize cost versus retrieval speed. Standard storage is the default — optimized for frequent access. Infrequent Access (IA) is cheaper but charges a retrieval fee. Glacier variants are archival storage where retrieval can take minutes to hours. Intelligent-Tiering automatically moves objects between tiers based on access patterns.</p>
+
+<p><strong>Event notifications</strong> let S3 trigger downstream systems when objects are created, deleted, or modified. Events can be delivered to SNS, SQS, Lambda, or EventBridge, enabling event-driven architectures where object uploads automatically kick off processing pipelines.</p>
+
+<a name="High-Level.S3.Architecture"></a>
+<h2>High-Level S3 Architecture</h2>
+
+<p>Let us look at the system from the sky before descending into its components.</p>
+
+<p>When a client uploads an object, the request travels through multiple layers. There is a frontend layer handling TLS termination, authentication, and request routing. Behind that sits a metadata service responsible for tracking object locations and attributes. The actual object data lands on a distributed fleet of storage nodes organized in availability zones. A replication system ensures copies exist across zones. And a lifecycle system runs in the background managing transitions and expirations.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Client SDK or Browser];
+  B[S3 API Frontend Layer];
+  C[Authentication and Authorization];
+  D[Request Router];
+  E[Metadata Service];
+  F[Object Storage Nodes AZ-1];
+  G[Object Storage Nodes AZ-2];
+  H[Object Storage Nodes AZ-3];
+  I[Replication Coordinator];
+  J[Lifecycle Manager];
+  K[CDN CloudFront Edge];
+  L[Event Notification System];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  D &#8211;> F;
+  I &#8211;> G;
+  I &#8211;> H;
+  F &#8211;> I;
+  J &#8211;> E;
+  K &#8211;> B;
+  D &#8211;> L;
+</div>
+
+
+<p>The frontend layer is stateless and horizontally scalable. It handles millions of simultaneous connections. Each request includes authentication information — either AWS SigV4 signed headers or a pre-signed URL. The frontend validates signatures, checks permissions against IAM policies and bucket policies, and then routes the request appropriately.</p>
+
+<p>The metadata service is the brain of S3. It knows which object lives where, what its checksum is, which versions exist, what storage class it belongs to, and what access controls apply. The metadata service is the hardest component to scale and has seen the most architectural evolution internally at AWS.</p>
+
+<p>Storage nodes are the muscle. They hold the actual bytes. They are organized in clusters spread across availability zones, and the replication system ensures every object has redundant copies.</p>
+
+<a name="Object.Upload.Pipeline"></a>
+<h2>Object Upload Pipeline</h2>
+
+<p>Every upload starts the same way: a PUT request arrives at the S3 frontend. What happens next is a carefully orchestrated sequence.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Client sends PUT request];
+  B[Frontend receives TLS connection];
+  C[Validate AWS SigV4 signature];
+  D[Check IAM and bucket policy];
+  E[Generate internal object ID];
+  F[Compute content checksum MD5 or SHA256];
+  G[Write data to primary storage node];
+  H[Replicate to additional AZ nodes];
+  I[Update metadata service with object location];
+  J[Return 200 OK with ETag to client];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  H &#8211;> I;
+  I &#8211;> J;
+</div>
+
+
+<p>Authentication happens first, always. S3 uses AWS Signature Version 4, a request-signing algorithm where the client computes an HMAC-SHA256 signature over the request headers, URI, and a hash of the payload. The S3 frontend recomputes this signature server-side and rejects mismatches. This prevents tampering with requests in transit.</p>
+
+<p>Once authenticated, the system generates an internal object identifier. This is not the key you provided — it is an internal UUID or content-addressed hash used to locate the data across storage nodes. Your bucket key is the external identifier. The internal ID is what the storage layer cares about.</p>
+
+<p>Checksum validation is critical for durability. S3 computes an MD5 (or optionally SHA-256) hash of the incoming data and stores it alongside the object. If you provide an expected MD5 in the request headers, S3 validates against it before confirming the write. This catches corrupted uploads before data ever gets durably stored.</p>
+
+<p>The data then gets written to the primary storage node in one availability zone. But S3 does not return success to the client until it has confirmed writes to multiple nodes across multiple availability zones. This synchronous replication is what underpins S3&rsquo;s durability promise. A client-received 200 OK means your data is already redundant.</p>
+
+<p>Only after all required replicas acknowledge the write does the metadata service get updated with the object&rsquo;s location, size, ETag, and other attributes. This ordering matters. If S3 updated metadata first and then a storage write failed, you would have a phantom object that metadata claims exists but storage nodes cannot serve.</p>
+
+<a name="Handling.Large.Objects.with.Multipart.Upload"></a>
+<h3>Handling Large Objects with Multipart Upload</h3>
+
+<p>Objects larger than about 100MB should use multipart upload. The flow is different:</p>
+
+<ol>
+<li>Client calls CreateMultipartUpload, receiving an upload ID</li>
+<li>Client splits the file and uploads each part in parallel using UploadPart, with the upload ID and part number</li>
+<li>Each part gets its own ETag (checksum)</li>
+<li>Client calls CompleteMultipartUpload with the upload ID and a list of part ETags</li>
+</ol>
+
+
+<p>S3 then assembles the parts into a single logical object. Parts are stored as independent objects until assembly. This is not a copy operation — S3 uses server-side assembly that moves pointers rather than bytes where possible.</p>
+
+<p>The real power of multipart is parallelism. A 10GB file split into 100 parts can use 100 concurrent connections, dramatically improving throughput. It also enables resumability: if your upload fails at part 73, you retry only that part.</p>
+
+<a name="Metadata.Infrastructure"></a>
+<h2>Metadata Infrastructure</h2>
+
+<p>The metadata layer is S3&rsquo;s most architecturally interesting and challenging component. At the scale S3 operates, there are hundreds of billions of objects. Each object has metadata — key name, bucket, size, ETag, storage class, last modified time, version information, ACLs, user metadata. That is a lot of data to index, query, and keep consistent.</p>
+
+<p>S3&rsquo;s metadata system is essentially a distributed key-value store partitioned by bucket name and object key. The partition strategy is critical. If you store all objects with keys starting with &ldquo;logs/2024/&rdquo; in the same partition, that partition becomes a hot spot during log ingestion. This is why S3 historically recommended randomizing key prefixes for high-throughput workloads.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Object Key: logs-2024-01-report.csv];
+  B[Hash-based Partition Assignment];
+  C[Metadata Partition Node 1];
+  D[Metadata Partition Node 2];
+  E[Metadata Partition Node 3];
+  F[Storage Node Reference];
+  G[Version Chain];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  B &#8211;> D;
+  B &#8211;> E;
+  C &#8211;> F;
+  C &#8211;> G;
+</div>
+
+
+<p>Each metadata partition stores a range of keys. The partitioning is dynamic — heavily accessed key ranges get split into smaller partitions automatically. Lightly accessed ranges get merged. This automatic resharding is invisible to users but is one of the key reasons S3 can handle explosive growth in access patterns without service degradation.</p>
+
+<p>Hot partitions are the nightmare scenario. Imagine thousands of clients all writing objects with keys like &ldquo;upload/00001&rdquo;, &ldquo;upload/00002&rdquo; sequentially. These keys sort together and land on the same metadata partition, which becomes overwhelmed. AWS addressed this with guidance to randomize key prefixes and later added hash-based partitioning in the URL path to spread load automatically.</p>
+
+<p>The metadata service also handles bucket-level metadata: versioning state, lifecycle policies, replication configuration, event notification settings, public access blocks, encryption settings. Bucket metadata is much smaller in volume but must be highly available because it gates every single object operation in that bucket.</p>
+
+<a name="Distributed.Storage.Nodes"></a>
+<h2>Distributed Storage Nodes</h2>
+
+<p>Object data lives on a fleet of storage nodes. These are not special hardware — they are standard servers with large disk arrays running software that implements the S3 storage protocol. What makes them special is the software layer on top and how they are organized.</p>
+
+<p>Storage nodes are grouped into clusters, with clusters spread across availability zones. A single AZ might have dozens of storage clusters, each cluster having hundreds of nodes, each node with many drives. AWS does not publish the exact topology, but the scale is enormous.</p>
+
+<div class="mermaid">
+flowchart TD;
+  AZ1[Availability Zone 1];
+  AZ2[Availability Zone 2];
+  AZ3[Availability Zone 3];
+  C1[Cluster A - AZ1];
+  C2[Cluster B - AZ2];
+  C3[Cluster C - AZ3];
+  N1[Node 1];
+  N2[Node 2];
+  N3[Node 3];
+  N4[Node 4];
+  N5[Node 5];
+  N6[Node 6];
+
+  AZ1 &#8211;> C1;
+  AZ2 &#8211;> C2;
+  AZ3 &#8211;> C3;
+  C1 &#8211;> N1;
+  C1 &#8211;> N2;
+  C2 &#8211;> N3;
+  C2 &#8211;> N4;
+  C3 &#8211;> N5;
+  C3 &#8211;> N6;
+</div>
+
+
+<p>When S3 writes an object, it does not simply write three copies to three random nodes. The placement algorithm considers node capacity, current load, network topology, and failure domains. It tries to ensure no two replicas share the same rack, the same power circuit, or the same network switch. This way, a single hardware failure — even a catastrophic one like a rack losing power — cannot destroy all copies.</p>
+
+<p>For even greater storage efficiency, S3 uses erasure coding for certain storage classes. With erasure coding (specifically variants of Reed-Solomon), you split data into chunks and add parity chunks. You can reconstruct the original data even if some chunks are lost. A common scheme might use 6 data chunks and 3 parity chunks, meaning you can lose any 3 chunks and still recover everything. Compared to keeping 3 full replicas (300% storage overhead), erasure coding might achieve the same durability with only 150% overhead — a significant cost saving at exabyte scale.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Durability Technique</th>
+        <th>Storage Overhead</th>
+        <th>Reconstruct From Failure</th>
+        <th>Use Case</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3x Full Replication</td>
+        <td>300%</td>
+        <td>Any 2 replicas lost</td>
+        <td>Hot objects, low-latency reads</td>
+      </tr>
+      <tr>
+        <td>Erasure Coding 6+3</td>
+        <td>150%</td>
+        <td>Any 3 chunks lost</td>
+        <td>Warm and cold storage, cost optimization</td>
+      </tr>
+      <tr>
+        <td>Erasure Coding 10+4</td>
+        <td>140%</td>
+        <td>Any 4 chunks lost</td>
+        <td>Large cold objects, Glacier-tier</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Replication.and.Durability.Systems"></a>
+<h2>Replication and Durability Systems</h2>
+
+<p>Replication in S3 happens at two levels: within a region (multi-AZ replication for durability) and optionally across regions (Cross-Region Replication for compliance or geographic proximity).</p>
+
+<p>Multi-AZ replication is automatic and not optional. When you upload an object, S3 synchronously writes it to multiple availability zones before acknowledging success. AZs within a region are physically separated data centers — different power, different cooling, different network paths — so an AZ failure does not affect other AZs.</p>
+
+<p>Cross-Region Replication (CRR) is asynchronous and optional. You configure it at the bucket level, specifying a destination bucket in a different region. After each write to the source bucket, S3 replicates the object to the destination using a background replication pipeline. This introduces eventual consistency across regions — the destination will eventually catch up, but there is a replication lag measured in seconds to minutes under normal conditions.</p>
+
+<div class="mermaid">
+flowchart TD;
+  Client[Client Upload];
+  Primary[Primary AZ Write];
+  AZ2Write[AZ-2 Synchronous Replica];
+  AZ3Write[AZ-3 Synchronous Replica];
+  Success[Return 200 to Client];
+  CRR[Cross-Region Replication Queue];
+  RemoteRegion[Remote Region Bucket];
+
+  Client &#8211;> Primary;
+  Primary &#8211;> AZ2Write;
+  Primary &#8211;> AZ3Write;
+  AZ2Write &#8211;> Success;
+  AZ3Write &#8211;> Success;
+  Primary &#8211;> CRR;
+  CRR &#8211;> RemoteRegion;
+</div>
+
+
+<p>The self-healing system is what makes eleven nines durability achievable. S3 continuously scans stored objects, computing checksums and comparing them against the stored ETags. If corruption is detected — a bit flip on a disk, a partial write that survived a crash — the system automatically repairs the affected replica from a healthy copy. This background scrubbing runs constantly across all storage nodes.</p>
+
+<p>Disk failures are not treated as exceptional events — they are treated as expected events. At the scale S3 operates, some disk somewhere is failing at any given moment. The system is designed to tolerate this gracefully. When a drive fails, the data that lived on it is reconstructed from replicas or erasure-coded chunks and written to a healthy drive elsewhere. From the user&rsquo;s perspective, nothing happened.</p>
+
+<a name="Consistency.Model.Deep.Dive"></a>
+<h2>Consistency Model Deep Dive</h2>
+
+<p>For the first fifteen years of S3&rsquo;s life, reading an object immediately after writing it was not guaranteed to return the latest version. S3 offered strong consistency only for new writes (a key that never existed before would always return the new data). Overwrites and deletes were eventually consistent — you might see the old data for a brief window after writing new data.</p>
+
+<p>This sounds alarming, but it was a deliberate tradeoff. Providing strong consistency at S3&rsquo;s scale across distributed metadata systems requires coordination — you need to ensure every metadata node has the update before acknowledging reads. That coordination adds latency and introduces potential bottlenecks.</p>
+
+<p>In December 2020, AWS announced that S3 now provides strong read-after-write consistency for all operations — puts, overwrites, deletes, and even list operations. This was a significant engineering achievement.</p>
+
+<p>The way strong consistency works in a distributed system like S3 is through a combination of techniques. Metadata writes use a quorum protocol: a write must be acknowledged by a majority of metadata replicas before the client gets success. Reads then consult a quorum of replicas. As long as the write quorum overlaps with the read quorum, you are guaranteed to see the latest write.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Consistency Type</th>
+        <th>Guarantee</th>
+        <th>Tradeoff</th>
+        <th>S3 Today</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Eventual Consistency</td>
+        <td>Data converges eventually</td>
+        <td>May read stale data temporarily</td>
+        <td>Cross-region replication only</td>
+      </tr>
+      <tr>
+        <td>Read-After-Write Consistency</td>
+        <td>New writes immediately visible</td>
+        <td>Only for first write to a key</td>
+        <td>Superseded by strong consistency</td>
+      </tr>
+      <tr>
+        <td>Strong Consistency</td>
+        <td>Always reads latest committed write</td>
+        <td>Coordination overhead</td>
+        <td>Default for all operations since 2020</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The CAP theorem states that distributed systems must choose between Consistency, Availability, and Partition tolerance during a network partition. S3 leans toward Availability and Partition tolerance, with consistency achieved through careful quorum design rather than sacrificing availability. The key insight is that during normal operation (no partitions), you can have both consistency and availability. CAP only forces a choice when partitions occur, and the system&rsquo;s behavior during partitions depends on its configuration.</p>
+
+<a name="Multi-Part.Upload.System"></a>
+<h2>Multi-Part Upload System</h2>
+
+<p>Multipart upload deserves a deeper look because it affects how you think about large object reliability.</p>
+
+<p>The upload ID is the anchor for the entire operation. Every part is associated with this ID. If you lose your connection and restart the client, you can resume by listing already-uploaded parts and only re-uploading missing or failed ones.</p>
+
+<p>Parts can be uploaded in any order and from multiple clients simultaneously. A 50-part file could have 50 different machines uploading one part each, in parallel. S3 tracks which parts have been received and validates each part&rsquo;s ETag when CompleteMultipartUpload is called.</p>
+
+<p>The CompleteMultipartUpload call triggers server-side assembly. S3 validates that all listed parts exist, their ETags match, and then creates a new single object metadata entry pointing to the parts in order. For most practical purposes, the assembled object behaves exactly like a directly uploaded object.</p>
+
+<p>One trap developers fall into: abandoned multipart uploads. If you start a multipart upload and never complete or abort it, the parts accumulate on S3&rsquo;s storage and you get charged for them. A lifecycle rule to abort incomplete multipart uploads after N days is a good operational hygiene practice.</p>
+
+<a name="Object.Retrieval.Pipeline"></a>
+<h2>Object Retrieval Pipeline</h2>
+
+<p>Getting data back out of S3 follows a different path than writing.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Client GET Request];
+  B[Frontend TLS Termination];
+  C[Auth Validation];
+  D[Metadata Lookup - Object Location];
+  E[Determine Storage Class];
+  F[Route to Storage Node];
+  G[Read Data from Disk];
+  H[Stream Response to Client];
+  I[CloudFront Edge Cache Hit];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  I &#8211;> H;
+  A &#8211;> I;
+</div>
+
+
+<p>The metadata lookup is the first I/O operation. The system needs to find where the object&rsquo;s data lives — which storage cluster, which nodes, which internal IDs. This lookup must be fast because it adds latency to every read. Metadata for hot objects is likely cached in memory on metadata nodes, making these lookups sub-millisecond.</p>
+
+<p>For cold objects in Glacier storage, the retrieval path is dramatically different. Data is not immediately accessible. You submit a restore request, which queues a retrieval job. Expedited retrieval takes 1-5 minutes, standard takes 3-5 hours, bulk takes 5-12 hours. This delay reflects the economics of cold storage — Glacier uses lower-cost hardware with lower power consumption, trading retrieval speed for cost.</p>
+
+<p>Range requests are a crucial performance optimization for large objects. Instead of downloading a 5GB video entirely, a client can request bytes 1000000-2000000, getting just that chunk. S3 honors these byte-range GET requests, which enables video players to seek, download managers to parallelize, and data processors to read only relevant portions.</p>
+
+<a name="Storage.Classes.and.Lifecycle.Systems"></a>
+<h2>Storage Classes and Lifecycle Systems</h2>
+
+<p>Storage class design is fundamentally an economic and access-pattern optimization problem.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Storage Class</th>
+        <th>Access Pattern</th>
+        <th>Retrieval Latency</th>
+        <th>Minimum Duration</th>
+        <th>Cost Profile</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>S3 Standard</td>
+        <td>Frequent access</td>
+        <td>Milliseconds</td>
+        <td>None</td>
+        <td>High storage, no retrieval fee</td>
+      </tr>
+      <tr>
+        <td>S3 Standard-IA</td>
+        <td>Infrequent access</td>
+        <td>Milliseconds</td>
+        <td>30 days</td>
+        <td>Lower storage, retrieval fee per GB</td>
+      </tr>
+      <tr>
+        <td>S3 One Zone-IA</td>
+        <td>Infrequent, non-critical</td>
+        <td>Milliseconds</td>
+        <td>30 days</td>
+        <td>Lower still, single AZ only</td>
+      </tr>
+      <tr>
+        <td>S3 Intelligent-Tiering</td>
+        <td>Unknown or variable</td>
+        <td>Milliseconds to hours</td>
+        <td>None</td>
+        <td>Monitoring fee, automatic optimization</td>
+      </tr>
+      <tr>
+        <td>S3 Glacier Instant</td>
+        <td>Archive, instant access</td>
+        <td>Milliseconds</td>
+        <td>90 days</td>
+        <td>Very low storage, high retrieval fee</td>
+      </tr>
+      <tr>
+        <td>S3 Glacier Flexible</td>
+        <td>Archive, minutes to hours</td>
+        <td>1 min to 12 hours</td>
+        <td>90 days</td>
+        <td>Lowest storage, retrieval pricing tiers</td>
+      </tr>
+      <tr>
+        <td>S3 Glacier Deep Archive</td>
+        <td>Long-term archive</td>
+        <td>12+ hours</td>
+        <td>180 days</td>
+        <td>Cheapest storage available</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The lifecycle system is a background engine that continuously evaluates objects against their bucket&rsquo;s lifecycle rules. Rules can trigger on object age, storage class, version status, or object tags. The engine processes buckets in batches, checking each object&rsquo;s creation date and current class against configured transitions and expirations.</p>
+
+<p>Intelligent-Tiering deserves special mention because it is genuinely clever. The system monitors access patterns per object. Objects not accessed in 30 days move to an Infrequent Access tier automatically. Not accessed in 90 days moves to Archive Instant Access. If an object in a cold tier gets accessed, it moves back to the frequent access tier. All of this is transparent. You pay a small monitoring fee per object per month, and the system handles optimization. For workloads with unpredictable access patterns, this can significantly reduce storage costs.</p>
+
+<a name="Caching.and.CDN.Integration"></a>
+<h2>Caching and CDN Integration</h2>
+
+<p>S3 alone can serve objects globally, but for high-traffic content, adding CloudFront in front changes the performance profile dramatically.</p>
+
+<p>CloudFront is AWS&rsquo;s content delivery network — a global network of edge locations distributed across cities worldwide. When you configure CloudFront to sit in front of an S3 bucket, read requests from users hit the nearest edge location rather than the S3 endpoint in a specific region. If the edge location has the object cached, it serves it locally — latency measured in single-digit milliseconds rather than cross-continental round trips.</p>
+
+<p>Cache invalidation is always the hard part. When you update an object in S3, CloudFront edge caches still hold the old version until the cache TTL expires or you explicitly invalidate. Explicit invalidation propagates to all edge locations globally but takes a few minutes and has cost implications for large-scale invalidations.</p>
+
+<p>The better pattern is to use content-addressable URLs: include a hash or version identifier in the object key or URL path. When you update content, the new version gets a new URL. Old URLs expire from cache naturally. New URLs start cold in cache and warm up as traffic arrives. This eliminates the invalidation problem entirely and allows very long cache TTLs.</p>
+
+<a name="Security.and.Access.Control"></a>
+<h2>Security and Access Control</h2>
+
+<p>Security in S3 operates through multiple independent layers, and understanding how they interact matters for both security and debugging.</p>
+
+<p>IAM policies control what AWS principals (users, roles, services) can do across all AWS resources including S3. A bucket policy is a resource-based policy attached directly to a bucket — it can grant access to external AWS accounts or restrict access based on IP ranges or VPC endpoints. ACLs are the legacy access control mechanism, now mostly superseded by policies but still functional.</p>
+
+<p>When a request arrives, S3 evaluates multiple policy documents. A principal&rsquo;s IAM policy must allow the action. The bucket policy must not deny it. If there are ACLs, those are evaluated too. An explicit deny in any policy always wins. A request is allowed only if at least one policy allows it and no policy denies it. This layered evaluation means you can have defense in depth.</p>
+
+<p>Encryption at rest is available in several modes. SSE-S3 uses S3-managed keys — simple and transparent, no configuration beyond enabling it. SSE-KMS uses AWS Key Management Service, giving you control over key rotation and audit logs via CloudTrail. SSE-C uses customer-provided keys — S3 uses them to encrypt but never stores them, so you must provide the key with every read request.</p>
+
+<p>Encryption in transit is enforced by default — all S3 endpoints are HTTPS. Bucket policies can be set to deny any request that is not using TLS, preventing accidental plaintext access.</p>
+
+<p>Pre-signed URLs are one of the most powerful security primitives in S3. A pre-signed URL embeds authentication information in the URL itself — the bucket, object key, expiry time, and a signature computed from your credentials. Anyone who has the URL can access the object until expiry, without needing AWS credentials. The server validates the signature and expiry on every request.</p>
+
+<a name="Event-Driven.Infrastructure"></a>
+<h2>Event-Driven Infrastructure</h2>
+
+<p>S3 event notifications close the loop between storage and computation. When objects are created, deleted, tagged, or restored from Glacier, S3 can publish events to SNS topics, SQS queues, Lambda functions, or EventBridge.</p>
+
+<p>This enables a whole class of architectures that were previously complex to build. An image upload triggers a Lambda function to generate thumbnails. A log file landing triggers a processing job. A sensitive file upload triggers a compliance scan. All of this happens asynchronously without the uploading client needing to know about downstream systems.</p>
+
+<p>Event delivery is at-least-once — you might receive duplicate events, so downstream consumers should be idempotent. Events include the bucket name, object key, event type, timestamp, and the object&rsquo;s ETag. For most real-time processing workflows, events arrive within seconds of the triggering action.</p>
+
+<p>EventBridge integration adds filtering capabilities. Instead of processing every event in Lambda and filtering programmatically, you define EventBridge rules that only route events matching certain patterns — specific prefixes, specific suffixes, specific event types — to specific targets. This reduces unnecessary compute costs.</p>
+
+<a name="Scaling.Amazon.S3"></a>
+<h2>Scaling Amazon S3</h2>
+
+<p>Understanding how S3 scales gives you insight into the architectural decisions and helps you design your own systems.</p>
+
+<div class="mermaid">
+flowchart TD;
+  Req[Incoming Requests];
+  FE1[Frontend Server 1];
+  FE2[Frontend Server 2];
+  FE3[Frontend Server N];
+  MDP[Metadata Partition Router];
+  MD1[Metadata Shard 1];
+  MD2[Metadata Shard 2];
+  MD3[Metadata Shard N];
+  SN1[Storage Cluster AZ-1];
+  SN2[Storage Cluster AZ-2];
+  SN3[Storage Cluster AZ-3];
+
+  Req &#8211;> FE1;
+  Req &#8211;> FE2;
+  Req &#8211;> FE3;
+  FE1 &#8211;> MDP;
+  FE2 &#8211;> MDP;
+  FE3 &#8211;> MDP;
+  MDP &#8211;> MD1;
+  MDP &#8211;> MD2;
+  MDP &#8211;> MD3;
+  MD1 &#8211;> SN1;
+  MD2 &#8211;> SN2;
+  MD3 &#8211;> SN3;
+</div>
+
+
+<p>The frontend layer scales horizontally and easily. Add more frontend servers, point the load balancer at them, done. These servers are stateless — any server can handle any request. This is the easy part of scaling.</p>
+
+<p>Metadata scaling is harder. Metadata is stateful, and partitioning it requires careful key distribution. The system uses a consistent hashing scheme where buckets and key ranges map to specific metadata partitions. When a partition gets hot, it splits. When it gets cold, it merges with a neighbor. This automatic resharding is invisible to users but requires careful coordination to avoid downtime during splits.</p>
+
+<p>Storage scaling is straightforward in principle: add nodes, add drives. The complexity is in the placement algorithm — new capacity needs to be introduced gradually so the replication system can spread data across it without creating hot spots on new nodes or creating replication bottlenecks.</p>
+
+<p>S3 can now sustain 3,500 PUT requests per second and 5,500 GET requests per second per partition prefix. For higher throughput, use multiple key prefixes to spread load across multiple partitions. A common trick is to hash-prefix your keys: instead of <code>logs/2024-01-01.csv</code>, use <code>a3f/logs/2024-01-01.csv</code> where <code>a3f</code> is the first few characters of an MD5 hash of the filename.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>S3&rsquo;s availability target is 99.99% for Standard storage — roughly 52 minutes of downtime per year. Achieving this requires layers of redundancy beyond just object replication.</p>
+
+<p>The frontend layer is distributed across multiple physical hosts with health checks. Unhealthy frontends are automatically removed from the load balancer. Request routing itself uses multiple redundant paths.</p>
+
+<p>The metadata service is the most delicate piece. If metadata is unavailable, S3 cannot serve reads or writes even if all the storage nodes are healthy. Metadata services use multi-replica configurations with quorum reads and writes. Even if a majority of metadata nodes are healthy, the service can continue operating.</p>
+
+<p>Storage node failures are continuously monitored. Each node runs health checks and reports to a cluster manager. The cluster manager detects failures and triggers reconstruction jobs to restore the target replica count. Because this happens automatically and continuously, individual disk or server failures have zero user-visible impact.</p>
+
+<p>Monitoring at S3&rsquo;s scale requires its own infrastructure. Metrics are collected from every component — request latency, error rates, replication lag, storage node health, metadata partition load — and aggregated in near-real-time. Anomaly detection systems watch for deviations from baseline patterns. On-call engineers get paged for anything that crosses severity thresholds.</p>
+
+<a name="Performance.Optimization"></a>
+<h2>Performance Optimization</h2>
+
+<p>Getting the most out of S3 requires understanding where bottlenecks actually live.</p>
+
+<p>For upload throughput, the limit is rarely S3 itself — it is usually your client&rsquo;s network connection. Multipart upload with parallelism is the main lever. Each part uses a separate TCP connection, so you are limited by how many parallel connections your client can sustain and how much bandwidth you have.</p>
+
+<p>Transfer Acceleration is S3&rsquo;s answer to geographical distance. It routes uploads through CloudFront edge locations using AWS&rsquo;s private backbone network rather than the public internet. Traffic enters the AWS network at the nearest edge, then travels the backbone to the S3 region. For intercontinental uploads, this can reduce latency by 50-500ms depending on conditions.</p>
+
+<p>For read-heavy workloads, parallelism is everything. Fetch multiple objects simultaneously. Use byte-range reads to parallelize fetching different portions of the same large object. S3 has no per-object bandwidth cap — the limit is your client&rsquo;s network and how many parallel connections you can open.</p>
+
+<p>S3 Select and Glacier Select let you push SQL-like filtering down to the storage layer. Instead of downloading a 1GB CSV and filtering locally, you send a SELECT statement and get only matching rows back. This can reduce data transfer costs and processing time dramatically for analytical workloads.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every architectural decision in S3 represents a tradeoff. It is worth making these explicit.</p>
+
+<p><strong>Replication versus erasure coding</strong>: Full replication is simpler, faster for reads (no reconstruction needed), and has no read amplification. But it uses more storage. Erasure coding reduces storage overhead significantly but requires reconstruction reads when a node fails, adding latency. S3 uses both — replication for hot data that needs low read latency, erasure coding for colder data where storage cost dominates.</p>
+
+<p><strong>Consistency versus availability</strong>: Strong consistency requires coordination between replicas, which adds latency and creates the possibility of timeouts during network partitions. Eventual consistency is faster and more available but can return stale data. S3 chose strong consistency for metadata operations because applications were frequently broken by stale reads. The consistency cost is acceptable at the latency level because metadata operations are already network-bound.</p>
+
+<p><strong>Metadata centralization versus partitioning</strong>: A centralized metadata store is easy to make consistent but becomes a bottleneck at scale. A partitioned metadata store scales well but makes cross-partition operations (like listing objects across a bucket) expensive. S3 partitions metadata by key range, which is why bucket listing operations (LIST) can be slow for large buckets — they require scanning potentially many partitions.</p>
+
+<p><strong>Caching versus freshness</strong>: Caching metadata in memory on frontend nodes reduces latency dramatically. But cached metadata can be stale. How long is it safe to cache bucket policies, ACLs, or object metadata? Too long and you have security or consistency issues. Too short and you lose the caching benefit. S3 uses very short TTLs for security-sensitive data and longer TTLs for stable metadata.</p>
+
+<p><strong>Durability versus cost</strong>: Achieving eleven nines durability requires multiple replicas or erasure coding, plus background scrubbing, plus rack-level placement constraints. All of this costs money — storage overhead, network traffic for replication, CPU for checksumming. Lower durability tiers (like One Zone-IA, which stores data in only one AZ) cost less but accept lower durability. The tradeoff is explicit and documented.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>While AWS does not publish the exact internals, we can reason about the technology stack that makes a system like S3 work.</p>
+
+<p>The frontend layer likely runs on Java or Go. Java&rsquo;s JVM has mature concurrency primitives and excellent networking libraries. Go&rsquo;s goroutine model is a natural fit for I/O-heavy server code that needs to handle massive connection concurrency. The choice between them typically comes down to operational familiarity and latency characteristics.</p>
+
+<p>Storage nodes almost certainly run on Linux with carefully tuned kernel parameters — I/O schedulers optimized for mixed read/write workloads, filesystem choices that minimize overhead (XFS is popular for large-object storage, ext4 for metadata), and direct I/O bypassing the page cache for predictable latency.</p>
+
+<p>The metadata system resembles a distributed key-value store with strong consistency guarantees — think something similar to Apache Cassandra or a custom B-tree-based system with Raft-based replication. The access pattern is mostly point lookups by key, with occasional range scans for listing. This maps well to log-structured merge trees (LSM trees), which are optimized for write-heavy workloads while still supporting range reads.</p>
+
+<p>SSD and HDD tiering exists at the physical level. Hot metadata almost certainly lives on SSDs for sub-millisecond access. Cold object data lives on high-capacity spinning disks — these have terrible random I/O performance but excellent sequential throughput and cost per terabyte, which is exactly what you want for large sequential object reads.</p>
+
+<p>The replication system uses internal messaging — probably something like Kinesis streams or an internal equivalent for ordered, durable message delivery between components. Cross-region replication needs robust message queuing to handle the latency and potential downtime of inter-region links.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>S3-style questions appear in senior engineering interviews regularly. The question might be phrased as &ldquo;Design a distributed object storage system,&rdquo; &ldquo;Design Dropbox storage backend,&rdquo; or simply &ldquo;How would you design Amazon S3?&rdquo;</p>
+
+<p>The strong answer starts by clarifying requirements. How many objects? What sizes? What&rsquo;s the read/write ratio? What durability requirement? What consistency requirement? What latency target? These constraints dramatically shape the architecture. An interviewer who watches you jump straight to drawing a diagram without asking these questions will worry about your ability to scope real-world systems.</p>
+
+<p>Once requirements are clear, the strong candidate structures the answer in layers. Start with the simplest possible thing that could work — a single server with an HTTP API storing files on disk. Then identify where it fails — disk fills up, server crashes, can&rsquo;t scale reads — and address each failure with the right architectural pattern.</p>
+
+<p>Common weak answers in these interviews: jumping to complexity without justifying it, ignoring failure scenarios, not discussing consistency, proposing a database as the storage layer for petabytes of data, or not addressing the metadata bottleneck.</p>
+
+<p>Strong candidates discuss the metadata layer separately from the storage layer and explain why they have different scaling characteristics. They explain why flat namespaces beat hierarchical ones at scale. They talk about erasure coding versus replication and know when each makes sense. They discuss quorum reads and writes when asked about consistency. And they think through the lifecycle of a request from the client all the way to the disk and back.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Interview Area</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Requirements</td>
+        <td>Jumps to designing immediately</td>
+        <td>Asks about scale, durability, latency, consistency before designing</td>
+      </tr>
+      <tr>
+        <td>Storage Model</td>
+        <td>Uses relational DB for object storage</td>
+        <td>Explains flat namespace, key-value model, and why hierarchical filesystems do not scale</td>
+      </tr>
+      <tr>
+        <td>Metadata</td>
+        <td>Stores metadata in the same system as data</td>
+        <td>Separates metadata into a distributed key-value store with partitioning strategy</td>
+      </tr>
+      <tr>
+        <td>Durability</td>
+        <td>Says three replicas without explanation</td>
+        <td>Discusses erasure coding, placement constraints, and background repair</td>
+      </tr>
+      <tr>
+        <td>Consistency</td>
+        <td>Ignores the topic entirely</td>
+        <td>Discusses quorum, CAP theorem, and how to achieve strong consistency at scale</td>
+      </tr>
+      <tr>
+        <td>Scaling</td>
+        <td>Add more servers</td>
+        <td>Identifies metadata partitioning as the hard problem, discusses hot partition handling</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>One more interview tip worth emphasizing: durability and availability are different things, and mixing them up is a red flag. Durability is about not losing data. Availability is about being able to access data right now. S3 Standard has 99.999999999% durability and 99.99% availability. That means S3 almost never loses your data, but it might occasionally be temporarily inaccessible. These are independent properties that get confused often.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Amazon S3 is one of the most successful distributed systems ever built in production. It stores more data than most countries generate in a year, serves billions of requests per hour, and achieves durability levels that border on the theoretical limit. The architecture that makes this possible is not magic — it is a careful composition of well-understood distributed systems principles: flat namespaces for scalability, immutable objects for simplicity, erasure coding for storage efficiency, quorum protocols for consistency, and continuous background repair for durability.</p>
+
+<p>The real lesson from studying S3 is not any individual technique but the engineering mindset behind it. Every constraint is explicit. Every tradeoff is acknowledged. Every failure mode is designed for. The system does not hope disks will not fail — it assumes they will and builds recovery in from the start. It does not hope the network will always be reliable — it designs for partitions and adds checksums everywhere.</p>
+
+<p>When you build storage systems, even at a fraction of S3&rsquo;s scale, these principles apply equally. Know where your metadata lives and how it scales. Design for immutability where you can. Separate durability from availability in your thinking. Make checksums a first-class citizen, not an afterthought. And always, always design for the failure you have not thought of yet — because at scale, every failure mode eventually appears.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Kafka Works?]]></title>
@@ -9371,698 +10077,6 @@ Investment in information processing equipment, while only 4% of GDP, drove 92% 
 <p>The next 2-3 years will tell us which vision prevails.</p>
 
 <blockquote><p>Data compiled from Crunchbase, Dealroom, Goldman Sachs Research, Penn Wharton Budget Model, Bloomberg, Federal Reserve, Department of Commerce, and company financial filings. Analysis current as of October 19, 2025.</p></blockquote>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[Attention Is All You Need: The Paper That Revolutionized AI]]></title>
-        <link href="https://rishijeet.github.io/blog/attention-is-all-you-need-the-paper-that-revolutionized-ai/"/>
-        <updated>2025-10-11T16:26:05+05:30</updated>
-        <id>https://rishijeet.github.io/blog/attention-is-all-you-need-the-paper-that-revolutionized-ai</id>
-        <content type="html"><![CDATA[<p>In June 2017, eight researchers from Google Brain and Google Research published a paper that would fundamentally reshape artificial intelligence. Titled &ldquo;Attention Is All You Need,&rdquo; it introduced the Transformer architecture—a model that discarded the conventional wisdom of sequence processing and replaced it with something elegantly simple: pure attention.</p>
-
-<p>The numbers tell the story. As of 2025, this single paper has been cited over 173,000 times, making it one of the most influential works in machine learning history. Today, nearly every large language model you interact with—ChatGPT, Google Gemini, Claude, Meta&rsquo;s Llama—traces its lineage directly back to this architecture.</p>
-
-<p>But here&rsquo;s what makes this achievement remarkable: it wasn&rsquo;t about adding more layers, more parameters, or more complexity. It was about removing what had been considered essential for decades.</p>
-
-<a name="The.Problem:.Sequential.Processing"></a>
-<h2>The Problem: Sequential Processing</h2>
-
-<a name="Why.RNNs.Were.Dominant..And.Problematic."></a>
-<h3>Why RNNs Were Dominant (And Problematic)</h3>
-
-<p>Before 2017, the dominant approach for sequence tasks used Recurrent Neural Networks (RNNs), particularly Long Short-Term Memory (LSTM) networks and Gated Recurrent Units (GRUs). The idea was intuitive: process sequences one element at a time, maintaining a hidden state that captures information from previous steps.</p>
-
-<p>Think of it like reading a book word by word, keeping a mental summary as you go.</p>
-
-<p><strong>The Fundamental Bottleneck</strong>: RNNs have an inherent constraint—they must process sequentially. The output at step t depends on the hidden state h_t, which depends on the previous state h<em>{t-1}, which depends on h</em>{t-2}, and so on. This creates an unbreakable chain.</p>
-
-<p>From the paper:</p>
-
-<blockquote><p>&ldquo;Recurrent models typically factor computation along the symbol positions of the input and output sequences. Aligning the positions to steps in computation time, they generate a sequence of hidden states h_t, as a function of the previous hidden state h_{t-1} and the input for position t.&rdquo;</p></blockquote>
-
-<!--more-->
-
-
-<p><strong>What this meant in practice:</strong></p>
-
-<ul>
-<li><strong>Training Speed</strong>: On a typical machine translation task with 4.5 million sentence pairs (WMT 2014 English-German), even the best RNN models took 5-6 days to train on powerful hardware.</li>
-<li><strong>Parallelization Nightmare</strong>: You cannot process word 10 before processing word 9, even if you have 1,000 GPUs. It&rsquo;s like a single-lane highway—no matter how many resources you add, the throughput is limited by the sequential dependency.</li>
-<li><strong>Memory Dilution</strong>: The longer your sequence, the harder it is for the model to remember important information from the beginning. This is called the &ldquo;vanishing gradient problem.&rdquo; Information from position 1 gets progressively diluted by the time you reach position 100.</li>
-<li><strong>Long-Range Dependencies</strong>: If you want to understand how word 2 relates to word 95, the signal has to travel through 93 intermediate steps. Each step is an opportunity for information loss.</li>
-</ul>
-
-
-<a name="Attempted.Solutions.Before.Transformers"></a>
-<h3>Attempted Solutions Before Transformers</h3>
-
-<p>Researchers had tried other approaches:</p>
-
-<p><strong>Convolutional Sequence-to-Sequence (ConvS2S)</strong>: Used convolutional networks instead of RNNs. Problem: To connect distant positions, you need O(n/k) convolutional layers (where n is sequence length and k is kernel size). This means more layers and longer &ldquo;path lengths&rdquo; for information to travel.
-<strong>Extended Neural GPU &amp; ByteNet</strong>: Other convolutional approaches with similar trade-offs.</p>
-
-<p>The paper notes these approaches attempted to parallelize, but all had significant limitations. ConvS2S was faster than RNNs, but still limited. And none could match the quality of attention-augmented RNNs.</p>
-
-<a name="The.Solution:.Self-Attention"></a>
-<h2>The Solution: Self-Attention</h2>
-
-<a name="What.is.Attention."></a>
-<h3>What is Attention?</h3>
-
-<p>Imagine you&rsquo;re in a crowded coffee shop. Many conversations are happening, but you can focus your listening attention on one person. You&rsquo;re not ignoring others, but you&rsquo;re weighting your perception toward one source.</p>
-
-<p>In neural networks, attention is a mechanism that learns which parts of the input are most important for the task at hand. It&rsquo;s learned, dynamic, and task-specific.</p>
-
-<p>The paper defines it simply:</p>
-
-<blockquote><p>&ldquo;An attention function can be described as mapping a query and a set of key-value pairs to an output, where the query, keys, values, and output are all vectors. The output is computed as a weighted sum of the values, where the weight assigned to each value is computed by a compatibility function of the query with the corresponding key.&rdquo;</p></blockquote>
-
-<p><img src="https://rishijeet.github.io/images/2025/single-multi-head.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<a name="Scaled.Dot-Product.Attention:.The.Core.Formula"></a>
-<h3>Scaled Dot-Product Attention: The Core Formula</h3>
-
-<p>The paper introduces &ldquo;Scaled Dot-Product Attention,&rdquo; which is the building block of everything:</p>
-
-<p>$$
-Attention(Q, K, V) = softmax(QK^T / √d_k) V
-$$</p>
-
-<p>Let&rsquo;s break this down step by step:</p>
-
-<p><strong>Step 1: Inputs</strong></p>
-
-<ul>
-<li><strong>Q (Query)</strong>: &ldquo;What am I looking for?&rdquo; Shape: (batch, seq_len, d_k)</li>
-<li><strong>K (Key)</strong>: &ldquo;What could I match?&rdquo; Shape: (batch, seq_len, d_k)</li>
-<li><strong>V (Value)</strong>: &ldquo;What information do I contain?&rdquo; Shape: (batch, seq_len, d_v)</li>
-</ul>
-
-
-<p>For self-attention, all three come from the same source (the output of the previous layer).</p>
-
-<p><strong>Step 2: Compute Compatibility Scores</strong>
-<code>QK^T</code> produces a matrix showing how much each query relates to each key. If you have a sequence of 10 words, this creates a 10×10 matrix.</p>
-
-<p><strong>Step 3: Scaling</strong>
-The scores are divided by √d_k. Why? The paper explains:</p>
-
-<blockquote><p>&ldquo;While for small values of d_k the two mechanisms perform similarly, additive attention outperforms dot product attention without scaling for larger values of d_k. We suspect that for large values of d_k, the dot products grow large in magnitude, pushing the softmax function into regions where it has extremely small gradients.&rdquo;</p></blockquote>
-
-<p>In practice, they use d_k = 64, so the scaling factor is 1/√64 = 1/8.</p>
-
-<p><strong>Step 4: Softmax for Weights</strong>
-<code>softmax()</code> converts the scores into weights that sum to 1. Each weight represents &ldquo;how much attention to pay&rdquo; to each position.</p>
-
-<p><strong>Step 5: Combine Values</strong>
-Multiply by V and sum. Positions with high attention weights contribute more to the output.</p>
-
-<p><strong>The Beauty</strong>: All n words can be processed in parallel. Position 10 doesn&rsquo;t wait for position 9.</p>
-
-<a name="Why.Multiple.Heads.Matter"></a>
-<h3>Why Multiple Heads Matter</h3>
-
-<p>Here&rsquo;s where it gets powerful. The paper found that a single attention function isn&rsquo;t enough. They introduced <strong>Multi-Head Attention</strong>:</p>
-
-<div>
-$$
-MultiHead(Q, K, V) = Concat(head_1, &#8230;, head_h) W^O
-
-where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)
-$$
-</div>
-
-
-<p>What does this mean? The model learns <strong>h different linear projections</strong> of Q, K, and V, performs attention on each separately, and concatenates the results.</p>
-
-<p><strong>From the paper:</strong></p>
-
-<blockquote><p>&ldquo;Multi-head attention allows the model to jointly attend to information from different representation subspaces at different positions. With a single attention head, averaging inhibits this.&rdquo;</p></blockquote>
-
-<p>In the original Transformer:</p>
-
-<ul>
-<li><strong>h = 8</strong> parallel attention heads</li>
-<li><strong>d_k = d_v = 512/8 = 64</strong> for each head</li>
-<li>Total computation is similar to single-head attention, but you get 8 different learned representations</li>
-</ul>
-
-
-<p><strong>Practical interpretation</strong>: Different heads learn different patterns:</p>
-
-<ul>
-<li>Head 1 might focus on verb-object relationships</li>
-<li>Head 2 might focus on adjective-noun relationships</li>
-<li>Head 3 might track pronouns back to their referents</li>
-<li>And so on&hellip;</li>
-</ul>
-
-
-<p>The attention visualizations in the paper (Figures 3-5) show this beautifully. Head 5 in layer 5 learns to capture the phrase &ldquo;making&hellip;more difficult&rdquo; by connecting distant words. Other heads perform anaphora resolution (connecting &ldquo;its&rdquo; to &ldquo;Law&rdquo;).</p>
-
-<a name="Transformer.Architecture"></a>
-<h2>Transformer Architecture</h2>
-
-<a name="Overview"></a>
-<h3>Overview</h3>
-
-<p>The Transformer has a classic encoder-decoder structure:</p>
-
-<ul>
-<li><strong>Encoder</strong>: Transforms input sequence into rich representations</li>
-<li><strong>Decoder</strong>: Generates output sequence using encoder representations</li>
-</ul>
-
-
-<p><img src="https://rishijeet.github.io/images/2025/attention_arch.png" height="300" width="900" alt="Alt text" /><em>Source: Internet</em></p>
-
-<p>But unlike previous encoder-decoder models, it uses <em>only</em> attention (and feed-forward networks) for both.</p>
-
-<a name="The.Encoder:.6.Identical.Layers"></a>
-<h3>The Encoder: 6 Identical Layers</h3>
-
-<p>Each encoder layer contains:</p>
-
-<ul>
-<li><strong>Multi-Head Self-Attention</strong>: All 8 heads process simultaneously</li>
-<li><strong>Feed-Forward Network</strong>: Applied to each position separately</li>
-<li><strong>Residual Connections &amp; Layer Normalization</strong> around each sub-layer</li>
-</ul>
-
-
-<p>The output of each sub-layer is:
-$$
-LayerNorm(x + Sublayer(x))
-$$</p>
-
-<p><strong>Key specifications</strong>:</p>
-
-<ul>
-<li><strong>N = 6</strong> stacked layers</li>
-<li><strong>d_model = 512</strong> (dimension of all outputs)</li>
-<li><strong>h = 8</strong> attention heads</li>
-<li><strong>d_k = d_v = 64</strong> per head</li>
-</ul>
-
-
-<a name="The.Decoder:.6.Identical.Layers.with.Masking"></a>
-<h3>The Decoder: 6 Identical Layers with Masking</h3>
-
-<p>The decoder has the same 6 layers, plus one crucial difference:</p>
-
-<ul>
-<li><strong>Masked Multi-Head Self-Attention</strong> on decoder positions</li>
-<li><strong>Encoder-Decoder Attention</strong>: Queries from decoder, Keys/Values from encoder</li>
-<li><strong>Feed-Forward Network</strong></li>
-</ul>
-
-
-<p><strong>The Masking</strong>: The paper states:</p>
-
-<blockquote><p>&ldquo;We also modify the self-attention sub-layer in the decoder stack to prevent positions from attending to subsequent positions. This masking, combined with fact that the output embeddings are offset by one position, ensures that the predictions for position i can depend only on the known outputs at positions less than i.&rdquo;</p></blockquote>
-
-<p>In practice, this means setting future positions to -∞ in the softmax. This maintains the &ldquo;auto-regressive&rdquo; property—you generate one word at a time, without cheating by looking ahead.</p>
-
-<a name="Position-Wise.Feed-Forward.Networks"></a>
-<h3>Position-Wise Feed-Forward Networks</h3>
-
-<p>Between attention layers sits a feed-forward network:</p>
-
-<p>$$
-FFN(x) = max(0, xW_1 + b_1)W_2 + b_2
-$$</p>
-
-<p>This is applied to each position separately and identically. Specifications:</p>
-
-<ul>
-<li><strong>d_model = 512</strong> (input/output dimension)</li>
-<li><strong>d_ff = 2048</strong> (inner layer dimension)</li>
-<li>ReLU activation in between</li>
-</ul>
-
-
-<p>Interestingly, this is equivalent to two 1×1 convolutions.</p>
-
-<a name="Positional.Encoding:.Telling.the.Model.About.Order"></a>
-<h3>Positional Encoding: Telling the Model About Order</h3>
-
-<p>Here&rsquo;s a subtle but critical detail: attention mechanisms don&rsquo;t inherently understand word order. &ldquo;Dog bites man&rdquo; and &ldquo;man bites dog&rdquo; would be processed the same without additional information.</p>
-
-<p>The solution: <strong>Positional Encodings</strong> (sinusoidal):</p>
-
-<p>$$
-PE_(pos, 2i) = sin(pos / 10000^(2i/d_model))
-PE_(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
-$$</p>
-
-<p>Where:</p>
-
-<ul>
-<li><strong>pos</strong> is the position in the sequence (0, 1, 2, &hellip;)</li>
-<li><strong>i</strong> is the dimension index (0 to 255 for d_model=512)</li>
-</ul>
-
-
-<p>Each dimension gets a sinusoid at different frequencies. The wavelengths form a geometric progression from 2π to 10,000·2π.</p>
-
-<p><strong>Why sine and cosine?</strong> The paper hypothesized this allows the model to easily learn relative position offsets since for any fixed offset k, $$ PE_{pos+k} $$ can be represented as a linear function of $$ PE_{pos} $$.</p>
-
-<p>The paper tested learned positional embeddings (Table 3, row E) and found nearly identical results, so the sinusoidal choice is more theoretical. But sinusoids have an advantage: they can extrapolate to longer sequences than seen during training.</p>
-
-<a name="The.Three.Applications.of.Attention"></a>
-<h3>The Three Applications of Attention</h3>
-
-<p>The paper explicitly lists three ways attention is used:</p>
-
-<ol>
-<li><p><strong>Encoder-Decoder Attention</strong>: Queries from decoder layer, Keys/Values from encoder output. Allows each decoder position to see all input positions.</p></li>
-<li><p><strong>Encoder Self-Attention</strong>: All of Q, K, V from the same encoder layer. Each position attends to all positions in the previous encoder layer.</p></li>
-<li><p><strong>Decoder Self-Attention</strong>: Self-attention with masking. Each position can only attend to previous positions (and itself).</p></li>
-</ol>
-
-
-<a name="Why.Attention.Works.Better"></a>
-<h2>Why Attention Works Better</h2>
-
-<p>The paper provides a systematic comparison in Table 1, examining three criteria:</p>
-
-<a name="L1..Computational.Complexity.Per.Layer"></a>
-<h3>1. Computational Complexity Per Layer</h3>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Layer Type</th>
-        <th>Complexity</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Self-Attention</td>
-        <td>O(n² · d)</td>
-      </tr>
-      <tr>
-        <td>Recurrent</td>
-        <td>O(n · d²)</td>
-      </tr>
-      <tr>
-        <td>Convolutional</td>
-        <td>O(k · n · d²)</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>When sequence length n &lt; representation dimension d (common with word-piece encoding), self-attention is faster than recurrent layers.</p>
-
-<p>For WMT translation tasks using byte-pair encoding:</p>
-
-<ul>
-<li><strong>n</strong> (sequence length) ≈ 50-200 tokens</li>
-<li><strong>d</strong> (dimension) = 512</li>
-</ul>
-
-
-<p>So n &lt; d, making self-attention win.</p>
-
-<a name="L2..Sequential.Operations.Required"></a>
-<h3>2. Sequential Operations Required</h3>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Layer Type</th>
-        <th>Sequential Operations</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Self-Attention</td>
-        <td>O(1)</td>
-      </tr>
-      <tr>
-        <td>Recurrent</td>
-        <td>O(n)</td>
-      </tr>
-      <tr>
-        <td>Convolutional</td>
-        <td>O(1) for normal, O(log<sub>k</sub>(n)) for dilated</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>This is the parallelization advantage. Self-attention can process all positions simultaneously. RNNs must process sequentially.</p>
-
-<a name="L3..Path.Length.for.Long-Range.Dependencies"></a>
-<h3>3. Path Length for Long-Range Dependencies</h3>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Layer Type</th>
-        <th>Maximum Path Length</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Self-Attention</td>
-        <td>O(1)</td>
-      </tr>
-      <tr>
-        <td>Recurrent</td>
-        <td>O(n)</td>
-      </tr>
-      <tr>
-        <td>Convolutional</td>
-        <td>O(log<sub>k</sub>(n)) or O(n/k)</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>This is critical. To learn that position 1 relates to position 100:</p>
-
-<ul>
-<li><strong>Self-Attention</strong>: Direct connection in one step</li>
-<li><strong>RNN</strong>: Must travel through 99 intermediate steps</li>
-<li><strong>CNN</strong>: Must stack multiple layers</li>
-</ul>
-
-
-<p>Shorter paths → easier to learn long-range dependencies.</p>
-
-<a name="Results..amp..Impact"></a>
-<h2>Results &amp; Impact</h2>
-
-<a name="Machine.Translation.Performance"></a>
-<h3>Machine Translation Performance</h3>
-
-<p>The paper evaluated on two benchmarks: WMT 2014 English-German (EN-DE) and English-French (EN-FR).</p>
-
-<p><strong>English-to-German (EN-DE):</strong></p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Model</th>
-        <th>BLEU</th>
-        <th>Training Cost (FLOPs)</th>
-        <th>Training Time</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>GNMT + RL (prev. best)</td>
-        <td>24.6</td>
-        <td>2.3 × 10<sup>19</sup></td>
-        <td>~5 days</td>
-      </tr>
-      <tr>
-        <td>ConvS2S (ensemble)</td>
-        <td>26.36</td>
-        <td>7.7 × 10<sup>19</sup></td>
-        <td>Higher</td>
-      </tr>
-      <tr>
-        <td><strong>Transformer (base)</strong></td>
-        <td><strong>27.3</strong></td>
-        <td><strong>3.3 × 10<sup>18</sup></strong></td>
-        <td><strong>12 hours</strong></td>
-      </tr>
-      <tr>
-        <td><strong>Transformer (big)</strong></td>
-        <td><strong>28.4</strong></td>
-        <td><strong>2.3 × 10<sup>19</sup></strong></td>
-        <td><strong>3.5 days</strong></td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p><strong>Improvement</strong>: +2.0 BLEU over previous best (including ensembles), at a fraction of training cost.</p>
-
-<p><strong>English-to-French (EN-FR):</strong></p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Model</th>
-        <th>BLEU</th>
-        <th>Training Time</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Deep-Att + PosUnk Ensemble</td>
-        <td>40.4</td>
-        <td>High</td>
-      </tr>
-      <tr>
-        <td>GNMT + RL Ensemble</td>
-        <td>41.16</td>
-        <td>~6 days</td>
-      </tr>
-      <tr>
-        <td><strong>Transformer (big)</strong></td>
-        <td><strong>41.8</strong></td>
-        <td><strong>3.5 days</strong></td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p><strong>Improvement</strong>: Beats all previous models with less than &frac14; training cost.</p>
-
-<a name="Key.Numbers"></a>
-<h3>Key Numbers</h3>
-
-<ul>
-<li><strong>Hardware</strong>: 8 NVIDIA P100 GPUs</li>
-<li><strong>Base model training time</strong>: 100,000 steps = 12 hours (0.4 seconds per step)</li>
-<li><strong>Big model training time</strong>: 300,000 steps = 3.5 days (1.0 seconds per step)</li>
-<li><strong>Dataset (EN-DE)</strong>: 4.5 million sentence pairs</li>
-<li><strong>Dataset (EN-FR)</strong>: 36 million sentences</li>
-<li><strong>Vocabulary (EN-DE)</strong>: 37,000 tokens (byte-pair encoding)</li>
-<li><strong>Vocabulary (EN-FR)</strong>: 32,000 tokens (word-piece)</li>
-</ul>
-
-
-<a name="Generalization.Beyond.Translation"></a>
-<h3>Generalization Beyond Translation</h3>
-
-<p>The paper also tested English constituency parsing (Penn Treebank):</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Model</th>
-        <th>WSJ Only</th>
-        <th>Semi-Supervised</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Previous best (discriminative)</td>
-        <td>91.7</td>
-        <td>92.1</td>
-      </tr>
-      <tr>
-        <td><strong>Transformer (4 layers)</strong></td>
-        <td><strong>91.3</strong></td>
-        <td><strong>92.7</strong></td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>Despite no task-specific tuning, the Transformer achieved state-of-the-art on semi-supervised parsing and competitive results on WSJ-only. This proved the architecture was generalizable.</p>
-
-<a name="Technical.Deep.Dive"></a>
-<h2>Technical Deep Dive</h2>
-
-<a name="Model.Variants..amp..Ablation.Study"></a>
-<h3>Model Variants &amp; Ablation Study</h3>
-
-<p>The paper conducted extensive ablations (Table 3) to understand which components matter:</p>
-
-<p><strong>Multi-Head Variations (Rows A)</strong>:</p>
-
-<ul>
-<li>1 head: -0.9 BLEU</li>
-<li>4 heads with h=128: No degradation</li>
-<li>8 heads with h=64: Best (baseline)</li>
-<li>16 heads with h=32: -0.4 BLEU</li>
-<li>32 heads with h=16: -0.4 BLEU</li>
-</ul>
-
-
-<p>Finding: Single-head attention hurts, but too many heads also degrades performance. Eight is optimal.</p>
-
-<p><strong>Attention Key Dimension (Rows B)</strong>:</p>
-
-<ul>
-<li>d_k = 256/32 = 8: Worse</li>
-<li>d_k = 64 (baseline): Best</li>
-</ul>
-
-
-<p>Finding: Smaller keys hurt model quality. The compatibility function needs sufficient dimensionality.</p>
-
-<p><strong>Model Size (Rows C, D)</strong>:</p>
-
-<ul>
-<li>d_model = 256: Much worse</li>
-<li>d_model = 1024: Better but slower</li>
-<li>d_ff = 1024: Better</li>
-<li>d_ff = 4096: Even better (but more compute)</li>
-</ul>
-
-
-<p>Finding: Larger models are better, as expected.</p>
-
-<p><strong>Regularization (Rows D)</strong>:</p>
-
-<ul>
-<li>P_drop = 0.0: Severe overfitting</li>
-<li>P_drop = 0.1: Best for base model</li>
-<li>P_drop = 0.3: Better for larger models</li>
-</ul>
-
-
-<p><strong>Positional Encoding (Row E)</strong>:</p>
-
-<ul>
-<li>Sinusoidal: 25.8 BLEU</li>
-<li>Learned embedding: 25.7 BLEU</li>
-</ul>
-
-
-<p>Finding: Nearly identical, validating sinusoidal choice.</p>
-
-<a name="Training.Details"></a>
-<h3>Training Details</h3>
-
-<p><strong>Optimizer</strong>: Adam with β₁ = 0.9, β₂ = 0.98, ε = 10⁻⁹</p>
-
-<p><strong>Learning Rate Schedule</strong>:
-$$
-lrate = d_model^(-0.5) · min(step_num^(-0.5), step_num · warmup_steps^(-1.5))
-$$</p>
-
-<p>With warmup_steps = 4000. This increases learning rate linearly for first 4000 steps, then decreases proportionally to step<sup>-0.5</sup>.</p>
-
-<p><strong>Regularization Techniques</strong>:</p>
-
-<ul>
-<li><strong>Residual Dropout</strong>: Applied to all sub-layer outputs before adding residual connection. P_drop = 0.1 for base model.</li>
-<li><strong>Label Smoothing</strong>: ε_ls = 0.1. This prevents model from becoming overconfident in predictions.</li>
-</ul>
-
-
-<p><strong>Inference</strong>: Beam search with beam size = 4, length penalty α = 0.6. Model parameters averaged over last 5-20 checkpoints.</p>
-
-<a name="Understanding.the.Impact"></a>
-<h2>Understanding the Impact</h2>
-
-<a name="Why.This.Mattered"></a>
-<h3>Why This Mattered</h3>
-
-<p>The Transformer&rsquo;s success opened new possibilities:</p>
-
-<ul>
-<li><strong>Massive Scale</strong>: Without sequential constraints, you could train enormous models. GPT-1 (2018) had 117 million
-parameters. GPT-3 (2020) had 175 billion. Each could train faster due to Transformer parallelization.</li>
-<li><strong>Transfer Learning</strong>: BERT (2018) showed you could pre-train Transformers on massive unlabeled text, then
-fine-tune for specific tasks. This revolutionized NLP.</li>
-<li><p><strong>Generality</strong>: The same architecture worked for:</p>
-
-<ul>
-<li>Machine translation</li>
-<li>Text summarization</li>
-<li>Question answering</li>
-<li>Parsing</li>
-<li>(Later) Computer vision (Vision Transformers, 2020)</li>
-<li>(Later) Protein folding (AlphaFold, 2020)</li>
-<li>(Later) Speech, audio, multimodal tasks</li>
-</ul>
-</li>
-<li><p><strong>Efficiency</strong>: Training became faster and cheaper, democratizing AI research.</p></li>
-</ul>
-
-
-<a name="Modern.Descendants"></a>
-<h3>Modern Descendants</h3>
-
-<p>Every major language model today uses Transformer variants:</p>
-
-<ul>
-<li><strong>GPT series</strong> (OpenAI): Decoder-only Transformer</li>
-<li><strong>BERT</strong> (Google): Encoder-only Transformer</li>
-<li><strong>T5</strong> (Google): Full encoder-decoder</li>
-<li><strong>GPT-4, Gemini, Claude, Llama</strong>: All Transformer-based</li>
-</ul>
-
-
-<a name="Limitations..amp..Future.Directions"></a>
-<h2>Limitations &amp; Future Directions</h2>
-
-<p>The paper acknowledges limitations:</p>
-
-<ul>
-<li><strong>Quadratic Complexity</strong>: Self-attention is O(n² · d). Long documents become expensive. The paper suggests sparse
-attention for very long sequences.</li>
-<li><strong>Effective Resolution</strong>: Attention averaging can lose fine-grained information in long sequences.</li>
-<li><strong>Generation Speed</strong>: Decoding is still sequential (generates one word at a time).</li>
-</ul>
-
-
-<p>Future work suggested:</p>
-
-<ul>
-<li>Restricted self-attention to handle images, audio, video</li>
-<li>Local attention mechanisms</li>
-<li>Making generation less sequential</li>
-</ul>
-
-
-<p>(Later work addressed these: Sparse Transformers, Longformer, Flash Attention, etc.)</p>
-
-<a name="Conclusion"></a>
-<h2>Conclusion</h2>
-
-<p>&ldquo;Attention Is All You Need&rdquo; presented a deceptively simple idea: replace recurrence and convolution with pure attention. But this simplicity masked profound consequences.</p>
-
-<p>The paper proved that:</p>
-
-<ul>
-<li>Sequential processing isn&rsquo;t necessary for sequence understanding</li>
-<li>Parallelization matters in practice for training speed</li>
-<li>Simpler architectures can outperform complex ones</li>
-<li>Elegant solutions often beat engineered complexity</li>
-</ul>
-
-
-<p>The eight authors—Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan Gomez, Łukasz Kaiser, and Illia Polosukhin—changed AI forever.</p>
-
-<p>Nearly a decade later, we&rsquo;re still discovering applications and improvements based on their core insight. Every conversation with ChatGPT, every Google search result, every code completion in your IDE—all trace back to this paper&rsquo;s ideas.</p>
-
-<p>The lesson transcends AI research: sometimes the breakthrough isn&rsquo;t in complexity. It&rsquo;s in finding the right abstraction that reveals hidden simplicity in what seemed complex before.</p>
-
-<blockquote><p>&ldquo;Attention, after all, might be all we need.&rdquo;</p></blockquote>
 ]]></content>
     </entry>
     
