@@ -1,0 +1,1082 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>How Zomato Works? - Rishijeet Mishra | Technologist | Tech Trends & Development Blog</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Bridging tech and education - Rishijeet Mishra's insights on digital learning">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/how-zomato-works">
+
+        <link href='https://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+         <!--adding the font awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra | Technologist | Tech Trends & Development Blog" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/system-design/">System Design</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">How Zomato Works?</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-20T08:34:32+05:30" pubdate><i class="fa fa-calendar"></i> May 20th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/zomato/'>zomato</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <blockquote><p><em>The moment you tap “Place Order” on Zomato, a massive chain of events begins instantly behind the scenes. Within seconds, the system identifies your location, finds the right restaurant, assigns a nearby delivery partner, processes your payment, and starts estimating delivery time — all before you even put your phone away. What feels simple on the surface is actually a real-time logistics system coordinating thousands of moving parts across an entire city.</em></p></blockquote>
+
+<p><img src="/images/system_design/zomato-banner.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Food delivery sounds like a simple logistics problem until you actually try to build it. Then it reveals itself as one of the hardest classes of distributed systems work: real-time geo-spatial computation, dynamic resource allocation, live tracking at millions of concurrent sessions, recommendation engines that personalize without being creepy, and payment flows that must never lose money even when half the network is flaking. Zomato operates across hundreds of cities, millions of daily orders, and tens of thousands of restaurant partners. Let us walk through how a system like this actually works.</p>
+
+<a name="What.Zomato.Actually.Does"></a>
+<h2>What Zomato Actually Does</h2>
+
+<p>Most people know Zomato as an app where you order food. But from an engineering perspective, Zomato is really three distinct systems bolted together and made to feel seamless.</p>
+
+<p>The first is a restaurant discovery and search platform. This is the part that helps you find what to eat, browse menus, read reviews, and decide. It behaves like a specialized search engine with local context.</p>
+
+<p>The second is a transactional ordering and logistics system. This handles the actual purchase: taking your order, processing payment, routing it to the restaurant, orchestrating the delivery from pickup to dropoff.</p>
+
+<p>The third is a personalization and recommendations engine. This is the layer that learns your preferences, predicts what you will want to eat on a Tuesday night versus a Sunday brunch, and surfaces restaurant and dish suggestions that feel eerily relevant.</p>
+
+<p>These three systems share infrastructure but have very different performance and correctness requirements. The search system can tolerate slight staleness. The ordering system cannot afford to lose a transaction. The recommendation system can afford to be a little wrong as long as it is interesting. Understanding that these systems have different tradeoffs is the first thing a good engineer thinks about before designing anything.</p>
+
+<a name="Core.Features.at.a.Glance"></a>
+<h2>Core Features at a Glance</h2>
+
+<p>Before going deep, it helps to enumerate what Zomato actually provides so we can map features to systems:</p>
+
+<!--more-->
+
+
+<ul>
+<li>Restaurant discovery: search by location, cuisine, rating, price range, dietary filters</li>
+<li>Menu browsing: dish listings, photos, prices, customizations, availability</li>
+<li>Food ordering: cart management, address selection, order placement</li>
+<li>Payment processing: cards, wallets, UPI, cash on delivery, offers</li>
+<li>Delivery partner assignment: matching orders to nearby riders</li>
+<li>Real-time tracking: live GPS updates for in-progress deliveries</li>
+<li>ETA prediction: estimated preparation and delivery times</li>
+<li>Order status updates: notifications at each lifecycle stage</li>
+<li>Ratings and reviews: post-delivery feedback collection</li>
+<li>Recommendations: personalized restaurant and dish suggestions</li>
+<li>Restaurant partner tools: menu management, order acceptance, analytics</li>
+<li>Delivery partner app: navigation, earnings, order queue</li>
+</ul>
+
+
+<p>Each of these features, under production traffic, is a non-trivial engineering problem. We will go through the most architecturally interesting ones in detail.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>At the highest level, Zomato&rsquo;s backend is a collection of microservices organized around business domains. The client apps — iOS, Android, and web — communicate through an API Gateway that handles authentication, rate limiting, request routing, and protocol translation. Behind the gateway, services are organized roughly like this:</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Mobile App or Web Client];
+B[API Gateway];
+C[Auth Service];
+D[Restaurant Service];
+E[Search Service];
+F[Order Service];
+G[Payment Service];
+H[Delivery Service];
+I[Tracking Service];
+J[Notification Service];
+K[Recommendation Service];
+L[ETA Service];
+M[Analytics Service];
+N[Kafka Event Bus];
+O[Redis Cache Layer];
+P[PostgreSQL Cluster];
+Q[Cassandra Cluster];
+R[Elasticsearch Cluster];
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+B &#8211;> E;
+B &#8211;> F;
+B &#8211;> G;
+B &#8211;> H;
+B &#8211;> I;
+B &#8211;> K;
+F &#8211;> N;
+H &#8211;> N;
+I &#8211;> N;
+N &#8211;> J;
+N &#8211;> M;
+D &#8211;> O;
+E &#8211;> R;
+F &#8211;> P;
+I &#8211;> Q;
+H &#8211;> L;
+</div>
+
+
+<p>The API Gateway is not just a reverse proxy. It does meaningful work: JWT validation, request deduplication, circuit breaking on downstream services, response caching for idempotent reads, and traffic shaping during surge events. Treating the gateway as just a traffic forwarder is a common architectural mistake.</p>
+
+<p>The event bus — think Kafka — is what ties the asynchronous parts of the system together. When an order is placed, the Order Service emits an event. The Notification Service, Analytics Service, Delivery Service, and several others all react to that event independently. This decoupling is what lets the system scale different concerns at different rates without tightly coupling the services.</p>
+
+<a name="Restaurant.Discovery.System"></a>
+<h2>Restaurant Discovery System</h2>
+
+<p>When you open Zomato and see a list of restaurants near you, something surprisingly sophisticated just happened. The system needed to answer a query that sounds simple — &ldquo;give me restaurants within 5 kilometers of this GPS coordinate, ranked by relevance&rdquo; — but at scale, this is a hard problem.</p>
+
+<p>The naive solution is a database query like <code>SELECT * FROM restaurants WHERE distance(lat, lng, user_lat, user_lng) &lt; 5000</code>. This does not scale. Computing Euclidean or Haversine distance for every restaurant in the database on every request is O(n) and collapses under load.</p>
+
+<p>The production solution uses geo-spatial indexing. Zomato-like systems typically use one of two approaches: GeoHash-based bucketing or spatial trees like R-trees. Elasticsearch and OpenSearch both support geo-distance queries natively and use these techniques under the hood.</p>
+
+<p>GeoHash works by encoding latitude/longitude into a short alphanumeric string. The key insight is that nearby coordinates share a common prefix. For example, a restaurant at GeoHash <code>ttnf</code> and another at <code>ttnm</code> are close to each other. By indexing restaurants on their GeoHash prefix, you can find nearby restaurants with a prefix scan rather than a full table scan. The cost drops from O(n) to O(log n) plus the size of the result set.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User GPS Location];
+B[Compute GeoHash for User];
+C[Query Nearby GeoHash Cells];
+D[Elasticsearch Geo Query];
+E[Fetch Restaurant Documents];
+F[Apply Business Filters];
+G[Rank by Relevance Score];
+H[Return Restaurant List];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>The ranking step is where it gets interesting. Raw distance is only one signal. Zomato&rsquo;s ranking model for restaurant discovery likely weighs:</p>
+
+<ul>
+<li>Distance from user</li>
+<li>Restaurant rating and review volume</li>
+<li>Estimated delivery time</li>
+<li>Current kitchen load and open/closed status</li>
+<li>Cuisine match to user preference history</li>
+<li>Promotional boost from restaurant partners</li>
+<li>Time of day relevance (breakfast spots rank higher in the morning)</li>
+<li>Order completion rate (restaurants that cancel orders frequently get penalized)</li>
+</ul>
+
+
+<p>This is a learning-to-rank problem, and in production, it is usually solved with a gradient boosted tree model or a small neural ranker that can score candidate restaurants quickly. The candidate retrieval (geo query) is fast; the re-ranking happens over a bounded set of 50 to 200 candidates and is also fast.</p>
+
+<p>One important detail: restaurant metadata like rating, cuisine tags, and menu availability is heavily cached. Redis sits in front of the restaurant service. Most restaurant profile reads never touch the primary database. Cache invalidation happens on a write-through basis when restaurant partners update their listings.</p>
+
+<a name="Food.Ordering.Pipeline"></a>
+<h2>Food Ordering Pipeline</h2>
+
+<p>The ordering pipeline is where correctness requirements are strictest. Money changes hands, inventory changes state, and multiple parties need to be coordinated — all within a few seconds.</p>
+
+<p>Here is the high-level flow:</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Submits Order];
+B[Validate Cart and Prices];
+C[Reserve Payment];
+D[Create Order Record];
+E[Notify Restaurant];
+F[Restaurant Accepts or Rejects];
+G[Assign Delivery Partner];
+H[Track Preparation];
+I[Pickup and Deliver];
+J[Mark Order Complete];
+K[Capture Payment];
+L[Release Payment on Failure];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;>|Accepted| G;
+F &#8211;>|Rejected| L;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+</div>
+
+
+<p>The trickiest part here is the distributed transaction problem. Placing an order requires: validating item prices, deducting from the user&rsquo;s wallet or pre-authorizing a card, writing an order record, and notifying the restaurant. These operations span multiple services and databases. If any one of them fails mid-flow, you need to roll back cleanly.</p>
+
+<p>The common pattern for handling this is the Saga pattern. Rather than a distributed two-phase commit (which is slow and fragile), you design each step to be reversible. If payment succeeds but the restaurant rejects the order, you issue a compensating transaction to refund the payment. Each service owns its own data and publishes events; failure handlers subscribe to those events and trigger compensating actions.</p>
+
+<p>Idempotency is critical here. Network retries are a fact of life. If the user&rsquo;s app retries the &ldquo;place order&rdquo; request because it timed out, you do not want to create two orders and charge them twice. Every order creation request carries a client-generated idempotency key. The Order Service stores this key and returns the cached result if the same key is seen again.</p>
+
+<a name="Delivery.Assignment.System"></a>
+<h2>Delivery Assignment System</h2>
+
+<p>Once the restaurant accepts an order, the delivery assignment system takes over. This is a real-time matching problem: you have an order at a specific location, and you need to find the best available delivery partner nearby.</p>
+
+<p>The naive solution — broadcast the order to all nearby riders and see who accepts first — creates a race condition and a poor experience for riders. Production systems use a more deliberate assignment strategy.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Order Accepted by Restaurant];
+B[Geo Query for Nearby Riders];
+C[Filter Available Riders];
+D[Score Riders by ETA and Load];
+E[Assign to Best Rider];
+F[Rider Accepts];
+G[Rider Declines or No Response];
+H[Re-assign to Next Rider];
+I[Monitor Assignment SLA];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+E &#8211;> G;
+G &#8211;> H;
+H &#8211;> D;
+F &#8211;> I;
+</div>
+
+
+<p>The scoring function for rider selection considers:</p>
+
+<ul>
+<li>Current distance from the restaurant</li>
+<li>Current road conditions and estimated travel time</li>
+<li>Rider&rsquo;s current status (idle, heading to pickup, returning from delivery)</li>
+<li>Rider&rsquo;s acceptance rate history (low-acceptance riders get deprioritized)</li>
+<li>Predicted kitchen preparation time (no point sending a rider who arrives in 3 minutes when food takes 20)</li>
+</ul>
+
+
+<p>This last point is subtle but important. If a rider arrives at the restaurant before the food is ready, they idle at the restaurant, which wastes time and reduces their earnings. The assignment system tries to time the assignment so the rider arrives just as the food is being packaged.</p>
+
+<p>Rider location data is stored in Redis using a Sorted Set with GeoHash scores, or using Redis&rsquo;s native GEO commands. Redis GEO commands like <code>GEORADIUS</code> let you query for all riders within a radius in microseconds. This is one of the most performance-critical reads in the entire system and must respond in under 10 milliseconds.</p>
+
+<p>One real challenge is handling simultaneous order surges. During a dinner rush, hundreds of new orders might hit the assignment system within seconds. If the system processes assignments sequentially, some orders will wait much longer than others. Production systems use a priority queue and process assignments concurrently, with distributed locking to prevent two orders from claiming the same rider simultaneously.</p>
+
+<a name="Real-Time.Delivery.Tracking"></a>
+<h2>Real-Time Delivery Tracking</h2>
+
+<p>The little moving dot on the tracking screen is the most visible piece of real-time infrastructure in the whole system. Users check it obsessively. It needs to be accurate, low-latency, and available at scale.</p>
+
+<p>Here is how it works end-to-end. The delivery partner&rsquo;s app sends location updates over a persistent WebSocket connection to the tracking service. The frequency is typically every 3 to 5 seconds when moving, with a backoff to 10 to 15 seconds when stationary. More frequent updates drain battery and saturate the connection; less frequent updates make the tracking appear jittery.</p>
+
+<p>On the server side, each location update goes through a pipeline:</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Rider App sends GPS Update];
+B[Tracking Service receives via WebSocket];
+C[Validate and Denoise Location];
+D[Write to Cassandra Time Series];
+E[Publish to Kafka Location Topic];
+F[ETA Service consumes event];
+G[Push updated location to Customer WebSocket];
+H[Update Redis with latest position];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+E &#8211;> F;
+E &#8211;> G;
+C &#8211;> H;
+</div>
+
+
+<p>Cassandra is the right storage choice here. Location updates are pure append workloads — you never update a historical location, you only write new ones. Cassandra&rsquo;s LSM-tree storage engine is optimized for exactly this access pattern. Reads for the customer tracking screen only need the latest position, which lives in Redis. Historical location data sits in Cassandra and is used for analytics and ETA model training.</p>
+
+<p>The customer-facing tracking WebSocket is maintained by a separate service from the rider-facing one. This separation matters because the load profiles are completely different. You might have 100,000 concurrent customer tracking sessions but only 20,000 active rider sessions at the same time. Scaling them independently makes operational sense.</p>
+
+<p>One underappreciated challenge is GPS noise. A rider standing still in a dense urban area might report positions that jump around by 20 to 50 meters due to signal multipath. Rendering these raw positions on a map looks terrible — the dot teleports. Production tracking systems apply a Kalman filter or similar smoothing algorithm to denoise the location stream before passing it to clients.</p>
+
+<a name="Recommendation.System.Deep.Dive"></a>
+<h2>Recommendation System Deep Dive</h2>
+
+<p>Zomato&rsquo;s recommendation system is responsible for the personalized restaurant and dish suggestions you see on the home screen. This is where the system shifts from reactive (serving what you asked for) to proactive (anticipating what you want).</p>
+
+<p>The fundamental problem is a classic two-tower retrieval problem. You have a large item space (tens of thousands of restaurants) and a user with a history of interactions. You want to find the subset of items that are most relevant to this user right now.</p>
+
+<p>User embeddings are learned from order history, search queries, browsed restaurants, time-of-day patterns, and review behavior. Restaurant embeddings are learned from their menu composition, cuisine tags, historical order patterns, and user interaction signals. At serving time, you compute the dot product between the user embedding and candidate restaurant embeddings, then rank by similarity.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User opens Home Feed];
+B[Fetch User Embedding from Feature Store];
+C[Retrieve Candidate Restaurants via ANN Search];
+D[Apply Geo and Availability Filters];
+E[Re-rank with ML Ranker];
+F[Apply Business Rules and Diversity Constraints];
+G[Return Personalized Feed];
+H[Log Impression for Training];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>The candidate retrieval step uses Approximate Nearest Neighbor search — exact nearest neighbor over millions of embeddings is too slow. Libraries like FAISS or ScaNN can search hundreds of millions of vectors in milliseconds with configurable accuracy tradeoffs.</p>
+
+<p>Re-ranking is where business logic mixes with ML. A pure ML ranker might keep surfacing the same beloved restaurant every time, which is great for engagement but bad for discovery. Production systems add diversity constraints — you cannot show more than two restaurants from the same cuisine in the top six slots, for example. They also incorporate recency bias to promote new restaurant additions in the user&rsquo;s area.</p>
+
+<p>Cold start is a real problem. A new user has no order history, so there are no preference signals to embed. New users get a hybrid approach: city-level trending restaurants, cuisine preferences collected during onboarding, and time-of-day defaults (breakfast places in the morning, comfort food late at night).</p>
+
+<a name="ETA.Prediction.System"></a>
+<h2>ETA Prediction System</h2>
+
+<p>Of all the things Zomato shows you, the delivery ETA is probably the number you care most about. It is also, quietly, one of the hardest things to get right.</p>
+
+<p>Total delivery time = kitchen preparation time + rider-to-restaurant travel time + restaurant-to-customer travel time</p>
+
+<p>Each of these components is independently uncertain, and the errors compound. Kitchen prep time depends on the restaurant&rsquo;s current load, the complexity of the ordered items, the cook&rsquo;s speed, and whether the kitchen has all the ingredients in stock. Rider travel time depends on current traffic, the route taken, weather, and rider behavior. The combined uncertainty is significant.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Order Placed];
+B[Predict Kitchen Prep Time];
+C[Predict Rider to Restaurant Time];
+D[Predict Restaurant to Customer Time];
+E[Combine Components with Uncertainty Buffer];
+F[Show Initial ETA to User];
+G[Update ETA as Order Progresses];
+H[Rider Picks Up Food];
+I[Refine ETA with Live Rider Position];
+J[Show Updated ETA];
+A &#8211;> B;
+A &#8211;> C;
+A &#8211;> D;
+B &#8211;> E;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+H &#8211;> I;
+I &#8211;> J;
+</div>
+
+
+<p>Kitchen preparation time is predicted using a model trained on historical data per restaurant, per cuisine type, and per hour of day. A restaurant that consistently takes 25 minutes during the dinner rush will have that factored in. Some restaurants have real-time kitchen load signals — order queue length, average prep time in the last 30 minutes — which get fed to the model as features.</p>
+
+<p>Travel time prediction uses a combination of road network data, historical speed data by road segment and time of day, and real-time traffic feeds. This is where a mapping SDK like Google Maps, HERE, or an in-house routing engine comes in. The key insight is that you cannot just use the geometric distance between two points. You need road-aware routing, and that routing needs to be time-aware — driving from point A to point B at 8 AM Friday is completely different from doing it at 2 PM Sunday.</p>
+
+<p>Weather is a meaningful signal that many teams underweight. Rain slows down riders significantly, both because they ride more cautiously and because demand spikes and congestion worsens simultaneously. A well-trained ETA model includes weather features.</p>
+
+<p>The ETA is not static. It gets recalculated every few minutes as the order progresses and as the rider&rsquo;s actual movement is observed. If the rider is moving faster than expected, the ETA tightens. If they have been stationary for several minutes, the ETA grows. This continuous recalculation is important for maintaining user trust — an ETA that never changes and then suddenly jumps by 20 minutes destroys confidence.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>Getting the storage layer right is foundational. A system that uses the wrong database for a workload will hit walls that no amount of horizontal scaling can fix.</p>
+
+<p>Here is a simplified schema for the core entities, expressed in a readable form:</p>
+
+<p><strong>Restaurants Table (PostgreSQL)</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">restaurants</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">id</span>            <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">name</span>          <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">city_id</span>       <span class="nb">INT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">lat</span>           <span class="n">DOUBLE</span> <span class="k">PRECISION</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">lng</span>           <span class="n">DOUBLE</span> <span class="k">PRECISION</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">geohash</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">12</span><span class="p">),</span>
+</span><span class='line'>  <span class="n">cuisine_tags</span>  <span class="nb">TEXT</span><span class="p">[],</span>
+</span><span class='line'>  <span class="n">rating</span>        <span class="nb">NUMERIC</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
+</span><span class='line'>  <span class="n">is_open</span>       <span class="nb">BOOLEAN</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">updated_at</span>    <span class="n">TIMESTAMPTZ</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="k">ON</span> <span class="n">restaurants</span> <span class="p">(</span><span class="n">geohash</span><span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="k">ON</span> <span class="n">restaurants</span> <span class="p">(</span><span class="n">city_id</span><span class="p">,</span> <span class="n">is_open</span><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p><strong>Orders Table (PostgreSQL with partitioning)</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">user_id</span>         <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">restaurant_id</span>   <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">rider_id</span>        <span class="n">UUID</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">status</span>          <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">total_amount</span>    <span class="nb">NUMERIC</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
+</span><span class='line'>  <span class="n">placed_at</span>       <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">delivered_at</span>    <span class="n">TIMESTAMPTZ</span>
+</span><span class='line'><span class="p">)</span> <span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">RANGE</span> <span class="p">(</span><span class="n">placed_at</span><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p>Partitioning orders by date is important. Without it, a table with hundreds of millions of rows becomes expensive to query. With monthly partitions, recent order queries (which are the hot path) only scan a small partition.</p>
+
+<p><strong>Location Events (Cassandra)</strong></p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">rider_locations</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">rider_id</span>    <span class="n">UUID</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">recorded_at</span> <span class="k">TIMESTAMP</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">lat</span>         <span class="n">DOUBLE</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">lng</span>         <span class="n">DOUBLE</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">speed</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">heading</span>     <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">rider_id</span><span class="p">,</span> <span class="n">recorded_at</span><span class="p">)</span>
+</span><span class='line'><span class="p">)</span> <span class="k">WITH</span> <span class="n">CLUSTERING</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="p">(</span><span class="n">recorded_at</span> <span class="k">DESC</span><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p>This Cassandra schema gives you extremely fast writes (append only) and fast reads for the latest position per rider (first row in partition, thanks to DESC ordering).</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Data Type</th>
+        <th>Storage Choice</th>
+        <th>Reason</th>
+        <th>Key Concern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Restaurant profiles</td>
+        <td>PostgreSQL + Redis</td>
+        <td>Relational, read-heavy, cacheable</td>
+        <td>Cache invalidation on updates</td>
+      </tr>
+      <tr>
+        <td>Orders</td>
+        <td>PostgreSQL (partitioned)</td>
+        <td>ACID compliance, relational joins needed</td>
+        <td>Partition growth, archival strategy</td>
+      </tr>
+      <tr>
+        <td>Rider locations</td>
+        <td>Cassandra</td>
+        <td>High-volume append-only time series</td>
+        <td>Compaction, TTL for old records</td>
+      </tr>
+      <tr>
+        <td>Search index</td>
+        <td>Elasticsearch</td>
+        <td>Full-text + geo queries</td>
+        <td>Index refresh latency, shard sizing</td>
+      </tr>
+      <tr>
+        <td>Session data</td>
+        <td>Redis</td>
+        <td>Millisecond reads, short TTL</td>
+        <td>Memory pressure, eviction policy</td>
+      </tr>
+      <tr>
+        <td>User preferences</td>
+        <td>Redis + Cassandra</td>
+        <td>Fast reads, large historical volume</td>
+        <td>Consistency between layers</td>
+      </tr>
+      <tr>
+        <td>Analytics events</td>
+        <td>Kafka + data warehouse</td>
+        <td>Streaming ingestion, batch processing</td>
+        <td>Schema evolution, backpressure</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>Caching is not just about performance. At Zomato&rsquo;s scale, it is the difference between a system that works and one that falls over during a dinner rush.</p>
+
+<p>The most aggressively cached data is restaurant metadata. A restaurant&rsquo;s name, cuisine tags, rating, delivery fee, and approximate prep time are read millions of times per day and change infrequently. This data is an ideal candidate for a read-through cache with a TTL of several minutes. The cache hit rate for this data in a well-tuned system should be above 95%.</p>
+
+<p>Menu data is slightly trickier. Prices change, items go out of stock, and new dishes get added. You want to cache menus aggressively but also need to propagate changes quickly. The typical approach is a shorter TTL (30 to 60 seconds) combined with an event-driven invalidation path: when a restaurant updates their menu through the partner app, a cache invalidation event is published to Kafka, and a consumer deletes the affected cache keys.</p>
+
+<p>Search results for popular queries (cuisine type + city + sort by rating) are also cacheable. A city-level cache that stores the top 50 restaurants per cuisine per city, refreshed every few minutes, can absorb a large fraction of home screen traffic without hitting Elasticsearch at all.</p>
+
+<p>Hotspot management is an often-overlooked caching problem. During a major event or extreme weather, everyone in a city might simultaneously search for the same popular restaurant. Even with caching, if that restaurant&rsquo;s cache key expires and a thundering herd of concurrent requests tries to regenerate it, you blow through your database connection pool. The solution is probabilistic cache refresh (refresh slightly before TTL expires, randomly, to spread the load) and mutex-based cache filling (only one thread regenerates the cache while others wait on the result).</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>The event bus is what makes all the asynchronous parts of Zomato work without coupling services together. Think of Kafka as a durable, ordered, replayable log of everything that happened.</p>
+
+<p>Every meaningful state transition in an order&rsquo;s lifecycle produces an event:</p>
+
+<ul>
+<li><code>order.placed</code></li>
+<li><code>order.restaurant_confirmed</code></li>
+<li><code>order.rider_assigned</code></li>
+<li><code>order.picked_up</code></li>
+<li><code>order.delivered</code></li>
+<li><code>order.cancelled</code></li>
+</ul>
+
+
+<p>Multiple services consume these events independently. The Notification Service sends push notifications. The Analytics Service updates real-time dashboards. The Fraud Detection Service evaluates the order for anomalies. The Recommendation Service records the interaction for future model training. None of these consumers know about each other, and none of them are in the critical path of the order being placed.</p>
+
+<p>This is the key scalability benefit of event-driven design. If the Notification Service is slow or temporarily unavailable, the order still completes. Events queue up in Kafka (which can hold them for days) and are processed when the service recovers. Contrast this with a synchronous architecture where the order service calls the notification service directly — an outage in the notification service takes down order placement with it.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Order Service];
+B[Kafka Topic - order-events];
+C[Notification Service];
+D[Analytics Service];
+E[Fraud Detection Service];
+F[Recommendation Service];
+G[Delivery Assignment Service];
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+B &#8211;> E;
+B &#8211;> F;
+B &#8211;> G;
+</div>
+
+
+<p>Event ordering matters in some cases. If you receive a <code>order.delivered</code> event before <code>order.picked_up</code>, something went wrong. Kafka guarantees ordering within a partition, so if you partition by order ID, all events for a given order arrive in sequence to the same consumer. Cross-partition ordering is not guaranteed, which is fine because order events from different orders are independent.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>When traffic doubles, which parts of the system break first? This is the most important question for any engineer working on a platform like this.</p>
+
+<p>The restaurant discovery and search path is probably the most read-heavy. A single user session might trigger five to ten search queries before placing an order. Elasticsearch clusters need to be sized generously and should sit behind aggressive caching. The geo queries are fast per-query but expensive in aggregate. Shard routing in Elasticsearch by city or geographic region keeps individual shard sizes manageable and query fan-out bounded.</p>
+
+<p>The delivery assignment system is the most write-heavy real-time workload. During peak dinner hour, you might be processing thousands of assignment decisions per minute, each requiring a geo query against the live rider positions in Redis. Redis handles this well as a single-threaded in-memory store, but it needs to be sharded if rider counts grow large. Consistent hashing across Redis shards keeps the rider geo data partitioned without requiring cross-shard queries for nearby-rider lookups.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>System Component</th>
+        <th>Scaling Bottleneck</th>
+        <th>Scaling Strategy</th>
+        <th>Known Limitation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Restaurant Search</td>
+        <td>Elasticsearch query load</td>
+        <td>Caching, read replicas, geo-partitioned shards</td>
+        <td>Cache invalidation lag during updates</td>
+      </tr>
+      <tr>
+        <td>Delivery Assignment</td>
+        <td>Redis geo query throughput</td>
+        <td>Redis cluster with geo-sharding</td>
+        <td>Cross-shard radius queries at shard boundaries</td>
+      </tr>
+      <tr>
+        <td>Live Tracking</td>
+        <td>WebSocket connection count</td>
+        <td>Stateless WS gateway with shared Redis pub/sub</td>
+        <td>Redis pub/sub fan-out at very high scale</td>
+      </tr>
+      <tr>
+        <td>ETA Prediction</td>
+        <td>ML model inference latency</td>
+        <td>Model serving with horizontal replicas</td>
+        <td>Feature freshness vs compute cost tradeoff</td>
+      </tr>
+      <tr>
+        <td>Order Processing</td>
+        <td>Database write throughput</td>
+        <td>Partitioned tables, connection pooling</td>
+        <td>Cross-partition analytics queries are slow</td>
+      </tr>
+      <tr>
+        <td>Notifications</td>
+        <td>Push gateway rate limits</td>
+        <td>Priority queues, provider batching</td>
+        <td>APNs and FCM have their own reliability SLAs</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Multi-city deployments introduce geo-partition considerations. Running a single global cluster for all cities is wasteful and introduces unnecessary latency — a user in Mumbai does not need their request processed in a data center that also serves Delhi. In practice, Zomato likely runs regionally isolated clusters per metro area or cluster of cities, with shared global services for things like authentication and payments that need a single source of truth.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>A food delivery platform being down during dinner time is extremely bad. Users get frustrated, restaurants lose revenue, riders lose earnings. The reliability requirements here are more like financial services than like a casual social app.</p>
+
+<p>The most important failure modes to design for are:</p>
+
+<p><strong>Payment outages.</strong> If the payment gateway is slow or unavailable, orders cannot be placed. The solution is multi-provider redundancy: if the primary payment provider fails, route to a backup. For pre-authorized card payments, implement retry logic with exponential backoff. For wallet payments, the local service handles more of the logic and is less dependent on external APIs.</p>
+
+<p><strong>Delivery partner unavailability.</strong> If no riders are available in an area, orders stack up and prep-time windows are violated. This is both a business problem and a UX problem. The system should detect low rider availability early and either surface a longer ETA estimate upfront or offer a &ldquo;scheduled delivery&rdquo; option. It should not accept orders and then fail to fulfill them silently.</p>
+
+<p><strong>Database leader failover.</strong> PostgreSQL and Cassandra both support synchronous replication to standbys. During a primary failure, automated failover promotes a standby to leader in 20 to 60 seconds. The key is that the application layer needs to retry connection establishment during this window rather than failing immediately. Connection pool libraries handle this if configured correctly.</p>
+
+<p>Monitoring is not optional. Every service should emit the four golden signals: latency percentiles, error rate, request throughput, and saturation (CPU, memory, queue depth). Alerting on p99 latency degradation often catches problems before they become outages. Distributed tracing (something like Jaeger or Zipkin) is essential for understanding where latency is coming from in a multi-service request chain.</p>
+
+<a name="Pricing.and.Surge.Systems"></a>
+<h2>Pricing and Surge Systems</h2>
+
+<p>Surge pricing in food delivery is controversial but economically rational. When rider supply is low relative to demand — rainy evenings, major events, holiday periods — raising delivery fees incentivizes more riders to come online and moderates order demand to a level the available supply can handle.</p>
+
+<p>The surge pricing system is essentially a real-time supply-demand balancer per geographic micro-zone. The system computes a demand signal (orders per minute in the zone) and a supply signal (available riders in the zone) and derives a surge multiplier. The multiplier feeds into the delivery fee shown to the user before they place an order.</p>
+
+<p>Getting this system wrong in either direction is bad. Surge too aggressively and users leave. Surge too little and riders go offline because earnings are not worth the difficulty of peak-hour delivery, which makes fulfillment worse for everyone. The balance point is found through continuous A/B testing and feedback loops from both user conversion data and rider acceptance rate data.</p>
+
+<a name="Security.and.Fraud.Prevention"></a>
+<h2>Security and Fraud Prevention</h2>
+
+<p>Food delivery platforms are targets for several categories of fraud. Fake orders placed with stolen payment credentials, fake delivery completions where riders mark orders as delivered without actually delivering them, review manipulation, and coupon abuse are all real problems at scale.</p>
+
+<p>Payment fraud is handled by the payment gateway&rsquo;s risk scoring combined with Zomato&rsquo;s own order-level fraud signals: new account placing a high-value order, unusual address, device fingerprint mismatch, velocity signals. High-risk orders can be routed to a manual review queue or declined automatically.</p>
+
+<p>Delivery fraud — where riders mark orders as delivered prematurely — is detected by comparing the rider&rsquo;s GPS position at the time of the delivery completion event against the delivery address coordinates. If the rider is more than 200 meters away from the address when marking delivered, it triggers an investigation workflow.</p>
+
+<p>OTP confirmation on delivery (where the customer receives a code they read to the rider) is a common mitigation for this type of fraud, though it adds friction to the delivery experience.</p>
+
+<a name="Engineering.Tradeoffs.Worth.Discussing"></a>
+<h2>Engineering Tradeoffs Worth Discussing</h2>
+
+<p>Real engineering is about choosing between imperfect options. Here are some of the most interesting tradeoffs in a food delivery system:</p>
+
+<p><strong>Real-time tracking vs battery life.</strong> Sending GPS updates every second gives perfect tracking but kills a rider&rsquo;s phone battery within hours. Every 3 to 5 seconds is the practical sweet spot. For stationary riders, you back off to every 15 seconds. The tradeoff is acceptable because users do not actually benefit from sub-second position updates on a map.</p>
+
+<p><strong>ETA accuracy vs compute cost.</strong> Running a full ML inference with 50 features every time an ETA is requested is expensive. Running a simpler lookup model is fast but less accurate. Most systems use a cheap model for the initial ETA estimate at order placement and reserve the more expensive model for in-transit updates when accuracy matters more.</p>
+
+<p><strong>Delivery batching vs speed.</strong> Giving a single rider two orders to deliver simultaneously improves efficiency and reduces cost but increases average delivery time. Users who ordered first experience higher delivery time so that the economics work for the second order. How much batching is acceptable is a business decision, but the system design needs to support configurable batching windows and scoring functions.</p>
+
+<p><strong>Consistency vs availability in order status.</strong> During a network partition, should a user be able to see their order status even if the data might be slightly stale? For read operations, yes — showing a 5-second-old status is better than showing an error page. For write operations (cancel an order, change address), you need stronger consistency guarantees because incorrect state transitions are hard to undo.</p>
+
+<a name="Technology.Stack"></a>
+<h2>Technology Stack</h2>
+
+<p>The realistic stack for a Zomato-scale system looks something like this:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Use Case</th>
+        <th>Why It Fits</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Go</td>
+        <td>High-throughput services (tracking, assignment)</td>
+        <td>Low latency, excellent concurrency model, small memory footprint</td>
+      </tr>
+      <tr>
+        <td>Java or Kotlin</td>
+        <td>Order service, payment service</td>
+        <td>Strong type system, mature ecosystem, good for complex business logic</td>
+      </tr>
+      <tr>
+        <td>Node.js</td>
+        <td>API Gateway, notification service</td>
+        <td>Event loop fits I/O-bound gateway workloads well</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL</td>
+        <td>Orders, restaurants, users</td>
+        <td>ACID transactions, excellent partitioning, mature geo extensions</td>
+      </tr>
+      <tr>
+        <td>Cassandra</td>
+        <td>Location events, order history analytics</td>
+        <td>Optimized for append-heavy time series, horizontally scalable</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Caching, rider geo index, session storage</td>
+        <td>Sub-millisecond reads, native geo commands, pub/sub for tracking</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Restaurant search, dish search</td>
+        <td>Native geo queries, full-text search, flexible ranking</td>
+      </tr>
+      <tr>
+        <td>Kafka</td>
+        <td>Event streaming, async communication</td>
+        <td>Durable, ordered, replayable, high-throughput</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Container orchestration</td>
+        <td>Horizontal pod autoscaling, rolling deployments, service mesh</td>
+      </tr>
+      <tr>
+        <td>TensorFlow or PyTorch</td>
+        <td>ETA models, recommendation models</td>
+        <td>GPU training support, model serving integration</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Zomato-style questions show up frequently in system design interviews. Interviewers usually frame it as &ldquo;Design a food delivery app&rdquo; or &ldquo;Design Zomato&rsquo;s delivery assignment system&rdquo; or &ldquo;Design the real-time tracking system.&rdquo; Here is how to approach each.</p>
+
+<p>When asked to design the full system, do not try to cover everything at equal depth. Start with a brief requirements clarification — how many daily active users, how many orders per day, what latency targets. Then sketch the high-level architecture. Then dive deep on two or three components: the interviewer cares more about your depth on key areas than surface-level coverage of everything.</p>
+
+<p>The strongest candidates walk through the ordering pipeline end-to-end and discuss distributed transaction handling unprompted. They bring up idempotency before the interviewer asks. They proactively discuss the failure scenarios — what happens when the restaurant rejects the order after payment is captured, what happens when the rider goes offline mid-delivery.</p>
+
+<p>For the delivery assignment question specifically, strong candidates go beyond &ldquo;find nearby riders and assign&rdquo; and discuss: how you time the assignment relative to kitchen prep, how you handle simultaneous surge, how you prevent double-assignment, and how you handle the reassignment workflow when a rider declines.</p>
+
+<p>Common weak spots in interviews on this topic: candidates often undersell the complexity of ETA prediction, treat the notification system as a footnote rather than a reliability challenge, and forget to discuss geo-spatial indexing specifics when discussing restaurant discovery. Bringing up GeoHash, Redis GEO commands, or Elasticsearch geo-distance queries signals production-level familiarity.</p>
+
+<p>One framing that works well in interviews: explain what data you are reading and writing at each step, what the latency budget is, and whether the operation needs to be strongly consistent. This forces you to think concretely about storage choices and quickly reveals whether a proposed design will actually work under load.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Food delivery is a domain where the physical and digital worlds are tightly coupled. Every system design decision ultimately affects whether a real person gets their dinner on time, whether a delivery partner earns a fair living, and whether a restaurant can run a predictable operation. That coupling is what makes the engineering interesting.</p>
+
+<p>The principles at work here — geo-spatial indexing, event-driven decoupling, distributed transactions with compensating actions, real-time stream processing, personalization through embeddings — are not Zomato-specific. They appear in ride-sharing, logistics, e-commerce, and financial systems. Understanding them through the lens of something as concrete and relatable as food delivery is a useful way to internalize patterns that transfer broadly.</p>
+
+<p>The next time you watch that little bike icon move across a map toward your door, you will know at least a little of what it took to make that dot move.</p>
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2026 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div>
+    
+
+
+
+    
+
+
+
+
+<div class="hire hire--unavailable">
+    
+        
+    
+</div>
+
+</div>
+        </div>
+        
+    </div>
+</footer>
+
+
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/how-zomato-works/';
+        var disqus_url = 'https://rishijeet.github.io/blog/how-zomato-works/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+        <!--adding fancybox -->
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

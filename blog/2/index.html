@@ -86,6 +86,153 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-kafka-works/">How Kafka Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-17T10:59:43+05:30" pubdate><i class="fa fa-calendar"></i> May 17th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/kafka/'>kafka</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is a moment in every backend engineer&rsquo;s career when a simple queue stops being enough. Maybe you&rsquo;re logging user activity to a database and the writes start choking the system. Maybe you&rsquo;re moving data between microservices with REST calls and latency starts creeping up. Maybe a product team asks for &ldquo;real-time analytics&rdquo; and you start wondering what that even means at scale.</em></p></blockquote>
+
+<p><img src="/images/system_design/kafka.avif" height="300" width="900" alt="Alt text" /></p>
+
+<p>That&rsquo;s when engineers usually discover Kafka.</p>
+
+<p>Apache Kafka was originally built at LinkedIn to solve a very unglamorous problem: moving enormous amounts of log data between systems without breaking everything. What they ended up building wasn&rsquo;t just a message queue. It was a distributed commit log, a unified event backbone, and arguably one of the most influential pieces of infrastructure in modern software engineering.</p>
+
+<p>But here&rsquo;s the thing nobody tells beginners: distributed messaging is genuinely hard. Not hard like &ldquo;this will take an afternoon.&rdquo; Hard like &ldquo;this is a decade of systems research made practical.&rdquo;</p>
+
+<p>Think about what you&rsquo;re actually trying to do when you build a distributed messaging system. You want to accept millions of messages per second from producers that don&rsquo;t know or care about consumers. You want to store those messages durably on disk so nothing gets lost even if half your servers crash. You want to replay old messages if a consumer fails and needs to reprocess. You want ordering guarantees for related events. You want to fan out a single message to dozens of different consumers. You want horizontal scalability so you can throw more hardware at the problem as traffic grows. And you want to do all of this with single-digit millisecond latency.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-kafka-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
+            <a href="/blog/how-pastebin-works/">How Pastebin Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-17T08:37:50+05:30" pubdate><i class="fa fa-calendar"></i> May 17th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/pastebin/'>pastebin</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is something deceptively simple about Pastebin. You paste some text, click a button, and get a short URL back. You share that URL with someone else, they open it, and they see your text. That is the entire product in one sentence. And yet, building Pastebin at the scale of tens of millions of daily users, billions of stored pastes, and a global audience requires you to make dozens of careful engineering decisions that would fill a whiteboard wall from top to bottom.</em></p></blockquote>
+
+<p>The reason Pastebin is a classic system design interview question is not because it is hard to understand — it is because it forces you to think through the full lifecycle of a piece of data in a distributed system: write it, store it, serve it to millions of readers, expire it gracefully, cache it intelligently, and make sure no one abuses it to host malware or leak credentials. Each of those steps has gotchas.</p>
+
+<p><img src="/images/system_design/pastebin.jpeg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This post is a full engineering deep dive. We will go through the architecture layer by layer, explain every major decision, and make sure you understand not just what Pastebin does but why it is built the way it is.</p>
+
+<a name="What.Pastebin.Actually.Is"></a>
+<h2>What Pastebin Actually Is</h2>
+
+<p>Before we go deep into the systems, let us be clear about the product. Pastebin is a text-sharing service. Users paste raw text, often source code, configuration files, log dumps, or command output, and get a short URL they can share. The core workflow is:</p>
+
+<ul>
+<li>A user submits a block of text</li>
+<li>The system assigns it a unique short ID and URL</li>
+<li>Other users visit that URL and read the text</li>
+<li>The paste may expire after a set time or persist forever</li>
+</ul>
+
+
+
+        <a class="btn pull-right" href="/blog/how-pastebin-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-tinder-works/">How Tinder Works</a>
         </h1>
     
@@ -285,134 +432,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-google-search-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-uber-computes-eta/">How Uber Computes ETA?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-16T08:57:52+05:30" pubdate><i class="fa fa-calendar"></i> May 16th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/uber/'>uber</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>The magic of Uber doesn’t begin when the car arrives. It begins the instant the app tells you &ldquo;how long&rdquo; the wait will be. A tiny estimate — “2 minutes away” or “6 minutes away” — flashes onto your screen so casually that most people never think twice about it. Yet producing that single number requires a planet-scale system constantly processing live GPS streams, road traffic, driver movement, rider demand, map intelligence, and prediction models in real time. What looks like a simple countdown is actually the visible tip of one of the most advanced distributed systems ever engineered for everyday consumers.</em></p></blockquote>
-
-<p>That number is the Estimated Time of Arrival, and computing it correctly — at global scale, in real time, across millions of concurrent users — is genuinely one of the hardest problems in applied engineering.</p>
-
-<p><img src="/images/system_design/uber.svg" height="300" width="900" alt="Alt text" /></p>
-
-<p>This post is a deep walkthrough of how a system like Uber&rsquo;s ETA engine works. We will go through the GPS infrastructure, the map matching algorithms, the routing engines, the machine learning prediction pipelines, the streaming systems, the geo-spatial indexing, and the tradeoffs that engineers make every day to keep that number accurate and fast.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-uber-computes-eta/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-chatgpt-works/">How ChatGPT Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-14T11:15:39+05:30" pubdate><i class="fa fa-calendar"></i> May 14th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a moment, maybe you have felt it yourself, where you type a question into ChatGPT and within seconds you get a response that feels remarkably thoughtful. It does not just return a keyword match. It understands context, it reasons through problems, it can write code and explain concepts and help you draft emails. And it does all of this for millions of people simultaneously, in real time.</em></p></blockquote>
-
-<p><img src="/images/system_design/chatgpt.avif" height="300" width="900" alt="Alt text" /></p>
-
-<p>If you are an engineer looking at that and thinking &ldquo;okay, but what is actually happening behind that text box?&rdquo;, this post is for you.</p>
-
-<p>We are going to go deep. Not just &ldquo;there&rsquo;s a transformer model and it predicts tokens&rdquo; deep. We are going to talk about the full engineering stack: how prompts flow through distributed systems, how GPUs communicate across data centers, how the inference pipeline is optimized for latency, how memory and context are managed, and what tradeoffs the engineering teams at OpenAI are navigating every single day. By the end, you should have a genuine mental model of how a system like ChatGPT is actually built.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-chatgpt-works/">Read on &rarr;</a>
     </div>
 
         </article>

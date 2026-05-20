@@ -4,7 +4,7 @@
     <title><![CDATA[Category: architecture | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/architecture/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-18T09:01:25+05:30</updated>
+    <updated>2026-05-20T08:46:34+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,1562 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Zomato Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-zomato-works/"/>
+        <updated>2026-05-20T08:34:32+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-zomato-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>The moment you tap “Place Order” on Zomato, a massive chain of events begins instantly behind the scenes. Within seconds, the system identifies your location, finds the right restaurant, assigns a nearby delivery partner, processes your payment, and starts estimating delivery time — all before you even put your phone away. What feels simple on the surface is actually a real-time logistics system coordinating thousands of moving parts across an entire city.</em></p></blockquote>
+
+<p><img src="/images/system_design/zomato-banner.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Food delivery sounds like a simple logistics problem until you actually try to build it. Then it reveals itself as one of the hardest classes of distributed systems work: real-time geo-spatial computation, dynamic resource allocation, live tracking at millions of concurrent sessions, recommendation engines that personalize without being creepy, and payment flows that must never lose money even when half the network is flaking. Zomato operates across hundreds of cities, millions of daily orders, and tens of thousands of restaurant partners. Let us walk through how a system like this actually works.</p>
+
+<a name="What.Zomato.Actually.Does"></a>
+<h2>What Zomato Actually Does</h2>
+
+<p>Most people know Zomato as an app where you order food. But from an engineering perspective, Zomato is really three distinct systems bolted together and made to feel seamless.</p>
+
+<p>The first is a restaurant discovery and search platform. This is the part that helps you find what to eat, browse menus, read reviews, and decide. It behaves like a specialized search engine with local context.</p>
+
+<p>The second is a transactional ordering and logistics system. This handles the actual purchase: taking your order, processing payment, routing it to the restaurant, orchestrating the delivery from pickup to dropoff.</p>
+
+<p>The third is a personalization and recommendations engine. This is the layer that learns your preferences, predicts what you will want to eat on a Tuesday night versus a Sunday brunch, and surfaces restaurant and dish suggestions that feel eerily relevant.</p>
+
+<p>These three systems share infrastructure but have very different performance and correctness requirements. The search system can tolerate slight staleness. The ordering system cannot afford to lose a transaction. The recommendation system can afford to be a little wrong as long as it is interesting. Understanding that these systems have different tradeoffs is the first thing a good engineer thinks about before designing anything.</p>
+
+<a name="Core.Features.at.a.Glance"></a>
+<h2>Core Features at a Glance</h2>
+
+<p>Before going deep, it helps to enumerate what Zomato actually provides so we can map features to systems:</p>
+
+<!--more-->
+
+
+<ul>
+<li>Restaurant discovery: search by location, cuisine, rating, price range, dietary filters</li>
+<li>Menu browsing: dish listings, photos, prices, customizations, availability</li>
+<li>Food ordering: cart management, address selection, order placement</li>
+<li>Payment processing: cards, wallets, UPI, cash on delivery, offers</li>
+<li>Delivery partner assignment: matching orders to nearby riders</li>
+<li>Real-time tracking: live GPS updates for in-progress deliveries</li>
+<li>ETA prediction: estimated preparation and delivery times</li>
+<li>Order status updates: notifications at each lifecycle stage</li>
+<li>Ratings and reviews: post-delivery feedback collection</li>
+<li>Recommendations: personalized restaurant and dish suggestions</li>
+<li>Restaurant partner tools: menu management, order acceptance, analytics</li>
+<li>Delivery partner app: navigation, earnings, order queue</li>
+</ul>
+
+
+<p>Each of these features, under production traffic, is a non-trivial engineering problem. We will go through the most architecturally interesting ones in detail.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>At the highest level, Zomato&rsquo;s backend is a collection of microservices organized around business domains. The client apps — iOS, Android, and web — communicate through an API Gateway that handles authentication, rate limiting, request routing, and protocol translation. Behind the gateway, services are organized roughly like this:</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Mobile App or Web Client];
+B[API Gateway];
+C[Auth Service];
+D[Restaurant Service];
+E[Search Service];
+F[Order Service];
+G[Payment Service];
+H[Delivery Service];
+I[Tracking Service];
+J[Notification Service];
+K[Recommendation Service];
+L[ETA Service];
+M[Analytics Service];
+N[Kafka Event Bus];
+O[Redis Cache Layer];
+P[PostgreSQL Cluster];
+Q[Cassandra Cluster];
+R[Elasticsearch Cluster];
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+B &#8211;> E;
+B &#8211;> F;
+B &#8211;> G;
+B &#8211;> H;
+B &#8211;> I;
+B &#8211;> K;
+F &#8211;> N;
+H &#8211;> N;
+I &#8211;> N;
+N &#8211;> J;
+N &#8211;> M;
+D &#8211;> O;
+E &#8211;> R;
+F &#8211;> P;
+I &#8211;> Q;
+H &#8211;> L;
+</div>
+
+
+<p>The API Gateway is not just a reverse proxy. It does meaningful work: JWT validation, request deduplication, circuit breaking on downstream services, response caching for idempotent reads, and traffic shaping during surge events. Treating the gateway as just a traffic forwarder is a common architectural mistake.</p>
+
+<p>The event bus — think Kafka — is what ties the asynchronous parts of the system together. When an order is placed, the Order Service emits an event. The Notification Service, Analytics Service, Delivery Service, and several others all react to that event independently. This decoupling is what lets the system scale different concerns at different rates without tightly coupling the services.</p>
+
+<a name="Restaurant.Discovery.System"></a>
+<h2>Restaurant Discovery System</h2>
+
+<p>When you open Zomato and see a list of restaurants near you, something surprisingly sophisticated just happened. The system needed to answer a query that sounds simple — &ldquo;give me restaurants within 5 kilometers of this GPS coordinate, ranked by relevance&rdquo; — but at scale, this is a hard problem.</p>
+
+<p>The naive solution is a database query like <code>SELECT * FROM restaurants WHERE distance(lat, lng, user_lat, user_lng) &lt; 5000</code>. This does not scale. Computing Euclidean or Haversine distance for every restaurant in the database on every request is O(n) and collapses under load.</p>
+
+<p>The production solution uses geo-spatial indexing. Zomato-like systems typically use one of two approaches: GeoHash-based bucketing or spatial trees like R-trees. Elasticsearch and OpenSearch both support geo-distance queries natively and use these techniques under the hood.</p>
+
+<p>GeoHash works by encoding latitude/longitude into a short alphanumeric string. The key insight is that nearby coordinates share a common prefix. For example, a restaurant at GeoHash <code>ttnf</code> and another at <code>ttnm</code> are close to each other. By indexing restaurants on their GeoHash prefix, you can find nearby restaurants with a prefix scan rather than a full table scan. The cost drops from O(n) to O(log n) plus the size of the result set.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User GPS Location];
+B[Compute GeoHash for User];
+C[Query Nearby GeoHash Cells];
+D[Elasticsearch Geo Query];
+E[Fetch Restaurant Documents];
+F[Apply Business Filters];
+G[Rank by Relevance Score];
+H[Return Restaurant List];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>The ranking step is where it gets interesting. Raw distance is only one signal. Zomato&rsquo;s ranking model for restaurant discovery likely weighs:</p>
+
+<ul>
+<li>Distance from user</li>
+<li>Restaurant rating and review volume</li>
+<li>Estimated delivery time</li>
+<li>Current kitchen load and open/closed status</li>
+<li>Cuisine match to user preference history</li>
+<li>Promotional boost from restaurant partners</li>
+<li>Time of day relevance (breakfast spots rank higher in the morning)</li>
+<li>Order completion rate (restaurants that cancel orders frequently get penalized)</li>
+</ul>
+
+
+<p>This is a learning-to-rank problem, and in production, it is usually solved with a gradient boosted tree model or a small neural ranker that can score candidate restaurants quickly. The candidate retrieval (geo query) is fast; the re-ranking happens over a bounded set of 50 to 200 candidates and is also fast.</p>
+
+<p>One important detail: restaurant metadata like rating, cuisine tags, and menu availability is heavily cached. Redis sits in front of the restaurant service. Most restaurant profile reads never touch the primary database. Cache invalidation happens on a write-through basis when restaurant partners update their listings.</p>
+
+<a name="Food.Ordering.Pipeline"></a>
+<h2>Food Ordering Pipeline</h2>
+
+<p>The ordering pipeline is where correctness requirements are strictest. Money changes hands, inventory changes state, and multiple parties need to be coordinated — all within a few seconds.</p>
+
+<p>Here is the high-level flow:</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Submits Order];
+B[Validate Cart and Prices];
+C[Reserve Payment];
+D[Create Order Record];
+E[Notify Restaurant];
+F[Restaurant Accepts or Rejects];
+G[Assign Delivery Partner];
+H[Track Preparation];
+I[Pickup and Deliver];
+J[Mark Order Complete];
+K[Capture Payment];
+L[Release Payment on Failure];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;>|Accepted| G;
+F &#8211;>|Rejected| L;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+</div>
+
+
+<p>The trickiest part here is the distributed transaction problem. Placing an order requires: validating item prices, deducting from the user&rsquo;s wallet or pre-authorizing a card, writing an order record, and notifying the restaurant. These operations span multiple services and databases. If any one of them fails mid-flow, you need to roll back cleanly.</p>
+
+<p>The common pattern for handling this is the Saga pattern. Rather than a distributed two-phase commit (which is slow and fragile), you design each step to be reversible. If payment succeeds but the restaurant rejects the order, you issue a compensating transaction to refund the payment. Each service owns its own data and publishes events; failure handlers subscribe to those events and trigger compensating actions.</p>
+
+<p>Idempotency is critical here. Network retries are a fact of life. If the user&rsquo;s app retries the &ldquo;place order&rdquo; request because it timed out, you do not want to create two orders and charge them twice. Every order creation request carries a client-generated idempotency key. The Order Service stores this key and returns the cached result if the same key is seen again.</p>
+
+<a name="Delivery.Assignment.System"></a>
+<h2>Delivery Assignment System</h2>
+
+<p>Once the restaurant accepts an order, the delivery assignment system takes over. This is a real-time matching problem: you have an order at a specific location, and you need to find the best available delivery partner nearby.</p>
+
+<p>The naive solution — broadcast the order to all nearby riders and see who accepts first — creates a race condition and a poor experience for riders. Production systems use a more deliberate assignment strategy.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Order Accepted by Restaurant];
+B[Geo Query for Nearby Riders];
+C[Filter Available Riders];
+D[Score Riders by ETA and Load];
+E[Assign to Best Rider];
+F[Rider Accepts];
+G[Rider Declines or No Response];
+H[Re-assign to Next Rider];
+I[Monitor Assignment SLA];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+E &#8211;> G;
+G &#8211;> H;
+H &#8211;> D;
+F &#8211;> I;
+</div>
+
+
+<p>The scoring function for rider selection considers:</p>
+
+<ul>
+<li>Current distance from the restaurant</li>
+<li>Current road conditions and estimated travel time</li>
+<li>Rider&rsquo;s current status (idle, heading to pickup, returning from delivery)</li>
+<li>Rider&rsquo;s acceptance rate history (low-acceptance riders get deprioritized)</li>
+<li>Predicted kitchen preparation time (no point sending a rider who arrives in 3 minutes when food takes 20)</li>
+</ul>
+
+
+<p>This last point is subtle but important. If a rider arrives at the restaurant before the food is ready, they idle at the restaurant, which wastes time and reduces their earnings. The assignment system tries to time the assignment so the rider arrives just as the food is being packaged.</p>
+
+<p>Rider location data is stored in Redis using a Sorted Set with GeoHash scores, or using Redis&rsquo;s native GEO commands. Redis GEO commands like <code>GEORADIUS</code> let you query for all riders within a radius in microseconds. This is one of the most performance-critical reads in the entire system and must respond in under 10 milliseconds.</p>
+
+<p>One real challenge is handling simultaneous order surges. During a dinner rush, hundreds of new orders might hit the assignment system within seconds. If the system processes assignments sequentially, some orders will wait much longer than others. Production systems use a priority queue and process assignments concurrently, with distributed locking to prevent two orders from claiming the same rider simultaneously.</p>
+
+<a name="Real-Time.Delivery.Tracking"></a>
+<h2>Real-Time Delivery Tracking</h2>
+
+<p>The little moving dot on the tracking screen is the most visible piece of real-time infrastructure in the whole system. Users check it obsessively. It needs to be accurate, low-latency, and available at scale.</p>
+
+<p>Here is how it works end-to-end. The delivery partner&rsquo;s app sends location updates over a persistent WebSocket connection to the tracking service. The frequency is typically every 3 to 5 seconds when moving, with a backoff to 10 to 15 seconds when stationary. More frequent updates drain battery and saturate the connection; less frequent updates make the tracking appear jittery.</p>
+
+<p>On the server side, each location update goes through a pipeline:</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Rider App sends GPS Update];
+B[Tracking Service receives via WebSocket];
+C[Validate and Denoise Location];
+D[Write to Cassandra Time Series];
+E[Publish to Kafka Location Topic];
+F[ETA Service consumes event];
+G[Push updated location to Customer WebSocket];
+H[Update Redis with latest position];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+E &#8211;> F;
+E &#8211;> G;
+C &#8211;> H;
+</div>
+
+
+<p>Cassandra is the right storage choice here. Location updates are pure append workloads — you never update a historical location, you only write new ones. Cassandra&rsquo;s LSM-tree storage engine is optimized for exactly this access pattern. Reads for the customer tracking screen only need the latest position, which lives in Redis. Historical location data sits in Cassandra and is used for analytics and ETA model training.</p>
+
+<p>The customer-facing tracking WebSocket is maintained by a separate service from the rider-facing one. This separation matters because the load profiles are completely different. You might have 100,000 concurrent customer tracking sessions but only 20,000 active rider sessions at the same time. Scaling them independently makes operational sense.</p>
+
+<p>One underappreciated challenge is GPS noise. A rider standing still in a dense urban area might report positions that jump around by 20 to 50 meters due to signal multipath. Rendering these raw positions on a map looks terrible — the dot teleports. Production tracking systems apply a Kalman filter or similar smoothing algorithm to denoise the location stream before passing it to clients.</p>
+
+<a name="Recommendation.System.Deep.Dive"></a>
+<h2>Recommendation System Deep Dive</h2>
+
+<p>Zomato&rsquo;s recommendation system is responsible for the personalized restaurant and dish suggestions you see on the home screen. This is where the system shifts from reactive (serving what you asked for) to proactive (anticipating what you want).</p>
+
+<p>The fundamental problem is a classic two-tower retrieval problem. You have a large item space (tens of thousands of restaurants) and a user with a history of interactions. You want to find the subset of items that are most relevant to this user right now.</p>
+
+<p>User embeddings are learned from order history, search queries, browsed restaurants, time-of-day patterns, and review behavior. Restaurant embeddings are learned from their menu composition, cuisine tags, historical order patterns, and user interaction signals. At serving time, you compute the dot product between the user embedding and candidate restaurant embeddings, then rank by similarity.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User opens Home Feed];
+B[Fetch User Embedding from Feature Store];
+C[Retrieve Candidate Restaurants via ANN Search];
+D[Apply Geo and Availability Filters];
+E[Re-rank with ML Ranker];
+F[Apply Business Rules and Diversity Constraints];
+G[Return Personalized Feed];
+H[Log Impression for Training];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>The candidate retrieval step uses Approximate Nearest Neighbor search — exact nearest neighbor over millions of embeddings is too slow. Libraries like FAISS or ScaNN can search hundreds of millions of vectors in milliseconds with configurable accuracy tradeoffs.</p>
+
+<p>Re-ranking is where business logic mixes with ML. A pure ML ranker might keep surfacing the same beloved restaurant every time, which is great for engagement but bad for discovery. Production systems add diversity constraints — you cannot show more than two restaurants from the same cuisine in the top six slots, for example. They also incorporate recency bias to promote new restaurant additions in the user&rsquo;s area.</p>
+
+<p>Cold start is a real problem. A new user has no order history, so there are no preference signals to embed. New users get a hybrid approach: city-level trending restaurants, cuisine preferences collected during onboarding, and time-of-day defaults (breakfast places in the morning, comfort food late at night).</p>
+
+<a name="ETA.Prediction.System"></a>
+<h2>ETA Prediction System</h2>
+
+<p>Of all the things Zomato shows you, the delivery ETA is probably the number you care most about. It is also, quietly, one of the hardest things to get right.</p>
+
+<p>Total delivery time = kitchen preparation time + rider-to-restaurant travel time + restaurant-to-customer travel time</p>
+
+<p>Each of these components is independently uncertain, and the errors compound. Kitchen prep time depends on the restaurant&rsquo;s current load, the complexity of the ordered items, the cook&rsquo;s speed, and whether the kitchen has all the ingredients in stock. Rider travel time depends on current traffic, the route taken, weather, and rider behavior. The combined uncertainty is significant.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Order Placed];
+B[Predict Kitchen Prep Time];
+C[Predict Rider to Restaurant Time];
+D[Predict Restaurant to Customer Time];
+E[Combine Components with Uncertainty Buffer];
+F[Show Initial ETA to User];
+G[Update ETA as Order Progresses];
+H[Rider Picks Up Food];
+I[Refine ETA with Live Rider Position];
+J[Show Updated ETA];
+A &#8211;> B;
+A &#8211;> C;
+A &#8211;> D;
+B &#8211;> E;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+H &#8211;> I;
+I &#8211;> J;
+</div>
+
+
+<p>Kitchen preparation time is predicted using a model trained on historical data per restaurant, per cuisine type, and per hour of day. A restaurant that consistently takes 25 minutes during the dinner rush will have that factored in. Some restaurants have real-time kitchen load signals — order queue length, average prep time in the last 30 minutes — which get fed to the model as features.</p>
+
+<p>Travel time prediction uses a combination of road network data, historical speed data by road segment and time of day, and real-time traffic feeds. This is where a mapping SDK like Google Maps, HERE, or an in-house routing engine comes in. The key insight is that you cannot just use the geometric distance between two points. You need road-aware routing, and that routing needs to be time-aware — driving from point A to point B at 8 AM Friday is completely different from doing it at 2 PM Sunday.</p>
+
+<p>Weather is a meaningful signal that many teams underweight. Rain slows down riders significantly, both because they ride more cautiously and because demand spikes and congestion worsens simultaneously. A well-trained ETA model includes weather features.</p>
+
+<p>The ETA is not static. It gets recalculated every few minutes as the order progresses and as the rider&rsquo;s actual movement is observed. If the rider is moving faster than expected, the ETA tightens. If they have been stationary for several minutes, the ETA grows. This continuous recalculation is important for maintaining user trust — an ETA that never changes and then suddenly jumps by 20 minutes destroys confidence.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>Getting the storage layer right is foundational. A system that uses the wrong database for a workload will hit walls that no amount of horizontal scaling can fix.</p>
+
+<p>Here is a simplified schema for the core entities, expressed in a readable form:</p>
+
+<p><strong>Restaurants Table (PostgreSQL)</strong></p>
+
+<pre><code class="sql">CREATE TABLE restaurants (
+  id            UUID PRIMARY KEY,
+  name          TEXT NOT NULL,
+  city_id       INT NOT NULL,
+  lat           DOUBLE PRECISION,
+  lng           DOUBLE PRECISION,
+  geohash       VARCHAR(12),
+  cuisine_tags  TEXT[],
+  rating        NUMERIC(3,2),
+  is_open       BOOLEAN,
+  created_at    TIMESTAMPTZ,
+  updated_at    TIMESTAMPTZ
+);
+CREATE INDEX ON restaurants (geohash);
+CREATE INDEX ON restaurants (city_id, is_open);
+</code></pre>
+
+<p><strong>Orders Table (PostgreSQL with partitioning)</strong></p>
+
+<pre><code class="sql">CREATE TABLE orders (
+  id              UUID PRIMARY KEY,
+  user_id         UUID NOT NULL,
+  restaurant_id   UUID NOT NULL,
+  rider_id        UUID,
+  status          TEXT NOT NULL,
+  total_amount    NUMERIC(10,2),
+  placed_at       TIMESTAMPTZ,
+  delivered_at    TIMESTAMPTZ
+) PARTITION BY RANGE (placed_at);
+</code></pre>
+
+<p>Partitioning orders by date is important. Without it, a table with hundreds of millions of rows becomes expensive to query. With monthly partitions, recent order queries (which are the hot path) only scan a small partition.</p>
+
+<p><strong>Location Events (Cassandra)</strong></p>
+
+<pre><code class="sql">CREATE TABLE rider_locations (
+  rider_id    UUID,
+  recorded_at TIMESTAMP,
+  lat         DOUBLE,
+  lng         DOUBLE,
+  speed       FLOAT,
+  heading     INT,
+  PRIMARY KEY (rider_id, recorded_at)
+) WITH CLUSTERING ORDER BY (recorded_at DESC);
+</code></pre>
+
+<p>This Cassandra schema gives you extremely fast writes (append only) and fast reads for the latest position per rider (first row in partition, thanks to DESC ordering).</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Data Type</th>
+        <th>Storage Choice</th>
+        <th>Reason</th>
+        <th>Key Concern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Restaurant profiles</td>
+        <td>PostgreSQL + Redis</td>
+        <td>Relational, read-heavy, cacheable</td>
+        <td>Cache invalidation on updates</td>
+      </tr>
+      <tr>
+        <td>Orders</td>
+        <td>PostgreSQL (partitioned)</td>
+        <td>ACID compliance, relational joins needed</td>
+        <td>Partition growth, archival strategy</td>
+      </tr>
+      <tr>
+        <td>Rider locations</td>
+        <td>Cassandra</td>
+        <td>High-volume append-only time series</td>
+        <td>Compaction, TTL for old records</td>
+      </tr>
+      <tr>
+        <td>Search index</td>
+        <td>Elasticsearch</td>
+        <td>Full-text + geo queries</td>
+        <td>Index refresh latency, shard sizing</td>
+      </tr>
+      <tr>
+        <td>Session data</td>
+        <td>Redis</td>
+        <td>Millisecond reads, short TTL</td>
+        <td>Memory pressure, eviction policy</td>
+      </tr>
+      <tr>
+        <td>User preferences</td>
+        <td>Redis + Cassandra</td>
+        <td>Fast reads, large historical volume</td>
+        <td>Consistency between layers</td>
+      </tr>
+      <tr>
+        <td>Analytics events</td>
+        <td>Kafka + data warehouse</td>
+        <td>Streaming ingestion, batch processing</td>
+        <td>Schema evolution, backpressure</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>Caching is not just about performance. At Zomato&rsquo;s scale, it is the difference between a system that works and one that falls over during a dinner rush.</p>
+
+<p>The most aggressively cached data is restaurant metadata. A restaurant&rsquo;s name, cuisine tags, rating, delivery fee, and approximate prep time are read millions of times per day and change infrequently. This data is an ideal candidate for a read-through cache with a TTL of several minutes. The cache hit rate for this data in a well-tuned system should be above 95%.</p>
+
+<p>Menu data is slightly trickier. Prices change, items go out of stock, and new dishes get added. You want to cache menus aggressively but also need to propagate changes quickly. The typical approach is a shorter TTL (30 to 60 seconds) combined with an event-driven invalidation path: when a restaurant updates their menu through the partner app, a cache invalidation event is published to Kafka, and a consumer deletes the affected cache keys.</p>
+
+<p>Search results for popular queries (cuisine type + city + sort by rating) are also cacheable. A city-level cache that stores the top 50 restaurants per cuisine per city, refreshed every few minutes, can absorb a large fraction of home screen traffic without hitting Elasticsearch at all.</p>
+
+<p>Hotspot management is an often-overlooked caching problem. During a major event or extreme weather, everyone in a city might simultaneously search for the same popular restaurant. Even with caching, if that restaurant&rsquo;s cache key expires and a thundering herd of concurrent requests tries to regenerate it, you blow through your database connection pool. The solution is probabilistic cache refresh (refresh slightly before TTL expires, randomly, to spread the load) and mutex-based cache filling (only one thread regenerates the cache while others wait on the result).</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>The event bus is what makes all the asynchronous parts of Zomato work without coupling services together. Think of Kafka as a durable, ordered, replayable log of everything that happened.</p>
+
+<p>Every meaningful state transition in an order&rsquo;s lifecycle produces an event:</p>
+
+<ul>
+<li><code>order.placed</code></li>
+<li><code>order.restaurant_confirmed</code></li>
+<li><code>order.rider_assigned</code></li>
+<li><code>order.picked_up</code></li>
+<li><code>order.delivered</code></li>
+<li><code>order.cancelled</code></li>
+</ul>
+
+
+<p>Multiple services consume these events independently. The Notification Service sends push notifications. The Analytics Service updates real-time dashboards. The Fraud Detection Service evaluates the order for anomalies. The Recommendation Service records the interaction for future model training. None of these consumers know about each other, and none of them are in the critical path of the order being placed.</p>
+
+<p>This is the key scalability benefit of event-driven design. If the Notification Service is slow or temporarily unavailable, the order still completes. Events queue up in Kafka (which can hold them for days) and are processed when the service recovers. Contrast this with a synchronous architecture where the order service calls the notification service directly — an outage in the notification service takes down order placement with it.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Order Service];
+B[Kafka Topic - order-events];
+C[Notification Service];
+D[Analytics Service];
+E[Fraud Detection Service];
+F[Recommendation Service];
+G[Delivery Assignment Service];
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+B &#8211;> E;
+B &#8211;> F;
+B &#8211;> G;
+</div>
+
+
+<p>Event ordering matters in some cases. If you receive a <code>order.delivered</code> event before <code>order.picked_up</code>, something went wrong. Kafka guarantees ordering within a partition, so if you partition by order ID, all events for a given order arrive in sequence to the same consumer. Cross-partition ordering is not guaranteed, which is fine because order events from different orders are independent.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>When traffic doubles, which parts of the system break first? This is the most important question for any engineer working on a platform like this.</p>
+
+<p>The restaurant discovery and search path is probably the most read-heavy. A single user session might trigger five to ten search queries before placing an order. Elasticsearch clusters need to be sized generously and should sit behind aggressive caching. The geo queries are fast per-query but expensive in aggregate. Shard routing in Elasticsearch by city or geographic region keeps individual shard sizes manageable and query fan-out bounded.</p>
+
+<p>The delivery assignment system is the most write-heavy real-time workload. During peak dinner hour, you might be processing thousands of assignment decisions per minute, each requiring a geo query against the live rider positions in Redis. Redis handles this well as a single-threaded in-memory store, but it needs to be sharded if rider counts grow large. Consistent hashing across Redis shards keeps the rider geo data partitioned without requiring cross-shard queries for nearby-rider lookups.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>System Component</th>
+        <th>Scaling Bottleneck</th>
+        <th>Scaling Strategy</th>
+        <th>Known Limitation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Restaurant Search</td>
+        <td>Elasticsearch query load</td>
+        <td>Caching, read replicas, geo-partitioned shards</td>
+        <td>Cache invalidation lag during updates</td>
+      </tr>
+      <tr>
+        <td>Delivery Assignment</td>
+        <td>Redis geo query throughput</td>
+        <td>Redis cluster with geo-sharding</td>
+        <td>Cross-shard radius queries at shard boundaries</td>
+      </tr>
+      <tr>
+        <td>Live Tracking</td>
+        <td>WebSocket connection count</td>
+        <td>Stateless WS gateway with shared Redis pub/sub</td>
+        <td>Redis pub/sub fan-out at very high scale</td>
+      </tr>
+      <tr>
+        <td>ETA Prediction</td>
+        <td>ML model inference latency</td>
+        <td>Model serving with horizontal replicas</td>
+        <td>Feature freshness vs compute cost tradeoff</td>
+      </tr>
+      <tr>
+        <td>Order Processing</td>
+        <td>Database write throughput</td>
+        <td>Partitioned tables, connection pooling</td>
+        <td>Cross-partition analytics queries are slow</td>
+      </tr>
+      <tr>
+        <td>Notifications</td>
+        <td>Push gateway rate limits</td>
+        <td>Priority queues, provider batching</td>
+        <td>APNs and FCM have their own reliability SLAs</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Multi-city deployments introduce geo-partition considerations. Running a single global cluster for all cities is wasteful and introduces unnecessary latency — a user in Mumbai does not need their request processed in a data center that also serves Delhi. In practice, Zomato likely runs regionally isolated clusters per metro area or cluster of cities, with shared global services for things like authentication and payments that need a single source of truth.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>A food delivery platform being down during dinner time is extremely bad. Users get frustrated, restaurants lose revenue, riders lose earnings. The reliability requirements here are more like financial services than like a casual social app.</p>
+
+<p>The most important failure modes to design for are:</p>
+
+<p><strong>Payment outages.</strong> If the payment gateway is slow or unavailable, orders cannot be placed. The solution is multi-provider redundancy: if the primary payment provider fails, route to a backup. For pre-authorized card payments, implement retry logic with exponential backoff. For wallet payments, the local service handles more of the logic and is less dependent on external APIs.</p>
+
+<p><strong>Delivery partner unavailability.</strong> If no riders are available in an area, orders stack up and prep-time windows are violated. This is both a business problem and a UX problem. The system should detect low rider availability early and either surface a longer ETA estimate upfront or offer a &ldquo;scheduled delivery&rdquo; option. It should not accept orders and then fail to fulfill them silently.</p>
+
+<p><strong>Database leader failover.</strong> PostgreSQL and Cassandra both support synchronous replication to standbys. During a primary failure, automated failover promotes a standby to leader in 20 to 60 seconds. The key is that the application layer needs to retry connection establishment during this window rather than failing immediately. Connection pool libraries handle this if configured correctly.</p>
+
+<p>Monitoring is not optional. Every service should emit the four golden signals: latency percentiles, error rate, request throughput, and saturation (CPU, memory, queue depth). Alerting on p99 latency degradation often catches problems before they become outages. Distributed tracing (something like Jaeger or Zipkin) is essential for understanding where latency is coming from in a multi-service request chain.</p>
+
+<a name="Pricing.and.Surge.Systems"></a>
+<h2>Pricing and Surge Systems</h2>
+
+<p>Surge pricing in food delivery is controversial but economically rational. When rider supply is low relative to demand — rainy evenings, major events, holiday periods — raising delivery fees incentivizes more riders to come online and moderates order demand to a level the available supply can handle.</p>
+
+<p>The surge pricing system is essentially a real-time supply-demand balancer per geographic micro-zone. The system computes a demand signal (orders per minute in the zone) and a supply signal (available riders in the zone) and derives a surge multiplier. The multiplier feeds into the delivery fee shown to the user before they place an order.</p>
+
+<p>Getting this system wrong in either direction is bad. Surge too aggressively and users leave. Surge too little and riders go offline because earnings are not worth the difficulty of peak-hour delivery, which makes fulfillment worse for everyone. The balance point is found through continuous A/B testing and feedback loops from both user conversion data and rider acceptance rate data.</p>
+
+<a name="Security.and.Fraud.Prevention"></a>
+<h2>Security and Fraud Prevention</h2>
+
+<p>Food delivery platforms are targets for several categories of fraud. Fake orders placed with stolen payment credentials, fake delivery completions where riders mark orders as delivered without actually delivering them, review manipulation, and coupon abuse are all real problems at scale.</p>
+
+<p>Payment fraud is handled by the payment gateway&rsquo;s risk scoring combined with Zomato&rsquo;s own order-level fraud signals: new account placing a high-value order, unusual address, device fingerprint mismatch, velocity signals. High-risk orders can be routed to a manual review queue or declined automatically.</p>
+
+<p>Delivery fraud — where riders mark orders as delivered prematurely — is detected by comparing the rider&rsquo;s GPS position at the time of the delivery completion event against the delivery address coordinates. If the rider is more than 200 meters away from the address when marking delivered, it triggers an investigation workflow.</p>
+
+<p>OTP confirmation on delivery (where the customer receives a code they read to the rider) is a common mitigation for this type of fraud, though it adds friction to the delivery experience.</p>
+
+<a name="Engineering.Tradeoffs.Worth.Discussing"></a>
+<h2>Engineering Tradeoffs Worth Discussing</h2>
+
+<p>Real engineering is about choosing between imperfect options. Here are some of the most interesting tradeoffs in a food delivery system:</p>
+
+<p><strong>Real-time tracking vs battery life.</strong> Sending GPS updates every second gives perfect tracking but kills a rider&rsquo;s phone battery within hours. Every 3 to 5 seconds is the practical sweet spot. For stationary riders, you back off to every 15 seconds. The tradeoff is acceptable because users do not actually benefit from sub-second position updates on a map.</p>
+
+<p><strong>ETA accuracy vs compute cost.</strong> Running a full ML inference with 50 features every time an ETA is requested is expensive. Running a simpler lookup model is fast but less accurate. Most systems use a cheap model for the initial ETA estimate at order placement and reserve the more expensive model for in-transit updates when accuracy matters more.</p>
+
+<p><strong>Delivery batching vs speed.</strong> Giving a single rider two orders to deliver simultaneously improves efficiency and reduces cost but increases average delivery time. Users who ordered first experience higher delivery time so that the economics work for the second order. How much batching is acceptable is a business decision, but the system design needs to support configurable batching windows and scoring functions.</p>
+
+<p><strong>Consistency vs availability in order status.</strong> During a network partition, should a user be able to see their order status even if the data might be slightly stale? For read operations, yes — showing a 5-second-old status is better than showing an error page. For write operations (cancel an order, change address), you need stronger consistency guarantees because incorrect state transitions are hard to undo.</p>
+
+<a name="Technology.Stack"></a>
+<h2>Technology Stack</h2>
+
+<p>The realistic stack for a Zomato-scale system looks something like this:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Use Case</th>
+        <th>Why It Fits</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Go</td>
+        <td>High-throughput services (tracking, assignment)</td>
+        <td>Low latency, excellent concurrency model, small memory footprint</td>
+      </tr>
+      <tr>
+        <td>Java or Kotlin</td>
+        <td>Order service, payment service</td>
+        <td>Strong type system, mature ecosystem, good for complex business logic</td>
+      </tr>
+      <tr>
+        <td>Node.js</td>
+        <td>API Gateway, notification service</td>
+        <td>Event loop fits I/O-bound gateway workloads well</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL</td>
+        <td>Orders, restaurants, users</td>
+        <td>ACID transactions, excellent partitioning, mature geo extensions</td>
+      </tr>
+      <tr>
+        <td>Cassandra</td>
+        <td>Location events, order history analytics</td>
+        <td>Optimized for append-heavy time series, horizontally scalable</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Caching, rider geo index, session storage</td>
+        <td>Sub-millisecond reads, native geo commands, pub/sub for tracking</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Restaurant search, dish search</td>
+        <td>Native geo queries, full-text search, flexible ranking</td>
+      </tr>
+      <tr>
+        <td>Kafka</td>
+        <td>Event streaming, async communication</td>
+        <td>Durable, ordered, replayable, high-throughput</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Container orchestration</td>
+        <td>Horizontal pod autoscaling, rolling deployments, service mesh</td>
+      </tr>
+      <tr>
+        <td>TensorFlow or PyTorch</td>
+        <td>ETA models, recommendation models</td>
+        <td>GPU training support, model serving integration</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Zomato-style questions show up frequently in system design interviews. Interviewers usually frame it as &ldquo;Design a food delivery app&rdquo; or &ldquo;Design Zomato&rsquo;s delivery assignment system&rdquo; or &ldquo;Design the real-time tracking system.&rdquo; Here is how to approach each.</p>
+
+<p>When asked to design the full system, do not try to cover everything at equal depth. Start with a brief requirements clarification — how many daily active users, how many orders per day, what latency targets. Then sketch the high-level architecture. Then dive deep on two or three components: the interviewer cares more about your depth on key areas than surface-level coverage of everything.</p>
+
+<p>The strongest candidates walk through the ordering pipeline end-to-end and discuss distributed transaction handling unprompted. They bring up idempotency before the interviewer asks. They proactively discuss the failure scenarios — what happens when the restaurant rejects the order after payment is captured, what happens when the rider goes offline mid-delivery.</p>
+
+<p>For the delivery assignment question specifically, strong candidates go beyond &ldquo;find nearby riders and assign&rdquo; and discuss: how you time the assignment relative to kitchen prep, how you handle simultaneous surge, how you prevent double-assignment, and how you handle the reassignment workflow when a rider declines.</p>
+
+<p>Common weak spots in interviews on this topic: candidates often undersell the complexity of ETA prediction, treat the notification system as a footnote rather than a reliability challenge, and forget to discuss geo-spatial indexing specifics when discussing restaurant discovery. Bringing up GeoHash, Redis GEO commands, or Elasticsearch geo-distance queries signals production-level familiarity.</p>
+
+<p>One framing that works well in interviews: explain what data you are reading and writing at each step, what the latency budget is, and whether the operation needs to be strongly consistent. This forces you to think concretely about storage choices and quickly reveals whether a proposed design will actually work under load.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Food delivery is a domain where the physical and digital worlds are tightly coupled. Every system design decision ultimately affects whether a real person gets their dinner on time, whether a delivery partner earns a fair living, and whether a restaurant can run a predictable operation. That coupling is what makes the engineering interesting.</p>
+
+<p>The principles at work here — geo-spatial indexing, event-driven decoupling, distributed transactions with compensating actions, real-time stream processing, personalization through embeddings — are not Zomato-specific. They appear in ride-sharing, logistics, e-commerce, and financial systems. Understanding them through the lens of something as concrete and relatable as food delivery is a useful way to internalize patterns that transfer broadly.</p>
+
+<p>The next time you watch that little bike icon move across a map toward your door, you will know at least a little of what it took to make that dot move.</p>
+]]></content>
+    </entry>
+    
+    <entry>
+        <title type="html"><![CDATA[How Netflix Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-netflix-works/"/>
+        <updated>2026-05-20T08:21:54+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-netflix-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>Every second, somewhere in the world, a person presses play on Netflix and expects the impossible to feel effortless. In the brief instant before the first frame appears, an enormous distributed system has already selected the optimal video quality, routed the request to the nearest CDN edge server, adapted to the user’s network conditions, and begun streaming millions of bytes across the internet — all fast enough that the viewer never thinks about it. No loading screens. No blurry frames. Just seamless playback delivered on demand, at planetary scale.</em></p></blockquote>
+
+<p><img src="/images/system_design/netflix-banner.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>What makes that moment deceptively simple is the enormous machinery running beneath it. At any given time, Netflix is serving somewhere north of 200 million active subscribers across 190 countries. It accounts for roughly 15% of global internet traffic during peak hours. Its recommendation engine influences what more than 80% of subscribers watch next. And the system has to work whether you are on fiber in Seoul, a spotty cellular connection in rural Brazil, or a smart TV in a hotel in Amsterdam.</p>
+
+<p>Most distributed systems have to handle scale. Netflix has to handle scale while also being real-time, fault-tolerant, and nearly invisible to the user. The experience degrades the moment you notice it.</p>
+
+<p>This post is an attempt to explain the full system. Not just the broad strokes, but the reasons behind each architectural decision, the tradeoffs made at each layer, and what happens when things go wrong. We will move from client to CDN to cloud, from video bytes to neural network embeddings, and from API gateway to analytics pipelines.</p>
+
+<a name="Core.Features.of.Netflix"></a>
+<h2>Core Features of Netflix</h2>
+
+<p>Before touching the architecture, it is worth being precise about what Netflix actually does. The feature list sounds mundane but each item carries serious engineering weight.</p>
+
+<!--more-->
+
+
+<p>Video streaming is the obvious centerpiece, but it is not a single system. Behind it are codec pipelines, adaptive bitrate algorithms, chunk delivery networks, and playback state machines running simultaneously on devices with wildly different capabilities.</p>
+
+<p>Personalized recommendations shape the entire interface. Every homepage tile, every row order, every thumbnail variant is chosen based on what the system knows about your viewing behavior. The home screen of one user looks genuinely different from another.</p>
+
+<p>Continue watching requires tracking precise playback progress across every device a user owns, synchronizing it in near-real-time, and surfacing it in the right position on the homepage based on recency and predicted likelihood of completion.</p>
+
+<p>Multi-profile support means each person in a household has independent watch history, preferences, and recommendations, all sharing the same account but maintaining strict data separation.</p>
+
+<p>Adaptive playback means the video quality changes dynamically as network conditions change, without pausing the stream and without the user explicitly choosing anything.</p>
+
+<p>Offline downloads involve encrypted content, DRM licensing, local storage management, and expiration enforcement, all of which have to survive device restarts and app updates.</p>
+
+<p>Search, subtitles, audio tracks, smart TV integrations, and watch history all add their own backend services, but they all depend on a shared metadata layer and a shared authentication model.</p>
+
+<p>Understanding that each feature is backed by a distinct engineering subsystem is important, because the architecture of Netflix is not a monolith that does everything. It is an ecosystem of services that each specialize in one thing.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>At the highest level, Netflix is organized around three zones: the client, the backend services in AWS, and the Open Connect CDN.</p>
+
+<p>Clients are everything from web browsers to Android phones to Samsung smart TVs to PlayStation consoles. They communicate with backend services through an API gateway tier called Zuul, which handles routing, rate limiting, authentication token validation, and A/B test assignment. Behind Zuul sits a forest of microservices, each owning a slice of the product experience.</p>
+
+<p>The backend is almost entirely hosted on AWS. Netflix is often cited as one of the most famous AWS customers, and their infrastructure spans multiple AWS regions with active-active deployments designed to survive regional failures. Services communicate via REST over HTTP or asynchronously via Kafka. Service discovery and client-side load balancing happen through Netflix&rsquo;s own Eureka and Ribbon libraries, both of which they open-sourced.</p>
+
+<p>The CDN layer is Open Connect, Netflix&rsquo;s own global content delivery network. It is where the actual video bytes live closest to users. We will go deep on this later, but the short version is that Netflix placed physical servers inside internet service provider data centers around the world, and those servers hold cached copies of the most popular content in each region.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Client Device];
+B[Zuul API Gateway];
+C[Auth Service];
+D[Playback Service];
+E[Recommendation Service];
+F[Metadata Service];
+G[Search Service];
+H[Analytics Service];
+I[Open Connect CDN];
+J[AWS S3 Video Storage];
+K[Transcoding Pipeline];
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+B &#8211;> E;
+B &#8211;> F;
+B &#8211;> G;
+A &#8211;> I;
+D &#8211;> I;
+D &#8211;> F;
+K &#8211;> J;
+J &#8211;> I;
+H &#8211;> E;
+A &#8211;> H;
+</div>
+
+
+<p>The playback lifecycle starts the moment a user taps a title. The client calls the playback service, which validates the license, selects the right CDN server to stream from, and returns a manifest file that describes all available video and audio tracks, their quality levels, and the URLs for each chunk. The client then begins fetching chunks directly from the CDN, adapting quality in real time based on network throughput.</p>
+
+<p>The recommendation lifecycle runs continuously in the background. Viewing events stream into Kafka, get processed by Apache Spark jobs, update user embedding models, and eventually produce fresh personalized rankings that get cached for the next homepage load.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[User Taps Play];
+B[Playback Service];
+C[License Validation];
+D[CDN Node Selection];
+E[Manifest Returned];
+F[Client Fetches Chunks];
+G[Adaptive Bitrate Logic];
+H[Video Plays];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+G &#8211;>|Network Drops| F;
+</div>
+
+
+<a name="Video.Streaming.Pipeline"></a>
+<h2>Video Streaming Pipeline</h2>
+
+<p>The video streaming pipeline is where the most latency-sensitive engineering lives. A user who clicks play and waits more than two or three seconds is already forming a negative opinion of the product. Netflix has obsessed over startup latency for years, and the architecture reflects that.</p>
+
+<p>When a client requests playback, several things happen in rapid parallel. The API gateway routes the request to the playback service. The playback service fetches the entitlement record to confirm the user has the right to watch this title. It fetches the asset map to understand which encoded versions of the video exist. It runs CDN selection logic to determine the optimal Open Connect server to stream from, based on the client&rsquo;s geography, ISP affiliation, current load on each server, and historical performance data for that client&rsquo;s network path. It then constructs and signs a manifest URL and returns it to the client.</p>
+
+<p>The manifest is a structured file, usually in HLS or DASH format, that describes the video. It lists every available representation of the content: 240p at 235kbps, 480p at 500kbps, 720p at 3Mbps, 1080p at 8Mbps, 4K HDR at 16Mbps, and so on, alongside matching audio tracks and subtitle streams. The client reads this manifest and immediately begins fetching the initial segments.</p>
+
+<p>Startup latency optimization means the client does not wait to fully buffer anything before starting playback. It fetches the first few seconds of video at a moderate bitrate, enough to render the first frames confidently, and begins playing. In the background it continues fetching ahead. If the download is going fast, it starts fetching higher-quality segments. If something stalls, it drops to a lower bitrate so playback continues without interruption.</p>
+
+<p>The buffering prevention strategy here is multi-layered. Clients maintain a playback buffer of usually 30 to 60 seconds of video. The adaptive bitrate algorithm monitors available bandwidth continuously and adjusts chunk quality proactively, not reactively. The client tries to stay ahead of the playback position by enough that even a brief network glitch does not catch it off-guard.</p>
+
+<p>CDN selection is not static. The playback service uses a system called Nora that continuously monitors CDN server health and reachability. If a particular server starts showing elevated error rates or high latency, it gets temporarily removed from the selection pool and traffic shifts to alternatives. This happens automatically, without any human involvement.</p>
+
+<p>Failure scenarios matter too. If the selected CDN server fails mid-stream, the client detects the failed chunk requests and requests a new manifest with updated CDN URLs. This failover is designed to be seamless, at most causing a brief pause, not a full restart of the stream.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Client Requests Play];
+B[Playback Service];
+C[Entitlement Check];
+D[Asset Map Lookup];
+E[CDN Selection via Nora];
+F[Manifest Construction];
+G[Client Receives Manifest];
+H[Initial Chunks Fetched];
+I[Adaptive Bitrate Algorithm];
+J[Continuous Chunk Fetch];
+K[CDN Server Healthy];
+L[CDN Server Fails];
+M[Re-fetch Manifest];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+J &#8211;> L;
+L &#8211;> M;
+M &#8211;> G;
+</div>
+
+
+<a name="Video.Storage.and.Transcoding.Pipeline"></a>
+<h2>Video Storage and Transcoding Pipeline</h2>
+
+<p>Getting video into Netflix is a production pipeline of its own. When a studio delivers a title, they deliver a master file, typically in a lossless or near-lossless format, often at resolutions above 4K, with multiple audio tracks, commentary tracks, and subtitle files. This source file may be 100GB or more for a feature film.</p>
+
+<p>Netflix cannot serve this file to users. It needs to be encoded into dozens of formats optimized for different devices, screen sizes, network conditions, and codec capabilities. This is the transcoding pipeline.</p>
+
+<p>The ingestion process starts with validation. The received file is verified against checksums, color space metadata is extracted, HDR tone mapping parameters are identified, and audio normalization is applied. The file is then stored in Amazon S3 as the canonical source.</p>
+
+<p>Encoding is then distributed across a large fleet of encoding workers. Netflix uses a system where each title is split into many short segments, and those segments are encoded in parallel by separate workers. Encoding a two-hour movie into fifty different representations does not take a hundred times as long as encoding one, because the work is parallelized aggressively.</p>
+
+<p>The codec choices deserve attention. For years, H.264 was the dominant codec because of its near-universal device support. Netflix now encodes content in H.264, H.265 (HEVC), VP9, and AV1, each offering better compression than the last. AV1 can deliver the same perceived quality as H.264 at roughly half the bitrate, which matters enormously when you are serving hundreds of petabytes per day.</p>
+
+<p>But codec support varies by device. An older smart TV might only support H.264. A modern Android phone supports AV1. The transcoding pipeline must produce versions for all of them, and the playback manifest must accurately advertise what is available so each client can pick the best format it can decode.</p>
+
+<p>Netflix also pioneered per-title encoding. Rather than using fixed bitrate ladders for all content, their encoding system analyzes each title and determines the optimal bitrate for each quality level. An animated series with flat backgrounds and limited motion compresses extremely efficiently. A dark, high-action thriller with film grain does not. Per-title encoding means each title gets a custom bitrate ladder that uses bandwidth efficiently without sacrificing quality.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Studio Delivers Master];
+B[Validation and Checksums];
+C[Store in S3];
+D[Segment Splitting];
+E[Parallel Encoding Workers];
+F[H264 Encode];
+G[HEVC Encode];
+H[AV1 Encode];
+I[VP9 Encode];
+J[Audio Processing];
+K[Subtitle Processing];
+L[Packager and Manifest Generation];
+M[Push to Open Connect CDN];
+D &#8211;> E;
+E &#8211;> F;
+E &#8211;> G;
+E &#8211;> H;
+E &#8211;> I;
+E &#8211;> J;
+E &#8211;> K;
+F &#8211;> L;
+G &#8211;> L;
+H &#8211;> L;
+I &#8211;> L;
+J &#8211;> L;
+K &#8211;> L;
+L &#8211;> M;
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+</div>
+
+
+
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Codec</th>
+        <th>Compression Efficiency</th>
+        <th>Device Support</th>
+        <th>CPU Decode Cost</th>
+        <th>Typical Use Case</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>H.264 / AVC</td>
+        <td>Baseline</td>
+        <td>Near-universal</td>
+        <td>Low</td>
+        <td>Legacy devices, broad compatibility</td>
+      </tr>
+      <tr>
+        <td>H.265 / HEVC</td>
+        <td>~50% better than H.264</td>
+        <td>Modern TVs, iOS, recent Android</td>
+        <td>Medium</td>
+        <td>4K HDR content, premium tiers</td>
+      </tr>
+      <tr>
+        <td>VP9</td>
+        <td>~40% better than H.264</td>
+        <td>Android, Chrome, Chromecast</td>
+        <td>Medium-High</td>
+        <td>Android ecosystem, web browsers</td>
+      </tr>
+      <tr>
+        <td>AV1</td>
+        <td>~50% better than H.264</td>
+        <td>Modern Android, newer smart TVs</td>
+        <td>High (software), Low (hardware)</td>
+        <td>Bandwidth-sensitive streams, future default</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Storage optimization is a continuous concern. Netflix does not store every encoded version forever on the same tier of storage. Recently released, heavily requested content lives on fast, redundant storage close to the CDN. Older catalog titles that get played less frequently get moved to cheaper, slower storage tiers, and their CDN presence is reduced to fewer edge nodes.</p>
+
+<a name="Open.Connect.CDN.Architecture"></a>
+<h2>Open Connect CDN Architecture</h2>
+
+<p>Netflix built its own CDN. That decision deserves serious examination because building a CDN is not a small undertaking. The reason they did it is not vanity. It is economics and control.</p>
+
+<p>Third-party CDNs charge for egress traffic. When you are delivering hundreds of petabytes per day, even small per-gigabyte pricing differences become enormous cost differentials. Building your own CDN also gives you the ability to optimize specifically for video delivery rather than accepting the generic tradeoffs that a general-purpose CDN makes.</p>
+
+<p>Open Connect is Netflix&rsquo;s CDN. It consists of thousands of servers called Open Connect Appliances, or OCAs, that are placed inside internet service provider data centers around the world. ISPs choose to participate in the Open Connect Partner Program because hosting an OCA is free for them, and it means Netflix traffic to their subscribers never has to leave their own network. Instead of routing a 4K video stream from AWS, across the open internet, to a subscriber in Chicago, the OCA sitting inside Comcast&rsquo;s data center serves it directly. The subscriber gets lower latency. Comcast saves on transit costs. Netflix saves on egress. Everyone wins.</p>
+
+<p>The content replication strategy is intelligent. Not all 36,000 titles in Netflix&rsquo;s catalog are stored on every OCA. That would be impractical given storage constraints. Instead, OCAs in a given region store the titles that are most popular in that region. The top few hundred titles in the US differ from the top few hundred titles in Brazil or South Korea. Netflix uses historical viewing data and predictive models to pre-position content on OCAs before demand spikes.</p>
+
+<p>This pre-positioning happens mostly during off-peak hours. A new season of a popular series drops at midnight, and in the hours before that, Netflix is filling OCAs with that content proactively so that the surge of viewers at release time does not hammer a single origin source.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Netflix Origin in AWS];
+B[Regional IXP Cache];
+C[ISP Level OCA Server];
+D[Subscriber Device];
+E[Fallback to AWS if OCA Miss];
+A &#8211;>|Off-peak proactive fill| B;
+B &#8211;> C;
+C &#8211;>|Video chunks| D;
+C &#8211;>|Cache miss| E;
+E &#8211;> A;
+</div>
+
+
+<p>When a CDN miss occurs, meaning a subscriber requests a title not cached on the nearest OCA, the request falls back to a regional cache tier, and failing that, to Netflix&rsquo;s origin storage in AWS. These misses are tolerable for less popular content but would be catastrophic at scale if they happened for popular content. The pre-positioning system exists precisely to keep miss rates for popular titles near zero.</p>
+
+<p>The OCA servers run a custom nginx-based video delivery stack. They are tuned to maximize throughput for large sequential file reads, which is the pattern of video streaming. They do not use general-purpose HTTP caching middleware.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>CDN Tier</th>
+        <th>Location</th>
+        <th>Purpose</th>
+        <th>Cache Scope</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Level 1 OCA</td>
+        <td>Inside ISP data center</td>
+        <td>Serve subscribers within that ISP directly</td>
+        <td>Top 200-500 titles for region</td>
+      </tr>
+      <tr>
+        <td>Level 2 IXP Cache</td>
+        <td>Internet Exchange Points</td>
+        <td>Serve multiple ISPs in a metro area</td>
+        <td>Broader catalog, higher storage</td>
+      </tr>
+      <tr>
+        <td>Origin (AWS)</td>
+        <td>AWS S3 + CloudFront</td>
+        <td>Long-tail catalog, cache miss fallback</td>
+        <td>Full catalog</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Recommendation.System.Deep.Dive"></a>
+<h2>Recommendation System Deep Dive</h2>
+
+<p>Recommendations are the most economically important system Netflix runs that users never think about. Over 80% of content viewed on Netflix is discovered through the recommendation system rather than search. The investment Netflix has made here reflects that reality.</p>
+
+<p>The core engine is a combination of collaborative filtering, content-based filtering, and deep learning models trained on behavioral signals at scale.</p>
+
+<p>Collaborative filtering is based on the idea that users who have behaved similarly in the past will likely behave similarly in the future. If you and I have both watched and highly rated the same fifteen titles, and you just watched a sixteenth title that I have not seen, the system infers I might like it too. At Netflix&rsquo;s scale, this becomes a matrix factorization problem across hundreds of millions of users and tens of thousands of titles, resulting in latent embeddings that capture complex preferences.</p>
+
+<p>User embeddings are dense vector representations of a user&rsquo;s taste profile. Each user gets a point in a high-dimensional vector space, and each title gets a point in the same space. The recommendation score for a user-title pair is based on the distance between those two points. Users with similar viewing histories end up in similar regions of the space, and titles with similar audiences end up close together.</p>
+
+<p>But pure collaborative filtering has a cold start problem. A new subscriber has no watch history. A newly added title has no viewers yet. Netflix addresses the cold start for users by showing onboarding screens and using implicit signals like browsing behavior, time of day, and device type to build an initial taste profile quickly. For new titles, they rely on content metadata and editorial relationships to other titles.</p>
+
+<p>Context-aware recommendation is a more subtle idea. What you want to watch on a Friday night is different from what you want on a Tuesday morning commute. The model factors in time of day, day of week, and device type as context signals. Watching on a phone suggests you want something short-form. Watching at 11pm on a TV suggests you are ready for a feature-length drama.</p>
+
+<p>Homepage personalization goes deeper than just ranking titles. The entire structure of the homepage, including which rows appear, what they are titled, and in what order, is personalized. The rows themselves have names like &ldquo;Because you watched Dark&rdquo; or &ldquo;Highly rated thrillers&rdquo; and those row titles are themselves model outputs, not editorial decisions.</p>
+
+<p>Thumbnail personalization is one of the more surprising aspects. Netflix conducts ongoing A/B tests where different users see different thumbnail images for the same title, and click-through rates are measured. Eventually the system learns which thumbnail image is most compelling for each segment of users. A thriller might show an intense action scene to users who prefer action, and a tense close-up of the protagonist&rsquo;s face to users who prefer character-driven stories.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[User Viewing Event];
+B[Kafka Event Stream];
+C[Spark Streaming Job];
+D[Feature Extraction];
+E[User Embedding Update];
+F[Item Embedding Store];
+G[Candidate Generation];
+H[Ranking Model];
+I[Homepage Personalization Layer];
+J[Client Homepage];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> G;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+</div>
+
+
+<p>The pipeline runs in multiple time horizons. Near-real-time updates happen within minutes of a viewing event. These update the continue watching list and adjust the ranking of titles within rows. Batch jobs run nightly to update deep embeddings and retrain ranking models on the full dataset.</p>
+
+<p>The diversity vs relevance tradeoff is real and deliberately managed. A pure relevance-maximizing recommender would show you the same narrow slice of content forever, reinforcing your existing taste and never exposing you to anything new. Netflix explicitly injects diversity into recommendations to broaden taste profiles over time, accepting a short-term click-through hit for long-term engagement. This is an example of a business decision expressed as an engineering constraint.</p>
+
+<a name="Adaptive.Bitrate.Streaming"></a>
+<h2>Adaptive Bitrate Streaming</h2>
+
+<p>Adaptive bitrate streaming, or ABR, is the mechanism that makes Netflix watchable on a slow coffee shop WiFi. The core idea is that video is not served as a single file but as a sequence of short chunks, typically two to six seconds each, and the quality of each chunk can be independently chosen based on current network conditions.</p>
+
+<p>Both major ABR protocols, HLS (HTTP Live Streaming) and DASH (Dynamic Adaptive Streaming over HTTP), work on this chunked model. Netflix primarily uses a proprietary variant of MPEG-DASH for playback, adapted to their specific requirements.</p>
+
+<p>The client maintains a buffer of pre-fetched chunks. The ABR algorithm runs continuously, observing how fast chunks are downloading relative to how fast they are being consumed. If the download speed is comfortably higher than the playback bitrate, the algorithm upgrades to a higher quality tier for the next set of chunks. If the download speed drops, it downgrades.</p>
+
+<p>The startup bitrate selection problem is subtle. You do not know the true available bandwidth at the start of a session. If you start too high, the initial buffer fill is slow, and you delay playback. If you start too low, you show the user an unnecessarily degraded picture. Netflix uses client-side probing, historical bandwidth data for the user&rsquo;s network, and a cautious initial estimate to pick a starting quality that balances startup speed and initial quality.</p>
+
+<p>Playback stability matters as much as average quality. A stream that oscillates between 1080p and 240p every few seconds is more annoying than one that stays consistently at 720p. Good ABR algorithms have hysteresis built in: they require a sustained period of high bandwidth before upgrading quality, preventing the constant switching that would otherwise result from momentary fluctuations.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Streaming Protocol</th>
+        <th>Segment Format</th>
+        <th>Latency Profile</th>
+        <th>DRM Support</th>
+        <th>Netflix Usage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>HLS</td>
+        <td>MPEG-TS or fMP4</td>
+        <td>6-30s traditional, 2-5s LL-HLS</td>
+        <td>FairPlay (Apple)</td>
+        <td>iOS and Apple devices</td>
+      </tr>
+      <tr>
+        <td>MPEG-DASH</td>
+        <td>fMP4</td>
+        <td>4-10s standard</td>
+        <td>Widevine, PlayReady</td>
+        <td>Android, smart TVs, web</td>
+      </tr>
+      <tr>
+        <td>Smooth Streaming</td>
+        <td>fMP4</td>
+        <td>4-10s</td>
+        <td>PlayReady</td>
+        <td>Legacy Xbox clients</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Search.System.Deep.Dive"></a>
+<h2>Search System Deep Dive</h2>
+
+<p>Search at Netflix is not a simple keyword lookup. The catalog spans titles in dozens of languages, with titles that have localized names, alternate spellings, director names, actor names, and genre terms that vary by region.</p>
+
+<p>The indexing layer is built on Elasticsearch. Every piece of content metadata, title names in all languages, cast, crew, genre tags, year, synopsis keywords, is indexed. The index is updated continuously as new titles are added and metadata is corrected.</p>
+
+<p>Autocomplete is a first-class feature. As a user types, the search service returns suggestions in near-real-time using a prefix-indexed trie structure alongside an Elasticsearch prefix query. Suggestions are ranked not just by relevance but by the popularity of the title, so typing &ldquo;str&rdquo; surfaces &ldquo;Stranger Things&rdquo; prominently rather than a less-watched title that happens to match alphabetically.</p>
+
+<p>Typo tolerance is handled through edit distance algorithms and phonetic matching. Typing &ldquo;Stanger Things&rdquo; still finds the right result because the system understands that this is one transposition away from the correct title.</p>
+
+<p>Multilingual search requires careful normalization. A user searching in Japanese should find both titles with Japanese names and Japanese-dubbed versions of English titles. Tokenization strategies differ across languages; Japanese requires different segmentation than English. The search pipeline runs language detection on the query before selecting the appropriate search strategy.</p>
+
+<p>Personalization bleeds into search too. If two users search for &ldquo;action&rdquo; and both get a list of action titles, the ordering of those results is influenced by their personal viewing history and preferences.</p>
+
+<a name="Playback.State.Synchronization"></a>
+<h2>Playback State Synchronization</h2>
+
+<p>Continue watching is the feature that requires the most careful distributed systems thinking of anything in the core product. The requirement is deceptively simple: when a user pauses a show on their phone and resumes on their TV, the TV should start from exactly where the phone left off.</p>
+
+<p>Achieving this reliably across millions of concurrent sessions requires a few design decisions. Playback progress is written to a backend service every 30 to 60 seconds during active playback, and on pause, seek, or app close events. These writes go to a service backed by Apache Cassandra, chosen specifically because Cassandra&rsquo;s write performance is excellent and it scales horizontally without a single point of failure.</p>
+
+<p>The data model is a simple key-value structure: user ID plus profile ID plus title ID maps to the playback position plus timestamp plus device ID. Reading the continue watching state for a homepage load hits Cassandra with a simple lookup.</p>
+
+<p>The eventual consistency question matters here. What if a user plays the same episode on two devices simultaneously? This is rare but possible. The system uses the most recent timestamp to resolve conflicts. The last-write-wins strategy is good enough here because the failure mode, having to rewind a few seconds, is tolerable.</p>
+
+<p>Multi-device sync latency is typically a few seconds. There is a brief window where the state written on one device has not yet propagated to another, but because the write happens on pause and app close rather than on every frame, the practical experience is seamless for the vast majority of users.</p>
+
+<a name="Offline.Download.System"></a>
+<h2>Offline Download System</h2>
+
+<p>Offline downloads introduce a security dimension that most of Netflix&rsquo;s systems do not have to care about. When you download an episode to a device, you are putting encrypted content onto hardware that Netflix does not control. The system needs to ensure that content cannot be extracted from the device, that it expires appropriately, and that it can be revoked if a subscription lapses.</p>
+
+<p>Digital Rights Management is the framework that governs this. Netflix uses Widevine (for Android and Chrome), FairPlay (for iOS and macOS), and PlayReady (for Windows and Xbox). Each DRM system involves a license server that issues time-bounded decryption keys and a secure content decryption module in the device hardware or firmware.</p>
+
+<p>The download pipeline packages video chunks in an encrypted container format. The decryption key is not stored alongside the content. Instead, the device holds a license token that allows it to request the decryption key from Netflix&rsquo;s license server, which validates that the subscription is still active before responding.</p>
+
+<p>License expiration means downloaded content stops playing after a certain period, typically 30 days from download or 48 hours from first play, depending on the licensing agreement with the studio. This is a hard constraint from content owners, not a product choice by Netflix.</p>
+
+<p>Storage optimization on-device involves storing the most efficient format the device supports. A phone with AV1 hardware decode gets AV1 files that are roughly half the size of equivalent H.264 files, which means users can store twice as many episodes in the same storage space.</p>
+
+<a name="Analytics.and.Event.Streaming"></a>
+<h2>Analytics and Event Streaming</h2>
+
+<p>Every interaction with Netflix generates events. Every play, pause, seek, buffer, quality switch, search query, row scroll, and thumbnail impression flows into an analytics pipeline. This data drives everything from recommendation training to capacity planning to content acquisition decisions.</p>
+
+<p>The event collection layer runs on the client side, batching events and flushing them to the backend periodically. A video buffering event recorded on the client includes the timestamp, the playback position, the current bitrate, the CDN server being used, and the device type. This data feeds into real-time monitoring dashboards that flag playback quality regressions within minutes of them starting.</p>
+
+<p>Kafka is the backbone of the analytics pipeline. Events from all clients flow into Kafka topics, partitioned by event type and user region. From there, Spark Streaming jobs process events in micro-batches, computing aggregated metrics like stream starts per minute, rebuffer rates by CDN region, and quality distribution by device type.</p>
+
+<p>The recommendation training pipeline also reads from this Kafka stream. Viewing events are the primary training signal: what did users watch, how long did they watch it, did they finish it, and did they re-watch it. These signals are filtered and aggregated before being written to training datasets used by the machine learning platform.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Client Events];
+B[Event Collector Service];
+C[Kafka Topics];
+D[Spark Streaming];
+E[Real-time Dashboards];
+F[Recommendation Training Pipeline];
+G[Data Warehouse];
+H[Capacity Planning];
+I[Content Analytics];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+D &#8211;> F;
+D &#8211;> G;
+G &#8211;> H;
+G &#8211;> I;
+</div>
+
+
+<p>Real-time monitoring is essential because playback quality is a direct measure of user experience. A spike in rebuffer rates in a single CDN region that lasts longer than a few minutes triggers automated alerts. The on-call engineer who responds can often correlate the spike with a CDN server failure, a network path issue, or a surge of unexpected traffic from a newly released title.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>Netflix&rsquo;s data architecture reflects the reality that different problems require different database technologies. There is no single database running everything.</p>
+
+<p>User profile data, subscription status, and payment information live in MySQL with strong consistency requirements. These tables are relatively small and need ACID guarantees because billing errors are unacceptable.</p>
+
+<p>Viewing history and playback state live in Cassandra. The access pattern is almost entirely keyed on user ID and title ID, Cassandra&rsquo;s sweet spot. The write volume is enormous, and eventual consistency is acceptable. Cassandra&rsquo;s linear horizontal scalability means adding capacity is a matter of adding nodes.</p>
+
+<p>Content metadata, title information, cast, crew, genres, and asset maps, lives in a combination of MySQL for relational integrity and a Cassandra-based content service for high-read-volume lookups. The metadata for tens of thousands of titles is not large in absolute terms, but it is read billions of times per day, so it sits behind multiple layers of caching.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Data Domain</th>
+        <th>Primary Store</th>
+        <th>Reason</th>
+        <th>Caching Layer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>User accounts and billing</td>
+        <td>MySQL (RDS)</td>
+        <td>ACID, strong consistency</td>
+        <td>Minimal; freshness required</td>
+      </tr>
+      <tr>
+        <td>Playback state</td>
+        <td>Apache Cassandra</td>
+        <td>Write-heavy, key-value access</td>
+        <td>Client-side last position</td>
+      </tr>
+      <tr>
+        <td>Content metadata</td>
+        <td>MySQL + Cassandra</td>
+        <td>Relational integrity + read scale</td>
+        <td>Memcached / Redis</td>
+      </tr>
+      <tr>
+        <td>Recommendations</td>
+        <td>Cassandra + Redis</td>
+        <td>Pre-computed, fast lookup</td>
+        <td>Redis for hot users</td>
+      </tr>
+      <tr>
+        <td>Viewing history</td>
+        <td>Cassandra</td>
+        <td>Append-heavy, time-series like</td>
+        <td>Recent history in Redis</td>
+      </tr>
+      <tr>
+        <td>Analytics events</td>
+        <td>S3 + Iceberg</td>
+        <td>Columnar storage for analytics</td>
+        <td>Spark cache</td>
+      </tr>
+      <tr>
+        <td>Video assets</td>
+        <td>S3 + Open Connect</td>
+        <td>Object storage, CDN-optimized</td>
+        <td>OCA edge cache</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Example schema for a playback session in Cassandra:</p>
+
+<pre><code>CREATE TABLE playback_state (
+  user_id      UUID,
+  profile_id   UUID,
+  title_id     BIGINT,
+  episode_id   BIGINT,
+  position_ms  BIGINT,
+  duration_ms  BIGINT,
+  updated_at   TIMESTAMP,
+  device_id    TEXT,
+  PRIMARY KEY ((user_id, profile_id), title_id, episode_id)
+) WITH CLUSTERING ORDER BY (title_id DESC);
+</code></pre>
+
+<p>Example schema for content metadata:</p>
+
+<pre><code class="sql">CREATE TABLE titles (
+  title_id       BIGINT PRIMARY KEY,
+  title_type     ENUM('movie', 'series', 'short'),
+  default_title  VARCHAR(500),
+  release_year   INT,
+  rating         VARCHAR(10),
+  avg_rating     DECIMAL(3,2),
+  primary_lang   VARCHAR(10),
+  created_at     DATETIME,
+  updated_at     DATETIME,
+  INDEX idx_release_year (release_year),
+  INDEX idx_primary_lang (primary_lang)
+);
+</code></pre>
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>Caching operates at every layer of Netflix&rsquo;s architecture, and understanding where and why is important for grasping the overall performance model.</p>
+
+<p>At the edge, the OCA servers are themselves a cache of video content. They do not serve general HTTP requests; they serve video chunks. Their cache invalidation policy is based on content identity: if Netflix updates an encoding of a title, old chunks are replaced by new ones. This happens infrequently.</p>
+
+<p>For metadata and API responses, Netflix uses a combination of EVCache, which is their Memcached-based distributed caching layer built on AWS, and Redis for more complex data structures. Recommendation results are pre-computed for every active user and stored in EVCache. When a user loads the homepage, the recommendation service fetches the pre-computed result from cache in a single round-trip rather than running the full recommendation algorithm in real time.</p>
+
+<p>The cache invalidation question for recommendations is handled by TTL rather than event-driven invalidation. Recommendation caches expire after a few hours. A new viewing event does not immediately invalidate the cache; the user&rsquo;s recommendations update on the next cache expiry. This is an acceptable tradeoff because recommendations do not need to reflect the last five minutes of behavior to be useful.</p>
+
+<p>Manifest caching is more delicate. Playback manifests contain signed URLs that expire. They cannot be aggressively cached because a cached manifest with expired URLs will cause playback to fail. Manifests have short TTLs and are fetched fresh for each playback session.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Netflix&rsquo;s scalability story is fundamentally about horizontally scaling stateless services backed by distributed data stores, and doing so across multiple AWS regions in an active-active configuration.</p>
+
+<p>Every microservice in the Netflix backend is deployed in at least two AWS regions simultaneously, with the primary region serving the majority of traffic and the secondary region ready to take over. Traffic failover is triggered automatically based on health check failures and is designed to complete within minutes.</p>
+
+<p>The CDN layer scales independently of the backend. Adding capacity to the Open Connect network means deploying new OCA hardware into additional ISP facilities. This is not an AWS operation; it is a physical infrastructure operation that Netflix manages directly.</p>
+
+<p>Horizontal scaling of microservices is straightforward because services are designed to be stateless. State lives in Cassandra, Redis, or S3, not in the service instances themselves. Adding instances behind a load balancer requires no coordination.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>System Component</th>
+        <th>Bottleneck Under Scale</th>
+        <th>Mitigation Strategy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Playback service</td>
+        <td>CDN selection latency, manifest generation</td>
+        <td>Stateless horizontal scaling, manifest caching</td>
+      </tr>
+      <tr>
+        <td>Recommendation service</td>
+        <td>Compute cost of real-time ranking</td>
+        <td>Pre-computation, result caching in EVCache</td>
+      </tr>
+      <tr>
+        <td>Open Connect CDN</td>
+        <td>Cache miss rates on new releases</td>
+        <td>Proactive pre-positioning, tiered cache hierarchy</td>
+      </tr>
+      <tr>
+        <td>Transcoding pipeline</td>
+        <td>Encode time for new content</td>
+        <td>Massive parallelism, segment-level distribution</td>
+      </tr>
+      <tr>
+        <td>Analytics pipeline</td>
+        <td>Event ingestion volume at peak</td>
+        <td>Kafka partitioning, Spark auto-scaling</td>
+      </tr>
+      <tr>
+        <td>Cassandra clusters</td>
+        <td>Write throughput during global events</td>
+        <td>Consistent hashing, linear node scaling</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The Zuul API gateway tier scales horizontally too, but with more careful attention to per-client rate limiting. During a highly anticipated release, subscriber requests spike sharply. The gateway must absorb this traffic without propagating it as a spike to downstream services. Traffic shaping and request coalescing help here.</p>
+
+<p>Event-driven architecture using Kafka decouples the analytics and recommendation pipelines from real-time user requests. Viewing events do not need to be synchronously processed to serve the next API call. They are written to Kafka and processed asynchronously, which means the analytics pipeline can be slow without affecting playback latency.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Netflix famously invented Chaos Engineering. Their Chaos Monkey tool randomly terminates production service instances during business hours to verify that the system can recover automatically without human intervention. The theory is that if you know failures will happen eventually, you should test your failure recovery continuously rather than hoping it works when you need it.</p>
+
+<p>This philosophy extends to Chaos Kong, which simulates entire AWS region failures, and Latency Monkey, which introduces artificial latency into service calls to test graceful degradation under slow dependencies.</p>
+
+<p>The result is a system that has genuinely internalized failure. Services are designed with fallback behaviors. If the recommendation service is slow or unavailable, the homepage shows a degraded but functional view using recently cached recommendations rather than failing entirely. If the search index is temporarily unhealthy, search returns partial results rather than an error page.</p>
+
+<p>Multi-region failover is automated. Netflix monitors region health continuously and can shift traffic between regions within minutes. In practice this has been tested regularly, both intentionally through Chaos Kong exercises and accidentally through real AWS incidents.</p>
+
+<p>Observability is built around three pillars. Metrics are collected from every service via Atlas, Netflix&rsquo;s in-house time-series monitoring system. Logs are centralized via a log aggregation pipeline. Distributed traces capture the full chain of service calls for individual requests, enabling engineers to understand latency pathways through the system. These are surfaced through dashboards that are actively monitored during major releases and by on-call engineers at all hours.</p>
+
+<a name="Security.and.DRM.Systems"></a>
+<h2>Security and DRM Systems</h2>
+
+<p>Content protection at Netflix operates at multiple layers. The most visible is DRM, but there are others.</p>
+
+<p>At the transport layer, all communication uses TLS. Video chunks themselves are delivered over HTTPS, preventing interception in transit.</p>
+
+<p>At the application layer, authentication uses OAuth 2.0 tokens with short expiry times. Playback tokens are scoped specifically to a title and a session, so intercepting one does not grant access to anything else.</p>
+
+<p>DRM systems protect against local extraction. Even if you could intercept the encrypted video chunks on your device&rsquo;s network interface, you could not decrypt them without the license key, which is only issued to verified hardware secure enclaves. This is why screen capture is blocked during Netflix playback on most platforms.</p>
+
+<p>Geo-restriction is enforced at the playback service layer. When a client requests playback, the service checks the user&rsquo;s IP address against the licensed territories for that title. If the title is not available in the user&rsquo;s detected region, playback is denied. VPN detection is an ongoing arms race; Netflix uses a combination of IP reputation databases and behavioral signals to identify and block traffic routed through known VPN exit nodes.</p>
+
+<p>Account protection involves monitoring for unusual login patterns, shared password detection, and device fingerprinting. Netflix&rsquo;s password sharing crackdown in 2023 was built on a foundation of device and location tracking that the analytics pipeline had been collecting for years.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every architecture decision at Netflix involves a tradeoff. Understanding these tradeoffs is more valuable than memorizing the architecture.</p>
+
+<p>Video quality versus bandwidth is the most visible one. Higher quality means more bytes, which costs more to store, deliver, and receive. Per-title encoding and AV1 adoption are both attempts to push this frontier, delivering higher perceived quality at lower bandwidth. But AV1 encoding is computationally expensive, which creates a cost tradeoff on the transcoding side.</p>
+
+<p>Caching freshness versus latency is constant. Aggressively caching recommendation results keeps homepage loads fast, but it means users see slightly stale recommendations. Caching with a five-minute TTL is different from caching with a two-hour TTL, and the choice affects both user experience and backend load in measurable ways.</p>
+
+<p>Recommendation quality versus compute cost is a real constraint. The most accurate recommendation models are also the most expensive to run. Running a deep neural network ranking model over 36,000 titles for every homepage load of every active user is not practical. Pre-computation, approximation, and candidate pruning are all engineering techniques that accept a quality reduction in exchange for making the problem solvable at scale.</p>
+
+<p>Edge delivery versus infrastructure cost illustrates the build-versus-buy tension. Netflix built Open Connect, which required significant capital expenditure and operational overhead, but saves enormously on the ongoing egress costs that third-party CDN usage would entail at their scale.</p>
+
+<p>Eventual consistency versus strong consistency is a tradeoff made differently in different parts of the system. Billing requires strong consistency; an eventually consistent billing system risks charging users twice or not at all. Playback state uses eventual consistency because a few seconds of lag in syncing your watch position across devices is acceptable. The data model and database choice for each service reflect where it falls on this spectrum.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>The technologies Netflix uses are not arbitrary choices. Each one fits a specific engineering need.</p>
+
+<p>Java is the primary language for core backend services. It has mature JVM performance, extensive library ecosystems, and decades of production hardening. Netflix&rsquo;s open-source contributions, including Eureka, Hystrix, and Zuul, are all Java projects.</p>
+
+<p>Python is used extensively in data science and machine learning workflows. The recommendation model training pipelines, A/B test analysis, and analytics are largely Python-based, running on Apache Spark.</p>
+
+<p>Node.js handles API aggregation layers and the server-side rendering of the web client. Its event-driven non-blocking model suits high-concurrency, I/O-bound request handling well.</p>
+
+<p>Apache Cassandra provides the distributed NoSQL backbone for high-write workloads like playback state and viewing history. Its masterless architecture avoids single points of failure, and its linear scalability matches Netflix&rsquo;s growth trajectory.</p>
+
+<p>Apache Kafka is the event bus that connects the analytics pipeline, the recommendation training pipeline, and the monitoring systems. Its durability and replay capability mean that events can be reprocessed if a downstream consumer fails.</p>
+
+<p>Elasticsearch powers search and also internal logging infrastructure. Its full-text search capabilities and flexible schema fit the content metadata use case well.</p>
+
+<p>Redis and EVCache provide in-memory caching for recommendation results, session state, and metadata lookups that need sub-millisecond response times.</p>
+
+<p>Kubernetes and AWS EKS manage container orchestration for microservices. Netflix was an early Kubernetes adopter and has contributed extensively to the ecosystem.</p>
+
+<p>FFmpeg is the underlying encoding engine for the transcoding pipeline, extended and customized extensively by Netflix engineers for their specific codec and quality requirements.</p>
+
+<p>The ML infrastructure stack uses TensorFlow and PyTorch for model training, served in production through custom serving infrastructure that handles batching and low-latency inference.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Use Case at Netflix</th>
+        <th>Why It Fits</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Java</td>
+        <td>Core microservices</td>
+        <td>JVM performance, mature ecosystem</td>
+      </tr>
+      <tr>
+        <td>Python</td>
+        <td>ML training, analytics</td>
+        <td>Rich data science libraries, Spark integration</td>
+      </tr>
+      <tr>
+        <td>Node.js</td>
+        <td>API aggregation, web rendering</td>
+        <td>Non-blocking I/O, high concurrency</td>
+      </tr>
+      <tr>
+        <td>Cassandra</td>
+        <td>Playback state, viewing history</td>
+        <td>Linear write scale, no SPOF</td>
+      </tr>
+      <tr>
+        <td>Kafka</td>
+        <td>Analytics pipeline, event streaming</td>
+        <td>Durable, replayable, high throughput</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Search, logging</td>
+        <td>Full-text search, flexible schema</td>
+      </tr>
+      <tr>
+        <td>Redis / EVCache</td>
+        <td>Recommendations, metadata cache</td>
+        <td>Sub-millisecond latency, data structure support</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Container orchestration</td>
+        <td>Automated scaling, self-healing deployments</td>
+      </tr>
+      <tr>
+        <td>FFmpeg</td>
+        <td>Transcoding pipeline</td>
+        <td>Industry-standard codec support, customizable</td>
+      </tr>
+      <tr>
+        <td>TensorFlow / PyTorch</td>
+        <td>Recommendation models</td>
+        <td>Scalable deep learning training and inference</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design Netflix or a video streaming platform, they are not expecting you to recite this entire article. They are evaluating your ability to reason about tradeoffs, identify bottlenecks, and decompose a large problem into manageable pieces.</p>
+
+<p>Start with clarifying questions. Is this a full streaming platform or one specific component? Are we prioritizing video delivery, recommendations, or the full system? What scale are we targeting? How many concurrent viewers? These questions signal maturity and prevent you from going deep on the wrong thing.</p>
+
+<p>The common mistake is jumping straight into databases and APIs without establishing the important architectural decisions first. The two decisions that shape everything else in a streaming system are: where do you store video (object storage plus CDN), and how do you handle adaptive bitrate (manifest-based chunked delivery). If you explain these clearly and correctly, you have demonstrated real understanding.</p>
+
+<p>Strong candidates discuss the CDN design at length. A weak answer is &ldquo;use a CDN.&rdquo; A strong answer explains that you need a tiered CDN architecture, with ISP-level edge nodes for popular content and regional fallbacks for long-tail content, and that proactive content pre-positioning is essential to handle release spikes.</p>
+
+<p>For recommendations, weak answers describe collaborative filtering at a high level. Strong answers discuss the cold start problem, the pre-computation strategy for homepage freshness, the candidate generation plus ranking two-stage pipeline, and the tradeoff between recommendation quality and compute cost.</p>
+
+<p>Discuss failure scenarios proactively. What happens when a CDN server fails mid-stream? How does the client recover? What happens when the recommendation service is slow? Does the homepage fail entirely or degrade gracefully? Showing that you think about failure modes demonstrates production experience and engineering maturity.</p>
+
+<p>When discussing the database layer, do not just pick one technology. Explain that different data domains have different consistency and access pattern requirements, and map each domain to the technology that fits it. Billing needs strong consistency. Playback state needs high write throughput. Recommendations need fast pre-computed reads. Each maps to a different database choice.</p>
+
+<p>Scaling discussions should be concrete. Do not say &ldquo;add more servers.&rdquo; Say that the recommendation pre-computation can be parallelized because user embedding updates are independent across users, that the CDN scales by adding OCA hardware in additional ISP facilities, and that the transcoding pipeline scales by adding parallel encoding workers that process segments independently.</p>
+
+<p>The best system design answers tell a story. They start with the user request, trace it through the system explaining each decision along the way, and end with a discussion of how the system handles failure, scale, and the key engineering tradeoffs. That story, told with technical precision and real engineering reasoning, is what separates strong candidates from weak ones.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Netflix is one of the most studied and most publicly documented distributed systems in the world. They have published extensively about Open Connect, their chaos engineering practices, their encoding pipeline, and their recommendation work. If this post has given you a mental model for how the pieces connect, the next step is to read their engineering blog directly. The depth of what they have built over twenty years of streaming is genuinely humbling, and there is always more to learn.</p>
+
+<p>The principles here, aggressive caching at every layer, asynchronous event processing, per-request CDN selection, pre-computed recommendations, adaptive bitrate delivery, and chaos-engineered reliability, are not Netflix-specific. They apply to any system that needs to deliver media reliably to hundreds of millions of people. Understanding why each decision was made is the skill that transfers.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Spotify Works?]]></title>
@@ -2142,1235 +3698,6 @@ flowchart TD;
 <p>The real lesson from studying S3 is not any individual technique but the engineering mindset behind it. Every constraint is explicit. Every tradeoff is acknowledged. Every failure mode is designed for. The system does not hope disks will not fail — it assumes they will and builds recovery in from the start. It does not hope the network will always be reliable — it designs for partitions and adds checksums everywhere.</p>
 
 <p>When you build storage systems, even at a fraction of S3&rsquo;s scale, these principles apply equally. Know where your metadata lives and how it scales. Design for immutability where you can. Separate durability from availability in your thinking. Make checksums a first-class citizen, not an afterthought. And always, always design for the failure you have not thought of yet — because at scale, every failure mode eventually appears.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Kafka Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-kafka-works/"/>
-        <updated>2026-05-17T10:59:43+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-kafka-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>There is a moment in every backend engineer&rsquo;s career when a simple queue stops being enough. Maybe you&rsquo;re logging user activity to a database and the writes start choking the system. Maybe you&rsquo;re moving data between microservices with REST calls and latency starts creeping up. Maybe a product team asks for &ldquo;real-time analytics&rdquo; and you start wondering what that even means at scale.</em></p></blockquote>
-
-<p><img src="/images/system_design/kafka.avif" height="300" width="900" alt="Alt text" /></p>
-
-<p>That&rsquo;s when engineers usually discover Kafka.</p>
-
-<p>Apache Kafka was originally built at LinkedIn to solve a very unglamorous problem: moving enormous amounts of log data between systems without breaking everything. What they ended up building wasn&rsquo;t just a message queue. It was a distributed commit log, a unified event backbone, and arguably one of the most influential pieces of infrastructure in modern software engineering.</p>
-
-<p>But here&rsquo;s the thing nobody tells beginners: distributed messaging is genuinely hard. Not hard like &ldquo;this will take an afternoon.&rdquo; Hard like &ldquo;this is a decade of systems research made practical.&rdquo;</p>
-
-<p>Think about what you&rsquo;re actually trying to do when you build a distributed messaging system. You want to accept millions of messages per second from producers that don&rsquo;t know or care about consumers. You want to store those messages durably on disk so nothing gets lost even if half your servers crash. You want to replay old messages if a consumer fails and needs to reprocess. You want ordering guarantees for related events. You want to fan out a single message to dozens of different consumers. You want horizontal scalability so you can throw more hardware at the problem as traffic grows. And you want to do all of this with single-digit millisecond latency.</p>
-
-<!--more-->
-
-
-<p>Every one of those goals pulls in a different direction from the others. Durability requires writing to disk, which is slower. Ordering across multiple consumers requires coordination, which adds latency. Replication for fault tolerance means you&rsquo;re doing more network I/O. Horizontal scalability means you now have a distributed system, which means you need to think about split-brain scenarios, network partitions, and leader elections.</p>
-
-<p>Kafka navigated these tradeoffs in a set of architectural decisions that, looking back, feel almost obvious in their elegance. Almost.</p>
-
-<p>This blog walks through how Kafka actually works, from the high-level concept of a distributed log to the low-level details of how bytes move off disk and across a network. By the end, you should understand not just what Kafka does, but why it was designed the way it is.</p>
-
-<a name="Core.Features.of.Kafka"></a>
-<h2>Core Features of Kafka</h2>
-
-<p>Before going deep, it helps to have a clear picture of what Kafka&rsquo;s fundamental primitives actually are.</p>
-
-<p>A <strong>topic</strong> is the basic unit of organization. Think of it as a named feed or channel. You might have a topic called <code>user-clicks</code>, another called <code>payment-events</code>, another called <code>order-status-updates</code>. Producers write to topics. Consumers read from topics. Topics are how you separate different streams of events.</p>
-
-<p>A <strong>producer</strong> is any client that writes messages to a topic. Producers don&rsquo;t decide which consumer gets their messages. They just send messages and Kafka handles the rest. This decoupling is one of Kafka&rsquo;s most powerful design choices.</p>
-
-<p>A <strong>consumer</strong> is any client that reads from a topic. Consumers track their own position in the log using something called an <strong>offset</strong>, which is just a sequential integer. Consumer A and Consumer B can both read the same topic and maintain completely independent positions. One might be at offset 1000, the other at offset 50. Neither one affects the other.</p>
-
-<p>A <strong>partition</strong> is how Kafka splits a topic across multiple servers. A topic with a single partition is a single ordered log. A topic with ten partitions is ten independent ordered logs, spread across brokers. Partitions are the fundamental unit of parallelism in Kafka.</p>
-
-<p>A <strong>consumer group</strong> is how you build parallel consumption. Multiple consumers in a group divide up the partitions of a topic. One consumer might handle partitions 0 through 3, another handles 4 through 7. Together they process the whole topic faster than any single consumer could.</p>
-
-<p><strong>Replication</strong> means each partition has multiple copies stored on different brokers. If the broker holding the primary copy crashes, another broker that holds a replica can take over. This is Kafka&rsquo;s primary mechanism for fault tolerance.</p>
-
-<p><strong>Retention</strong> controls how long messages are kept on disk. Kafka doesn&rsquo;t delete messages the moment a consumer reads them. Messages stay around for a configured period (often 7 days), which means consumers can replay old events, new consumers can catch up from the beginning, and teams can reprocess data after a bug fix.</p>
-
-<p><strong>Stream processing</strong> in Kafka refers to the Kafka Streams API and the ecosystem around it, which lets you build stateful, real-time processing pipelines that consume from topics, transform or aggregate data, and write results back to topics.</p>
-
-<p>Also read <i><a href="https://rishijeet.github.io/blog/advanced-apache-kafka-anatomy-delving-deep-into-the-core-components/">Advanced Apache Kafka Anatomy</a></i> for fundamental concepts.</p>
-
-<a name="High-Level.Kafka.Architecture"></a>
-<h2>High-Level Kafka Architecture</h2>
-
-<p>A Kafka cluster looks deceptively simple from the outside. Producers send messages in. Consumers read messages out. Between them sit brokers that store and serve the data.</p>
-
-<div class="mermaid">
-flowchart TD;
-P1[Producer App 1];
-P2[Producer App 2];
-P3[Producer App 3];
-B1[Broker 1];
-B2[Broker 2];
-B3[Broker 3];
-ZK[ZooKeeper or KRaft Controller];
-CG1[Consumer Group A];
-CG2[Consumer Group B];
-P1 &#8211;> B1;
-P2 &#8211;> B2;
-P3 &#8211;> B3;
-B1 &#8211;> ZK;
-B2 &#8211;> ZK;
-B3 &#8211;> ZK;
-B1 &#8211;> CG1;
-B2 &#8211;> CG1;
-B3 &#8211;> CG1;
-B1 &#8211;> CG2;
-B2 &#8211;> CG2;
-B3 &#8211;> CG2;
-</div>
-
-
-<p>Each broker in the cluster is responsible for a subset of partitions. For any given partition, one broker is designated the <strong>leader</strong> and handles all reads and writes for that partition. The other brokers that hold replicas of that partition are <strong>followers</strong>.</p>
-
-<p>Historically, Kafka used Apache ZooKeeper as its metadata coordination layer. ZooKeeper tracked which brokers were alive, which broker was the leader for which partition, and stored configuration information. More recently, Kafka introduced KRaft mode, which replaces ZooKeeper with a consensus protocol built directly into Kafka using Raft. This simplifies operations significantly.</p>
-
-<p>The message lifecycle looks like this: A producer connects to any broker (called a bootstrap broker), fetches cluster metadata to learn which broker is the leader for its target partition, then sends messages directly to that leader. The leader writes the messages to its local log, and followers fetch those messages asynchronously. Once enough replicas have confirmed they&rsquo;ve stored the message (based on the configured acknowledgment level), the producer gets a success response. Consumers connect to partition leaders and fetch messages using long-polling, tracking their own offset as they go.</p>
-
-<div class="mermaid">
-flowchart LR;
-PR[Producer];
-LB[Leader Broker];
-F1[Follower 1];
-F2[Follower 2];
-CO[Consumer];
-PR &#8211;>|Send Message| LB;
-LB &#8211;>|Replicate| F1;
-LB &#8211;>|Replicate| F2;
-F1 &#8211;>|Ack| LB;
-F2 &#8211;>|Ack| LB;
-LB &#8211;>|Ack to Producer| PR;
-CO &#8211;>|Fetch by Offset| LB;
-</div>
-
-
-<a name="Distributed.Log.Architecture.Deep.Dive"></a>
-<h2>Distributed Log Architecture Deep Dive</h2>
-
-<p>The most important mental model for understanding Kafka is this: Kafka is a distributed log. Everything else flows from that.</p>
-
-<p>A log, in the computer science sense, is an append-only, sequentially ordered record of events. You can only add to the end. You never modify or delete entries in the middle. Every entry has a position (an offset). Given an offset, you can find the corresponding entry in O(1) time.</p>
-
-<p>This might sound like a limitation, but it&rsquo;s actually the source of Kafka&rsquo;s performance. Modern spinning hard drives are slow at random I/O but remarkably fast at sequential I/O. SSDs are fast at both, but sequential reads still win. By writing data only to the end of a log, Kafka turns every write into a sequential append. The OS can buffer these writes in page cache and flush them to disk efficiently. There&rsquo;s no seeking around looking for free blocks to write into.</p>
-
-<div class="mermaid">
-flowchart LR;
-W[Incoming Write];
-A[Append to Log End];
-S[Log Segment File];
-I[Index File];
-W &#8211;> A;
-A &#8211;> S;
-A &#8211;> I;
-</div>
-
-
-<p>Kafka organizes each partition&rsquo;s log into <strong>segments</strong>. A segment is a pair of files: a <code>.log</code> file that holds the actual message data, and a <code>.index</code> file that maps offsets to byte positions in the log file. When a segment grows too large (configurable, often 1 GB), Kafka rolls over to a new segment. Old segments are eligible for retention cleanup.</p>
-
-<p>The index file is sparse, not dense. Kafka doesn&rsquo;t store an index entry for every single message. It stores entries at intervals, so to find offset N, you look up the nearest indexed offset below N, then scan forward linearly from that point. This keeps the index small while still enabling fast lookups.</p>
-
-<p>One of the subtler performance decisions is Kafka&rsquo;s aggressive use of the OS page cache. Kafka doesn&rsquo;t maintain its own in-memory cache of messages. It writes to disk and trusts the OS page cache to keep recently written and recently read data in memory. On a healthy, not-overloaded broker, most reads are served entirely from page cache with no actual disk I/O. The side effect is that brokers should have generous amounts of RAM, not necessarily for the JVM heap, but for the OS to use as page cache.</p>
-
-<a name="Topic.and.Partition.System"></a>
-<h2>Topic and Partition System</h2>
-
-<p>A topic is just a logical name. The physical reality is that a topic is implemented as one or more partitions, and each partition is an independent ordered log.</p>
-
-<div class="mermaid">
-flowchart TD;
-T[Topic: user-clicks];
-P0[Partition 0 on Broker 1];
-P1[Partition 1 on Broker 2];
-P2[Partition 2 on Broker 3];
-T &#8211;> P0;
-T &#8211;> P1;
-T &#8211;> P2;
-</div>
-
-
-<p>When a producer sends a message, it decides which partition to send to based on one of three strategies. If a partition key is specified, Kafka hashes the key and consistently maps it to a partition. The same key always goes to the same partition, which gives you ordering guarantees for all messages with that key. If no key is specified, Kafka distributes messages round-robin or in batches across partitions. Producers can also implement completely custom partitioning logic.</p>
-
-<p>Key-based partitioning solves a real problem. Imagine you&rsquo;re streaming order events and you need all events for a given order ID to be processed in sequence. If events for the same order can land on different partitions, you lose ordering guarantees because different consumers process different partitions independently. By using the order ID as the partition key, all events for order <code>abc123</code> always go to partition 4 (for example), and the consumer handling partition 4 sees them in the exact order they were produced.</p>
-
-<p>The tradeoff here is the <strong>hotspot problem</strong>. If your partition key has poor cardinality or heavily skewed distribution (imagine an e-commerce site where one large enterprise customer generates 60% of all orders), one partition receives a disproportionate share of traffic. That partition&rsquo;s leader broker becomes a bottleneck. Consumer lag grows on the overloaded partition while other partitions sit mostly idle.</p>
-
-<p>Partition count is a design decision that&rsquo;s hard to reverse. You can increase partition count, but you cannot decrease it. Adding partitions to an existing topic doesn&rsquo;t redistribute existing data; only new messages land on the new partitions. And each partition has overhead: memory for the leader broker to track ISR status, file descriptors for the log segments, and metadata stored in the controller.</p>
-
-<p>A practical rule in production: use enough partitions to enable the parallelism you need, but don&rsquo;t over-partition. A commonly cited heuristic is to target about 10 to 20 partitions per broker per topic, adjusting based on throughput requirements.</p>
-
-<a name="Producer.Architecture"></a>
-<h2>Producer Architecture</h2>
-
-<p>Producers in Kafka are more sophisticated than they look from the outside.</p>
-
-<p>When you call <code>producer.send()</code>, you&rsquo;re not immediately making a network request. The producer batches messages in memory before sending them over the wire. It maintains a buffer per partition. When either a batch is full (controlled by <code>batch.size</code>) or a timeout expires (controlled by <code>linger.ms</code>), the batch is sent to the broker. This batching dramatically improves throughput because each network round trip carries many messages instead of one.</p>
-
-<p>Producers also support compression. A batch of messages can be compressed as a unit using Snappy, LZ4, GZIP, or Zstd before transmission. The broker stores the compressed batch as-is, and consumers decompress on their end. Compression can reduce network and storage overhead by 3x to 5x for text-heavy payloads like JSON.</p>
-
-<p>The acknowledgment mode (<code>acks</code>) is one of the most important producer configuration choices.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Acks Setting</th>
-        <th>Behavior</th>
-        <th>Durability</th>
-        <th>Latency</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>acks=0</td>
-        <td>Producer does not wait for any acknowledgment</td>
-        <td>Lowest - messages can be lost</td>
-        <td>Lowest</td>
-      </tr>
-      <tr>
-        <td>acks=1</td>
-        <td>Leader broker acknowledges after writing to its local log</td>
-        <td>Medium - lost if leader crashes before replication</td>
-        <td>Medium</td>
-      </tr>
-      <tr>
-        <td>acks=all</td>
-        <td>All in-sync replicas must acknowledge</td>
-        <td>Highest - survives broker failures</td>
-        <td>Highest</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>Idempotent producers, introduced to address exactly-once delivery semantics, are worth understanding deeply. By default, if a producer times out waiting for an ack and retries the send, it might produce a duplicate if the original message actually did succeed. With idempotent producers enabled (<code>enable.idempotence=true</code>), the broker assigns each producer a unique ID and sequences all messages. If a duplicate arrives, the broker detects and discards it. This gives you at-least-once delivery behavior with the duplicates silently removed, effectively achieving exactly-once at the producer level.</p>
-
-<a name="Consumer.Group.Deep.Dive"></a>
-<h2>Consumer Group Deep Dive</h2>
-
-<p>Consumer groups are how Kafka scales consumption horizontally. Each consumer group independently reads a topic. Within a group, partitions are divided among consumers.</p>
-
-<div class="mermaid">
-flowchart TD;
-T[Topic with 6 Partitions];
-P0[Partition 0];
-P1[Partition 1];
-P2[Partition 2];
-P3[Partition 3];
-P4[Partition 4];
-P5[Partition 5];
-C1[Consumer 1];
-C2[Consumer 2];
-C3[Consumer 3];
-T &#8211;> P0;
-T &#8211;> P1;
-T &#8211;> P2;
-T &#8211;> P3;
-T &#8211;> P4;
-T &#8211;> P5;
-P0 &#8211;> C1;
-P1 &#8211;> C1;
-P2 &#8211;> C2;
-P3 &#8211;> C2;
-P4 &#8211;> C3;
-P5 &#8211;> C3;
-</div>
-
-
-<p>If a topic has 6 partitions and a consumer group has 3 consumers, each consumer handles 2 partitions. If a consumer dies, Kafka triggers a <strong>rebalance</strong>: partitions are redistributed among the surviving consumers. If you add a fourth consumer, another rebalance happens. A consumer group can never have more active consumers than partitions, because there&rsquo;s nothing for the extra consumers to do.</p>
-
-<p>Consumers commit their current offset periodically, either automatically or manually. The offset represents &ldquo;I have successfully processed everything up to here.&rdquo; If a consumer crashes before committing, the next consumer assigned to that partition starts from the last committed offset and reprocesses some messages. This is the &ldquo;at-least-once&rdquo; delivery model that most Kafka consumers use.</p>
-
-<p>Rebalances deserve special attention in production systems. During a rebalance, consumption from the affected partitions stops until partition assignments stabilize. In large consumer groups with many partitions, this pause can be several seconds. There are things you can do to reduce rebalance impact: use static group membership with stable consumer IDs so Kafka can avoid rebalancing when a consumer restarts quickly, configure longer session timeouts to avoid false positives on consumer failure detection, and use incremental cooperative rebalancing (the default since Kafka 2.4) which only reassigns partitions that actually need to move rather than revoking everything at once.</p>
-
-<p>Consumer lag is one of the most important metrics in a Kafka-based system. Lag is the difference between the latest offset in a partition and the consumer group&rsquo;s committed offset for that partition. Growing lag means consumers are falling behind. This could mean consumer processing is too slow, the consumer crashed and isn&rsquo;t running, or the upstream producers suddenly increased their write rate. Monitoring lag per consumer group, per topic, per partition gives you early warning of problems before they cascade.</p>
-
-<a name="Replication.and.Fault.Tolerance"></a>
-<h2>Replication and Fault Tolerance</h2>
-
-<p>Replication is how Kafka survives hardware failures without losing data. Every partition has a configurable replication factor. With <code>replication.factor=3</code>, there are three copies of each partition: one leader and two followers.</p>
-
-<div class="mermaid">
-flowchart TD;
-PR[Producer];
-LB[Leader Broker - Partition 0];
-FB1[Follower Broker A - Replica];
-FB2[Follower Broker B - Replica];
-PR &#8211;>|Write| LB;
-LB &#8211;>|Replicate| FB1;
-LB &#8211;>|Replicate| FB2;
-</div>
-
-
-<p>The <strong>In-Sync Replica (ISR)</strong> set is the list of followers that are caught up to the leader within a configurable time window (<code>replica.lag.time.max.ms</code>). A follower that is too far behind falls out of the ISR. This is significant because when <code>acks=all</code>, the leader waits for acknowledgment from all replicas in the ISR, not all replicas in total. If a follower is struggling and falls out of the ISR, the remaining ISR members determine the durability guarantee.</p>
-
-<p>The <code>min.insync.replicas</code> setting is where things get interesting. If you have <code>replication.factor=3</code> and <code>min.insync.replicas=2</code>, Kafka requires at least 2 in-sync replicas (including the leader) before acknowledging writes with <code>acks=all</code>. If two brokers go down and only one remains, writes will fail rather than proceed and risk data loss. This is a deliberate consistency-over-availability tradeoff.</p>
-
-<p>When a leader broker crashes, the Kafka controller (either ZooKeeper-mediated or KRaft-based) detects the failure and elects a new leader from the ISR. This happens within seconds, and producers and consumers automatically discover the new leader through metadata refresh. The messages that were committed (acknowledged to ISR) before the crash are safe on the remaining replicas.</p>
-
-<p>The scenario you want to avoid is a follower with significant replication lag being elected as leader. The <code>unclean.leader.election.enable</code> setting controls whether Kafka is allowed to elect an out-of-sync replica as leader when no in-sync replica is available. With this disabled (the safe default), Kafka will refuse to elect an unclean leader and the partition will be unavailable until a clean replica comes back. With it enabled, Kafka sacrifices consistency for availability: the out-of-sync leader may have missed some committed messages, causing data loss.</p>
-
-<a name="Storage.Internals"></a>
-<h2>Storage Internals</h2>
-
-<p>The storage layer is where Kafka&rsquo;s performance characteristics come from, and it is worth understanding in detail.</p>
-
-<p>Each partition is stored as a directory on the broker&rsquo;s filesystem. Inside that directory, Kafka writes pairs of files: <code>.log</code> files containing message data and <code>.index</code> files for offset-to-byte-position lookups. When a segment exceeds the configured size (default 1 GB) or age (default 7 days), Kafka rolls a new segment. The old segments become candidates for retention cleanup.</p>
-
-<div class="mermaid">
-flowchart TD;
-PD[Partition Directory];
-S1[Segment 0 Log File];
-S1I[Segment 0 Index File];
-S2[Segment 1 Log File];
-S2I[Segment 1 Index File];
-S3[Active Segment Log File];
-S3I[Active Segment Index File];
-PD &#8211;> S1;
-PD &#8211;> S1I;
-PD &#8211;> S2;
-PD &#8211;> S2I;
-PD &#8211;> S3;
-PD &#8211;> S3I;
-</div>
-
-
-<p>Zero-copy networking is one of the most impactful optimizations in Kafka&rsquo;s read path. Normally, serving data from disk to a network socket involves four copies: disk to kernel buffer, kernel buffer to userspace application buffer, userspace buffer back to kernel socket buffer, socket buffer to network. This is wasteful. Kafka uses the <code>sendfile</code> system call (or its equivalent), which allows the OS to transfer data directly from the page cache to the network socket without involving userspace at all. This reduces CPU usage significantly and allows a single broker to sustain network throughput close to the hardware limit of the NIC.</p>
-
-<p>Combined with page cache behavior, this creates an interesting property: if consumers are reading messages that were recently produced (i.e., they&rsquo;re not far behind), the data is likely still in the OS page cache, and the entire read path involves no disk I/O at all. Data goes from the network receive buffer, into page cache on write, and from page cache out through sendfile to the consumer. The disk is barely involved.</p>
-
-<p>This is why broker memory is often more important than disk speed. Disk throughput matters for catching up from large lags, but for the common case of low-lag consumers, the system is mostly memory-bound.</p>
-
-<a name="Retention.and.Cleanup.System"></a>
-<h2>Retention and Cleanup System</h2>
-
-<p>Kafka keeps messages for a configurable duration regardless of whether they&rsquo;ve been consumed. This is fundamentally different from traditional queues that delete messages after delivery. The default retention is 7 days, but this can be set to hours, days, or even set to retain data indefinitely.</p>
-
-<p>There are two retention models. <strong>Delete retention</strong> removes old log segments once they exceed the configured time or size limit. This is the default and is what you want for high-volume, short-lived event streams.</p>
-
-<p><strong>Log compaction</strong> is a more sophisticated mechanism designed for a different use case. With compaction enabled, Kafka guarantees that the log contains at least the most recent message for each key. Think of it as a continuously maintained key-value store built on top of a log. Kafka runs a background compaction thread that merges segments, keeps the latest value per key, and discards older values for the same key. Deleting a key is done by sending a <strong>tombstone message</strong>: a message with the target key and a null value. Compaction eventually removes the original messages and the tombstone.</p>
-
-<p>Log compaction is perfect for changelog topics that track the current state of something: user profile updates, configuration changes, account balance updates. Consumers who restart can replay the compacted topic to rebuild state without needing years of history.</p>
-
-<a name="Kafka.Networking.Model"></a>
-<h2>Kafka Networking Model</h2>
-
-<p>Kafka uses a custom binary protocol over TCP. There is no HTTP, no JSON, no overhead from a generic protocol. Requests and responses have fixed wire formats with tight encoding. This keeps parsing overhead minimal.</p>
-
-<p>Brokers use a non-blocking I/O model internally. A small number of network threads handle all connection I/O, routing requests to request queues, and responses back to clients. A separate pool of request handler threads processes the actual requests (reads and writes). This design allows brokers to handle thousands of concurrent connections without thread-per-connection overhead.</p>
-
-<p>Consumers use long-polling to fetch messages. A <code>FetchRequest</code> specifies a partition, an offset to start from, a minimum number of bytes to return, and a maximum wait time. If less data than the minimum threshold is available, the broker waits (holds the request) until either enough data arrives or the timeout expires before responding. This reduces empty fetch responses and their associated overhead when topics are relatively quiet.</p>
-
-<p>Producers use a pipeline model. Multiple batches can be in-flight simultaneously without waiting for previous ones to be acknowledged, up to the configured <code>max.in.flight.requests.per.connection</code> limit. This keeps producer throughput high without sacrificing ordering (since Kafka processes requests from a given producer in order).</p>
-
-<a name="Stream.Processing.Architecture"></a>
-<h2>Stream Processing Architecture</h2>
-
-<p>Beyond being a message bus, Kafka is increasingly used as a stream processing platform via Kafka Streams, a client library that runs inside your application process.</p>
-
-<div class="mermaid">
-flowchart LR;
-ST[Source Topic];
-KS[Kafka Streams App];
-RS[RocksDB State Store];
-SK[Sink Topic];
-ST &#8211;>|Read Events| KS;
-KS &#8211;>|Query and Update| RS;
-KS &#8211;>|Write Results| SK;
-</div>
-
-
-<p>Kafka Streams processes records one at a time or in windows. For stateful operations like counts, aggregations, or joins, Kafka Streams maintains state in an embedded <strong>RocksDB</strong> instance on local disk. This is called a state store. The state store is backed by a Kafka changelog topic (a compacted topic), so if the application crashes and restarts, it can rebuild state from the changelog rather than reprocessing the entire history. State stores make stateful stream processing practical at scale.</p>
-
-<p><strong>Windowed aggregations</strong> are a common pattern. Imagine counting how many times each user ID appears in a 5-minute tumbling window. Kafka Streams buffers records within the window, aggregates, and emits results when the window closes. Event-time processing (using timestamps embedded in messages rather than wall-clock time) means late-arriving events can be attributed to the correct window, up to a configurable grace period.</p>
-
-<p>Exactly-once semantics in stream processing require coordination between reading, processing, and writing. Kafka Streams achieves this using transactions: reads, state store updates, and writes to output topics are all committed atomically. Either all of it happens or none of it does. This eliminates the scenario where a message is processed, output is written, but the consumer fails before committing its offset and the message gets processed again with a duplicate output.</p>
-
-<a name="Scalability.Deep.Dive"></a>
-<h2>Scalability Deep Dive</h2>
-
-<p>Kafka scales horizontally at every layer, but each dimension of scaling has its own ceiling and its own set of gotchas.</p>
-
-<p><strong>Broker scaling</strong> is the most straightforward. Adding brokers to a cluster gives you more storage capacity and more network bandwidth. But Kafka doesn&rsquo;t automatically rebalance partitions when you add brokers. You need to run a partition reassignment tool to move partition replicas to the new brokers. This reassignment involves inter-broker data copying, which consumes network bandwidth and can affect broker performance during the migration.</p>
-
-<p><strong>Partition scaling</strong> is how you increase parallelism. More partitions means more consumers can work in parallel. But each partition has overhead: the Kafka controller tracks leader and ISR state for every partition, and this metadata coordination becomes a bottleneck as partition count grows into the hundreds of thousands. A practical ceiling in most Kafka deployments is around 200,000 to 500,000 partitions per cluster.</p>
-
-<p><strong>Producer scaling</strong> is almost unbounded in practice. Producers are stateless and can be scaled independently. The bottleneck is usually partition leaders: each partition leader has a finite throughput capacity. If a single partition receives more writes than the leader can handle, you need to increase partition count to spread load.</p>
-
-<p><strong>Consumer scaling</strong> within a group is limited by partition count. If you have 10 partitions and 20 consumers in a group, 10 consumers sit idle. If you need more consumer parallelism, you need more partitions.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Scaling Dimension</th>
-        <th>Mechanism</th>
-        <th>Bottleneck</th>
-        <th>Practical Ceiling</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Brokers</td>
-        <td>Add broker nodes to cluster</td>
-        <td>Partition reassignment I/O</td>
-        <td>Hundreds of brokers</td>
-      </tr>
-      <tr>
-        <td>Partitions</td>
-        <td>Increase partition count per topic</td>
-        <td>Controller metadata overhead</td>
-        <td>~200K-500K per cluster</td>
-      </tr>
-      <tr>
-        <td>Producers</td>
-        <td>Add producer instances</td>
-        <td>Partition leader throughput</td>
-        <td>Effectively unlimited</td>
-      </tr>
-      <tr>
-        <td>Consumers</td>
-        <td>Add consumers to group</td>
-        <td>Partition count (hard ceiling)</td>
-        <td>One per partition max</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<p>Running Kafka reliably in production requires thinking about several failure modes simultaneously.</p>
-
-<p>For multi-region deployments, Confluent and open-source projects offer MirrorMaker 2, which replicates topics from one Kafka cluster to another. This is asynchronous replication, so there&rsquo;s always some lag between the primary and the secondary. In a disaster recovery scenario, failing over to the secondary cluster means accepting potential data loss for the most recent messages.</p>
-
-<p>Monitoring a Kafka cluster means watching several key metrics. Under-replicated partitions (partitions where not all replicas are in the ISR) are a critical signal: they mean you&rsquo;re operating with reduced durability and one more broker failure could cause data loss. Consumer group lag tells you whether consumers are keeping up. Producer request error rates tell you whether writes are succeeding. Broker disk utilization is important because Kafka brokers need to retain data, and full disks cause write failures.</p>
-
-<p>Request latency on brokers, particularly the produce and fetch latency percentiles (p99, p999), tell you about tail latency that real clients experience but averages miss. A broker where the p999 produce latency is 10 seconds will cause producer timeouts and retries even if the median latency is 5ms.</p>
-
-<p>Alerting strategies that work in practice: alert on under-replicated partitions immediately (this is always a problem), alert on consumer lag crossing a threshold that&rsquo;s relevant to your SLAs, alert on disk utilization above 80% (you want time to react before full disk causes an outage), and alert on producer error rates above a small threshold.</p>
-
-<a name="Performance.Optimization"></a>
-<h2>Performance Optimization</h2>
-
-<p>The defaults Kafka ships with are conservative. Production systems frequently tune several parameters.</p>
-
-<p>On the producer side, increasing <code>batch.size</code> and <code>linger.ms</code> trades latency for throughput. A producer with <code>linger.ms=5</code> will wait up to 5 milliseconds to accumulate more messages before sending, resulting in larger batches and better network utilization at the cost of 5ms of additional latency. For high-throughput pipelines where a few milliseconds of added latency is acceptable, this is a significant win.</p>
-
-<p>Compression is almost always worth enabling. LZ4 has an excellent compression-to-CPU-cost ratio. Zstd achieves better compression ratios at slightly higher CPU cost. Snappy is a good middle ground. For JSON-heavy payloads, 4x compression ratios are common, which cuts network and storage costs by 75%.</p>
-
-<p>On the broker side, the most impactful thing is ensuring the OS has abundant memory for page cache. Running brokers with JVM heaps of 4-6 GB and leaving the rest of a 64 GB machine as page cache is a common production configuration. Kafka&rsquo;s JVM heap doesn&rsquo;t need to be enormous because Kafka doesn&rsquo;t cache data in Java objects; it relies on the OS.</p>
-
-<p>Disk choice matters when consumers are behind. For consumers close to the head of the log (recent messages), data is likely in page cache and disk is irrelevant. For consumers far behind, they&rsquo;ll be doing actual disk reads. SSDs eliminate disk seek time entirely and are strongly preferred for Kafka brokers, even though sequential read patterns partially mitigate HDD seek penalties.</p>
-
-<a name="Engineering.Tradeoffs"></a>
-<h2>Engineering Tradeoffs</h2>
-
-<p>Let&rsquo;s talk about the real decisions that engineers make and why.</p>
-
-<p><strong>Durability versus latency</strong>: Using <code>acks=all</code> with <code>min.insync.replicas=2</code> gives you strong durability guarantees at the cost of producer latency (waiting for replication). For an analytics pipeline where losing a few events is acceptable, <code>acks=1</code> or even <code>acks=0</code> may be the right call. For a financial events system, <code>acks=all</code> is non-negotiable.</p>
-
-<p><strong>Consistency versus availability</strong>: Disabling unclean leader election keeps data consistent but means a partition can go unavailable if all in-sync replicas are down. Enabling it keeps the partition available but risks data loss. Most production systems disable it, accepting reduced availability in exchange for consistency.</p>
-
-<p><strong>Batching versus real-time delivery</strong>: Larger batches improve throughput dramatically but add latency. If you&rsquo;re building a fraud detection system where every millisecond matters, you tune for low latency and accept higher per-message overhead. If you&rsquo;re building a clickstream analytics pipeline, you batch aggressively.</p>
-
-<p><strong>Partition count versus operational complexity</strong>: More partitions mean more parallelism but also more file descriptors, more leader elections to manage, longer rebalance times, and more metadata overhead in the controller. Starting with fewer partitions and increasing as needed is usually wiser than over-provisioning.</p>
-
-<p><strong>Replayability versus storage cost</strong>: Kafka&rsquo;s ability to replay history is incredibly valuable. But storing 90 days of high-volume event data is expensive. The tradeoff is configured per topic. Short-lived operational events might have 24-hour retention. Business-critical events might retain indefinitely with log compaction.</p>
-
-<a name="Real-World.Technology.Stack"></a>
-<h2>Real-World Technology Stack</h2>
-
-<p>Understanding why each technology in the Kafka stack was chosen illuminates the design philosophy.</p>
-
-<p><strong>Java</strong> is the language Kafka is written in. The JVM&rsquo;s mature garbage collector, extensive monitoring ecosystem, and cross-platform reliability make it appropriate for infrastructure software, despite the overhead that sometimes accompanies JVM applications. Kafka mitigates GC pauses by keeping its hot data path in off-heap memory (via page cache) rather than Java objects.</p>
-
-<p><strong>Linux page cache</strong> is not a technology Kafka chose so much as a constraint it was designed around. Linux aggressively caches file data in available RAM. Kafka&rsquo;s design, particularly its choice to write to disk rather than maintain an application-level cache, means that the OS&rsquo;s page cache effectively becomes Kafka&rsquo;s cache. This is elegant: Kafka doesn&rsquo;t need to write its own cache eviction logic, and the cache survives Kafka process restarts.</p>
-
-<p><strong>RocksDB</strong> backs stateful stream processing in Kafka Streams. RocksDB is an LSM-tree-based embedded key-value store optimized for write-heavy workloads. It persists state durably on local disk and provides fast point lookups, making it suitable for the aggregation state stores that stream processing applications maintain.</p>
-
-<p><strong>KRaft</strong> (Kafka&rsquo;s Raft-based metadata mode) replaces ZooKeeper by running a metadata quorum directly inside Kafka brokers. This eliminates an operationally separate ZooKeeper cluster, simplifies deployment, and allows Kafka to scale to more partitions because the KRaft controller is more efficient at handling metadata operations.</p>
-
-<p><strong>TCP/IP</strong> with the <code>sendfile</code> optimization forms the core of Kafka&rsquo;s network layer. Unlike HTTP/REST protocols that require parsing overhead, Kafka&rsquo;s binary protocol over raw TCP is as lean as you can get without going to UDP.</p>
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>Kafka-style questions appear frequently in system design interviews, usually framed as: &ldquo;Design a distributed messaging system&rdquo; or &ldquo;Design a real-time analytics pipeline&rdquo; or &ldquo;How would you design an event-driven order processing system?&rdquo;</p>
-
-<p>Interviewers are not looking for you to recite Kafka&rsquo;s documentation. They want to see how you reason about distributed systems tradeoffs.</p>
-
-<p>Strong answers typically begin by clarifying requirements: How many messages per second? What are the durability requirements? Do consumers need ordering guarantees? What is the acceptable consumer lag? These questions signal that you understand that architectural decisions are driven by requirements, not convention.</p>
-
-<p>Then, walk through the core components one layer at a time. Start with the problem (how to decouple producers from consumers at scale), introduce the concept of a durable log, explain why partitioning is necessary for scalability, explain how replication provides fault tolerance, explain how consumer groups enable parallel consumption. Show that you understand the why behind each decision.</p>
-
-<p>Common mistakes candidates make include conflating Kafka with a traditional message queue (Kafka keeps messages after consumption, queues typically don&rsquo;t), not discussing replication and durability at all (reliability is half of what makes distributed messaging hard), and failing to discuss failure scenarios (what happens when a broker goes down, when a consumer crashes, when a network partition occurs).</p>
-
-<p>For strong answers, discuss the specific tradeoffs you would make given the requirements stated, explain how you would monitor the system in production (what metrics matter, what alerts you would set), and be honest about where the design has weaknesses.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Interview Topic</th>
-        <th>Weak Answer</th>
-        <th>Strong Answer</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Durability</td>
-        <td>Messages are stored on disk</td>
-        <td>Explains acks, ISR, min.insync.replicas, and the consistency-availability tradeoff</td>
-      </tr>
-      <tr>
-        <td>Scalability</td>
-        <td>Add more Kafka nodes</td>
-        <td>Discusses partition-based parallelism, consumer group limits, partition count tradeoffs</td>
-      </tr>
-      <tr>
-        <td>Ordering</td>
-        <td>Kafka preserves order</td>
-        <td>Explains per-partition ordering, key-based partitioning, ordering across partitions is not guaranteed</td>
-      </tr>
-      <tr>
-        <td>Failure handling</td>
-        <td>Kafka automatically recovers</td>
-        <td>Describes ISR, leader election, unclean election risks, rebalance behavior</td>
-      </tr>
-      <tr>
-        <td>Delivery semantics</td>
-        <td>At-least-once by default</td>
-        <td>Contrasts at-most-once, at-least-once, exactly-once, explains idempotent producers and transactions</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>One interview tip that separates good candidates from great ones: bring up operational concerns. Mention consumer lag monitoring, under-replicated partition alerting, disk capacity planning, and rebalance overhead. Real distributed systems don&rsquo;t just work in theory; they get deployed, monitored, and debugged in production. Showing that you&rsquo;ve thought about the operational dimension of the system tells the interviewer you&rsquo;ve operated distributed systems before, not just read about them.</p>
-
-<a name="Closing.Thoughts"></a>
-<h2>Closing Thoughts</h2>
-
-<p>Kafka feels complex when you first encounter it. There are brokers, partitions, consumer groups, ISRs, offsets, log segments, retention policies. The terminology is dense and the failure modes are subtle.</p>
-
-<p>But underneath all of that is a simple and powerful idea: treat your data as an ordered, durable, replayable log. Let producers write to the end of that log. Let consumers read from any position in that log. Replicate the log across machines so no single failure loses data. Partition the log so the system can scale beyond what a single machine can handle.</p>
-
-<p>Everything in Kafka&rsquo;s architecture is a consequence of that core idea, shaped by the realities of distributed systems: network partitions happen, disk seeks are slow, memory is finite, and consumers sometimes fall behind. Understanding the idea and the constraints that shaped it is what makes Kafka&rsquo;s design not just intelligible but intuitive.</p>
-
-<p>The engineers who built Kafka at LinkedIn were solving a real problem under real production constraints. The result was not the last word in distributed messaging (there are systems with different tradeoffs worth knowing), but it was a remarkably well-considered answer to the question of how you move large amounts of data between systems reliably, at scale, and without tight coupling. That question doesn&rsquo;t go away. If anything, it becomes more pressing as systems grow. Which is probably why Kafka is still here, still evolving, and still worth understanding deeply.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Pastebin Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-pastebin-works/"/>
-        <updated>2026-05-17T08:37:50+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-pastebin-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>There is something deceptively simple about Pastebin. You paste some text, click a button, and get a short URL back. You share that URL with someone else, they open it, and they see your text. That is the entire product in one sentence. And yet, building Pastebin at the scale of tens of millions of daily users, billions of stored pastes, and a global audience requires you to make dozens of careful engineering decisions that would fill a whiteboard wall from top to bottom.</em></p></blockquote>
-
-<p>The reason Pastebin is a classic system design interview question is not because it is hard to understand — it is because it forces you to think through the full lifecycle of a piece of data in a distributed system: write it, store it, serve it to millions of readers, expire it gracefully, cache it intelligently, and make sure no one abuses it to host malware or leak credentials. Each of those steps has gotchas.</p>
-
-<p><img src="/images/system_design/pastebin.jpeg" height="300" width="900" alt="Alt text" /></p>
-
-<p>This post is a full engineering deep dive. We will go through the architecture layer by layer, explain every major decision, and make sure you understand not just what Pastebin does but why it is built the way it is.</p>
-
-<a name="What.Pastebin.Actually.Is"></a>
-<h2>What Pastebin Actually Is</h2>
-
-<p>Before we go deep into the systems, let us be clear about the product. Pastebin is a text-sharing service. Users paste raw text, often source code, configuration files, log dumps, or command output, and get a short URL they can share. The core workflow is:</p>
-
-<ul>
-<li>A user submits a block of text</li>
-<li>The system assigns it a unique short ID and URL</li>
-<li>Other users visit that URL and read the text</li>
-<li>The paste may expire after a set time or persist forever</li>
-</ul>
-
-
-<!--more-->
-
-
-<p>The platform also supports optional features: syntax highlighting for dozens of programming languages, public vs private paste visibility, user accounts, paste search, trending paste lists, API access, and raw text mode. These features add complexity, but the core is surprisingly minimal.</p>
-
-<p>What makes it hard is scale. Pastebin reportedly handles hundreds of millions of page views per month. Even modest competitors need to handle read traffic that can be orders of magnitude higher than write traffic. A paste can be written once and read tens of thousands of times, especially if it goes viral on a developer forum or Reddit. The read-to-write ratio sits somewhere around 10:1 to 100:1 depending on traffic patterns. That asymmetry shapes every architectural decision.</p>
-
-<a name="Core.Features.and.Their.Engineering.Implications"></a>
-<h2>Core Features and Their Engineering Implications</h2>
-
-<p>Let us map each feature to its engineering challenge before we look at the full architecture.</p>
-
-<p><strong>Paste creation</strong> seems like a simple write operation, but at millions of pastes per day, it becomes a high-throughput write pipeline with questions around ID generation, duplicate detection, and metadata extraction.</p>
-
-<p><strong>Paste retrieval</strong> is the hot path. Most reads are anonymous users loading a paste URL. This has to be fast — sub-100ms ideally — regardless of whether the paste was created five seconds ago or two years ago.</p>
-
-<p><strong>Syntax highlighting</strong> requires the system to detect what programming language a block of text is written in and then render colored HTML output from it. Doing this on every request is expensive. Caching the rendered HTML is critical.</p>
-
-<p><strong>Expiration</strong> sounds simple but distributed cleanup at scale requires coordination. You cannot just set a database TTL and call it a day.</p>
-
-<p><strong>Anonymous access</strong> is a double-edged sword. It lowers the barrier to sharing, but it also means you have no accountability. Spam, malware, credential dumps, and illegal content become persistent threats.</p>
-
-<p><strong>Trending pastes</strong> require view counting, aggregation, and ranking, all of which must work under heavy read load without slowing down the read path itself.</p>
-
-<a name="High-Level.Architecture"></a>
-<h2>High-Level Architecture</h2>
-
-<p>Let us start with the bird&rsquo;s-eye view and then drill down into each subsystem.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Web Browser or API Client];
-  B[CDN Edge Node];
-  C[API Gateway];
-  D[Paste Service];
-  E[Metadata Service];
-  F[Syntax Highlight Service];
-  G[Redis Cache Cluster];
-  H[PostgreSQL Metadata DB];
-  I[Object Storage S3];
-  J[Kafka Queue];
-  K[Background Workers];
-  L[Elasticsearch];
-  M[Moderation Service];
-  A &#8211;> B;
-  B &#8211;> C;
-  C &#8211;> D;
-  D &#8211;> G;
-  D &#8211;> H;
-  D &#8211;> I;
-  D &#8211;> J;
-  J &#8211;> F;
-  J &#8211;> K;
-  J &#8211;> M;
-  K &#8211;> L;
-  E &#8211;> H;
-</div>
-
-
-<p>The CDN edge nodes handle the majority of read traffic. For pastes that have already been served, the CDN can return the cached HTML or raw text without touching the origin at all. This is where the biggest scaling wins come from.</p>
-
-<p>The API Gateway handles authentication, rate limiting, and request routing. Every request from a browser or API client passes through here.</p>
-
-<p>The Paste Service is the core write and read handler. It coordinates between the cache, metadata database, and object storage.</p>
-
-<p>Kafka sits in the middle as a durable event bus. When a paste is created, an event is published to Kafka, and background workers pick it up for syntax highlighting, search indexing, and moderation scanning asynchronously. This keeps the write path fast by not doing expensive work inline.</p>
-
-<a name="Paste.Creation.Pipeline"></a>
-<h2>Paste Creation Pipeline</h2>
-
-<p>When a user submits a paste, here is what happens step by step.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[User Submits Paste];
-  B[API Gateway Rate Check];
-  C[Paste Service Receives Request];
-  D[Validate Input Length and Content];
-  E[Generate Unique Short ID];
-  F[Detect Programming Language];
-  G[Compress Text Content];
-  H[Write to Object Storage];
-  I[Write Metadata to PostgreSQL];
-  J[Publish Event to Kafka];
-  K[Return Short URL to User];
-  L[Async Syntax Highlight Worker];
-  M[Async Moderation Worker];
-  N[Async Search Index Worker];
-  A &#8211;> B;
-  B &#8211;> C;
-  C &#8211;> D;
-  D &#8211;> E;
-  E &#8211;> F;
-  F &#8211;> G;
-  G &#8211;> H;
-  H &#8211;> I;
-  I &#8211;> J;
-  J &#8211;> K;
-  J &#8211;> L;
-  J &#8211;> M;
-  J &#8211;> N;
-</div>
-
-
-<p><strong>Input validation</strong> happens first. You check text length, reject obviously malformed requests, and enforce per-user or per-IP rate limits. This should be as early as possible in the pipeline to avoid doing any expensive work for bad requests.</p>
-
-<p><strong>ID generation</strong> is a critical subsystem we will cover in depth shortly. The short ID needs to be unique, short, non-sequential (to prevent scraping), and generated fast.</p>
-
-<p><strong>Language detection</strong> is done upfront as a lightweight heuristic to populate the syntax type field in metadata. A more thorough highlighting pass happens asynchronously.</p>
-
-<p><strong>Compression</strong> matters more than most engineers expect. A typical paste of 5,000 characters of Python code compresses to less than 40% of its original size with zstd. At billions of pastes, that storage saving is substantial.</p>
-
-<p><strong>The write path splits here.</strong> The compressed text blob goes to object storage. The metadata, including paste ID, owner, creation time, expiry time, visibility, and language hint, goes to the relational database. Keeping content and metadata separate is a foundational design choice.</p>
-
-<p>The write to Kafka is the last step before returning the URL to the user. The heavy lifting of syntax highlighting and search indexing happens outside the critical path, which keeps paste creation fast even when the highlighting pipeline is under load.</p>
-
-<a name="Unique.ID.Generation.System"></a>
-<h2>Unique ID Generation System</h2>
-
-<p>This is deceptively complex. The ID is what becomes the URL. A paste at <code>pastebin.com/aB3xK</code> has the ID <code>aB3xK</code>. You need this ID to be:</p>
-
-<ul>
-<li>Short enough to fit in a tweet or a chat message</li>
-<li>Unique across all pastes ever created</li>
-<li>Not guessable or predictable (to prevent scraping private pastes)</li>
-<li>Generated fast without a central coordination bottleneck</li>
-</ul>
-
-
-<p>The standard approach is Base62 encoding. Base62 uses characters a-z, A-Z, and 0-9, which gives you 62 possible characters per position. A 6-character Base62 string can represent 62<sup>6</sup> = approximately 56 billion unique values. That is enough headroom for a very long time.</p>
-
-<p>How you generate the raw number matters a lot. Sequential IDs from a database autoincrement are fast and collision-free but predictable — an attacker can iterate through them to scrape all pastes. Random UUIDs eliminate predictability but introduce collision risk and require checking for duplicates on every write.</p>
-
-<p>A smarter approach used in production systems is to pre-generate a pool of short IDs. A background service generates batches of random 6-character Base62 IDs, verifies uniqueness against the database, and stores them in a Redis set. The paste creation service pops an ID from this pool atomically. This gives you randomness, uniqueness guarantees, and fast generation without a blocking database write on the hot path.</p>
-
-<p>Another approach is to use a distributed ID generation system similar to Twitter&rsquo;s Snowflake: a 64-bit ID composed of a timestamp, machine ID, and sequence number. This is truly decentralized but produces numeric IDs that need Base62 encoding to become short URL slugs.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Strategy</th>
-        <th>Uniqueness</th>
-        <th>Predictability</th>
-        <th>Scalability</th>
-        <th>Collision Handling</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>DB Auto-increment + Base62</td>
-        <td>Guaranteed</td>
-        <td>High risk</td>
-        <td>Bottleneck at DB</td>
-        <td>Not needed</td>
-      </tr>
-      <tr>
-        <td>Random + Collision Check</td>
-        <td>High</td>
-        <td>Low risk</td>
-        <td>Moderate</td>
-        <td>Retry on collision</td>
-      </tr>
-      <tr>
-        <td>Pre-generated ID Pool</td>
-        <td>Guaranteed</td>
-        <td>Low risk</td>
-        <td>Excellent</td>
-        <td>Not needed</td>
-      </tr>
-      <tr>
-        <td>Snowflake-style Distributed ID</td>
-        <td>Guaranteed</td>
-        <td>Moderate risk</td>
-        <td>Excellent</td>
-        <td>Not needed</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Paste.Storage.Architecture"></a>
-<h2>Paste Storage Architecture</h2>
-
-<p>The storage layer is where most of the interesting engineering decisions live.</p>
-
-<p><strong>Content storage</strong> and <strong>metadata storage</strong> are deliberately separated. Here is why.</p>
-
-<p>The text of a paste can be anywhere from 10 bytes to 500 kilobytes. You have billions of these. Storing them in a relational database as large text columns creates serious problems: it bloats table sizes, makes backups enormous, slows down index scans, and makes it hard to apply storage tiering. Object storage, such as Amazon S3, Google Cloud Storage, or a self-hosted system like MinIO, is purpose-built for storing arbitrary binary blobs cheaply and reliably. It scales to exabytes. It handles replication natively. And it is significantly cheaper per gigabyte than database storage.</p>
-
-<p><strong>Metadata</strong>, by contrast, is small and highly structured. Each paste has an ID, owner user ID, creation timestamp, expiry timestamp, visibility flag, language type, view count, content hash for deduplication, and storage path pointing to the blob in object storage. This fits perfectly in a relational database like PostgreSQL, where you get strong consistency, indexing, and complex queries.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Paste Service];
-  B[Redis Hot Cache];
-  C[PostgreSQL Metadata Store];
-  D[Object Storage Blob Store];
-  E[Cold Archive Storage];
-  A &#8211;> B;
-  A &#8211;> C;
-  A &#8211;> D;
-  D &#8211;> E;
-</div>
-
-
-<p><strong>Hot vs cold storage tiering</strong> is an important optimization. Most pastes get the vast majority of their traffic in the first 48 hours after creation. After that, traffic drops dramatically. You can tier your storage accordingly: recently created or frequently accessed pastes live in fast, more expensive storage with low latency. Older, infrequently accessed pastes are migrated to cheaper archival storage like S3 Glacier or equivalent. A lifecycle policy automates this migration based on last-access time.</p>
-
-<p><strong>Compression</strong> is applied before writing to object storage. The zstd algorithm is preferred in modern systems because it offers a very good compression ratio with fast decompression speed. Source code, configuration files, and log dumps all compress extremely well. A system storing a billion pastes with an average compressed size of 2KB is storing 2 terabytes of blob data — very manageable.</p>
-
-<p><strong>Deduplication</strong> is worth doing if your traffic patterns include a lot of repeated pastes. A SHA-256 hash of the raw content, stored in the metadata database, lets you detect exact duplicates. If the same content is pasted twice, you store one blob and two metadata records pointing to it. This can save significant storage at scale.</p>
-
-<a name="Syntax.Highlighting.Pipeline"></a>
-<h2>Syntax Highlighting Pipeline</h2>
-
-<p>Syntax highlighting sounds like a frontend concern, but at scale it becomes a backend infrastructure problem.</p>
-
-<p>The naive approach is: user loads paste, backend detects language, runs a parser, generates colored HTML, sends it to the browser. The problem is that parsing and tokenizing source code is CPU-intensive. A single server can do thousands of highlighting operations per second, but at millions of requests per minute, you need either serious horizontal scaling or a smarter approach.</p>
-
-<p>The smarter approach is to treat the highlighted HTML as a derived, cacheable artifact. When a paste is created, a background worker runs the syntax highlighter and stores the resulting HTML in object storage alongside the raw text blob. When a user later loads that paste, the pre-rendered HTML is served directly. The highlighting computation happens once, not on every request.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Paste Created Event on Kafka];
-  B[Highlight Worker Consumes Event];
-  C[Load Raw Text from Object Storage];
-  D[Detect Language If Not Specified];
-  E[Run Syntax Parser Pygments or Tree-sitter];
-  F[Generate HTML with CSS Classes];
-  G[Store Highlighted HTML in Object Storage];
-  H[Update Metadata Record with Highlight Path];
-  I[Invalidate Cache Entry If Exists];
-  A &#8211;> B;
-  B &#8211;> C;
-  C &#8211;> D;
-  D &#8211;> E;
-  E &#8211;> F;
-  F &#8211;> G;
-  G &#8211;> H;
-  H &#8211;> I;
-</div>
-
-
-<p><strong>Language detection</strong> uses a combination of signals: the file extension the user specified, the explicit language selection from a dropdown, and fallback heuristics based on the content itself. Libraries like Linguist (used by GitHub) or Pygments&#8217; built-in lexer guessing can handle this reasonably well for common languages.</p>
-
-<p><strong>Security</strong> is a real concern in the highlighting pipeline. Syntax highlighting libraries parse untrusted user input. A maliciously crafted input that exploits a parser bug could cause resource exhaustion or even code execution. Highlighting workers should run in isolated sandboxes with memory limits and CPU quotas. Any input that causes the parser to take more than a few hundred milliseconds should be killed and logged.</p>
-
-<p><strong>Client-side vs server-side highlighting</strong> is a legitimate tradeoff. Libraries like highlight.js and Prism.js run in the browser, which offloads the CPU cost from your servers entirely. The tradeoff is that the browser has to download a parsing library (100-200KB gzipped), and initial render requires JavaScript execution. For a read-heavy service with anonymous users who visit once and leave, client-side highlighting can be a good choice because it reduces server cost dramatically.</p>
-
-<a name="Caching.System.Deep.Dive"></a>
-<h2>Caching System Deep Dive</h2>
-
-<p>Caching is the most important performance lever in a Pastebin-like system. Without aggressive caching, the raw database and object storage cannot handle the read volume cost-effectively.</p>
-
-<p><strong>CDN caching</strong> is the outermost layer. When a paste URL is accessed for the first time, the CDN fetches it from the origin and caches it at the edge node closest to the user. Every subsequent request for that paste from the same geographic region gets served from the CDN cache in a few milliseconds. For a popular paste, CDN offload can be 99% or higher — meaning 99 out of every 100 requests never reach your application servers at all.</p>
-
-<p>The challenge with CDN caching is cache invalidation. If a user creates a paste and then deletes it, or if the system expires a paste, you need to tell the CDN to stop serving it. Most CDN providers offer API-based cache purge, but it is not instantaneous — it can take seconds to propagate across all edge nodes globally.</p>
-
-<p><strong>Redis caching</strong> sits between the application servers and the database. Hot pastes, meaning those receiving frequent traffic, are cached in Redis as serialized metadata objects and raw text. A typical Redis entry for a paste looks like this:</p>
-
-<pre><code>KEY: paste:{id}:meta
-VALUE: {id, owner, created_at, expires_at, language, view_count, storage_path}
-TTL: 3600 seconds
-
-KEY: paste:{id}:raw
-VALUE: &lt;compressed raw text&gt;
-TTL: 1800 seconds
-
-KEY: paste:{id}:html
-VALUE: &lt;pre-rendered highlighted HTML&gt;
-TTL: 3600 seconds
-</code></pre>
-
-<p>The raw text and highlighted HTML are cached separately because different API consumers want different things. Raw mode requests skip the HTML cache.</p>
-
-<p><strong>Hotspot mitigation</strong> is a real problem. If a paste goes viral — say, a popular developer posts it on Hacker News — the request rate can spike to thousands of hits per second in minutes. A single Redis key for that paste becomes a thundering herd problem: thousands of requests simultaneously miss the cache, all rush to the database, and you overwhelm the origin. The standard solution is request coalescing: only one request goes to the database when there is a cache miss, and all other concurrent requests wait for that one result. Libraries like Singleflight in Go implement this pattern cleanly.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Cache Layer</th>
-        <th>What It Stores</th>
-        <th>TTL Strategy</th>
-        <th>Eviction Policy</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>CDN Edge</td>
-        <td>Full HTTP responses</td>
-        <td>Cache-Control headers</td>
-        <td>LRU per edge node</td>
-      </tr>
-      <tr>
-        <td>Redis Cluster</td>
-        <td>Metadata, raw text, HTML</td>
-        <td>Seconds to hours</td>
-        <td>allkeys-lru</td>
-      </tr>
-      <tr>
-        <td>Application Memory</td>
-        <td>Ultra-hot paste metadata</td>
-        <td>Seconds</td>
-        <td>Fixed-size LRU map</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Expiration.and.Cleanup.System"></a>
-<h2>Expiration and Cleanup System</h2>
-
-<p>Pastes can have expiry times ranging from ten minutes to never. The expiry system needs to:</p>
-
-<ul>
-<li>Track when each paste expires</li>
-<li>Stop serving expired pastes promptly</li>
-<li>Reclaim storage from expired pastes</li>
-<li>Handle the cleanup at scale without blocking the read path</li>
-</ul>
-
-
-<p>The simplest approach is to store an <code>expires_at</code> timestamp in the metadata database and check it on every read. If <code>expires_at</code> is in the past, return a 404. This works and is very reliable, but it means expired pastes still occupy storage until a background job cleans them up.</p>
-
-<p>The background cleanup system runs as a scheduled job. It queries the metadata database for pastes where <code>expires_at &lt; now()</code> and deletes them in batches: remove the metadata record, issue a delete request to object storage, and remove any cache entries. This is done in small batches to avoid locking up the database.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Scheduled Cleanup Job Every 5 Minutes];
-  B[Query PostgreSQL for Expired Pastes];
-  C[Batch Process Up to 1000 IDs];
-  D[Delete Object Storage Blobs];
-  E[Delete Metadata Records];
-  F[Purge Redis Cache Entries];
-  G[Publish Deletion Events to Kafka];
-  H[CDN Purge API Call];
-  A &#8211;> B;
-  B &#8211;> C;
-  C &#8211;> D;
-  D &#8211;> E;
-  E &#8211;> F;
-  F &#8211;> G;
-  G &#8211;> H;
-</div>
-
-
-<p>For very high-volume expiry systems, a dedicated time-series store or a sorted set in Redis works well. You store paste IDs in a Redis sorted set where the score is the expiry Unix timestamp. A worker periodically calls <code>ZRANGEBYSCORE</code> to get all IDs that expired before now and processes them. This is faster than a full database scan for recent expirations.</p>
-
-<p>The CDN purge is the most operationally annoying part of expiration. Expired pastes might still be cached at CDN edges. The cleanup job needs to call the CDN&rsquo;s purge API. Most providers rate-limit purge requests, so you need to batch them and handle throttling.</p>
-
-<a name="Read.Path.Optimization"></a>
-<h2>Read Path Optimization</h2>
-
-<p>The read path is where you spend the most engineering effort in a system like this, because it is the hot path that most users experience.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[User Opens Paste URL];
-  B[CDN Edge Cache Hit?];
-  C[Return Cached Response];
-  D[CDN Forwards to API Gateway];
-  E[Paste Service Receives Request];
-  F[Check Redis Cache];
-  G[Return Cached Paste Data];
-  H[Check PostgreSQL for Metadata];
-  I[Paste Expired or Not Found?];
-  J[Return 404];
-  K[Fetch Blob from Object Storage];
-  L[Populate Redis Cache];
-  M[Return Paste to User];
-  N[CDN Caches Response];
-  A &#8211;> B;
-  B &#8211;>|Yes| C;
-  B &#8211;>|No| D;
-  D &#8211;> E;
-  E &#8211;> F;
-  F &#8211;>|Hit| G;
-  F &#8211;>|Miss| H;
-  H &#8211;> I;
-  I &#8211;>|Yes| J;
-  I &#8211;>|No| K;
-  K &#8211;> L;
-  L &#8211;> M;
-  M &#8211;> N;
-</div>
-
-
-<p>The happy path for a popular paste is: CDN edge hit, response returned in under 10 milliseconds. The user never reaches your servers.</p>
-
-<p>The second happy path is: CDN miss, Redis hit, response returned in 20-50 milliseconds. One fast network round trip to your cache cluster.</p>
-
-<p>The slow path is: CDN miss, Redis miss, metadata DB lookup, object storage fetch. This might take 100-300 milliseconds. You want this to happen as rarely as possible for pastes that are actually being accessed. Your cache sizing and TTL strategy determines how often you fall through to this path.</p>
-
-<p><strong>View counting</strong> is a subtle problem. You want to track how many times a paste has been viewed, but incrementing a database counter on every page view is a terrible idea at scale. The standard solution is to use a Redis counter with periodic flush. On each request, you do a Redis INCR on the paste&rsquo;s view counter. A background job periodically reads these counters and flushes them to the database in batch. You trade real-time accuracy for performance, which is almost always the right call.</p>
-
-<a name="Search.and.Trending.Systems"></a>
-<h2>Search and Trending Systems</h2>
-
-<p>Full-text search over billions of pastes is a hard problem. You cannot do this in PostgreSQL with standard B-tree indexes. You need a dedicated search engine.</p>
-
-<p>Elasticsearch or OpenSearch is the typical choice. When a paste is created and passes moderation, a background worker indexes it in the search engine. The document includes the paste ID, content text, language, creation time, and visibility flag. Private pastes are excluded from the index.</p>
-
-<p>The indexing pipeline is asynchronous, which means there is a lag between paste creation and search availability. For most use cases this is acceptable — a few seconds of indexing lag is fine for a search feature.</p>
-
-<p><strong>Trending pastes</strong> are calculated using view counts aggregated over a time window. A simple approach is to maintain a Redis sorted set where the score is the number of views in the last hour, updated on each page view. A background job reads the top N entries from this sorted set to populate the trending page. The sorted set is updated incrementally, and the trending page is cached so it does not need to be recalculated on every request.</p>
-
-<a name="Security.and.Abuse.Prevention"></a>
-<h2>Security and Abuse Prevention</h2>
-
-<p>Pastebin-style platforms are attractive to bad actors. The anonymous, no-friction paste creation model is exactly what spammers, malware distributors, and credential dumpers want. If you build Pastebin, you will spend a significant amount of engineering time fighting abuse.</p>
-
-<p><strong>Rate limiting</strong> is the first line of defense. Per-IP and per-user-account rate limits on paste creation prevent automated bulk creation. Anonymous IPs get stricter limits than authenticated accounts. Rate limit state is stored in Redis using a sliding window counter.</p>
-
-<p><strong>Content scanning</strong> runs asynchronously after paste creation. A moderation worker pulls the paste content and runs it through several checks:</p>
-
-<ul>
-<li>Known malware signatures using YARA rules</li>
-<li>URL blacklists to detect phishing links</li>
-<li>Leaked credential patterns using regex matching</li>
-<li>Text classifiers trained to detect spam content</li>
-</ul>
-
-
-<p>If a paste triggers these checks, it is flagged for human review or automatically deleted depending on confidence level.</p>
-
-<p><strong>CAPTCHA</strong> is gating for anonymous paste creation at high traffic times. If an IP is creating pastes at a rate that looks automated, force a CAPTCHA challenge before accepting further pastes.</p>
-
-<p><strong>Private paste visibility</strong> requires that the access control system actually works. Private pastes should never appear in search results, trending lists, or any public index. The system needs to enforce this at every layer: the search indexer skips private pastes, the CDN caches should never be shared across users for private content, and metadata queries must always filter by visibility.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Abuse Type</th>
-        <th>Detection Method</th>
-        <th>Response</th>
-        <th>Engineering Cost</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Spam paste creation</td>
-        <td>Rate limiting, IP reputation</td>
-        <td>Block, CAPTCHA</td>
-        <td>Low</td>
-      </tr>
-      <tr>
-        <td>Malware hosting</td>
-        <td>YARA rules, signature scanning</td>
-        <td>Auto-delete, report</td>
-        <td>Medium</td>
-      </tr>
-      <tr>
-        <td>Credential dumps</td>
-        <td>Pattern matching, entropy analysis</td>
-        <td>Flag for review</td>
-        <td>Medium</td>
-      </tr>
-      <tr>
-        <td>Phishing links</td>
-        <td>URL blacklist, ML classifier</td>
-        <td>Block URLs, delete paste</td>
-        <td>High</td>
-      </tr>
-      <tr>
-        <td>Bulk scraping</td>
-        <td>Request pattern detection</td>
-        <td>Rate limit, block</td>
-        <td>Low</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Database.Design"></a>
-<h2>Database Design</h2>
-
-<p>The metadata database needs to support fast reads by paste ID, efficient expiry queries, and user-specific paste listings. Here is a representative schema.</p>
-
-<p><div class="highlight"><pre><code class="language-sql" data-lang="sql"><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">pastes</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-  <span class="n">owner_id</span>      <span class="n">UUID</span><span class="p">,</span>
-  <span class="n">title</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
-  <span class="k">language</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">visibility</span>    <span class="nb">SMALLINT</span>      <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>  <span class="o">&amp;</span><span class="n">ndash</span><span class="p">;</span> <span class="mi">0</span><span class="o">=</span><span class="k">public</span><span class="p">,</span> <span class="mi">1</span><span class="o">=</span><span class="n">unlisted</span><span class="p">,</span> <span class="mi">2</span><span class="o">=</span><span class="n">private</span>
-  <span class="n">storage_path</span>  <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">512</span><span class="p">)</span>  <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">content_hash</span>  <span class="nb">CHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">byte_size</span>     <span class="nb">INT</span><span class="p">,</span>
-  <span class="n">view_count</span>    <span class="nb">BIGINT</span>        <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">expires_at</span>    <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
-  <span class="n">deleted_at</span>    <span class="n">TIMESTAMPTZ</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_owner</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">owner_id</span><span class="p">,</span> <span class="n">created_at</span> <span class="k">DESC</span><span class="p">);</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_expires</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">expires_at</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">expires_at</span> <span class="k">IS</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">;</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_hash</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">content_hash</span><span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="n">UUID</span>          <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
-  <span class="n">username</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">email</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>  <span class="k">UNIQUE</span><span class="p">,</span>
-  <span class="n">password_hash</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">128</span><span class="p">),</span>
-  <span class="n">api_key</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span><span class="p">,</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">is_banned</span>     <span class="nb">BOOLEAN</span>       <span class="k">DEFAULT</span> <span class="k">false</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">paste_views</span> <span class="p">(</span>
-  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">viewed_at</span>     <span class="nb">DATE</span>          <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">view_count</span>    <span class="nb">INT</span>           <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>
-  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">paste_id</span><span class="p">,</span> <span class="n">viewed_at</span><span class="p">)</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">reports</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="nb">SERIAL</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">reporter_id</span>   <span class="n">UUID</span><span class="p">,</span>
-  <span class="n">reason</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">resolved_at</span>   <span class="n">TIMESTAMPTZ</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span></code></pre></div></p>
-
-<p>The <code>expires_at</code> index is partial, covering only rows where the column is not null. This keeps the index small and fast for the cleanup job.</p>
-
-<p>The <code>paste_views</code> table uses daily aggregation rather than individual row per view. Inserting one row per view at millions of views per day would be catastrophically slow. Instead, a background worker flushes Redis view counters into this table as daily aggregates.</p>
-
-<p><strong>Sharding</strong> becomes necessary when the pastes table grows beyond what a single PostgreSQL instance can handle efficiently. The natural shard key is the paste ID. Because IDs are random Base62 strings, they distribute evenly across shards without hotspots. A consistent hashing layer routes reads and writes to the correct shard.</p>
-
-<a name="CDN.and.Global.Delivery"></a>
-<h2>CDN and Global Delivery</h2>
-
-<p>The CDN is one of the most impactful infrastructure decisions for a service like Pastebin. Without it, a popular paste creates a traffic spike that hits your origin servers directly. With it, that spike is absorbed at the edge.</p>
-
-<p>The cache key for a paste response is the paste ID combined with the requested format: HTML view, raw text, or highlighted HTML. Different formats need separate cache entries because a user hitting the raw format should not get the rendered HTML.</p>
-
-<p><strong>Cache-Control headers</strong> need to be set thoughtfully. For public pastes, a <code>Cache-Control: public, max-age=300</code> header tells the CDN and browsers to cache the response for 5 minutes. For private pastes, <code>Cache-Control: private, no-store</code> prevents CDN caching entirely — you must never let private paste content sit in a shared CDN cache where another user might get it.</p>
-
-<p><strong>Edge regions</strong> matter for latency. A Pastebin user in Tokyo getting their response from a CDN edge node in Singapore will have a much better experience than one getting it from a server in Virginia. Providers like Cloudflare, Fastly, and AWS CloudFront operate thousands of edge nodes globally.</p>
-
-<a name="API.Infrastructure"></a>
-<h2>API Infrastructure</h2>
-
-<p>The public API is a significant traffic source for Pastebin. Developer tools, IDE plugins, CI/CD scripts, and custom automation all create and read pastes programmatically.</p>
-
-<p>API requests carry an API key in the header, which the API gateway validates before forwarding the request. Keys are hashed before storage in the database — you never store the raw API key, only its SHA-256 hash.</p>
-
-<p>Rate limiting for API traffic is per API key with configurable quotas. Free tier keys might allow 100 paste creations per day. Paid tiers get higher quotas. Redis is used to track usage counters per key with daily reset windows.</p>
-
-<p>API versioning is handled via URL path prefix: <code>/v1/paste</code>, <code>/v2/paste</code>. This lets the team evolve the API without breaking existing integrations.</p>
-
-<a name="Scaling.Pastebin"></a>
-<h2>Scaling Pastebin</h2>
-
-<p>Let us think through scaling from 10 requests per second to 10,000 requests per second.</p>
-
-<p>At 10 RPS, a single application server with a single PostgreSQL instance and local file storage handles everything. Paste creation and retrieval both work fine.</p>
-
-<p>At 100 RPS, you add Redis for caching hot pastes and move content storage to a managed object store. Read traffic drops significantly because popular pastes are served from Redis.</p>
-
-<p>At 1,000 RPS, you need multiple application server instances behind a load balancer. The paste creation pipeline becomes async with Kafka workers. The CDN absorbs most of the read traffic.</p>
-
-<p>At 10,000 RPS, database read replicas are necessary for metadata queries. Redis becomes a cluster. Object storage is handled by a globally distributed provider with regional replication. The syntax highlighting and moderation pipelines scale horizontally as independent worker pools.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Bottleneck</th>
-        <th>Symptom</th>
-        <th>Solution</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>PostgreSQL write throughput</td>
-        <td>High paste creation latency</td>
-        <td>Write batching, async writes, partitioning</td>
-      </tr>
-      <tr>
-        <td>Redis single node</td>
-        <td>High cache latency, OOM failures</td>
-        <td>Redis Cluster with sharding</td>
-      </tr>
-      <tr>
-        <td>Object storage GET latency</td>
-        <td>Slow read path on cache misses</td>
-        <td>Regional replication, CDN offload</td>
-      </tr>
-      <tr>
-        <td>Kafka consumer lag</td>
-        <td>Delayed syntax highlighting</td>
-        <td>More partitions, more consumers</td>
-      </tr>
-      <tr>
-        <td>Search indexing</td>
-        <td>Search returning stale results</td>
-        <td>More Elasticsearch nodes, priority queues</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<p>A paste service going down is not life-critical, but it is still a bad experience. Engineering for high availability means thinking through every failure scenario.</p>
-
-<p><strong>Database failures</strong> are handled by read replicas with automatic failover. PostgreSQL with Patroni or AWS RDS Multi-AZ provides automatic failover in 30-60 seconds. During failover, the application continues reading from replicas. Writes fail until the new primary is elected.</p>
-
-<p><strong>Redis cluster failures</strong> are partially degraded, not full outages. If a Redis node fails, the cluster reroutes requests to other nodes. Cache hit rates drop temporarily, increasing load on the database, but the system continues serving paste reads and writes.</p>
-
-<p><strong>Object storage outages</strong> are rare with managed providers but can happen. A regional failure might make some paste content temporarily unavailable. Multi-region replication provides redundancy. The application can return a 503 with a friendly message for pastes it cannot retrieve rather than hanging indefinitely.</p>
-
-<p><strong>Monitoring</strong> needs to cover all critical paths: paste creation success rate, paste retrieval latency at p50/p95/p99, cache hit ratio, error rate by endpoint, queue consumer lag, storage write failure rate, and CDN offload ratio. Dashboards and alerting on these metrics let the on-call engineer know within minutes when something is wrong.</p>
-
-<a name="Engineering.Tradeoffs"></a>
-<h2>Engineering Tradeoffs</h2>
-
-<p>These are the decisions where reasonable engineers disagree, and where the right answer depends on your specific constraints.</p>
-
-<p><strong>SQL vs NoSQL for metadata</strong>: PostgreSQL gives you strong consistency, rich querying, and ACID transactions. Cassandra gives you write throughput and horizontal scalability with weaker consistency guarantees. For a read-heavy system where most reads are by primary key, PostgreSQL with read replicas wins on simplicity and operability. Cassandra makes sense if write volume is extreme and you have the operational expertise.</p>
-
-<p><strong>Server-side vs client-side syntax highlighting</strong>: Server-side pre-rendering means every user gets highlighted content without JavaScript. Client-side means faster initial page loads and zero server CPU for highlighting, but requires JavaScript and adds complexity for search engine indexing. The right choice depends on your user base and infrastructure budget.</p>
-
-<p><strong>Aggressive caching vs strong consistency</strong>: Caching paste metadata means that if a paste is deleted, some users may still see it for up to the cache TTL. This is usually acceptable. If your product requires instant deletion (for compliance or content moderation), you need cache purge APIs and accept the operational complexity that comes with them.</p>
-
-<p><strong>Compression vs CPU</strong>: zstd compression saves significant storage and bandwidth but costs CPU on every read and write. At very high volumes, the CPU cost matters. The tradeoff generally favors compression because storage and bandwidth are more expensive than CPU in modern cloud environments.</p>
-
-<a name="Real-World.Technology.Stack"></a>
-<h2>Real-World Technology Stack</h2>
-
-<p>Here is a realistic technology stack for a production Pastebin:</p>
-
-<p><strong>API servers in Go</strong>: Go&rsquo;s goroutine model handles high concurrency with low memory overhead. Fast startup time makes it great for containerized deployments. The standard library and ecosystem for building HTTP services are excellent.</p>
-
-<p><strong>PostgreSQL for metadata</strong>: Battle-tested, well-understood operationally, excellent tooling. pgBouncer for connection pooling, Patroni for HA.</p>
-
-<p><strong>Redis Cluster for caching</strong>: The industry standard for application-level caching. Supports the data structures you need: strings for raw text, hashes for metadata, sorted sets for trending.</p>
-
-<p><strong>Apache Kafka for async processing</strong>: Durable, high-throughput, replayable. Kafka&rsquo;s consumer group model makes it easy to scale highlighting workers independently of the write path.</p>
-
-<p><strong>S3 or compatible object storage for content blobs</strong>: Near-infinite scale, built-in replication, cheap storage costs, lifecycle policies for tiering.</p>
-
-<p><strong>Elasticsearch for search</strong>: Mature full-text search engine with good Python and Go clients, support for complex scoring, and horizontal scalability.</p>
-
-<p><strong>Kubernetes for container orchestration</strong>: Stateless application servers run as Kubernetes deployments with horizontal pod autoscaling. Kafka and Elasticsearch run on separate node pools.</p>
-
-<p><strong>Cloudflare or Fastly for CDN</strong>: Both offer strong developer APIs, fast purge propagation, and global edge networks.</p>
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>Pastebin is one of the most commonly asked system design questions because it is well-scoped, has clear requirements, and touches a wide range of distributed systems concepts.</p>
-
-<p><strong>What interviewers want to see</strong>: They want you to drive the conversation. Start with requirements clarification — how many pastes per day, what is the expected read-to-write ratio, what features are in scope. Then sketch the high-level architecture. Then dive deep into the areas the interviewer cares about: storage, caching, ID generation, or expiration.</p>
-
-<p><strong>Common mistakes</strong>: Jumping straight into low-level details without establishing the big picture. Over-engineering with too many components before justifying the need. Ignoring the read-heavy nature of the workload and designing a write-optimized system. Forgetting about abuse prevention. Treating ID generation as trivial.</p>
-
-<p><strong>Strong answers</strong> demonstrate clear reasoning about why each design choice is made. When you say &ldquo;I would use Redis to cache hot pastes,&rdquo; follow it with &ldquo;because the read-to-write ratio is high, paste content is immutable, and cache hit rates will be very high for popular pastes, which eliminates most database reads.&rdquo; That is what separates a strong candidate from an average one.</p>
-
-<p><strong>Areas to go deep on</strong> if asked to dive deeper: the ID generation system and collision prevention, the caching strategy and cache invalidation on expiry, the expiry cleanup pipeline and storage reclamation, the content moderation pipeline, and the database schema with indexing strategy.</p>
-
-<p><strong>Scaling discussion</strong>: Be ready to say how the system changes as it scales. What breaks first at 10x current load? Usually it is the write path to the database. What breaks at 100x? Usually the single-region architecture. Walk through these scaling conversations confidently, and your interviewer will know you understand distributed systems at a real depth.</p>
-
-<p>Building Pastebin well is about understanding that simple products have non-trivial infrastructure requirements when millions of people use them every day. The database does not just store text. The cache is not just an optimization. The expiry system is not just a scheduled job. Each of these is a distributed systems problem in its own right, with failure modes, performance tradeoffs, and scaling concerns that deserve careful thought. That is the lesson Pastebin teaches, and it is why it remains one of the best system design learning exercises out there.</p>
 ]]></content>
     </entry>
     

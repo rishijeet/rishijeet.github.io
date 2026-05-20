@@ -86,6 +86,159 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-zomato-works/">How Zomato Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-20T08:34:32+05:30" pubdate><i class="fa fa-calendar"></i> May 20th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/zomato/'>zomato</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>The moment you tap “Place Order” on Zomato, a massive chain of events begins instantly behind the scenes. Within seconds, the system identifies your location, finds the right restaurant, assigns a nearby delivery partner, processes your payment, and starts estimating delivery time — all before you even put your phone away. What feels simple on the surface is actually a real-time logistics system coordinating thousands of moving parts across an entire city.</em></p></blockquote>
+
+<p><img src="/images/system_design/zomato-banner.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Food delivery sounds like a simple logistics problem until you actually try to build it. Then it reveals itself as one of the hardest classes of distributed systems work: real-time geo-spatial computation, dynamic resource allocation, live tracking at millions of concurrent sessions, recommendation engines that personalize without being creepy, and payment flows that must never lose money even when half the network is flaking. Zomato operates across hundreds of cities, millions of daily orders, and tens of thousands of restaurant partners. Let us walk through how a system like this actually works.</p>
+
+<a name="What.Zomato.Actually.Does"></a>
+<h2>What Zomato Actually Does</h2>
+
+<p>Most people know Zomato as an app where you order food. But from an engineering perspective, Zomato is really three distinct systems bolted together and made to feel seamless.</p>
+
+<p>The first is a restaurant discovery and search platform. This is the part that helps you find what to eat, browse menus, read reviews, and decide. It behaves like a specialized search engine with local context.</p>
+
+<p>The second is a transactional ordering and logistics system. This handles the actual purchase: taking your order, processing payment, routing it to the restaurant, orchestrating the delivery from pickup to dropoff.</p>
+
+<p>The third is a personalization and recommendations engine. This is the layer that learns your preferences, predicts what you will want to eat on a Tuesday night versus a Sunday brunch, and surfaces restaurant and dish suggestions that feel eerily relevant.</p>
+
+<p>These three systems share infrastructure but have very different performance and correctness requirements. The search system can tolerate slight staleness. The ordering system cannot afford to lose a transaction. The recommendation system can afford to be a little wrong as long as it is interesting. Understanding that these systems have different tradeoffs is the first thing a good engineer thinks about before designing anything.</p>
+
+<a name="Core.Features.at.a.Glance"></a>
+<h2>Core Features at a Glance</h2>
+
+<p>Before going deep, it helps to enumerate what Zomato actually provides so we can map features to systems:</p>
+
+
+        <a class="btn pull-right" href="/blog/how-zomato-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
+            <a href="/blog/how-netflix-works/">How Netflix Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-20T08:21:54+05:30" pubdate><i class="fa fa-calendar"></i> May 20th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/netflix/'>netflix</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>Every second, somewhere in the world, a person presses play on Netflix and expects the impossible to feel effortless. In the brief instant before the first frame appears, an enormous distributed system has already selected the optimal video quality, routed the request to the nearest CDN edge server, adapted to the user’s network conditions, and begun streaming millions of bytes across the internet — all fast enough that the viewer never thinks about it. No loading screens. No blurry frames. Just seamless playback delivered on demand, at planetary scale.</em></p></blockquote>
+
+<p><img src="/images/system_design/netflix-banner.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>What makes that moment deceptively simple is the enormous machinery running beneath it. At any given time, Netflix is serving somewhere north of 200 million active subscribers across 190 countries. It accounts for roughly 15% of global internet traffic during peak hours. Its recommendation engine influences what more than 80% of subscribers watch next. And the system has to work whether you are on fiber in Seoul, a spotty cellular connection in rural Brazil, or a smart TV in a hotel in Amsterdam.</p>
+
+<p>Most distributed systems have to handle scale. Netflix has to handle scale while also being real-time, fault-tolerant, and nearly invisible to the user. The experience degrades the moment you notice it.</p>
+
+<p>This post is an attempt to explain the full system. Not just the broad strokes, but the reasons behind each architectural decision, the tradeoffs made at each layer, and what happens when things go wrong. We will move from client to CDN to cloud, from video bytes to neural network embeddings, and from API gateway to analytics pipelines.</p>
+
+<a name="Core.Features.of.Netflix"></a>
+<h2>Core Features of Netflix</h2>
+
+<p>Before touching the architecture, it is worth being precise about what Netflix actually does. The feature list sounds mundane but each item carries serious engineering weight.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-netflix-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-spotify-works/">How Spotify Works?</a>
         </h1>
     
@@ -285,153 +438,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-amazon-s3-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-kafka-works/">How Kafka Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-17T10:59:43+05:30" pubdate><i class="fa fa-calendar"></i> May 17th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/kafka/'>kafka</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a moment in every backend engineer&rsquo;s career when a simple queue stops being enough. Maybe you&rsquo;re logging user activity to a database and the writes start choking the system. Maybe you&rsquo;re moving data between microservices with REST calls and latency starts creeping up. Maybe a product team asks for &ldquo;real-time analytics&rdquo; and you start wondering what that even means at scale.</em></p></blockquote>
-
-<p><img src="/images/system_design/kafka.avif" height="300" width="900" alt="Alt text" /></p>
-
-<p>That&rsquo;s when engineers usually discover Kafka.</p>
-
-<p>Apache Kafka was originally built at LinkedIn to solve a very unglamorous problem: moving enormous amounts of log data between systems without breaking everything. What they ended up building wasn&rsquo;t just a message queue. It was a distributed commit log, a unified event backbone, and arguably one of the most influential pieces of infrastructure in modern software engineering.</p>
-
-<p>But here&rsquo;s the thing nobody tells beginners: distributed messaging is genuinely hard. Not hard like &ldquo;this will take an afternoon.&rdquo; Hard like &ldquo;this is a decade of systems research made practical.&rdquo;</p>
-
-<p>Think about what you&rsquo;re actually trying to do when you build a distributed messaging system. You want to accept millions of messages per second from producers that don&rsquo;t know or care about consumers. You want to store those messages durably on disk so nothing gets lost even if half your servers crash. You want to replay old messages if a consumer fails and needs to reprocess. You want ordering guarantees for related events. You want to fan out a single message to dozens of different consumers. You want horizontal scalability so you can throw more hardware at the problem as traffic grows. And you want to do all of this with single-digit millisecond latency.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-kafka-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-pastebin-works/">How Pastebin Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-17T08:37:50+05:30" pubdate><i class="fa fa-calendar"></i> May 17th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/pastebin/'>pastebin</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is something deceptively simple about Pastebin. You paste some text, click a button, and get a short URL back. You share that URL with someone else, they open it, and they see your text. That is the entire product in one sentence. And yet, building Pastebin at the scale of tens of millions of daily users, billions of stored pastes, and a global audience requires you to make dozens of careful engineering decisions that would fill a whiteboard wall from top to bottom.</em></p></blockquote>
-
-<p>The reason Pastebin is a classic system design interview question is not because it is hard to understand — it is because it forces you to think through the full lifecycle of a piece of data in a distributed system: write it, store it, serve it to millions of readers, expire it gracefully, cache it intelligently, and make sure no one abuses it to host malware or leak credentials. Each of those steps has gotchas.</p>
-
-<p><img src="/images/system_design/pastebin.jpeg" height="300" width="900" alt="Alt text" /></p>
-
-<p>This post is a full engineering deep dive. We will go through the architecture layer by layer, explain every major decision, and make sure you understand not just what Pastebin does but why it is built the way it is.</p>
-
-<a name="What.Pastebin.Actually.Is"></a>
-<h2>What Pastebin Actually Is</h2>
-
-<p>Before we go deep into the systems, let us be clear about the product. Pastebin is a text-sharing service. Users paste raw text, often source code, configuration files, log dumps, or command output, and get a short URL they can share. The core workflow is:</p>
-
-<ul>
-<li>A user submits a block of text</li>
-<li>The system assigns it a unique short ID and URL</li>
-<li>Other users visit that URL and read the text</li>
-<li>The paste may expire after a set time or persist forever</li>
-</ul>
-
-
-
-        <a class="btn pull-right" href="/blog/how-pastebin-works/">Read on &rarr;</a>
     </div>
 
         </article>
