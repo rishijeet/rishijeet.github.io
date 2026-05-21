@@ -86,6 +86,148 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-meta-serverless-works/">How Meta Serverless Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-21T08:36:37+05:30" pubdate><i class="fa fa-calendar"></i> May 21st, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>Somewhere inside a hyperscale data center, a user taps a button on Instagram and an invisible chain reaction begins across thousands of machines. A piece of code spins up, runs for a few milliseconds, and vanishes almost instantly. No engineer manually provisioned a server for that request. No virtual machine was waiting in advance. The infrastructure simply reacted in real time, allocating compute exactly when it was needed and disappearing when the work was done.</em></p></blockquote>
+
+<p>That is serverless computing at scale, and building it correctly is one of the hardest distributed systems problems in the industry.</p>
+
+<p><img src="/images/system_design/meta-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This blog is a deep technical walkthrough of how Meta-style serverless infrastructure works internally. We are going to walk through the execution pipeline, the scheduler, container isolation, cold start optimization, autoscaling, networking, observability, and the engineering decisions that tie everything together. If you are preparing for a system design interview or just want to understand what really happens under the hood of a serverless platform at hyperscale, this is for you.</p>
+
+<a name="What.Serverless.Actually.Means.at.Scale"></a>
+<h2>What Serverless Actually Means at Scale</h2>
+
+<p>The word &ldquo;serverless&rdquo; is a bit misleading. There are absolutely servers. What serverless really means is that the people writing the business logic do not have to think about those servers. They write a function, deploy it, and the platform handles everything else: provisioning, scaling, networking, isolation, and cleanup.</p>
+
+<p>AWS Lambda made this concept mainstream. But building serverless infrastructure for a company like Meta, which handles billions of daily active users, trillions of requests, and petabytes of data, requires an entirely different class of engineering. You cannot just run Lambda internally. You need something purpose-built, something that understands Meta&rsquo;s workload patterns, Meta&rsquo;s infrastructure constraints, and Meta&rsquo;s latency requirements.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-meta-serverless-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
+            <a href="/blog/how-x-timeline-works/">How X Timeline Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-21T08:23:07+05:30" pubdate><i class="fa fa-calendar"></i> May 21st, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is a moment, every time you open X, that feels effortless. A feed of tweets appears. Some are from people you follow. Others are from accounts you have never seen before but somehow feel relevant. A viral post catches your eye. A trending topic surfaces at just the right time. It all feels instant.</em></p></blockquote>
+
+<p><img src="/images/system_design/x-banner.jpeg" height="300" width="900" alt="Alt text" /></p>
+
+<p>Behind every timeline refresh is a chain of distributed systems doing extraordinary amounts of work in milliseconds. Machines are computing your interests, traversing social graphs with hundreds of millions of edges, fetching precomputed timelines from tiered caches, ranking thousands of candidate tweets using machine learning models, and delivering the result before your thumb stops scrolling. At peak traffic, X handles hundreds of millions of active users simultaneously, each expecting their own personalized, fresh, low-latency feed.</p>
+
+<p>Understanding how this actually works is one of the richest system design problems in modern software engineering. It touches distributed databases, event streaming, ML-based ranking, graph traversal, cache design, and real-time data pipelines all at once.</p>
+
+<p>This post walks through the full architecture from first principles. Whether you are preparing for a system design interview or simply want to understand how large-scale social media infrastructure is built, this is the engineering deep dive you have been looking for.</p>
+
+<a name="Core.Features.of.the.X.Timeline"></a>
+<h2>Core Features of the X Timeline</h2>
+
+<p>Before jumping into architecture, it is worth being precise about what the timeline actually is. X has two primary feed surfaces.</p>
+
+<p>The Following tab shows tweets from accounts you explicitly follow, sorted by relevance and recency. The For You tab, which is the default, is a fully personalized algorithmic feed. It pulls in tweets from accounts you follow, accounts you interact with, accounts that are popular in your network, trending content, and content from accounts you do not follow but that the recommendation engine believes you will engage with.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-x-timeline-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-url-shortener-works/">How URL Shortener Works?</a>
         </h1>
     
@@ -297,146 +439,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-netflix-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-spotify-works/">How Spotify Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-18T08:48:39+05:30" pubdate><i class="fa fa-calendar"></i> May 18th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/spotify/'>spotify</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>A fraction of a second before music starts flowing through your headphones, an invisible chain of systems has already sprung into action. Your device must figure out what track to play next, determine whether the audio is stored locally or needs to be fetched, connect to the nearest CDN edge server, stream and decode compressed audio packets in real time, and deliver uninterrupted playback before you even notice the delay. At Spotify’s scale — serving hundreds of millions of listeners across wildly different devices, bandwidth conditions, and geographies — this is not just streaming. It is a massive distributed system constantly balancing speed, reliability, and personalization, while quietly predicting the next song you are most likely to fall in love with.</em></p></blockquote>
-
-<p><img src="/images/system_design/spotify.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>That is not a simple problem. It is one of the most interesting distributed systems challenges in consumer software, combining real-time media delivery, personalization at scale, search infrastructure, offline sync, and a licensing system that would give most engineers a headache. This article is a deep walk through all of it. Whether you are preparing for a system design interview, curious about how streaming infrastructure really works, or building something similar at a smaller scale, the goal is to leave you with a genuine mental model, not just a list of buzzwords.</p>
-
-<a name="Why.Music.Streaming.Is.Hard"></a>
-<h2>Why Music Streaming Is Hard</h2>
-
-<p>Before diving into architecture, it is worth spending a moment on why this problem is genuinely difficult, because the instinctive answer — &ldquo;just serve audio files from a server&rdquo; — misses most of what makes Spotify interesting.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-spotify-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-stock-exchange-works/">How Stock Exchange Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-18T08:40:23+05:30" pubdate><i class="fa fa-calendar"></i> May 18th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/trading-system/'>trading_system</a></li>
-            
-                <li><a class='category' href='/blog/categories/ultra-low-latency/'>ultra_low_latency</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a moment, roughly once every market quarter, where some piece of news hits the wire and millions of traders hit their buy or sell buttons simultaneously. The exchange absorbs that shock. Prices move. Trades match. Confirmations fly back in milliseconds. Nobody on the outside thinks twice about it.</em></p></blockquote>
-
-<p>But if you crack open what actually happened in those milliseconds, you find one of the most carefully engineered distributed systems ever built. Stock exchanges are not just websites that match buyers and sellers. They are real-time, deterministic, ultra-low-latency financial infrastructure where a microsecond of delay can represent thousands of dollars of opportunity lost, and where a single bug in the matching engine can destabilize an entire market.</p>
-
-<p><img src="/images/system_design/stock-exchange.webp" height="300" width="900" alt="Alt text" /></p>
-
-<p>This blog is for engineers who want to understand what is actually happening under the hood. We will start from first principles and work our way through every major subsystem, from order entry to trade settlement, touching on the hardware, software, data structures, and architectural tradeoffs that make modern exchanges tick.</p>
-
-<a name="Why.This.Problem.Is.Hard"></a>
-<h2>Why This Problem Is Hard</h2>
-
-<p>Before jumping into architecture, it helps to understand the constraints.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-stock-exchange-works/">Read on &rarr;</a>
     </div>
 
         </article>

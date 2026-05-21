@@ -1,0 +1,1110 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>How Meta Serverless Works? - Rishijeet Mishra | Technologist | Tech Trends & Development Blog</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Bridging tech and education - Rishijeet Mishra's insights on digital learning">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/how-meta-serverless-works">
+
+        <link href='https://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+         <!--adding the font awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra | Technologist | Tech Trends & Development Blog" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/system-design/">System Design</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">How Meta Serverless Works?</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-21T08:36:37+05:30" pubdate><i class="fa fa-calendar"></i> May 21st, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <blockquote><p><em>Somewhere inside a hyperscale data center, a user taps a button on Instagram and an invisible chain reaction begins across thousands of machines. A piece of code spins up, runs for a few milliseconds, and vanishes almost instantly. No engineer manually provisioned a server for that request. No virtual machine was waiting in advance. The infrastructure simply reacted in real time, allocating compute exactly when it was needed and disappearing when the work was done.</em></p></blockquote>
+
+<p>That is serverless computing at scale, and building it correctly is one of the hardest distributed systems problems in the industry.</p>
+
+<p><img src="/images/system_design/meta-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This blog is a deep technical walkthrough of how Meta-style serverless infrastructure works internally. We are going to walk through the execution pipeline, the scheduler, container isolation, cold start optimization, autoscaling, networking, observability, and the engineering decisions that tie everything together. If you are preparing for a system design interview or just want to understand what really happens under the hood of a serverless platform at hyperscale, this is for you.</p>
+
+<a name="What.Serverless.Actually.Means.at.Scale"></a>
+<h2>What Serverless Actually Means at Scale</h2>
+
+<p>The word &ldquo;serverless&rdquo; is a bit misleading. There are absolutely servers. What serverless really means is that the people writing the business logic do not have to think about those servers. They write a function, deploy it, and the platform handles everything else: provisioning, scaling, networking, isolation, and cleanup.</p>
+
+<p>AWS Lambda made this concept mainstream. But building serverless infrastructure for a company like Meta, which handles billions of daily active users, trillions of requests, and petabytes of data, requires an entirely different class of engineering. You cannot just run Lambda internally. You need something purpose-built, something that understands Meta&rsquo;s workload patterns, Meta&rsquo;s infrastructure constraints, and Meta&rsquo;s latency requirements.</p>
+
+<!--more-->
+
+
+<p>The evolution from virtual machines to containers to serverless execution was not accidental. VMs gave us isolation but were slow to start and wasteful with resources. Containers gave us density and faster startup but still required orchestration knowledge. Serverless abstracted the orchestration entirely, letting engineers focus purely on logic. Each step in this evolution traded some control for more efficiency, and serverless takes that trade to its logical conclusion.</p>
+
+<p>At hyperscale, the engineering challenges are formidable:</p>
+
+<ul>
+<li>Millions of function invocations per second require schedulers that make placement decisions in microseconds.</li>
+<li>Cold start latency must be reduced to single-digit milliseconds or the user experience degrades visibly.</li>
+<li>Multi-tenant execution means one noisy tenant can destroy the experience of every other tenant on the same worker.</li>
+<li>Distributed scheduling across thousands of worker nodes requires coordination without a single point of failure.</li>
+<li>Observability of ephemeral workloads that live for milliseconds is genuinely difficult.</li>
+<li>Cost optimization requires packing as many functions onto the same hardware as possible without causing interference.</li>
+</ul>
+
+
+<p>These are not academic problems. They are daily production challenges for platform engineers at companies like Meta.</p>
+
+<a name="Core.Features.of.a.Meta-Style.Serverless.Platform"></a>
+<h2>Core Features of a Meta-Style Serverless Platform</h2>
+
+<p>Before we go deep into the internals, let us establish a shared mental model of what the platform actually offers.</p>
+
+<p><strong>Function execution</strong> is the core primitive. A function is a piece of code that takes an input, does some work, and produces an output. The platform runs it on demand.</p>
+
+<p><strong>Event-driven architecture</strong> means functions do not run on a schedule by default. They run in response to events: an HTTP request, a message on a queue, a database change notification, a timer firing, or a stream record arriving.</p>
+
+<p><strong>Autoscaling</strong> means the platform automatically adjusts how many instances of a function are running based on incoming demand. If traffic spikes, more instances spin up. If traffic drops, instances are reclaimed.</p>
+
+<p><strong>Stateless compute</strong> means each function invocation is independent. No local state persists between calls. This is the fundamental property that makes horizontal scaling trivial.</p>
+
+<p><strong>Function isolation</strong> means one function cannot access another function&rsquo;s memory, CPU, or network resources without explicit permission.</p>
+
+<p><strong>Container sandboxing</strong> provides the security boundary that enforces that isolation at the kernel level.</p>
+
+<p><strong>Monitoring, logging, and retry systems</strong> ensure that the platform can detect failures, record what happened, and retry failed executions without any manual intervention.</p>
+
+<a name="High-Level.Serverless.Architecture"></a>
+<h2>High-Level Serverless Architecture</h2>
+
+<p>Let us walk through the major components of a Meta-style serverless platform before we go deep on each one.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Client or Internal Service];
+  B[API Gateway];
+  C[Auth and Rate Limiter];
+  D[Function Registry];
+  E[Global Scheduler];
+  F[Worker Pool Manager];
+  G[Worker Node A];
+  H[Worker Node B];
+  I[Container Runtime];
+  J[Function Execution];
+  K[Observability System];
+  L[Event Bus];
+  M[Autoscaler];
+  N[Storage and State];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  F &#8211;> H;
+  G &#8211;> I;
+  H &#8211;> I;
+  I &#8211;> J;
+  J &#8211;> K;
+  J &#8211;> N;
+  L &#8211;> E;
+  M &#8211;> F;
+  K &#8211;> M;
+  classDef client fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef gateway fill:#0891b2,stroke:#0e7490,color:#ffffff;
+  classDef service fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef storage fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef queue fill:#f59e0b,stroke:#b45309,color:#000000;
+  class A client;
+  class B,C gateway;
+  class D,E,F service;
+  class G,H,I,J infra;
+  class K,M service;
+  class L queue;
+  class N storage;
+</div>
+
+
+<p>When a request arrives, it hits the API Gateway first. The gateway authenticates the request, checks rate limits, and routes it to the appropriate function. The Function Registry holds metadata about every deployed function: its code artifact location, its resource requirements, its runtime version, and its configuration. The Global Scheduler receives the invocation request and decides which worker node should execute it. The Worker Pool Manager tracks the state of every worker and reports availability. The actual execution happens inside a container on one of the worker nodes. Meanwhile, the Observability System collects traces, metrics, and logs, feeding data back into the Autoscaler which continuously adjusts the pool of available workers.</p>
+
+<a name="Function.Invocation.Pipeline"></a>
+<h2>Function Invocation Pipeline</h2>
+
+<p>This is the path that every single function call travels. Understanding it deeply is critical for both building and debugging serverless systems.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Request Arrives at Gateway];
+  B[Authentication and JWT Validation];
+  C[Rate Limit Check];
+  D[Function Metadata Lookup];
+  E[Warm Container Available];
+  F[Schedule on Existing Worker];
+  G[Cold Start Path];
+  H[Pull Container Image];
+  I[Initialize Runtime];
+  J[Execute Function Code];
+  K[Collect Output and Logs];
+  L[Return Response];
+  M[Retry on Failure];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;>|Yes| F;
+  E &#8211;>|No| G;
+  G &#8211;> H;
+  H &#8211;> I;
+  I &#8211;> J;
+  F &#8211;> J;
+  J &#8211;> K;
+  K &#8211;> L;
+  J &#8211;>|Error| M;
+  M &#8211;> F;
+  classDef gateway fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef decision fill:#f59e0b,stroke:#b45309,color:#000000;
+  classDef coldpath fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef warmpath fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  class A,B,C gateway;
+  class D,E decision;
+  class G,H,I coldpath;
+  class F warmpath;
+  class J,K,L,M infra;
+</div>
+
+
+<p>When a request arrives, the gateway does a fast authentication check. At Meta&rsquo;s scale, this means verifying a JWT or an internal service token using a locally cached signing key. Making this a network call would add 10-50ms of latency to every invocation, which is unacceptable.</p>
+
+<p>After authentication, the rate limiter checks whether the calling service has exceeded its quota. Rate limiting at the gateway protects the scheduler from being overwhelmed by a single misbehaving service.</p>
+
+<p>The Function Registry lookup retrieves the function&rsquo;s metadata, including which container image it uses, which runtime version it requires, and what resource limits apply. This lookup hits a fast in-memory cache backed by a distributed key-value store like ZooKeeper or an internal metadata service.</p>
+
+<p>The scheduler then checks whether a warm container for this function already exists on any worker node. If one does, the request is dispatched there immediately. This is the happy path, and it typically completes in single-digit milliseconds. If no warm container exists, the system triggers a cold start.</p>
+
+<p>Concurrency control happens at the worker level. Each worker node tracks how many concurrent executions it is running and rejects new assignments when it is at capacity. The scheduler respects this by only assigning work to workers that have available slots.</p>
+
+<p>Timeout handling is baked into the execution layer. Every function invocation has a maximum allowed execution time. If the function exceeds it, the runtime sends a SIGTERM first, waits a short grace period, then sends SIGKILL. The output is discarded, an error is recorded, and the invocation is marked as failed.</p>
+
+<a name="Distributed.Scheduler.Architecture"></a>
+<h2>Distributed Scheduler Architecture</h2>
+
+<p>The scheduler is the brain of the serverless platform. Its job is to answer one question thousands of times per second: which worker node should execute this function right now?</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Invocation Request];
+  B[Global Scheduler Frontend];
+  C[Worker State Store];
+  D[Placement Algorithm];
+  E[Worker Affinity Check];
+  F[Resource Availability Check];
+  G[Selected Worker Node];
+  H[Local Scheduler on Worker];
+  I[Container Slot Allocated];
+  J[Function Executes];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  H &#8211;> I;
+  I &#8211;> J;
+  classDef frontend fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef logic fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  class A,B frontend;
+  class C,D,E,F logic;
+  class G,H,I,J infra;
+</div>
+
+
+<p>At Meta&rsquo;s scale, the scheduler cannot be a single process. It must be distributed and horizontally scalable. The typical design splits scheduling into a frontend layer and a backend layer. The frontend accepts invocation requests, and the backend maintains a real-time view of worker state.</p>
+
+<p><strong>Worker state</strong> includes CPU availability, memory availability, current execution count, function affinity information (which functions have warm containers on this worker), and network locality.</p>
+
+<p><strong>Placement algorithms</strong> at hyperscale use a combination of consistent hashing and bin packing. Consistent hashing ensures that requests for the same function are more likely to land on workers that already have a warm container for it. Bin packing ensures that worker resources are used efficiently without overcommitting.</p>
+
+<p><strong>Scheduling fairness</strong> is a subtle but important problem. If one function generates 90% of the traffic, it should not starve other functions of workers. The scheduler must maintain per-function and per-tenant resource budgets and enforce them even under extreme load.</p>
+
+<p><strong>Multi-region scheduling</strong> adds another layer of complexity. The scheduler must decide not just which worker, but which datacenter region. For latency-sensitive functions, the request should be routed to the region closest to the caller. For batch jobs, the scheduler might prefer the region where the data already lives.</p>
+
+<p>The noisy neighbor problem happens when one function&rsquo;s execution interferes with another function running on the same worker. The scheduler&rsquo;s job is to minimize this by avoiding placing resource-intensive functions next to latency-sensitive functions, and by respecting CPU and memory isolation boundaries.</p>
+
+<a name="Container.Isolation.and.Sandboxing"></a>
+<h2>Container Isolation and Sandboxing</h2>
+
+<p>Every function runs inside an isolated execution environment. This is non-negotiable in a multi-tenant system. Without strong isolation, a compromised function could read another tenant&rsquo;s data, exhaust shared resources, or escape to the host.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Function Code];
+  B[Language Runtime];
+  C[Container Filesystem];
+  D[Linux Namespace Isolation];
+  E[cgroup Resource Limits];
+  F[Seccomp Syscall Filter];
+  G[Host Kernel];
+  H[Physical Hardware];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  classDef code fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef isolation fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  class A,B,C code;
+  class D,E,F isolation;
+  class G,H infra;
+</div>
+
+
+<p>The standard approach uses Linux containers, but at hyperscale, standard containers are often not isolated enough. A container shares the host kernel, which means a sufficiently sophisticated kernel exploit could potentially break out of the container. This is why Firecracker, developed by AWS for Lambda but representative of the kind of technology Meta would use internally, uses microVMs instead.</p>
+
+<p>A <strong>microVM</strong> runs each function inside a tiny virtual machine that has its own kernel. The attack surface is dramatically smaller than a full VM because the microVM firmware is minimal. Startup time is under 150 milliseconds, which is fast enough for most serverless use cases.</p>
+
+<p><strong>Linux namespaces</strong> provide the isolation layer for process IDs, network interfaces, mount points, and user IDs. Each container gets its own namespace, so it cannot see or interfere with processes in other containers.</p>
+
+<p><strong>cgroups</strong> (control groups) enforce resource limits. A function configured with 256MB of memory cannot allocate more than that. A function given one CPU core cannot steal cycles from adjacent functions. Without cgroup enforcement, resource limits are just suggestions.</p>
+
+<p><strong>Seccomp</strong> filters restrict which system calls a function can make. Functions should not need to call <code>ptrace</code>, <code>kexec_load</code>, or <code>mount</code>. Blocking these system calls removes entire classes of privilege escalation attacks.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Isolation Mechanism</th>
+        <th>What It Protects</th>
+        <th>Overhead</th>
+        <th>Security Level</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Linux Containers (Docker)</td>
+        <td>Filesystem, network, process visibility</td>
+        <td>Very low (microseconds)</td>
+        <td>Medium - shares host kernel</td>
+      </tr>
+      <tr>
+        <td>gVisor (user-space kernel)</td>
+        <td>System call interception</td>
+        <td>Low to medium</td>
+        <td>High - intercepts kernel calls</td>
+      </tr>
+      <tr>
+        <td>Firecracker MicroVM</td>
+        <td>Full kernel isolation per function</td>
+        <td>Medium (100-200ms startup)</td>
+        <td>Very high - separate kernel</td>
+      </tr>
+      <tr>
+        <td>Full VM (KVM/Xen)</td>
+        <td>Complete hardware virtualization</td>
+        <td>High (seconds to start)</td>
+        <td>Very high - full isolation</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The tradeoff is clear: stronger isolation costs more startup time. Meta-style systems use a tiered approach. Most functions run in containers with strong seccomp filters and cgroup limits. Functions handling highly sensitive data or running untrusted code get microVM isolation. The security team classifies functions into tiers, and the scheduler uses these tiers when making placement decisions.</p>
+
+<a name="Cold.Start.Optimization"></a>
+<h2>Cold Start Optimization</h2>
+
+<p>Cold starts are the enemy of serverless performance. A cold start happens when a request arrives and there is no warm execution environment ready for that function. The system must pull the container image, initialize the runtime, load the function code, and then execute it. All of that takes time, and users feel it.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Invocation Request];
+  B[Check Warm Container Pool];
+  C[Warm Container Found];
+  D[Dispatch Immediately];
+  E[No Warm Container];
+  F[Check Snapshot Cache];
+  G[Restore from Snapshot];
+  H[Cold Start - Pull Image];
+  I[Initialize Runtime];
+  J[Load Function Code];
+  K[Execute Function];
+  L[Recycle Container to Warm Pool];
+  A &#8211;> B;
+  B &#8211;> C;
+  B &#8211;> E;
+  C &#8211;> D;
+  D &#8211;> K;
+  E &#8211;> F;
+  F &#8211;>|Hit| G;
+  F &#8211;>|Miss| H;
+  G &#8211;> K;
+  H &#8211;> I;
+  I &#8211;> J;
+  J &#8211;> K;
+  K &#8211;> L;
+  classDef warm fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef cold fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef snapshot fill:#f59e0b,stroke:#b45309,color:#000000;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  class A,B infra;
+  class C,D,L warm;
+  class E,H,I,J cold;
+  class F,G snapshot;
+  class K infra;
+</div>
+
+
+<p>The strategies for reducing cold starts are worth understanding in detail because they reveal a lot about how the platform makes engineering tradeoffs.</p>
+
+<p><strong>Warm pools</strong> maintain a set of pre-initialized containers for each function. When a function invocation completes, instead of destroying the container, the platform recycles it back to a warm pool. The next invocation for that function gets a pre-warmed environment. The cost of this approach is memory: you are paying for idle containers that are doing nothing, waiting for work.</p>
+
+<p><strong>Snapshotting</strong> is a more sophisticated technique. When a function&rsquo;s runtime has been initialized (JVM started, modules imported, connections established), the system takes a memory snapshot of the entire process. On the next cold start, instead of re-running the initialization sequence, the system restores from the snapshot. Startup time drops from hundreds of milliseconds to tens of milliseconds because the expensive initialization work was already done once.</p>
+
+<p><strong>Pre-warming</strong> uses prediction to start containers before the traffic arrives. If the system knows from historical data that function X sees a traffic spike every day at 9am, it can start spinning up containers at 8:58am. This requires a prediction system that understands traffic patterns, but the payoff in reduced cold starts is enormous.</p>
+
+<p><strong>Language runtime tradeoffs</strong> are significant. Go and Rust functions cold start in under 10 milliseconds because their runtimes are compiled and have no initialization overhead. Python and Node.js functions take longer because the interpreter itself must start, then modules must be imported. Java and JVM-based functions are the worst, often taking 500ms or more just for the JVM to start up. This is why JVM-based functions are almost always candidates for snapshotting.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Optimization Technique</th>
+        <th>Reduction in Cold Start</th>
+        <th>Memory Cost</th>
+        <th>Implementation Complexity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Warm container pool</td>
+        <td>100% (eliminates cold start)</td>
+        <td>High (idle containers)</td>
+        <td>Low</td>
+      </tr>
+      <tr>
+        <td>Memory snapshotting (CRIU)</td>
+        <td>60-80%</td>
+        <td>Medium (snapshot storage)</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>Predictive pre-warming</td>
+        <td>50-90% depending on accuracy</td>
+        <td>Medium to high</td>
+        <td>High (requires ML model)</td>
+      </tr>
+      <tr>
+        <td>Lazy dependency loading</td>
+        <td>20-40%</td>
+        <td>Low</td>
+        <td>Low to medium</td>
+      </tr>
+      <tr>
+        <td>Filesystem image layering</td>
+        <td>30-50%</td>
+        <td>Low</td>
+        <td>Medium</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The hardest part about cold start optimization is that it conflicts with isolation. A warm container has already executed some code, which means it has some state. If you reuse it for a different tenant&rsquo;s request, you might leak that state. The platform must carefully reset all mutable state before reusing a container across tenants. This reset process itself takes time, partially eating into the savings from warm containers.</p>
+
+<a name="Autoscaling.Systems"></a>
+<h2>Autoscaling Systems</h2>
+
+<p>Autoscaling is the mechanism that keeps the system responsive under variable load. At Meta&rsquo;s scale, traffic is never flat. News events, viral posts, product launches, and daily usage patterns all create unpredictable spikes.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Metrics Collector];
+  B[Queue Depth Monitor];
+  C[CPU and Memory Utilization];
+  D[Request Rate Monitor];
+  E[Autoscaler Decision Engine];
+  F[Scale Up Decision];
+  G[Scale Down Decision];
+  H[Worker Pool Manager];
+  I[Provision New Workers];
+  J[Drain and Reclaim Workers];
+  K[Scheduler Updated];
+  A &#8211;> E;
+  B &#8211;> E;
+  C &#8211;> E;
+  D &#8211;> E;
+  E &#8211;> F;
+  E &#8211;> G;
+  F &#8211;> H;
+  G &#8211;> H;
+  H &#8211;> I;
+  H &#8211;> J;
+  I &#8211;> K;
+  J &#8211;> K;
+  classDef monitor fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef decision fill:#f59e0b,stroke:#b45309,color:#000000;
+  classDef action fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  class A,B,C,D monitor;
+  class E,F,G decision;
+  class H,I,J action;
+  class K infra;
+</div>
+
+
+<p><strong>Horizontal autoscaling</strong> adds or removes worker nodes based on demand. The autoscaler watches several signals simultaneously: request rate, queue depth, CPU utilization, and memory pressure. When any of these signals indicates that the current capacity is insufficient, the autoscaler adds workers.</p>
+
+<p><strong>Event-driven scaling</strong> reacts to queue depth. If a function consumes from a queue and the queue is backing up, that is a direct signal that more consumers are needed. This is simpler and faster to react to than CPU or memory metrics.</p>
+
+<p><strong>Predictive scaling</strong> uses machine learning models trained on historical traffic patterns to forecast demand and provision workers proactively. This is important for handling burst traffic because reactive scaling always has some lag. By the time the autoscaler detects that CPU is high, some requests are already queuing.</p>
+
+<p><strong>Scaling stability</strong> is a real engineering challenge. If the autoscaler scales up too aggressively, it wastes resources. If it scales down too aggressively, it oscillates between scale-up and scale-down events, which itself consumes resources and introduces latency. Hysteresis mechanisms, cooldown periods, and predictive smoothing all help stabilize autoscaling behavior.</p>
+
+<p><strong>Burst handling</strong> is particularly interesting. Sometimes traffic spikes from zero to thousands of requests per second in under a second. No reactive autoscaler can respond fast enough. The solution is to maintain a small reserve pool of pre-warmed workers that can absorb the initial burst while the autoscaler provisions additional capacity.</p>
+
+<a name="Networking.Infrastructure"></a>
+<h2>Networking Infrastructure</h2>
+
+<p>Networking in a serverless platform is more complex than it appears because you are dealing with both north-south traffic (client to function) and east-west traffic (function to function, function to database).</p>
+
+<p>The API Gateway handles the north-south traffic. It terminates TLS, validates authentication tokens, enforces rate limits, and routes requests to the appropriate scheduler region. At Meta&rsquo;s scale, the API gateway must handle hundreds of millions of requests per day, which means it must be horizontally scalable, stateless, and extremely fast.</p>
+
+<p><strong>Service discovery</strong> allows functions to find other internal services without hardcoded addresses. Internal DNS or a service mesh like Istio (backed by Envoy proxies) resolves service names to healthy endpoints in real time.</p>
+
+<p><strong>Internal RPC</strong> between functions uses gRPC with Protocol Buffers rather than REST with JSON. gRPC is faster, has a well-defined schema, and supports bidirectional streaming. At hyperscale, even small serialization overhead multiplies into significant CPU cost.</p>
+
+<p><strong>Load balancing</strong> at the worker level is handled by a combination of the scheduler and the worker&rsquo;s local execution queue. The scheduler distributes work across workers, and each worker&rsquo;s local queue handles concurrency within the worker.</p>
+
+<p><strong>Multi-region networking</strong> is where things get complex. Functions might need to call services in other regions. Cross-region calls have higher latency (10-100ms depending on distance) and are subject to network partitions. The platform must handle these gracefully, with timeouts, retries, and fallback behaviors.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Serverless platforms and event-driven architectures are deeply intertwined. Almost everything in a serverless system is triggered by an event.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[External Event Source];
+  B[Event Bus];
+  C[Event Router];
+  D[Dead Letter Queue];
+  E[Function Trigger];
+  F[Function Invocation];
+  G[Acknowledgment];
+  H[Retry Handler];
+  I[Monitoring and Alerting];
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> E;
+  C &#8211;>|Routing Failure| D;
+  E &#8211;> F;
+  F &#8211;> G;
+  F &#8211;>|Failure| H;
+  H &#8211;> E;
+  G &#8211;> I;
+  classDef source fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef bus fill:#f59e0b,stroke:#b45309,color:#000000;
+  classDef function fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef error fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  class A source;
+  class B,C bus;
+  class E,F,G function;
+  class D,H error;
+  class I infra;
+</div>
+
+
+<p>The event bus is typically backed by a Kafka-like system at Meta&rsquo;s scale. Kafka provides durable, ordered, partitioned event streams. Functions subscribe to topics, and when a message arrives in a topic, the platform triggers the corresponding function.</p>
+
+<p><strong>Asynchronous execution</strong> through queues decouples producers from consumers. A user action might produce an event that dozens of downstream functions react to. The event bus fans out the event to all subscribers without the producer needing to know about them.</p>
+
+<p><strong>Retry semantics</strong> are critical. If a function fails to process an event, should the event be retried? How many times? With what backoff? These decisions depend on the nature of the failure. A temporary network error should be retried. A bug in the function code should not be retried indefinitely because you will just keep failing.</p>
+
+<p><strong>Dead letter queues</strong> (DLQs) hold events that have exhausted their retry budget. Operations teams monitor DLQs to catch events that could not be processed, investigate why, fix the function, and replay the events.</p>
+
+<p><strong>Event durability</strong> means that events are not lost even if the consuming function is temporarily unavailable. Kafka retains events for a configurable period (often days), so functions can catch up after downtime.</p>
+
+<a name="Resource.Management.Systems"></a>
+<h2>Resource Management Systems</h2>
+
+<p>Running thousands of tenants on shared hardware requires aggressive resource management. Without it, one tenant&rsquo;s function can degrade everyone else&rsquo;s performance.</p>
+
+<p><strong>CPU allocation</strong> uses cgroups to enforce CPU quotas. A function allocated 0.5 CPU cores can use at most half a CPU, period. This is enforced at the kernel level and cannot be circumvented by the function code.</p>
+
+<p><strong>Memory isolation</strong> ensures that a function&rsquo;s memory allocation is bounded. If a function tries to allocate more than its limit, it receives an out-of-memory error rather than stealing memory from adjacent containers.</p>
+
+<p><strong>Runtime quotas</strong> include not just CPU and memory but also disk I/O, network bandwidth, and open file descriptors. A function that opens thousands of file descriptors would otherwise consume a limited kernel resource that affects all other processes on the same host.</p>
+
+<p><strong>Resource accounting</strong> tracks usage per function and per tenant for billing and capacity planning purposes. Every CPU millisecond and every megabyte-second of memory is recorded.</p>
+
+<p><strong>Fair scheduling</strong> uses weighted fair queuing to ensure that all tenants get their fair share of resources when the system is under contention. High-priority functions might get a larger share, but low-priority functions still make progress.</p>
+
+<a name="Observability.and.Monitoring"></a>
+<h2>Observability and Monitoring</h2>
+
+<p>Observability in serverless systems is genuinely hard. Functions are ephemeral. They might exist for 50 milliseconds. By the time you notice a problem, the execution that caused it is gone.</p>
+
+<p><strong>Distributed tracing</strong> follows a request through every system it touches. A trace starts at the API gateway, propagates through the scheduler, into the container runtime, and through any downstream services the function calls. Each step adds a span to the trace with timing and metadata. Tools like Jaeger or Meta&rsquo;s internal tracing systems aggregate these spans into a visual trace you can inspect.</p>
+
+<p><strong>Metrics collection</strong> uses a push or pull model to gather counters and gauges from every component. Key metrics include: invocation count, error rate, execution duration (p50, p95, p99), cold start rate, autoscaling events, and scheduler queue depth.</p>
+
+<p><strong>Structured logging</strong> outputs logs in a machine-readable format (usually JSON) so that log aggregation systems can parse, index, and query them efficiently. Unstructured logs are nearly impossible to aggregate at hyperscale.</p>
+
+<p><strong>Function-level monitoring</strong> gives each function its own set of metrics. A developer can see their function&rsquo;s error rate, latency distribution, and invocation count without needing to dig through shared system metrics.</p>
+
+<p><strong>Runtime telemetry</strong> from the container runtime itself provides insight into what is happening inside the execution environment: garbage collection pauses, memory allocation patterns, and system call activity.</p>
+
+<p>The fundamental challenge is that short-lived workloads produce sparse telemetry. A function that runs for 10 milliseconds might emit only a few log lines and a handful of metrics. Aggregating those across millions of invocations into a coherent picture of system health requires sophisticated streaming aggregation pipelines.</p>
+
+<a name="Storage.and.State.Management"></a>
+<h2>Storage and State Management</h2>
+
+<p>Serverless functions are stateless by design, but real applications need state. The serverless platform provides mechanisms for functions to store and retrieve state externally.</p>
+
+<p><strong>Object storage</strong> (like Meta&rsquo;s own distributed object store, or S3-compatible systems) holds large blobs: images, model files, batch job inputs and outputs.</p>
+
+<p><strong>Distributed databases</strong> (like Cassandra or Meta&rsquo;s TAO) provide structured storage with sub-millisecond read latency for frequently accessed data.</p>
+
+<p><strong>Ephemeral storage</strong> is a small, fast, local disk that exists only for the duration of a function&rsquo;s execution. It is useful for temporary files during processing but is destroyed when the container exits.</p>
+
+<p><strong>Distributed caching</strong> (Redis or Memcache) provides in-memory caching for frequently read data. Functions that need to read configuration or hot data can do so in microseconds from the cache rather than querying the database.</p>
+
+<p>Here are example schemas for the key metadata entities in the system:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="json"><span class='line'><span class="err">//</span> <span class="err">Function</span> <span class="err">Metadata</span> <span class="err">(stored</span> <span class="err">in</span> <span class="err">Function</span> <span class="err">Registry)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="nt">&quot;function_id&quot;</span><span class="p">:</span> <span class="s2">&quot;fn_abc123&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;process-media-upload&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;tenant_id&quot;</span><span class="p">:</span> <span class="s2">&quot;tenant_xyz&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;runtime&quot;</span><span class="p">:</span> <span class="s2">&quot;python3.11&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;container_image&quot;</span><span class="p">:</span> <span class="s2">&quot;registry.internal/fn_abc123:v14&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;memory_mb&quot;</span><span class="p">:</span> <span class="mi">512</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;cpu_millicores&quot;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;max_concurrency&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;event_triggers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;media.uploaded&quot;</span><span class="p">],</span>
+</span><span class='line'>  <span class="nt">&quot;environment_vars&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;LOG_LEVEL&quot;</span><span class="p">:</span> <span class="s2">&quot;info&quot;</span><span class="p">},</span>
+</span><span class='line'>  <span class="nt">&quot;created_at&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-15T10:30:00Z&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;version&quot;</span><span class="p">:</span> <span class="mi">14</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="err">//</span> <span class="err">Invocation</span> <span class="err">Log</span> <span class="err">(stored</span> <span class="err">in</span> <span class="err">time-series</span> <span class="err">database)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="nt">&quot;invocation_id&quot;</span><span class="p">:</span> <span class="s2">&quot;inv_def456&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;function_id&quot;</span><span class="p">:</span> <span class="s2">&quot;fn_abc123&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;tenant_id&quot;</span><span class="p">:</span> <span class="s2">&quot;tenant_xyz&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;worker_id&quot;</span><span class="p">:</span> <span class="s2">&quot;worker_node_42&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;start_time&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-15T10:31:05.123Z&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;end_time&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-15T10:31:05.287Z&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;duration_ms&quot;</span><span class="p">:</span> <span class="mi">164</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;cold_start&quot;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;memory_used_mb&quot;</span><span class="p">:</span> <span class="mi">48</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;cpu_ms_used&quot;</span><span class="p">:</span> <span class="mi">82</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;request_id&quot;</span><span class="p">:</span> <span class="s2">&quot;req_ghi789&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;trigger&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="err">//</span> <span class="err">Scaling</span> <span class="err">Event</span> <span class="err">(stored</span> <span class="err">for</span> <span class="err">audit</span> <span class="err">and</span> <span class="err">analysis)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="nt">&quot;event_id&quot;</span><span class="p">:</span> <span class="s2">&quot;scale_jkl012&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;function_id&quot;</span><span class="p">:</span> <span class="s2">&quot;fn_abc123&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;event_type&quot;</span><span class="p">:</span> <span class="s2">&quot;scale_up&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;reason&quot;</span><span class="p">:</span> <span class="s2">&quot;queue_depth_exceeded_threshold&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;instances_before&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;instances_after&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-15T10:31:00Z&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="nt">&quot;autoscaler_version&quot;</span><span class="p">:</span> <span class="s2">&quot;v2.4.1&quot;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></div></figure>
+
+
+<a name="Security.Architecture"></a>
+<h2>Security Architecture</h2>
+
+<p>Security in a multi-tenant serverless environment is not just about protecting tenants from external attackers. It is about protecting tenants from each other.</p>
+
+<p><strong>Tenant isolation</strong> is enforced at every layer: namespace isolation in the kernel, cgroup limits for resources, network policies that prevent cross-tenant traffic, and separate encryption keys for each tenant&rsquo;s data.</p>
+
+<p><strong>Secret management</strong> ensures that function environment variables containing API keys, database passwords, or certificates are stored encrypted and are injected into the container at runtime without being visible to the platform&rsquo;s own logs.</p>
+
+<p><strong>IAM systems</strong> control which functions can invoke other functions, which functions can write to which storage buckets, and which functions can access which databases. A function should have the minimum set of permissions it needs to do its job, nothing more.</p>
+
+<p><strong>Runtime sandboxing</strong> (seccomp, AppArmor, or SELinux policies) restricts what the function code can do at the kernel level, even if the function code itself is malicious or compromised.</p>
+
+<p><strong>Secure execution</strong> means that the code artifact (the container image) is verified before execution. The platform checks a cryptographic signature on the image to confirm it was built by the CI/CD system and has not been tampered with.</p>
+
+<p>The most dangerous attack vectors in serverless systems are container escapes, privilege escalation through misconfigured IAM policies, and side-channel attacks where one tenant infers information about another tenant&rsquo;s data through shared hardware (CPU cache timing attacks, for example). Meta-class platforms address these through microVM isolation, strict IAM, and CPU pinning to prevent cache-sharing between tenants.</p>
+
+<a name="Deployment.and.CI.CD.Systems"></a>
+<h2>Deployment and CI/CD Systems</h2>
+
+<p>Functions are deployed frequently. A typical engineering team at Meta might deploy their functions dozens of times per day. The deployment pipeline must be fast, safe, and support rollback.</p>
+
+<p><strong>Versioning</strong> gives every deployment a unique version number. The function registry stores all versions, and traffic can be split between versions using traffic weighting (10% to new version, 90% to old version for canary testing).</p>
+
+<p><strong>Canary releases</strong> route a small percentage of traffic to the new version while keeping the majority on the old version. The platform monitors error rates and latency for the new version. If they exceed thresholds, the canary is automatically rolled back.</p>
+
+<p><strong>Zero-downtime deployments</strong> are achieved through graceful shutdown. When a function version is being replaced, the platform stops sending new invocations to the old version, waits for in-flight executions to complete (with a timeout), then terminates the old containers.</p>
+
+<p><strong>Rollback systems</strong> must work in seconds, not minutes. The safest way to roll back a serverless function is to shift all traffic back to the previous version immediately, since the container image for that version is still in the registry.</p>
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>Caching appears at multiple levels of the serverless stack, and each cache serves a different purpose.</p>
+
+<p><strong>Runtime cache</strong> keeps initialized language runtimes ready to run function code. Instead of starting a new Python interpreter for every cold start, the platform maintains a pool of pre-initialized interpreters.</p>
+
+<p><strong>Dependency cache</strong> stores the installed packages for each function. If function version 14 and function version 15 both use <code>requests==2.31.0</code>, they share the same cached copy of that library rather than pulling it again.</p>
+
+<p><strong>Warm container cache</strong> is the pool of paused containers waiting for the next invocation. These are the most valuable cache entries because they eliminate cold starts entirely.</p>
+
+<p><strong>Metadata cache</strong> stores function configuration, IAM policies, and routing rules in memory on the scheduler and gateway nodes. Reading from a distributed database on every request would add too much latency.</p>
+
+<p>Cache invalidation happens through subscription mechanisms. When a function is deployed, the function registry publishes an invalidation event. Every gateway and scheduler node that has cached the old metadata subscribes to these events and updates its local cache.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Scaling a serverless platform globally is harder than scaling most distributed systems because you are not scaling a single service. You are scaling an entire platform that consists of dozens of interdependent components, each with its own scaling characteristics.</p>
+
+<p><strong>Scheduler bottlenecks</strong> happen when the scheduling system cannot keep up with the rate of incoming invocations. The solution is to shard the scheduler, with different shards responsible for different sets of functions. Consistent hashing determines which scheduler shard handles each function.</p>
+
+<p><strong>Cold start bottlenecks</strong> happen when a large portion of incoming traffic requires cold starts simultaneously. This can happen during a deployment (all old containers are being replaced with new ones) or during a traffic spike after a period of low activity (all warm containers have been reclaimed). Warm pools and predictive pre-warming mitigate this.</p>
+
+<p><strong>Networking bottlenecks</strong> appear when thousands of functions simultaneously try to write to the same database or read from the same cache. Rate limiting at the function level, combined with database connection pooling, prevents any single function from overwhelming shared infrastructure.</p>
+
+<p><strong>Observability bottlenecks</strong> are sneaky. The telemetry pipeline itself can become a bottleneck. If every function is emitting detailed traces and logs, the aggregation system must process millions of events per second. The solution is sampling: trace 1% of invocations at full detail, and use aggregated counters for the rest.</p>
+
+<p><strong>Storage bottlenecks</strong> often manifest as hot partitions in the metadata store. If the same function is invoked millions of times per second, its metadata is accessed millions of times per second. Aggressive caching at the scheduler and gateway levels is essential.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Production serverless platforms must be available even when individual components fail. This requires defense in depth.</p>
+
+<p><strong>Multi-region failover</strong> routes traffic to a healthy region when the primary region experiences an outage. This requires that function code and configuration be replicated across regions and that the DNS and load balancing layer can redirect traffic within seconds of detecting a failure.</p>
+
+<p><strong>Retry systems</strong> distinguish between retryable and non-retryable failures. A function that returns a 500 error because of a transient database timeout should be retried. A function that returns a 400 error because the input is malformed should not be retried.</p>
+
+<p><strong>Dead letter queues</strong> capture events and invocations that failed after all retries are exhausted. These are reviewed and replayed manually or automatically after the underlying issue is resolved.</p>
+
+<p><strong>Cascading failure prevention</strong> uses circuit breakers. If a downstream service is failing, a circuit breaker stops sending it requests rather than letting the failures cascade through the entire system. The circuit breaker periodically allows a small number of test requests through to check if the downstream service has recovered.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Here is where experienced engineers earn their pay. Every design decision in a serverless platform involves real tradeoffs.</p>
+
+<p><strong>Cold starts versus isolation</strong>: Stronger isolation (microVMs) means longer cold starts. If you want sub-10ms cold starts, you need to use lightweight containers with weaker isolation boundaries. If you need maximum security, you accept longer cold start times. Most platforms offer tiered isolation options and let function owners choose based on their security requirements.</p>
+
+<p><strong>Containers versus microVMs</strong>: Containers start faster and are more dense (more containers per host). MicroVMs provide stronger security guarantees but require more overhead. The right answer depends on the threat model: internal services running trusted code can use containers, while functions running user-supplied code need microVMs.</p>
+
+<p><strong>Autoscaling aggressiveness versus stability</strong>: An autoscaler that responds very quickly to load changes can handle burst traffic better, but it also oscillates more under variable load, leading to frequent scale-up and scale-down events that themselves consume resources. Smoothing functions and hysteresis tuning are necessary to find the right balance.</p>
+
+<p><strong>Observability richness versus overhead</strong>: Detailed distributed tracing gives you incredible visibility into system behavior, but every trace adds latency and CPU overhead. Sampling reduces this overhead but means you miss some failure cases. The right tradeoff depends on whether you are in a debugging session (crank up tracing) or steady-state production (use sampling).</p>
+
+<p><strong>Serverless simplicity versus operational complexity</strong>: For the developer writing a function, serverless is beautifully simple. For the platform team maintaining the serverless infrastructure, it is extraordinarily complex. This complexity does not disappear; it just shifts from application developers to platform engineers. That is the fundamental tradeoff of managed platforms.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>Understanding what technology underpins a Meta-style serverless platform helps you reason about why systems are designed the way they are.</p>
+
+<p><strong>Go</strong> is used extensively in the control plane components: the scheduler, the worker pool manager, the autoscaler, and the API gateway. Go&rsquo;s goroutines make it easy to handle thousands of concurrent connections efficiently, and its compilation model produces fast-starting binaries.</p>
+
+<p><strong>Rust</strong> appears in the most performance-critical components: the container runtime manager, the network datapath, and anything that runs in kernel-adjacent code. Rust&rsquo;s memory safety guarantees are essential in code that manages container lifecycle because a bug there could affect every tenant.</p>
+
+<p><strong>C++</strong> is used in extremely latency-sensitive components and anywhere that needs fine-grained memory control, such as the eBPF programs that run inside the Linux kernel for network filtering and observability.</p>
+
+<p><strong>Kubernetes</strong> or a similar container orchestration system manages the physical worker nodes. Even though serverless abstracts Kubernetes from function developers, the platform itself often runs on Kubernetes for worker lifecycle management.</p>
+
+<p><strong>Firecracker</strong> (or a similar microVM technology) provides the isolation layer for the most security-sensitive function tiers. Its KVM-based design gives near-native performance with strong isolation.</p>
+
+<p><strong>Envoy</strong> serves as the service proxy and implements the service mesh. It handles mTLS between services, circuit breaking, retry logic, and traffic shaping.</p>
+
+<p><strong>Kafka</strong> provides the event bus for asynchronous function triggers. Its durability guarantees ensure that events are not lost even during infrastructure outages.</p>
+
+<p><strong>gRPC</strong> is the internal RPC protocol between all platform components. Its schema-first design prevents API mismatches, and its binary encoding is significantly faster than JSON.</p>
+
+<p><strong>eBPF</strong> is used for observability and networking without modifying kernel code. eBPF programs inserted into the Linux kernel can track every system call, every network packet, and every context switch with minimal overhead.</p>
+
+<p><strong>Redis</strong> provides the distributed cache layer for hot metadata, session state, and rate limit counters.</p>
+
+<p><strong>Cassandra</strong> or a similar wide-column store holds the long-term invocation history, audit logs, and metrics aggregates. Its ability to distribute reads and writes across many nodes matches the write-heavy pattern of logging millions of invocations.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design a serverless platform, they are not just asking about the happy path. They want to see that you can reason about the entire system, including the failure modes and the tradeoffs.</p>
+
+<p><strong>Start with requirements clarification.</strong> How many function invocations per second? What is the acceptable cold start latency? What isolation level is required? What are the consistency requirements for the event system? Getting these numbers early helps you make the right architectural decisions later.</p>
+
+<p><strong>Explain the invocation pipeline end to end.</strong> Walk through what happens from the moment a request arrives to the moment the response is returned. Most candidates skip the scheduler and jump straight to the worker, which means they miss the most interesting distributed systems problem.</p>
+
+<p><strong>Discuss cold start optimization proactively.</strong> Cold starts are a defining challenge of serverless systems. Strong candidates bring them up before being asked, explain the tradeoffs, and propose multiple mitigation strategies.</p>
+
+<p><strong>Address the noisy neighbor problem.</strong> Multi-tenant resource isolation is always relevant. Explain cgroups, namespace isolation, and how the scheduler avoids placing high-noise workloads next to latency-sensitive workloads.</p>
+
+<p><strong>Talk about scaling limits.</strong> Every system has bottlenecks. Strong candidates identify them: the scheduler becomes a bottleneck at very high invocation rates, so shard it. The metadata store becomes a hotspot, so cache aggressively. The event bus can fall behind under extreme load, so monitor queue depth and scale consumers.</p>
+
+<p><strong>Common mistakes</strong> in serverless design interviews include: treating the gateway as stateful, forgetting retry idempotency (retrying a non-idempotent function creates duplicate side effects), assuming unlimited network bandwidth between components, and ignoring the cost of observability.</p>
+
+<p><strong>Strong answers</strong> walk through multiple failure scenarios: what happens if the scheduler crashes? What if a worker node goes offline mid-execution? What if the event bus falls behind? Explaining how the system remains available and consistent through these failures is what separates senior-level answers from junior-level answers.</p>
+
+<p><strong>Scaling discussions</strong> should be specific. Do not just say &ldquo;add more servers.&rdquo; Say which component you are adding servers to, how you shard it, what the data consistency implications are, and what the latency impact is during the scaling event.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Building serverless infrastructure at hyperscale is one of the most demanding challenges in platform engineering. Every component needs to work reliably at a scale that strains even well-understood distributed systems patterns. The scheduler must make placement decisions in microseconds. The container runtime must enforce isolation without introducing unacceptable latency. The autoscaler must react to traffic changes faster than the traffic harms users. The observability system must capture the behavior of millions of ephemeral workloads without itself becoming a bottleneck.</p>
+
+<p>What makes Meta-style serverless systems truly remarkable is that they hide all of this complexity from the engineers who use them. From a developer&rsquo;s perspective, you write a function and deploy it. The platform handles the rest. That simplicity is the product of an enormous amount of careful engineering on the platform side.</p>
+
+<p>Understanding that engineering, as we have done here, is not just useful for interviews. It gives you a richer intuition for why distributed systems behave the way they do, and it equips you to make better architectural decisions in your own systems, whether or not they involve serverless computing at all.</p>
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2026 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div>
+    
+
+
+
+    
+
+
+
+
+<div class="hire hire--unavailable">
+    
+        
+    
+</div>
+
+</div>
+        </div>
+        
+    </div>
+</footer>
+
+
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/how-meta-serverless-works/';
+        var disqus_url = 'https://rishijeet.github.io/blog/how-meta-serverless-works/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+        <!--adding fancybox -->
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>
