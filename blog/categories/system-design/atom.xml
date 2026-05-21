@@ -4,7 +4,7 @@
     <title><![CDATA[Category: system_design | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/system-design/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-20T08:46:34+05:30</updated>
+    <updated>2026-05-21T08:14:03+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,782 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How URL Shortener Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-url-shortener-works/"/>
+        <updated>2026-05-21T08:04:47+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-url-shortener-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>There is a particular kind of engineering problem that looks deceptively small from the outside. You paste a long URL into a box, click a button, and get back something like <code>https://bit.ly/3xKp9Ld</code>. The whole interaction takes less than a second. Behind that second, though, is a distributed system that has to do quite a lot of work — generate a globally unique short code, write it durably, cache it for fast retrieval, serve hundreds of thousands of redirects per second, collect analytics events without slowing down the redirect, scan for malicious links, and stay available across multiple data centers.</em></p></blockquote>
+
+<p><img src="/images/system_design/url.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>That is the honest shape of a URL shortener at scale. A toy version you could build in an afternoon with a SQLite database and a single Flask server. A production version used by millions of people is something else entirely.</p>
+
+<p>This post walks through that production version — the architecture, the tradeoffs, the engineering decisions, and the failure modes. Whether you are preparing for a system design interview, building your own shortener, or just curious how Bitly or TinyURL actually work at scale, this should give you a real picture of what is going on inside.</p>
+
+<a name="Why.URL.Shortening.Became.a.Distributed.Systems.Problem"></a>
+<h2>Why URL Shortening Became a Distributed Systems Problem</h2>
+
+<p>The original use case was simple enough: URLs on the web can get long and ugly, especially after query parameters and tracking strings pile up. Early shorteners were literally just a database with two columns — a short code and a long URL — and a web server that did a lookup and issued a 301 redirect. That works perfectly fine at small scale.</p>
+
+<!--more-->
+
+
+<p>What changes everything is traffic. The redirect path is hit every single time someone clicks a link. A popular link posted on social media might receive hundreds of thousands of clicks in minutes. A link embedded in a marketing email to ten million subscribers gets hammered the moment that email lands. Unlike an application where different users hit different endpoints, a URL shortener has a pathological access pattern: the same few &ldquo;hot&rdquo; URLs get hit by enormous volumes of traffic, all at once.</p>
+
+<p>That single reality drives almost every architectural decision in this post. Low latency on the redirect path is non-negotiable, which means you cannot afford a database round trip for every request. The system has to be stateless so it scales horizontally. Short codes have to be generated without coordination bottlenecks. Analytics has to be collected without blocking the redirect. The system has to survive regional outages. And it has to defend itself against people who will try to use it to distribute malware.</p>
+
+<p>A simple redirect becomes a distributed systems problem because of scale, latency requirements, and the adversarial nature of public infrastructure.</p>
+
+<a name="Core.Features.of.URL.Shorteners"></a>
+<h2>Core Features of URL Shorteners</h2>
+
+<p>Before diving into architecture, it helps to be clear about what a production URL shortener actually does. The redirect is the obvious part, but modern platforms offer considerably more.</p>
+
+<p><strong>URL shortening</strong> is the core: accept a long URL, return a short one. The short code needs to be as compact as possible while still providing enough space for billions of unique values.</p>
+
+<p><strong>Redirect handling</strong> is the primary read path. When someone visits a short URL, the system looks up the destination and issues an HTTP redirect. The choice between 301 (permanent) and 302 (temporary) redirect has real consequences for analytics, as we will see.</p>
+
+<p><strong>Custom aliases</strong> let users choose their own short code — <code>company.io/sale</code> instead of <code>company.io/7fG2k</code>. This introduces uniqueness conflicts and namespace management problems.</p>
+
+<p><strong>Link analytics</strong> track who clicked, from where, on what device, through what referrer, and at what time. This is where a lot of engineering complexity lives.</p>
+
+<p><strong>Expiring links</strong> have a time-to-live after which they stop redirecting. Implementing this correctly at scale requires careful thinking about TTL propagation through caches.</p>
+
+<p><strong>QR code generation</strong> is straightforward but needs to be fast and cacheable, since the same QR code will be requested many times.</p>
+
+<p><strong>Rate limiting</strong> prevents abuse — both on the creation side and the redirect side.</p>
+
+<p><strong>Click tracking</strong> is the raw event capture that feeds the analytics pipeline. It has to be asynchronous; you cannot let analytics processing delay the redirect response.</p>
+
+<p><strong>Geo and device analytics</strong> tell you where traffic comes from and what devices people are using. This feeds dashboards and helps with fraud detection.</p>
+
+<p><strong>API support</strong> means everything above needs to be accessible programmatically with proper authentication, rate limiting, and error handling.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>The system breaks naturally into a few major subsystems: the creation path, the redirect path, and the analytics path. Each has different performance requirements and scaling characteristics.</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% Nodes
+A[Client Browser];
+B[CDN Edge];
+C[API Gateway];
+D[URL Creation Service];
+E[Redirect Service];
+F[Redis Cache Cluster];
+G[Primary Database];
+H[Analytics Service];
+I[Kafka Queue];
+J[Analytics DB];
+K[Background Workers];
+
+%% Flows
+A &#8211;>|Create URL| C;
+A &#8211;>|Redirect| B;
+
+B &#8211;>|Cache Miss| E;
+
+C &#8211;> D;
+
+D &#8211;> G;
+D &#8211;> F;
+
+E &#8211;> F;
+E &#8211;>|Cache Miss| G;
+E &#8211;>|Async Analytics| I;
+
+I &#8211;> H;
+H &#8211;> J;
+
+K &#8211;> G;
+
+%% Styles
+style A fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+style B fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95;
+style C fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+
+style D fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style E fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+
+style F fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f;
+
+style G fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+style J fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+
+style H fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+style I fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#7f1d1d;
+
+style K fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e;
+
+</div>
+
+
+<p>The creation path is write-heavy but relatively low volume. People create far fewer short URLs than they click on them. The redirect path is read-heavy and latency-sensitive — this is where the bulk of engineering effort goes. The analytics path is write-heavy but can tolerate higher latency because it runs asynchronously.</p>
+
+<a name="URL.Creation.Lifecycle"></a>
+<h3>URL Creation Lifecycle</h3>
+
+<p>When a user submits a long URL, the creation service validates it, checks for duplicates, generates a short code, writes the mapping to the database, and pre-populates the cache. The response to the user is the new short URL.</p>
+
+<a name="Redirect.Lifecycle"></a>
+<h3>Redirect Lifecycle</h3>
+
+<p>When a user clicks a short link, the request hits the CDN edge first. If the edge has the mapping cached, it issues the redirect directly without touching the origin. If not, the request reaches the redirect service, which checks Redis, then falls back to the database if needed. Regardless of where the lookup succeeds, a click event is emitted asynchronously to the analytics queue.</p>
+
+<a name="Analytics.Flow"></a>
+<h3>Analytics Flow</h3>
+
+<p>Click events land in a message queue. Analytics workers consume from the queue, enrich events with geo and device information, and write to an analytics database optimized for time-series aggregation. Real-time dashboards query this database.</p>
+
+<a name="URL.Creation.Pipeline"></a>
+<h2>URL Creation Pipeline</h2>
+
+<p>The creation pipeline is more interesting than it appears. Let us walk through what actually happens.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Submits URL];
+B[Input Validation];
+C[Malicious URL Scan];
+D[Duplicate Check];
+E[Short Code Generation];
+F[Database Write];
+G[Cache Population];
+H[Return Short URL];
+A &#8211;> B;
+B &#8211;>|Invalid| ERR[Return Error];
+B &#8211;>|Valid| C;
+C &#8211;>|Flagged| BLK[Block and Alert];
+C &#8211;>|Clean| D;
+D &#8211;>|Exists| G;
+D &#8211;>|New| E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p><strong>Input validation</strong> is the first gate. The system checks that the submitted value is actually a URL, that it uses an allowed scheme (typically http or https), and that the domain is not on a blocklist. This is where you reject empty inputs, non-URL strings, and javascript: scheme URLs.</p>
+
+<p><strong>Malicious URL scanning</strong> happens next. URL shorteners are heavily abused for phishing and malware distribution because they obscure the real destination. At minimum, the system checks the URL against known blocklists like Google Safe Browsing. More sophisticated implementations use ML-based classifiers to catch novel phishing pages. This step adds latency to creation, which is acceptable because creation is not as latency-sensitive as redirects.</p>
+
+<p><strong>Duplicate detection</strong> checks whether this long URL has already been shortened. If it has, returning the existing short code is more efficient than generating a new one. This is where idempotency matters: the same long URL submitted twice by the same user should return the same short URL. The lookup is typically on a hash of the normalized URL.</p>
+
+<p><strong>Short code generation</strong> is its own topic and gets its own section below.</p>
+
+<p><strong>Database write</strong> needs to be durable. The system writes to the primary database with at minimum one synchronous replica acknowledgment before returning success to the user. Losing a just-created URL mapping would be a bad user experience.</p>
+
+<p><strong>Cache population</strong> pre-warms the cache immediately after the write. If a user creates a short URL and immediately shares it, the first redirect should hit the cache, not the database.</p>
+
+<p>The creation endpoint needs to be idempotent for reliable API clients. If a client creates a URL and the network drops before receiving the response, retrying the same request should return the same short code rather than creating a duplicate.</p>
+
+<a name="Short.URL.Generation.System"></a>
+<h2>Short URL Generation System</h2>
+
+<p>This is one of the most discussed sections in system design interviews, and for good reason. Generating billions of unique, short, collision-free identifiers in a distributed system without coordination bottlenecks is a genuinely interesting problem.</p>
+
+<p><strong>Base62 encoding</strong> is the standard approach. Base62 uses the characters A-Z, a-z, and 0-9 — 62 characters total. A 7-character Base62 string gives you 62<sup>7</sup> unique values, which is approximately 3.5 trillion. That is enough for a very long time even at large scale. The advantage of Base62 over Base64 is that it avoids +, /, and = characters that are problematic in URLs.</p>
+
+<p>The generation strategy you choose matters a lot:</p>
+
+<p><strong>Sequential IDs with Base62 encoding</strong> means you auto-increment an integer counter and encode it in Base62. ID 1 becomes &ldquo;1&rdquo;, ID 62 becomes &ldquo;Z&rdquo;, ID 63 becomes &ldquo;10&rdquo;. This is simple, compact, and collision-free. The problem is that sequential IDs are predictable — an attacker can enumerate short URLs by incrementing the identifier. For a public shortener, this exposes every URL ever created.</p>
+
+<p><strong>Random codes</strong> pick characters randomly until you have a string of the desired length, then check the database for collisions. At low volumes this is fine. At high volumes, collision probability increases and the database round trip for every generation is expensive. You need to handle retry logic when a collision occurs.</p>
+
+<p><strong>Hash-based generation</strong> takes an MD5 or SHA-256 hash of the long URL and uses the first N characters of the hash encoded in Base62. This is deterministic, which means the same long URL always produces the same short code — useful for deduplication. The downside is collision risk (two different URLs producing the same first-N characters of hash) and the difficulty of supporting multiple short codes for the same long URL.</p>
+
+<p><strong>Snowflake-style ID generation</strong> is what production systems at scale actually use. Twitter&rsquo;s Snowflake approach generates 64-bit integers composed of a timestamp, a machine ID, and a sequence number. Each machine generates IDs independently without coordination. The IDs are time-ordered, which helps with database write performance. The system never generates collisions as long as machine IDs are unique. Encoding a Snowflake ID in Base62 gives you a compact, unique, non-predictable-enough short code.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Strategy</th>
+        <th>Collision Risk</th>
+        <th>Predictability</th>
+        <th>Coordination Needed</th>
+        <th>Ideal For</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Sequential Base62</td>
+        <td>None</td>
+        <td>High</td>
+        <td>Yes (single counter)</td>
+        <td>Internal tools, non-public systems</td>
+      </tr>
+      <tr>
+        <td>Random Code</td>
+        <td>Low (grows with scale)</td>
+        <td>Low</td>
+        <td>No</td>
+        <td>Small-scale shorteners</td>
+      </tr>
+      <tr>
+        <td>Hash-Based</td>
+        <td>Low-medium</td>
+        <td>Medium</td>
+        <td>No</td>
+        <td>Deduplication-focused systems</td>
+      </tr>
+      <tr>
+        <td>Snowflake-Style</td>
+        <td>None</td>
+        <td>Low</td>
+        <td>No (machine ID assignment)</td>
+        <td>Large-scale distributed systems</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>One practical optimization: pre-generate a pool of short codes in background workers and store them in a queue. When a creation request comes in, it pops a code from the queue rather than generating one on the fly. This removes ID generation latency from the critical path entirely.</p>
+
+<a name="Redirect.Pipeline.Deep.Dive"></a>
+<h2>Redirect Pipeline Deep Dive</h2>
+
+<p>The redirect path is where most requests go, and it needs to be fast. The engineering goal is to serve the vast majority of redirects without touching the origin database at all.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Browser Click];
+B[DNS Resolution];
+C[CDN Edge Node];
+D[Edge Cache Hit];
+E[Redirect Service];
+F[Redis Cache];
+G[Database Read];
+H[Issue HTTP Redirect];
+I[Emit Click Event];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;>|Hit| D;
+D &#8211;> H;
+C &#8211;>|Miss| E;
+E &#8211;> F;
+F &#8211;>|Hit| H;
+F &#8211;>|Miss| G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p><strong>DNS resolution</strong> is the first step and it happens client-side. There is nothing you can directly optimize here, but you can use a short domain name to reduce the size of the URL. <code>bit.ly</code> is better than <code>shorturl-service.example.com</code> for both aesthetics and DNS lookup time.</p>
+
+<p><strong>CDN edge handling</strong> is where you can eliminate most of the redirect latency. A CDN with edge nodes distributed globally can cache URL mappings close to users. Cloudflare Workers, for example, let you run code at the edge that performs the Redis lookup or serves a cached redirect directly. The round trip from a user in Tokyo to an origin in Virginia is ~150ms. A CDN edge node in Tokyo reduces that to ~5ms.</p>
+
+<p><strong>Cache lookup</strong> hits Redis if the edge misses. Redis lookup times are measured in microseconds for local lookups, single-digit milliseconds for remote. The redirect service checks Redis for the short code and, on a hit, issues the redirect immediately.</p>
+
+<p><strong>Database lookup</strong> is the last resort. On a cache miss, the service queries the primary database. This should be a rare event for any reasonably popular URL — the cache should have everything hot. For brand new URLs, the creation pipeline pre-warms the cache, so even the first redirect after creation should hit the cache.</p>
+
+<p><strong>HTTP redirect response</strong> is either a 301 or 302. This choice matters for analytics. A 301 (Moved Permanently) tells the browser to cache the redirect. The browser will then redirect future clicks to the same short URL directly, without contacting your server at all. This is great for performance but catastrophic for analytics — you will never see repeat clicks from the same browser. A 302 (Found/Temporary) means the browser always asks your server, ensuring every click is tracked. Most commercial URL shorteners use 302 for this reason.</p>
+
+<p><strong>Async click event emission</strong> happens after the redirect response is sent. The response goes back to the client immediately; the click event is enqueued in the background. The user experiences no latency from analytics collection.</p>
+
+<p>The redirect service should be completely stateless. Any instance should be able to handle any request. This means you can scale horizontally by adding more instances behind a load balancer without any coordination between them.</p>
+
+<a name="Database.Architecture"></a>
+<h2>Database Architecture</h2>
+
+<p>The storage layer has two distinct concerns: the URL mapping store and the analytics store. They have very different access patterns and benefit from different database choices.</p>
+
+<a name="URL.Mapping.Storage"></a>
+<h3>URL Mapping Storage</h3>
+
+<p>The URL mapping table is accessed on every redirect that misses the cache. It is almost entirely read traffic with occasional writes (URL creation). The schema is straightforward:</p>
+
+<pre><code class="sql">CREATE TABLE short_urls (
+    id              BIGINT PRIMARY KEY,
+    short_code      VARCHAR(12) NOT NULL UNIQUE,
+    long_url        TEXT NOT NULL,
+    user_id         BIGINT REFERENCES users(id),
+    custom_alias    BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMP NOT NULL,
+    expires_at      TIMESTAMP,
+    is_active       BOOLEAN DEFAULT TRUE,
+    url_hash        CHAR(64) NOT NULL,
+    click_count     BIGINT DEFAULT 0
+);
+
+CREATE INDEX idx_short_code ON short_urls(short_code);
+CREATE INDEX idx_url_hash ON short_urls(url_hash);
+CREATE INDEX idx_expires_at ON short_urls(expires_at) WHERE expires_at IS NOT NULL;
+</code></pre>
+
+<p>The <code>short_code</code> index is the hot path — it gets hit on every cache-miss redirect. The <code>url_hash</code> index supports deduplication during creation. The <code>expires_at</code> partial index is used by background cleanup jobs.</p>
+
+<p><strong>SQL vs NoSQL</strong> is a real tradeoff here. A relational database (PostgreSQL) gives you strong consistency, easy querying, and mature tooling. For a URL shortener where the primary access pattern is a single key lookup, a key-value store (DynamoDB, Redis with persistence, or Cassandra) can offer better write throughput and simpler horizontal scaling. In practice, many URL shorteners use PostgreSQL for the URL mapping store because the read load is handled by the cache layer, not the database directly.</p>
+
+<p><strong>Sharding</strong> becomes necessary when your URL mapping table grows to billions of rows. The natural shard key is the short code. You can use consistent hashing to distribute short codes across database shards. Each shard handles a fraction of the total redirect traffic. The redirect service hashes the short code to determine which shard to query.</p>
+
+<p><strong>Read replicas</strong> are essential. Route all read queries to replicas; route writes to the primary. This is standard practice and gives you read scalability proportional to the number of replicas you add.</p>
+
+<a name="Analytics.Storage"></a>
+<h3>Analytics Storage</h3>
+
+<p>Analytics data has completely different characteristics. You are writing millions of click events per hour and reading them in aggregated form for dashboards. The raw events table:</p>
+
+<pre><code class="sql">CREATE TABLE click_events (
+    id              BIGINT,
+    short_code      VARCHAR(12) NOT NULL,
+    clicked_at      TIMESTAMP NOT NULL,
+    ip_address      INET,
+    country_code    CHAR(2),
+    city            VARCHAR(100),
+    device_type     VARCHAR(20),
+    os              VARCHAR(50),
+    browser         VARCHAR(50),
+    referrer        TEXT,
+    user_agent      TEXT
+) PARTITION BY RANGE (clicked_at);
+</code></pre>
+
+<p>Time-based partitioning lets you drop old partitions efficiently and keeps recent data fast to query. For analytics at serious scale, a columnar store like ClickHouse or Apache Cassandra is a better fit than PostgreSQL. ClickHouse in particular is excellent for time-series analytics — it ingests high-volume writes and executes aggregate queries (count by country, clicks by hour, device breakdown) very efficiently.</p>
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>The caching layer is arguably the most critical component of the redirect pipeline. If the cache is working correctly, the database almost never sees redirect traffic.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Redirect Request];
+B[CDN Edge Cache];
+C[Redis Cache Cluster];
+D[Origin Database];
+E[Cache Hit Response];
+F[Cache Populate and Respond];
+A &#8211;> B;
+B &#8211;>|Hit| E;
+B &#8211;>|Miss| C;
+C &#8211;>|Hit| E;
+C &#8211;>|Miss| D;
+D &#8211;> F;
+</div>
+
+
+<p><strong>Redis as the primary cache</strong> is the standard choice. Redis is fast (sub-millisecond for local, low-single-digit milliseconds for remote), supports TTL on keys, and handles high concurrency well. The redirect service stores URL mappings as simple key-value entries: <code>short_code -&gt; long_url</code>. It also stores metadata like expiration time.</p>
+
+<p><strong>Cache TTL</strong> is an interesting decision. If you cache a URL mapping with a TTL of 24 hours, you will not see database traffic for that URL for 24 hours — which is great. But if the URL is deleted or deactivated during that window, the cache will continue serving the redirect. Most systems accept this eventual consistency: a deleted URL might continue redirecting for up to the cache TTL. If you need immediate effect (for abuse takedowns, for example), you need an explicit cache invalidation mechanism.</p>
+
+<p><strong>Cache invalidation</strong> is one of those problems that sounds trivial but is not. When a URL is updated or deleted, you need to evict it from every layer of cache: the Redis cluster and the CDN edge. Most CDNs support cache purge APIs. Redis supports direct key deletion. The challenge is doing this reliably across a distributed system without missing any cache node.</p>
+
+<p><strong>Hotspot handling</strong> is the problem of what happens when a single URL gets millions of hits per second. A single Redis key becomes a bottleneck. Solutions include local in-process caching in the redirect service (a small in-memory LRU cache that lives inside the application), which avoids the Redis round trip entirely for the hottest URLs. The tradeoff is that this local cache is not invalidation-friendly — you rely on its short TTL to eventually expire stale entries.</p>
+
+<p><strong>Edge caching via CDN</strong> is a force multiplier. If you configure your CDN to cache the redirect response (the HTTP 302 with a Location header), the CDN edge nodes absorb the traffic without any request reaching your infrastructure. The CDN becomes your first-line cache. The challenge is that redirect responses include a <code>Cache-Control</code> header, and the logic for setting appropriate TTLs (especially for expiring links) needs to be carefully implemented.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Layer</th>
+        <th>Latency</th>
+        <th>Capacity</th>
+        <th>Invalidation</th>
+        <th>Best For</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>In-Process LRU</td>
+        <td>Microseconds</td>
+        <td>Small (MB)</td>
+        <td>TTL only</td>
+        <td>Hottest URLs in active instances</td>
+      </tr>
+      <tr>
+        <td>Redis Cluster</td>
+        <td>1-5ms</td>
+        <td>Large (GB-TB)</td>
+        <td>Key delete / TTL</td>
+        <td>All active URLs</td>
+      </tr>
+      <tr>
+        <td>CDN Edge</td>
+        <td>Sub-millisecond</td>
+        <td>Very large</td>
+        <td>Purge API</td>
+        <td>Popular public URLs</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Analytics.Infrastructure"></a>
+<h2>Analytics Infrastructure</h2>
+
+<p>The analytics pipeline is one of those systems where the naive approach (write to the database on every click) breaks down quickly. At 100,000 redirects per second, synchronous database writes would immediately overwhelm any relational database. The solution is an asynchronous event-driven pipeline.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Redirect Service];
+B[Kafka Topic click-events];
+C[Analytics Consumer];
+D[Geo Enrichment Service];
+E[Device Parser];
+F[ClickHouse DB];
+G[Dashboard API];
+H[Real-time Dashboard];
+A &#8211;>|Emit Event| B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+D &#8211;> F;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p><strong>Click event emission</strong> happens immediately after the redirect response is sent. The redirect service publishes a lightweight event to a Kafka topic. The event contains the short code, timestamp, IP address, user agent, referrer, and any other raw request metadata. Publishing to Kafka is fast — it is a fire-and-forget write to a local buffer that Kafka flushes asynchronously.</p>
+
+<p><strong>Kafka as the event backbone</strong> is the right choice here because Kafka provides durable, ordered, replayable event streams. If the analytics consumer goes down, events accumulate in Kafka until the consumer recovers. You can replay events if a downstream system needs to be rebuilt. Multiple consumers can read the same stream independently.</p>
+
+<p><strong>Analytics consumers</strong> read from Kafka, parse the user agent string to extract device type, OS, and browser, call a geo-IP service to resolve the IP address to country and city, and write enriched events to the analytics database. This processing pipeline can run in parallel across many consumer instances.</p>
+
+<p><strong>Aggregation</strong> runs periodically (every minute, every hour) to produce pre-computed summaries: clicks per URL per hour, clicks by country, clicks by device. These aggregated tables are what dashboards query, because querying billions of raw events for every dashboard load would be prohibitively slow.</p>
+
+<p><strong>Real-time dashboards</strong> add complexity. If a user expects to see their click count update in near-real-time, you need to either query the event stream directly (possible with Kafka Streams or Flink) or maintain a hot counter in Redis that gets incremented on every click and is periodically persisted to the database. The Redis counter approach is fast and simple, but you risk losing recent counts if Redis fails before persistence.</p>
+
+<a name="Expiration.and.Cleanup.Systems"></a>
+<h2>Expiration and Cleanup Systems</h2>
+
+<p>Expiring links need careful handling across multiple system layers.</p>
+
+<p>When a short URL has an <code>expires_at</code> timestamp, several things need to happen at expiration time:</p>
+
+<p>The redirect service needs to return a 410 Gone or 404 Not Found response rather than redirecting. The cache entry needs to reflect the expiration. The database entry can eventually be soft-deleted or marked inactive. Storage can be reclaimed by eventually deleting or archiving old records.</p>
+
+<p><strong>TTL propagation</strong> is the tricky part. If you cache a URL mapping in Redis with a TTL of 24 hours, but the URL expires in 2 hours, the Redis entry needs a TTL of 2 hours, not 24. The caching layer must be aware of URL expiration times and set cache TTLs accordingly.</p>
+
+<p><strong>CDN purging</strong> at expiration time is hard to do precisely. If a URL expires at 3:00 PM and you have cached the redirect at the CDN edge with a long TTL, users will continue to get the redirect until the CDN TTL expires. The solution is either to use short CDN TTLs for expiring links, or to call the CDN purge API at expiration time.</p>
+
+<p><strong>Background cleanup workers</strong> handle soft-deletion and storage reclamation. They run periodically, query the database for URLs past their expiration time, mark them inactive, and optionally archive or delete the records. These workers need to be careful not to reclaim short codes that might still be in flight (cached somewhere with a long TTL).</p>
+
+<div class="mermaid">
+flowchart TD;
+
+A[URL Expires];
+B[Expiry Checker Worker];
+C[Mark Inactive in DB];
+D[Evict from Redis Cache];
+E[Purge CDN Cache];
+F[Emit Expiry Event];
+G[Archive Analytics Data];
+
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+B &#8211;> E;
+B &#8211;> F;
+F &#8211;> G;
+
+%% Styles
+style A fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+style B fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+style C fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+style D fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f;
+style E fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95;
+style F fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+style G fill:#ecfccb,stroke:#65a30d,stroke-width:2px,color:#365314;
+
+</div>
+
+
+<a name="Custom.Alias.System"></a>
+<h2>Custom Alias System</h2>
+
+<p>Custom aliases — where a user chooses their own short code — introduce a set of problems that random code generation avoids.</p>
+
+<p><strong>Namespace conflicts</strong> are the core problem. If user A creates <code>company.io/sale</code>, user B cannot also create <code>company.io/sale</code>. The system needs to enforce global uniqueness across all aliases. This is a straightforward database unique constraint, but at scale you want to avoid hot spots on the uniqueness check.</p>
+
+<p><strong>Reserved keywords</strong> must be blocked from use as aliases. Words like <code>admin</code>, <code>api</code>, <code>login</code>, <code>health</code>, <code>static</code>, <code>docs</code>, and similar terms are typically used by the system itself and must be protected. The list of reserved words is surprisingly long when you account for all the paths a web application might use.</p>
+
+<p><strong>Validation</strong> needs to be strict: only alphanumeric characters plus hyphens and underscores, minimum and maximum length, no leading or trailing hyphens, no consecutive hyphens. The alias should be case-insensitive in lookup but case-preserved in display.</p>
+
+<p><strong>Abuse of custom aliases</strong> is a real problem. People will try to register brand names, celebrity names, and other valuable identifiers speculatively. You need both automated detection (keyword lists, brand name lists) and a takedown process.</p>
+
+<a name="Security.and.Abuse.Prevention"></a>
+<h2>Security and Abuse Prevention</h2>
+
+<p>URL shorteners are a uniquely attractive target for abuse. The core feature — hiding the destination URL — is precisely what makes them useful for phishing, malware distribution, and spam. A production shortener needs layered defenses.</p>
+
+<p><strong>Malicious URL scanning</strong> at creation time uses blocklists (Google Safe Browsing, PhishTank) to reject known bad URLs. This is table stakes. More sophisticated systems also scan the destination page content, look at the domain&rsquo;s reputation and age, and use ML classifiers trained on phishing page characteristics.</p>
+
+<p><strong>Rate limiting</strong> on the creation endpoint prevents bulk URL generation. Unauthenticated requests get a very low rate limit (perhaps 10 per minute per IP). Authenticated users get higher limits based on their account tier. API clients get limits based on their API key tier. Rate limiting should happen at the API gateway layer, before requests reach the creation service.</p>
+
+<p><strong>Click fraud detection</strong> matters for analytics integrity. Bot traffic inflating click counts is a common problem. Signals for bot detection include: user agent strings that look like scrapers, IP addresses in known bot ranges, click patterns that are too regular, and clicks without corresponding browser fingerprints. Filtering bot clicks from analytics requires either real-time filtering in the click event pipeline or post-hoc analysis.</p>
+
+<p><strong>Redirect abuse</strong> — using a legitimate shortener to distribute malware — happens when the destination URL changes after shortening. Some systems re-scan destination URLs periodically. Others allow the destination to be reported by users and trigger a rescan. Takedown processes need to be fast; a phishing page that is live for hours causes real harm.</p>
+
+<p><strong>API key abuse</strong> — one API key used across many different clients — is detected by analyzing the diversity of creation patterns, IP addresses, and user agents associated with a single key.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Threat</th>
+        <th>Detection Method</th>
+        <th>Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Phishing links</td>
+        <td>Blocklist + ML classifier</td>
+        <td>Block at creation, periodic rescan</td>
+      </tr>
+      <tr>
+        <td>Malware distribution</td>
+        <td>Safe Browsing API, domain reputation</td>
+        <td>Block creation, takedown existing URLs</td>
+      </tr>
+      <tr>
+        <td>Bulk link generation</td>
+        <td>Rate limiting per IP and API key</td>
+        <td>Hard limits at API gateway</td>
+      </tr>
+      <tr>
+        <td>Bot click inflation</td>
+        <td>User agent, IP reputation, pattern analysis</td>
+        <td>Filter from analytics, flag for review</td>
+      </tr>
+      <tr>
+        <td>Spam campaigns</td>
+        <td>Destination domain clustering</td>
+        <td>Suspend account, block domain</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="CDN.and.Edge.Infrastructure"></a>
+<h2>CDN and Edge Infrastructure</h2>
+
+<p>The CDN layer deserves more attention than it typically gets in system design discussions. Done correctly, a CDN can absorb the vast majority of redirect traffic without any request reaching your servers.</p>
+
+<p>The approach is to push URL mappings to the CDN edge as part of the creation pipeline. When a URL is created, the system can proactively notify edge nodes (via a CDN API or a push invalidation mechanism) that a new mapping exists. Alternatively, edges learn about mappings on first access and cache them for subsequent requests.</p>
+
+<p>Modern CDN platforms (Cloudflare Workers, Lambda@Edge, Fastly Compute) let you run actual code at the edge. You can implement the full redirect logic — cache lookup, TTL check, analytics event emission — at the edge node, completely eliminating round trips to origin servers for cached URLs.</p>
+
+<p><strong>DNS optimization</strong> is another lever. Using a CDN also means your DNS TTL can be set appropriately for geographic routing — short enough to fail over quickly, long enough to avoid excessive DNS lookups.</p>
+
+<p><strong>Regional caching</strong> at the CDN level means that a popular link shared in Europe is served by European edge nodes without touching your US-based origin. This reduces both latency for European users and load on your origin.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>The analytics pipeline illustrates a broader principle: the system uses event-driven architecture to decouple the redirect path from analytics processing.</p>
+
+<p>The redirect service does not care what happens to click events after it emits them. It fires the event and moves on. The analytics consumer does not care about the redirect service&rsquo;s implementation details. The Kafka topic is the contract between them.</p>
+
+<p>This decoupling has practical benefits. You can scale the redirect service and the analytics consumer independently. You can update the analytics pipeline without touching the redirect service. If the analytics system goes down, events accumulate in Kafka and are processed when it recovers — the redirect service is unaffected.</p>
+
+<p><strong>Event durability</strong> means Kafka retains events for a configurable period (days or weeks). If you discover a bug in your analytics processing three days after deployment, you can fix the bug and replay the events to produce correct analytics. This is not possible with a synchronous write-and-forget approach.</p>
+
+<p><strong>Consumer groups</strong> in Kafka let multiple independent consumers read the same event stream. Your analytics pipeline reads the stream. A fraud detection system reads the same stream looking for suspicious patterns. A real-time alerting system reads the stream looking for sudden traffic spikes. All three are independent consumers of the same events, with no coordination between them.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Let us talk about where the bottlenecks actually are at different scales.</p>
+
+<p><strong>At small scale</strong> (thousands of redirects per day), a single server with a database and a Redis instance handles everything comfortably. The bottleneck is usually nothing at all — the system has plenty of headroom.</p>
+
+<p><strong>At medium scale</strong> (millions of redirects per day), the database becomes a concern for reads. Adding read replicas and ensuring the cache hit rate is high (above 95%) keeps the database comfortable. The redirect service can run as multiple stateless instances behind a load balancer.</p>
+
+<p><strong>At large scale</strong> (hundreds of millions of redirects per day), CDN edge caching becomes essential. The cache hit rate needs to be very high (above 99%) because even 1% of traffic reaching your Redis cluster is millions of requests per day. The Redis cluster needs to be horizontally sharded. The analytics pipeline needs dedicated infrastructure.</p>
+
+<p><strong>At extreme scale</strong> (tens of billions of redirects per day, in the league of Bitly at peak), you are running multi-region active-active deployments, purpose-built ID generation infrastructure, globally distributed CDN caching, and dedicated analytics compute clusters. You are also dealing with hotspot URL problems that require per-instance in-process caches.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Bottleneck</th>
+        <th>Symptoms</th>
+        <th>Solution</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Database reads</td>
+        <td>High query latency, replica lag</td>
+        <td>More read replicas, better cache hit rate</td>
+      </tr>
+      <tr>
+        <td>Redis hot keys</td>
+        <td>Single key CPU saturation</td>
+        <td>In-process LRU cache for hottest URLs</td>
+      </tr>
+      <tr>
+        <td>ID generation</td>
+        <td>Contention on counter service</td>
+        <td>Snowflake-style distributed generation</td>
+      </tr>
+      <tr>
+        <td>Analytics writes</td>
+        <td>Queue lag, consumer backpressure</td>
+        <td>More Kafka partitions, more consumers</td>
+      </tr>
+      <tr>
+        <td>CDN cache misses</td>
+        <td>High origin traffic on popular URLs</td>
+        <td>Proactive cache warming, longer CDN TTLs</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>A URL shortener has a reliability characteristic that makes it feel more critical than it is: when it goes down, every short link on the internet that points to it breaks. That creates real pressure on the team to maintain high availability.</p>
+
+<p><strong>Multi-region deployment</strong> means running the redirect service in multiple regions (US East, EU West, AP Southeast) with independent databases and caches. A regional outage affects only users routed to that region. Global traffic routing (via DNS-based geo-routing or CDN) directs users to the nearest healthy region.</p>
+
+<p><strong>Cache as a reliability buffer</strong> is an underappreciated benefit. If your database goes down completely, the Redis cache and CDN cache will continue serving redirects for cached URLs until their TTLs expire. For a heavily trafficked system where most URLs are cached, this might mean the redirect service continues working for hours without a database — long enough to recover.</p>
+
+<p><strong>Graceful degradation</strong> means deciding ahead of time what the system should do when components fail. If the analytics queue is down, should the redirect fail? No — emit a log line and continue. If the malicious URL scanner is down during creation, should creation fail? Maybe — if the scanner is down, you stop accepting new URLs until it recovers, rather than accepting potentially malicious URLs.</p>
+
+<p><strong>Monitoring</strong> needs to cover cache hit rates (a sudden drop indicates a problem), redirect latency percentiles (p50, p99, p999), database query times, Kafka consumer lag, and error rates by type. Alerts should fire before users notice problems, which means setting thresholds below the point of user impact.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>These are the decisions where reasonable engineers disagree, and where the right answer depends on your specific situation.</p>
+
+<p><strong>Sequential IDs vs random codes</strong>: Sequential IDs are simpler and slightly more compact. Random codes prevent enumeration. If your shortener is for internal use, sequential is fine. If it is public-facing and you care about URL privacy, use random codes or Snowflake IDs.</p>
+
+<p><strong>301 vs 302 redirects</strong>: 301 is better for performance and reduces server load over time. 302 is necessary for click tracking. Commercial shorteners almost universally use 302. If you are building an internal tool and do not need analytics, 301 is fine.</p>
+
+<p><strong>Synchronous vs asynchronous analytics</strong>: Synchronous analytics (write to the database before returning the redirect response) guarantees no event loss but adds latency to every redirect. Asynchronous analytics via Kafka risks losing events if the queue fails but adds near-zero latency to redirects. The answer at scale is always asynchronous.</p>
+
+<p><strong>SQL vs NoSQL for URL mappings</strong>: PostgreSQL is simpler to operate and gives you strong consistency. DynamoDB or Cassandra gives you better write throughput and easier horizontal scaling. At small to medium scale, PostgreSQL with read replicas and a caching layer in front is entirely sufficient. At extreme scale, a purpose-built key-value store makes more sense.</p>
+
+<p><strong>Consistency vs availability in caching</strong>: Do you want a cache that reflects reality exactly (always consistent with the database) or one that might serve stale data for some TTL window (eventually consistent)? For URL redirects, eventual consistency is almost always acceptable. For expiring or deleted links, you need faster invalidation, which requires more complexity.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>What does this look like in practice? Here is a realistic technology stack for a production URL shortener.</p>
+
+<p><strong>Go</strong> for the redirect service. Go&rsquo;s performance characteristics — fast startup, low memory overhead, excellent concurrency with goroutines — make it ideal for a high-throughput, low-latency service. Many performance-sensitive web services at companies like Cloudflare and Uber are written in Go for exactly these reasons.</p>
+
+<p><strong>Java or Go</strong> for the creation and management services. These are less latency-sensitive and benefit from rich ecosystems. Java with Spring Boot is a common choice for business logic services.</p>
+
+<p><strong>Redis</strong> for the primary cache. Redis Cluster for horizontal scaling. Redis&rsquo;s built-in TTL support makes it natural for URL expiration. Redis Streams or a separate Kafka cluster for the analytics event queue.</p>
+
+<p><strong>PostgreSQL</strong> for the URL mapping database at medium scale. Well-understood, excellent tooling, strong consistency. Add PgBouncer for connection pooling. Add read replicas for read scaling.</p>
+
+<p><strong>Cassandra or ClickHouse</strong> for analytics data. Cassandra handles high-volume writes well and is operationally straightforward. ClickHouse is exceptional for analytical queries and dashboard workloads.</p>
+
+<p><strong>Kafka</strong> for the analytics event stream. Kafka handles high-throughput, durable event streaming. Kafka&rsquo;s consumer group model makes it easy to add new consumers (fraud detection, real-time alerting) without touching existing consumers.</p>
+
+<p><strong>Kubernetes</strong> for container orchestration. The redirect service, creation service, and analytics consumers all run as Kubernetes deployments with horizontal pod autoscaling. Traffic spikes trigger automatic scale-out.</p>
+
+<p><strong>Cloudflare or Fastly</strong> as the CDN. Both support edge computing (Workers, Compute) for running redirect logic at the edge.</p>
+
+<p><strong>Elasticsearch</strong> for log analysis and abuse detection. Storing and querying structured logs at scale is where Elasticsearch excels.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Technology</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Redirect Service</td>
+        <td>Go</td>
+        <td>Low latency, high concurrency, minimal overhead</td>
+      </tr>
+      <tr>
+        <td>Primary Cache</td>
+        <td>Redis Cluster</td>
+        <td>Sub-millisecond lookups, built-in TTL, horizontal scaling</td>
+      </tr>
+      <tr>
+        <td>URL Mapping DB</td>
+        <td>PostgreSQL + replicas</td>
+        <td>Strong consistency, rich tooling, sufficient for cached reads</td>
+      </tr>
+      <tr>
+        <td>Analytics DB</td>
+        <td>ClickHouse</td>
+        <td>Columnar storage, fast aggregations, high write throughput</td>
+      </tr>
+      <tr>
+        <td>Event Queue</td>
+        <td>Apache Kafka</td>
+        <td>Durable, replayable, high throughput, multiple consumers</td>
+      </tr>
+      <tr>
+        <td>CDN / Edge</td>
+        <td>Cloudflare Workers</td>
+        <td>Edge redirect logic, global distribution, cache purge API</td>
+      </tr>
+      <tr>
+        <td>Orchestration</td>
+        <td>Kubernetes</td>
+        <td>Horizontal autoscaling, service discovery, rolling deployments</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>URL shorteners appear constantly in system design interviews because they cover an enormous range of distributed systems concepts in a problem that is easy to explain and hard to solve at scale.</p>
+
+<p><strong>How interviewers frame the question</strong>: You will hear &ldquo;Design a URL shortening service like Bitly&rdquo; or &ldquo;Design a system that can handle 100 billion short URL redirects per day.&rdquo; The second framing is better because it forces you to think about scale from the start.</p>
+
+<p><strong>What strong candidates do</strong>:</p>
+
+<p>They start by clarifying requirements. How many URLs created per day? How many redirects? Is analytics a hard requirement? What is the acceptable redirect latency? What availability SLA do we need? These questions signal that you understand that architecture follows requirements.</p>
+
+<p>They calculate back-of-envelope numbers before drawing boxes. If you are handling 100 billion redirects per day, that is roughly 1.15 million per second at peak. A single Redis instance can handle ~100,000 operations per second, so you immediately know you need a Redis cluster. Walking through this math shows the interviewer that you reason quantitatively.</p>
+
+<p>They explain the redirect path in detail, because that is where the interesting engineering is. Walk through DNS resolution, CDN edge handling, Redis lookup, database fallback, and the async analytics event. Explain why each layer exists and what it costs to skip it.</p>
+
+<p>They discuss ID generation not as trivia but as a real engineering decision. Why Base62? Why 7 characters? Why Snowflake-style over a simple counter? Each answer connects to a real concern (URL length, global uniqueness, predictability).</p>
+
+<p>They proactively discuss failure modes. What happens if Redis is down? What happens if the analytics queue is full? What happens if the database primary fails during a write? Showing that you think about failure scenarios signals production experience.</p>
+
+<p><strong>Common mistakes</strong>:</p>
+
+<p>Jumping to solutions before establishing requirements. Drawing a database box without discussing SQL vs NoSQL or how you would handle sharding at scale.</p>
+
+<p>Using a 301 redirect without explaining the analytics tradeoff. This is a detail that signals whether someone has actually thought about the problem.</p>
+
+<p>Ignoring the CDN layer entirely. Many candidates design a system where every redirect hits an origin server, which simply does not work at scale.</p>
+
+<p>Treating analytics as an afterthought. At production scale, analytics is a significant engineering investment that deserves its own discussion.</p>
+
+<p>Forgetting about security entirely. URL shorteners are abuse vectors and interviewers will often probe here.</p>
+
+<p><strong>Strong answers explicitly discuss tradeoffs</strong>. Not &ldquo;use Redis&rdquo; but &ldquo;we can use Redis here; the tradeoff is that we need to handle cache invalidation carefully when URLs are deleted or expired.&rdquo; Not &ldquo;use Kafka&rdquo; but &ldquo;Kafka gives us durability and replay capability for click events, which is worth the operational complexity because losing analytics data is not acceptable.&rdquo;</p>
+
+<p>The goal is not to arrive at the one correct architecture — there is no such thing — but to demonstrate that you understand why each component exists, what it costs, what breaks without it, and how you would adapt if the requirements changed.</p>
+
+<p>A URL shortener is a small system that contains large distributed systems problems inside it. When you genuinely understand how it works, you have touched database sharding, distributed caching, event streaming, edge computing, ID generation at scale, and asynchronous pipeline design. That is a lot of ground from a very small URL.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Zomato Works?]]></title>
@@ -2992,712 +3768,6 @@ flowchart TD;
 <p>If you are building systems at the intersection of finance and technology, or if you are preparing for system design interviews at firms that care about low-latency infrastructure, understanding exchange architecture at this depth gives you a framework for reasoning about the most demanding classes of production systems that exist. The principles here, determinism, sequencing, in-memory state management, event sourcing, latency-aware design, apply well beyond the world of stock exchanges.</p>
 
 <p>The market opens at 9:30 AM. Somewhere in a data center in New Jersey, a single-threaded loop starts processing events at a rate that no human can perceive. And somewhere in that loop, millions of buy and sell orders find their match, prices are discovered, and capital flows to where it is most needed. It happens in microseconds, it is fair, and it almost never fails. That is the engineering achievement worth understanding.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Amazon S3 Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-amazon-s3-works/"/>
-        <updated>2026-05-17T14:17:39+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-amazon-s3-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>There is a particular kind of quiet confidence in systems that just work. You upload a file, get a URL back, and years later that file is still exactly where you left it. No corruption. No missing bytes. The same object, bit-for-bit identical, retrieved in milliseconds from the other side of the planet. That is Amazon S3 in everyday terms. But the engineering underneath that simplicity is anything but simple.</em></p></blockquote>
-
-<p>Amazon Simple Storage Service launched in 2006 and redefined what developers expected from infrastructure. Before S3, running storage at scale meant buying racks of hardware, managing replication yourself, worrying about disk failures, planning for capacity, and building your own data durability systems. S3 flipped that model completely. You pay for what you store, you never think about the hardware, and the system promises eleven nines of durability — meaning you would expect to lose one object for every 100 billion objects stored every 10,000 years.</p>
-
-<p><img src="/images/system_design/s3.webp" height="300" width="900" alt="Alt text" /></p>
-
-<p>That number sounds like marketing. It is also one of the hardest engineering targets in existence.</p>
-
-<p>This article is a real engineering walkthrough of how S3 works at the architecture level. We will go from the basics of what object storage actually is, through upload pipelines, metadata infrastructure, replication systems, consistency models, and scaling strategies. By the end, you should have a clear mental model of what makes S3 tick — and why the decisions its architects made were the right ones.</p>
-
-<!--more-->
-
-
-<a name="What.Makes.Object.Storage.Different"></a>
-<h2>What Makes Object Storage Different</h2>
-
-<p>Before understanding S3&rsquo;s architecture, it helps to understand why object storage exists at all. Most engineers grow up thinking in files and directories. You have a folder, it contains files, files live in a hierarchy. That model comes from traditional filesystems like ext4 or NTFS, and it is perfectly fine for a single machine. But when you try to scale that model across thousands of machines, it becomes extremely painful.</p>
-
-<p>The core problem with hierarchical filesystems at scale is the namespace. Every file operation — reading, writing, renaming, deleting — needs to touch some shared metadata about the directory structure. At small scale that metadata fits in memory. At Google-scale or AWS-scale it becomes a distributed systems nightmare. Directory traversals lock subtrees. Renames are expensive. The hierarchy itself becomes a bottleneck.</p>
-
-<p>Block storage, the other common model, gives you raw disk sectors organized into volumes. Block storage is fast and flexible, but it is fundamentally single-machine. Block volumes attach to one server at a time. Sharing block storage across machines requires additional infrastructure like SAN or NFS, which introduce their own failure modes.</p>
-
-<p>Object storage throws out both hierarchies and block semantics. It gives you a completely flat namespace. Objects live in buckets, but buckets are not directories. There is no nesting, no tree traversal, no parent-child relationship. Every object is identified by a globally unique key within a bucket, and that key is just a string. The system does not care if you use forward slashes in your key names to simulate directory structure. Those slashes are just characters.</p>
-
-<p>This flatness is what makes object storage scale. There is no tree to lock, no hierarchy to maintain, no parent directory to update when you add a file. Writes are independent. Reads are independent. Metadata can be partitioned based on key ranges. The system can spread objects across thousands of machines without any of them needing to coordinate on directory structure.</p>
-
-<p>Object storage also treats objects as immutable. You do not modify a file in place. You write a new version or overwrite the key entirely. This immutability is a gift to distributed systems. It means nodes do not need to coordinate on partial writes. It means caches never serve stale partial data. It means checksums computed at write time remain valid for the lifetime of the object.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Storage Type</th>
-        <th>Namespace Model</th>
-        <th>Ideal For</th>
-        <th>Scale Limitation</th>
-        <th>Mutability</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Block Storage</td>
-        <td>Byte offsets on a volume</td>
-        <td>Databases, VMs, OS disks</td>
-        <td>Single machine attachment</td>
-        <td>Mutable in-place</td>
-      </tr>
-      <tr>
-        <td>File Storage (NFS/SMB)</td>
-        <td>Hierarchical directories</td>
-        <td>Shared file access, legacy apps</td>
-        <td>Namespace bottlenecks at scale</td>
-        <td>Mutable in-place</td>
-      </tr>
-      <tr>
-        <td>Object Storage</td>
-        <td>Flat key-value namespace</td>
-        <td>Backups, media, cloud-native apps</td>
-        <td>Metadata partitioning complexity</td>
-        <td>Immutable (write-new semantics)</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Core.Features.of.Amazon.S3"></a>
-<h2>Core Features of Amazon S3</h2>
-
-<p>Before going deep on architecture, it is worth grounding ourselves in what S3 actually exposes to users, because every feature has architectural implications.</p>
-
-<p><strong>Buckets</strong> are the top-level containers. Bucket names are globally unique across all of AWS. A bucket belongs to a specific AWS region, and that region determines where data is primarily stored. Bucket names are also part of the URL structure for accessing objects.</p>
-
-<p><strong>Objects</strong> are the actual data stored in S3. An object is the combination of the data itself (called the object body) plus metadata. Objects can range from zero bytes to five terabytes. Everything above 100MB should use multipart upload for reliability.</p>
-
-<p><strong>Object metadata</strong> comes in two flavors. System metadata is managed by S3 itself — content type, content length, ETag (a checksum), last modified date, and so on. User metadata is arbitrary key-value pairs you attach at upload time. Metadata is stored separately from the object body and has a size limit (typically 8KB total for user metadata).</p>
-
-<p><strong>Versioning</strong> lets you keep multiple versions of the same key in a bucket. When versioning is enabled, overwriting an object does not destroy the previous version. Deleting adds a delete marker rather than removing data. This gives you a complete audit trail and makes accidental deletion recoverable.</p>
-
-<p><strong>Lifecycle policies</strong> automate object management. You define rules like &ldquo;transition objects older than 30 days to Infrequent Access storage&rdquo; or &ldquo;expire objects after 365 days.&rdquo; The lifecycle system runs as a background job, applying these rules continuously without user intervention.</p>
-
-<p><strong>Multipart uploads</strong> allow you to split large files into parts, upload parts in parallel, and then tell S3 to assemble them. This improves throughput, allows resuming failed uploads, and is required for files above 5GB.</p>
-
-<p><strong>Pre-signed URLs</strong> are time-limited URLs that grant temporary access to a specific object without requiring AWS credentials. This is how you share private files with users without exposing your access keys.</p>
-
-<p><strong>Storage classes</strong> let you optimize cost versus retrieval speed. Standard storage is the default — optimized for frequent access. Infrequent Access (IA) is cheaper but charges a retrieval fee. Glacier variants are archival storage where retrieval can take minutes to hours. Intelligent-Tiering automatically moves objects between tiers based on access patterns.</p>
-
-<p><strong>Event notifications</strong> let S3 trigger downstream systems when objects are created, deleted, or modified. Events can be delivered to SNS, SQS, Lambda, or EventBridge, enabling event-driven architectures where object uploads automatically kick off processing pipelines.</p>
-
-<a name="High-Level.S3.Architecture"></a>
-<h2>High-Level S3 Architecture</h2>
-
-<p>Let us look at the system from the sky before descending into its components.</p>
-
-<p>When a client uploads an object, the request travels through multiple layers. There is a frontend layer handling TLS termination, authentication, and request routing. Behind that sits a metadata service responsible for tracking object locations and attributes. The actual object data lands on a distributed fleet of storage nodes organized in availability zones. A replication system ensures copies exist across zones. And a lifecycle system runs in the background managing transitions and expirations.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Client SDK or Browser];
-  B[S3 API Frontend Layer];
-  C[Authentication and Authorization];
-  D[Request Router];
-  E[Metadata Service];
-  F[Object Storage Nodes AZ-1];
-  G[Object Storage Nodes AZ-2];
-  H[Object Storage Nodes AZ-3];
-  I[Replication Coordinator];
-  J[Lifecycle Manager];
-  K[CDN CloudFront Edge];
-  L[Event Notification System];
-
-  A &#8211;> B;
-  B &#8211;> C;
-  C &#8211;> D;
-  D &#8211;> E;
-  D &#8211;> F;
-  I &#8211;> G;
-  I &#8211;> H;
-  F &#8211;> I;
-  J &#8211;> E;
-  K &#8211;> B;
-  D &#8211;> L;
-</div>
-
-
-<p>The frontend layer is stateless and horizontally scalable. It handles millions of simultaneous connections. Each request includes authentication information — either AWS SigV4 signed headers or a pre-signed URL. The frontend validates signatures, checks permissions against IAM policies and bucket policies, and then routes the request appropriately.</p>
-
-<p>The metadata service is the brain of S3. It knows which object lives where, what its checksum is, which versions exist, what storage class it belongs to, and what access controls apply. The metadata service is the hardest component to scale and has seen the most architectural evolution internally at AWS.</p>
-
-<p>Storage nodes are the muscle. They hold the actual bytes. They are organized in clusters spread across availability zones, and the replication system ensures every object has redundant copies.</p>
-
-<a name="Object.Upload.Pipeline"></a>
-<h2>Object Upload Pipeline</h2>
-
-<p>Every upload starts the same way: a PUT request arrives at the S3 frontend. What happens next is a carefully orchestrated sequence.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Client sends PUT request];
-  B[Frontend receives TLS connection];
-  C[Validate AWS SigV4 signature];
-  D[Check IAM and bucket policy];
-  E[Generate internal object ID];
-  F[Compute content checksum MD5 or SHA256];
-  G[Write data to primary storage node];
-  H[Replicate to additional AZ nodes];
-  I[Update metadata service with object location];
-  J[Return 200 OK with ETag to client];
-
-  A &#8211;> B;
-  B &#8211;> C;
-  C &#8211;> D;
-  D &#8211;> E;
-  E &#8211;> F;
-  F &#8211;> G;
-  G &#8211;> H;
-  H &#8211;> I;
-  I &#8211;> J;
-</div>
-
-
-<p>Authentication happens first, always. S3 uses AWS Signature Version 4, a request-signing algorithm where the client computes an HMAC-SHA256 signature over the request headers, URI, and a hash of the payload. The S3 frontend recomputes this signature server-side and rejects mismatches. This prevents tampering with requests in transit.</p>
-
-<p>Once authenticated, the system generates an internal object identifier. This is not the key you provided — it is an internal UUID or content-addressed hash used to locate the data across storage nodes. Your bucket key is the external identifier. The internal ID is what the storage layer cares about.</p>
-
-<p>Checksum validation is critical for durability. S3 computes an MD5 (or optionally SHA-256) hash of the incoming data and stores it alongside the object. If you provide an expected MD5 in the request headers, S3 validates against it before confirming the write. This catches corrupted uploads before data ever gets durably stored.</p>
-
-<p>The data then gets written to the primary storage node in one availability zone. But S3 does not return success to the client until it has confirmed writes to multiple nodes across multiple availability zones. This synchronous replication is what underpins S3&rsquo;s durability promise. A client-received 200 OK means your data is already redundant.</p>
-
-<p>Only after all required replicas acknowledge the write does the metadata service get updated with the object&rsquo;s location, size, ETag, and other attributes. This ordering matters. If S3 updated metadata first and then a storage write failed, you would have a phantom object that metadata claims exists but storage nodes cannot serve.</p>
-
-<a name="Handling.Large.Objects.with.Multipart.Upload"></a>
-<h3>Handling Large Objects with Multipart Upload</h3>
-
-<p>Objects larger than about 100MB should use multipart upload. The flow is different:</p>
-
-<ol>
-<li>Client calls CreateMultipartUpload, receiving an upload ID</li>
-<li>Client splits the file and uploads each part in parallel using UploadPart, with the upload ID and part number</li>
-<li>Each part gets its own ETag (checksum)</li>
-<li>Client calls CompleteMultipartUpload with the upload ID and a list of part ETags</li>
-</ol>
-
-
-<p>S3 then assembles the parts into a single logical object. Parts are stored as independent objects until assembly. This is not a copy operation — S3 uses server-side assembly that moves pointers rather than bytes where possible.</p>
-
-<p>The real power of multipart is parallelism. A 10GB file split into 100 parts can use 100 concurrent connections, dramatically improving throughput. It also enables resumability: if your upload fails at part 73, you retry only that part.</p>
-
-<a name="Metadata.Infrastructure"></a>
-<h2>Metadata Infrastructure</h2>
-
-<p>The metadata layer is S3&rsquo;s most architecturally interesting and challenging component. At the scale S3 operates, there are hundreds of billions of objects. Each object has metadata — key name, bucket, size, ETag, storage class, last modified time, version information, ACLs, user metadata. That is a lot of data to index, query, and keep consistent.</p>
-
-<p>S3&rsquo;s metadata system is essentially a distributed key-value store partitioned by bucket name and object key. The partition strategy is critical. If you store all objects with keys starting with &ldquo;logs/2024/&rdquo; in the same partition, that partition becomes a hot spot during log ingestion. This is why S3 historically recommended randomizing key prefixes for high-throughput workloads.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Object Key: logs-2024-01-report.csv];
-  B[Hash-based Partition Assignment];
-  C[Metadata Partition Node 1];
-  D[Metadata Partition Node 2];
-  E[Metadata Partition Node 3];
-  F[Storage Node Reference];
-  G[Version Chain];
-
-  A &#8211;> B;
-  B &#8211;> C;
-  B &#8211;> D;
-  B &#8211;> E;
-  C &#8211;> F;
-  C &#8211;> G;
-</div>
-
-
-<p>Each metadata partition stores a range of keys. The partitioning is dynamic — heavily accessed key ranges get split into smaller partitions automatically. Lightly accessed ranges get merged. This automatic resharding is invisible to users but is one of the key reasons S3 can handle explosive growth in access patterns without service degradation.</p>
-
-<p>Hot partitions are the nightmare scenario. Imagine thousands of clients all writing objects with keys like &ldquo;upload/00001&rdquo;, &ldquo;upload/00002&rdquo; sequentially. These keys sort together and land on the same metadata partition, which becomes overwhelmed. AWS addressed this with guidance to randomize key prefixes and later added hash-based partitioning in the URL path to spread load automatically.</p>
-
-<p>The metadata service also handles bucket-level metadata: versioning state, lifecycle policies, replication configuration, event notification settings, public access blocks, encryption settings. Bucket metadata is much smaller in volume but must be highly available because it gates every single object operation in that bucket.</p>
-
-<a name="Distributed.Storage.Nodes"></a>
-<h2>Distributed Storage Nodes</h2>
-
-<p>Object data lives on a fleet of storage nodes. These are not special hardware — they are standard servers with large disk arrays running software that implements the S3 storage protocol. What makes them special is the software layer on top and how they are organized.</p>
-
-<p>Storage nodes are grouped into clusters, with clusters spread across availability zones. A single AZ might have dozens of storage clusters, each cluster having hundreds of nodes, each node with many drives. AWS does not publish the exact topology, but the scale is enormous.</p>
-
-<div class="mermaid">
-flowchart TD;
-  AZ1[Availability Zone 1];
-  AZ2[Availability Zone 2];
-  AZ3[Availability Zone 3];
-  C1[Cluster A - AZ1];
-  C2[Cluster B - AZ2];
-  C3[Cluster C - AZ3];
-  N1[Node 1];
-  N2[Node 2];
-  N3[Node 3];
-  N4[Node 4];
-  N5[Node 5];
-  N6[Node 6];
-
-  AZ1 &#8211;> C1;
-  AZ2 &#8211;> C2;
-  AZ3 &#8211;> C3;
-  C1 &#8211;> N1;
-  C1 &#8211;> N2;
-  C2 &#8211;> N3;
-  C2 &#8211;> N4;
-  C3 &#8211;> N5;
-  C3 &#8211;> N6;
-</div>
-
-
-<p>When S3 writes an object, it does not simply write three copies to three random nodes. The placement algorithm considers node capacity, current load, network topology, and failure domains. It tries to ensure no two replicas share the same rack, the same power circuit, or the same network switch. This way, a single hardware failure — even a catastrophic one like a rack losing power — cannot destroy all copies.</p>
-
-<p>For even greater storage efficiency, S3 uses erasure coding for certain storage classes. With erasure coding (specifically variants of Reed-Solomon), you split data into chunks and add parity chunks. You can reconstruct the original data even if some chunks are lost. A common scheme might use 6 data chunks and 3 parity chunks, meaning you can lose any 3 chunks and still recover everything. Compared to keeping 3 full replicas (300% storage overhead), erasure coding might achieve the same durability with only 150% overhead — a significant cost saving at exabyte scale.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Durability Technique</th>
-        <th>Storage Overhead</th>
-        <th>Reconstruct From Failure</th>
-        <th>Use Case</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>3x Full Replication</td>
-        <td>300%</td>
-        <td>Any 2 replicas lost</td>
-        <td>Hot objects, low-latency reads</td>
-      </tr>
-      <tr>
-        <td>Erasure Coding 6+3</td>
-        <td>150%</td>
-        <td>Any 3 chunks lost</td>
-        <td>Warm and cold storage, cost optimization</td>
-      </tr>
-      <tr>
-        <td>Erasure Coding 10+4</td>
-        <td>140%</td>
-        <td>Any 4 chunks lost</td>
-        <td>Large cold objects, Glacier-tier</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Replication.and.Durability.Systems"></a>
-<h2>Replication and Durability Systems</h2>
-
-<p>Replication in S3 happens at two levels: within a region (multi-AZ replication for durability) and optionally across regions (Cross-Region Replication for compliance or geographic proximity).</p>
-
-<p>Multi-AZ replication is automatic and not optional. When you upload an object, S3 synchronously writes it to multiple availability zones before acknowledging success. AZs within a region are physically separated data centers — different power, different cooling, different network paths — so an AZ failure does not affect other AZs.</p>
-
-<p>Cross-Region Replication (CRR) is asynchronous and optional. You configure it at the bucket level, specifying a destination bucket in a different region. After each write to the source bucket, S3 replicates the object to the destination using a background replication pipeline. This introduces eventual consistency across regions — the destination will eventually catch up, but there is a replication lag measured in seconds to minutes under normal conditions.</p>
-
-<div class="mermaid">
-flowchart TD;
-  Client[Client Upload];
-  Primary[Primary AZ Write];
-  AZ2Write[AZ-2 Synchronous Replica];
-  AZ3Write[AZ-3 Synchronous Replica];
-  Success[Return 200 to Client];
-  CRR[Cross-Region Replication Queue];
-  RemoteRegion[Remote Region Bucket];
-
-  Client &#8211;> Primary;
-  Primary &#8211;> AZ2Write;
-  Primary &#8211;> AZ3Write;
-  AZ2Write &#8211;> Success;
-  AZ3Write &#8211;> Success;
-  Primary &#8211;> CRR;
-  CRR &#8211;> RemoteRegion;
-</div>
-
-
-<p>The self-healing system is what makes eleven nines durability achievable. S3 continuously scans stored objects, computing checksums and comparing them against the stored ETags. If corruption is detected — a bit flip on a disk, a partial write that survived a crash — the system automatically repairs the affected replica from a healthy copy. This background scrubbing runs constantly across all storage nodes.</p>
-
-<p>Disk failures are not treated as exceptional events — they are treated as expected events. At the scale S3 operates, some disk somewhere is failing at any given moment. The system is designed to tolerate this gracefully. When a drive fails, the data that lived on it is reconstructed from replicas or erasure-coded chunks and written to a healthy drive elsewhere. From the user&rsquo;s perspective, nothing happened.</p>
-
-<a name="Consistency.Model.Deep.Dive"></a>
-<h2>Consistency Model Deep Dive</h2>
-
-<p>For the first fifteen years of S3&rsquo;s life, reading an object immediately after writing it was not guaranteed to return the latest version. S3 offered strong consistency only for new writes (a key that never existed before would always return the new data). Overwrites and deletes were eventually consistent — you might see the old data for a brief window after writing new data.</p>
-
-<p>This sounds alarming, but it was a deliberate tradeoff. Providing strong consistency at S3&rsquo;s scale across distributed metadata systems requires coordination — you need to ensure every metadata node has the update before acknowledging reads. That coordination adds latency and introduces potential bottlenecks.</p>
-
-<p>In December 2020, AWS announced that S3 now provides strong read-after-write consistency for all operations — puts, overwrites, deletes, and even list operations. This was a significant engineering achievement.</p>
-
-<p>The way strong consistency works in a distributed system like S3 is through a combination of techniques. Metadata writes use a quorum protocol: a write must be acknowledged by a majority of metadata replicas before the client gets success. Reads then consult a quorum of replicas. As long as the write quorum overlaps with the read quorum, you are guaranteed to see the latest write.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Consistency Type</th>
-        <th>Guarantee</th>
-        <th>Tradeoff</th>
-        <th>S3 Today</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Eventual Consistency</td>
-        <td>Data converges eventually</td>
-        <td>May read stale data temporarily</td>
-        <td>Cross-region replication only</td>
-      </tr>
-      <tr>
-        <td>Read-After-Write Consistency</td>
-        <td>New writes immediately visible</td>
-        <td>Only for first write to a key</td>
-        <td>Superseded by strong consistency</td>
-      </tr>
-      <tr>
-        <td>Strong Consistency</td>
-        <td>Always reads latest committed write</td>
-        <td>Coordination overhead</td>
-        <td>Default for all operations since 2020</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>The CAP theorem states that distributed systems must choose between Consistency, Availability, and Partition tolerance during a network partition. S3 leans toward Availability and Partition tolerance, with consistency achieved through careful quorum design rather than sacrificing availability. The key insight is that during normal operation (no partitions), you can have both consistency and availability. CAP only forces a choice when partitions occur, and the system&rsquo;s behavior during partitions depends on its configuration.</p>
-
-<a name="Multi-Part.Upload.System"></a>
-<h2>Multi-Part Upload System</h2>
-
-<p>Multipart upload deserves a deeper look because it affects how you think about large object reliability.</p>
-
-<p>The upload ID is the anchor for the entire operation. Every part is associated with this ID. If you lose your connection and restart the client, you can resume by listing already-uploaded parts and only re-uploading missing or failed ones.</p>
-
-<p>Parts can be uploaded in any order and from multiple clients simultaneously. A 50-part file could have 50 different machines uploading one part each, in parallel. S3 tracks which parts have been received and validates each part&rsquo;s ETag when CompleteMultipartUpload is called.</p>
-
-<p>The CompleteMultipartUpload call triggers server-side assembly. S3 validates that all listed parts exist, their ETags match, and then creates a new single object metadata entry pointing to the parts in order. For most practical purposes, the assembled object behaves exactly like a directly uploaded object.</p>
-
-<p>One trap developers fall into: abandoned multipart uploads. If you start a multipart upload and never complete or abort it, the parts accumulate on S3&rsquo;s storage and you get charged for them. A lifecycle rule to abort incomplete multipart uploads after N days is a good operational hygiene practice.</p>
-
-<a name="Object.Retrieval.Pipeline"></a>
-<h2>Object Retrieval Pipeline</h2>
-
-<p>Getting data back out of S3 follows a different path than writing.</p>
-
-<div class="mermaid">
-flowchart TD;
-  A[Client GET Request];
-  B[Frontend TLS Termination];
-  C[Auth Validation];
-  D[Metadata Lookup - Object Location];
-  E[Determine Storage Class];
-  F[Route to Storage Node];
-  G[Read Data from Disk];
-  H[Stream Response to Client];
-  I[CloudFront Edge Cache Hit];
-
-  A &#8211;> B;
-  B &#8211;> C;
-  C &#8211;> D;
-  D &#8211;> E;
-  E &#8211;> F;
-  F &#8211;> G;
-  G &#8211;> H;
-  I &#8211;> H;
-  A &#8211;> I;
-</div>
-
-
-<p>The metadata lookup is the first I/O operation. The system needs to find where the object&rsquo;s data lives — which storage cluster, which nodes, which internal IDs. This lookup must be fast because it adds latency to every read. Metadata for hot objects is likely cached in memory on metadata nodes, making these lookups sub-millisecond.</p>
-
-<p>For cold objects in Glacier storage, the retrieval path is dramatically different. Data is not immediately accessible. You submit a restore request, which queues a retrieval job. Expedited retrieval takes 1-5 minutes, standard takes 3-5 hours, bulk takes 5-12 hours. This delay reflects the economics of cold storage — Glacier uses lower-cost hardware with lower power consumption, trading retrieval speed for cost.</p>
-
-<p>Range requests are a crucial performance optimization for large objects. Instead of downloading a 5GB video entirely, a client can request bytes 1000000-2000000, getting just that chunk. S3 honors these byte-range GET requests, which enables video players to seek, download managers to parallelize, and data processors to read only relevant portions.</p>
-
-<a name="Storage.Classes.and.Lifecycle.Systems"></a>
-<h2>Storage Classes and Lifecycle Systems</h2>
-
-<p>Storage class design is fundamentally an economic and access-pattern optimization problem.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Storage Class</th>
-        <th>Access Pattern</th>
-        <th>Retrieval Latency</th>
-        <th>Minimum Duration</th>
-        <th>Cost Profile</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>S3 Standard</td>
-        <td>Frequent access</td>
-        <td>Milliseconds</td>
-        <td>None</td>
-        <td>High storage, no retrieval fee</td>
-      </tr>
-      <tr>
-        <td>S3 Standard-IA</td>
-        <td>Infrequent access</td>
-        <td>Milliseconds</td>
-        <td>30 days</td>
-        <td>Lower storage, retrieval fee per GB</td>
-      </tr>
-      <tr>
-        <td>S3 One Zone-IA</td>
-        <td>Infrequent, non-critical</td>
-        <td>Milliseconds</td>
-        <td>30 days</td>
-        <td>Lower still, single AZ only</td>
-      </tr>
-      <tr>
-        <td>S3 Intelligent-Tiering</td>
-        <td>Unknown or variable</td>
-        <td>Milliseconds to hours</td>
-        <td>None</td>
-        <td>Monitoring fee, automatic optimization</td>
-      </tr>
-      <tr>
-        <td>S3 Glacier Instant</td>
-        <td>Archive, instant access</td>
-        <td>Milliseconds</td>
-        <td>90 days</td>
-        <td>Very low storage, high retrieval fee</td>
-      </tr>
-      <tr>
-        <td>S3 Glacier Flexible</td>
-        <td>Archive, minutes to hours</td>
-        <td>1 min to 12 hours</td>
-        <td>90 days</td>
-        <td>Lowest storage, retrieval pricing tiers</td>
-      </tr>
-      <tr>
-        <td>S3 Glacier Deep Archive</td>
-        <td>Long-term archive</td>
-        <td>12+ hours</td>
-        <td>180 days</td>
-        <td>Cheapest storage available</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>The lifecycle system is a background engine that continuously evaluates objects against their bucket&rsquo;s lifecycle rules. Rules can trigger on object age, storage class, version status, or object tags. The engine processes buckets in batches, checking each object&rsquo;s creation date and current class against configured transitions and expirations.</p>
-
-<p>Intelligent-Tiering deserves special mention because it is genuinely clever. The system monitors access patterns per object. Objects not accessed in 30 days move to an Infrequent Access tier automatically. Not accessed in 90 days moves to Archive Instant Access. If an object in a cold tier gets accessed, it moves back to the frequent access tier. All of this is transparent. You pay a small monitoring fee per object per month, and the system handles optimization. For workloads with unpredictable access patterns, this can significantly reduce storage costs.</p>
-
-<a name="Caching.and.CDN.Integration"></a>
-<h2>Caching and CDN Integration</h2>
-
-<p>S3 alone can serve objects globally, but for high-traffic content, adding CloudFront in front changes the performance profile dramatically.</p>
-
-<p>CloudFront is AWS&rsquo;s content delivery network — a global network of edge locations distributed across cities worldwide. When you configure CloudFront to sit in front of an S3 bucket, read requests from users hit the nearest edge location rather than the S3 endpoint in a specific region. If the edge location has the object cached, it serves it locally — latency measured in single-digit milliseconds rather than cross-continental round trips.</p>
-
-<p>Cache invalidation is always the hard part. When you update an object in S3, CloudFront edge caches still hold the old version until the cache TTL expires or you explicitly invalidate. Explicit invalidation propagates to all edge locations globally but takes a few minutes and has cost implications for large-scale invalidations.</p>
-
-<p>The better pattern is to use content-addressable URLs: include a hash or version identifier in the object key or URL path. When you update content, the new version gets a new URL. Old URLs expire from cache naturally. New URLs start cold in cache and warm up as traffic arrives. This eliminates the invalidation problem entirely and allows very long cache TTLs.</p>
-
-<a name="Security.and.Access.Control"></a>
-<h2>Security and Access Control</h2>
-
-<p>Security in S3 operates through multiple independent layers, and understanding how they interact matters for both security and debugging.</p>
-
-<p>IAM policies control what AWS principals (users, roles, services) can do across all AWS resources including S3. A bucket policy is a resource-based policy attached directly to a bucket — it can grant access to external AWS accounts or restrict access based on IP ranges or VPC endpoints. ACLs are the legacy access control mechanism, now mostly superseded by policies but still functional.</p>
-
-<p>When a request arrives, S3 evaluates multiple policy documents. A principal&rsquo;s IAM policy must allow the action. The bucket policy must not deny it. If there are ACLs, those are evaluated too. An explicit deny in any policy always wins. A request is allowed only if at least one policy allows it and no policy denies it. This layered evaluation means you can have defense in depth.</p>
-
-<p>Encryption at rest is available in several modes. SSE-S3 uses S3-managed keys — simple and transparent, no configuration beyond enabling it. SSE-KMS uses AWS Key Management Service, giving you control over key rotation and audit logs via CloudTrail. SSE-C uses customer-provided keys — S3 uses them to encrypt but never stores them, so you must provide the key with every read request.</p>
-
-<p>Encryption in transit is enforced by default — all S3 endpoints are HTTPS. Bucket policies can be set to deny any request that is not using TLS, preventing accidental plaintext access.</p>
-
-<p>Pre-signed URLs are one of the most powerful security primitives in S3. A pre-signed URL embeds authentication information in the URL itself — the bucket, object key, expiry time, and a signature computed from your credentials. Anyone who has the URL can access the object until expiry, without needing AWS credentials. The server validates the signature and expiry on every request.</p>
-
-<a name="Event-Driven.Infrastructure"></a>
-<h2>Event-Driven Infrastructure</h2>
-
-<p>S3 event notifications close the loop between storage and computation. When objects are created, deleted, tagged, or restored from Glacier, S3 can publish events to SNS topics, SQS queues, Lambda functions, or EventBridge.</p>
-
-<p>This enables a whole class of architectures that were previously complex to build. An image upload triggers a Lambda function to generate thumbnails. A log file landing triggers a processing job. A sensitive file upload triggers a compliance scan. All of this happens asynchronously without the uploading client needing to know about downstream systems.</p>
-
-<p>Event delivery is at-least-once — you might receive duplicate events, so downstream consumers should be idempotent. Events include the bucket name, object key, event type, timestamp, and the object&rsquo;s ETag. For most real-time processing workflows, events arrive within seconds of the triggering action.</p>
-
-<p>EventBridge integration adds filtering capabilities. Instead of processing every event in Lambda and filtering programmatically, you define EventBridge rules that only route events matching certain patterns — specific prefixes, specific suffixes, specific event types — to specific targets. This reduces unnecessary compute costs.</p>
-
-<a name="Scaling.Amazon.S3"></a>
-<h2>Scaling Amazon S3</h2>
-
-<p>Understanding how S3 scales gives you insight into the architectural decisions and helps you design your own systems.</p>
-
-<div class="mermaid">
-flowchart TD;
-  Req[Incoming Requests];
-  FE1[Frontend Server 1];
-  FE2[Frontend Server 2];
-  FE3[Frontend Server N];
-  MDP[Metadata Partition Router];
-  MD1[Metadata Shard 1];
-  MD2[Metadata Shard 2];
-  MD3[Metadata Shard N];
-  SN1[Storage Cluster AZ-1];
-  SN2[Storage Cluster AZ-2];
-  SN3[Storage Cluster AZ-3];
-
-  Req &#8211;> FE1;
-  Req &#8211;> FE2;
-  Req &#8211;> FE3;
-  FE1 &#8211;> MDP;
-  FE2 &#8211;> MDP;
-  FE3 &#8211;> MDP;
-  MDP &#8211;> MD1;
-  MDP &#8211;> MD2;
-  MDP &#8211;> MD3;
-  MD1 &#8211;> SN1;
-  MD2 &#8211;> SN2;
-  MD3 &#8211;> SN3;
-</div>
-
-
-<p>The frontend layer scales horizontally and easily. Add more frontend servers, point the load balancer at them, done. These servers are stateless — any server can handle any request. This is the easy part of scaling.</p>
-
-<p>Metadata scaling is harder. Metadata is stateful, and partitioning it requires careful key distribution. The system uses a consistent hashing scheme where buckets and key ranges map to specific metadata partitions. When a partition gets hot, it splits. When it gets cold, it merges with a neighbor. This automatic resharding is invisible to users but requires careful coordination to avoid downtime during splits.</p>
-
-<p>Storage scaling is straightforward in principle: add nodes, add drives. The complexity is in the placement algorithm — new capacity needs to be introduced gradually so the replication system can spread data across it without creating hot spots on new nodes or creating replication bottlenecks.</p>
-
-<p>S3 can now sustain 3,500 PUT requests per second and 5,500 GET requests per second per partition prefix. For higher throughput, use multiple key prefixes to spread load across multiple partitions. A common trick is to hash-prefix your keys: instead of <code>logs/2024-01-01.csv</code>, use <code>a3f/logs/2024-01-01.csv</code> where <code>a3f</code> is the first few characters of an MD5 hash of the filename.</p>
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<p>S3&rsquo;s availability target is 99.99% for Standard storage — roughly 52 minutes of downtime per year. Achieving this requires layers of redundancy beyond just object replication.</p>
-
-<p>The frontend layer is distributed across multiple physical hosts with health checks. Unhealthy frontends are automatically removed from the load balancer. Request routing itself uses multiple redundant paths.</p>
-
-<p>The metadata service is the most delicate piece. If metadata is unavailable, S3 cannot serve reads or writes even if all the storage nodes are healthy. Metadata services use multi-replica configurations with quorum reads and writes. Even if a majority of metadata nodes are healthy, the service can continue operating.</p>
-
-<p>Storage node failures are continuously monitored. Each node runs health checks and reports to a cluster manager. The cluster manager detects failures and triggers reconstruction jobs to restore the target replica count. Because this happens automatically and continuously, individual disk or server failures have zero user-visible impact.</p>
-
-<p>Monitoring at S3&rsquo;s scale requires its own infrastructure. Metrics are collected from every component — request latency, error rates, replication lag, storage node health, metadata partition load — and aggregated in near-real-time. Anomaly detection systems watch for deviations from baseline patterns. On-call engineers get paged for anything that crosses severity thresholds.</p>
-
-<a name="Performance.Optimization"></a>
-<h2>Performance Optimization</h2>
-
-<p>Getting the most out of S3 requires understanding where bottlenecks actually live.</p>
-
-<p>For upload throughput, the limit is rarely S3 itself — it is usually your client&rsquo;s network connection. Multipart upload with parallelism is the main lever. Each part uses a separate TCP connection, so you are limited by how many parallel connections your client can sustain and how much bandwidth you have.</p>
-
-<p>Transfer Acceleration is S3&rsquo;s answer to geographical distance. It routes uploads through CloudFront edge locations using AWS&rsquo;s private backbone network rather than the public internet. Traffic enters the AWS network at the nearest edge, then travels the backbone to the S3 region. For intercontinental uploads, this can reduce latency by 50-500ms depending on conditions.</p>
-
-<p>For read-heavy workloads, parallelism is everything. Fetch multiple objects simultaneously. Use byte-range reads to parallelize fetching different portions of the same large object. S3 has no per-object bandwidth cap — the limit is your client&rsquo;s network and how many parallel connections you can open.</p>
-
-<p>S3 Select and Glacier Select let you push SQL-like filtering down to the storage layer. Instead of downloading a 1GB CSV and filtering locally, you send a SELECT statement and get only matching rows back. This can reduce data transfer costs and processing time dramatically for analytical workloads.</p>
-
-<a name="Engineering.Tradeoffs"></a>
-<h2>Engineering Tradeoffs</h2>
-
-<p>Every architectural decision in S3 represents a tradeoff. It is worth making these explicit.</p>
-
-<p><strong>Replication versus erasure coding</strong>: Full replication is simpler, faster for reads (no reconstruction needed), and has no read amplification. But it uses more storage. Erasure coding reduces storage overhead significantly but requires reconstruction reads when a node fails, adding latency. S3 uses both — replication for hot data that needs low read latency, erasure coding for colder data where storage cost dominates.</p>
-
-<p><strong>Consistency versus availability</strong>: Strong consistency requires coordination between replicas, which adds latency and creates the possibility of timeouts during network partitions. Eventual consistency is faster and more available but can return stale data. S3 chose strong consistency for metadata operations because applications were frequently broken by stale reads. The consistency cost is acceptable at the latency level because metadata operations are already network-bound.</p>
-
-<p><strong>Metadata centralization versus partitioning</strong>: A centralized metadata store is easy to make consistent but becomes a bottleneck at scale. A partitioned metadata store scales well but makes cross-partition operations (like listing objects across a bucket) expensive. S3 partitions metadata by key range, which is why bucket listing operations (LIST) can be slow for large buckets — they require scanning potentially many partitions.</p>
-
-<p><strong>Caching versus freshness</strong>: Caching metadata in memory on frontend nodes reduces latency dramatically. But cached metadata can be stale. How long is it safe to cache bucket policies, ACLs, or object metadata? Too long and you have security or consistency issues. Too short and you lose the caching benefit. S3 uses very short TTLs for security-sensitive data and longer TTLs for stable metadata.</p>
-
-<p><strong>Durability versus cost</strong>: Achieving eleven nines durability requires multiple replicas or erasure coding, plus background scrubbing, plus rack-level placement constraints. All of this costs money — storage overhead, network traffic for replication, CPU for checksumming. Lower durability tiers (like One Zone-IA, which stores data in only one AZ) cost less but accept lower durability. The tradeoff is explicit and documented.</p>
-
-<a name="Real-World.Technology.Stack"></a>
-<h2>Real-World Technology Stack</h2>
-
-<p>While AWS does not publish the exact internals, we can reason about the technology stack that makes a system like S3 work.</p>
-
-<p>The frontend layer likely runs on Java or Go. Java&rsquo;s JVM has mature concurrency primitives and excellent networking libraries. Go&rsquo;s goroutine model is a natural fit for I/O-heavy server code that needs to handle massive connection concurrency. The choice between them typically comes down to operational familiarity and latency characteristics.</p>
-
-<p>Storage nodes almost certainly run on Linux with carefully tuned kernel parameters — I/O schedulers optimized for mixed read/write workloads, filesystem choices that minimize overhead (XFS is popular for large-object storage, ext4 for metadata), and direct I/O bypassing the page cache for predictable latency.</p>
-
-<p>The metadata system resembles a distributed key-value store with strong consistency guarantees — think something similar to Apache Cassandra or a custom B-tree-based system with Raft-based replication. The access pattern is mostly point lookups by key, with occasional range scans for listing. This maps well to log-structured merge trees (LSM trees), which are optimized for write-heavy workloads while still supporting range reads.</p>
-
-<p>SSD and HDD tiering exists at the physical level. Hot metadata almost certainly lives on SSDs for sub-millisecond access. Cold object data lives on high-capacity spinning disks — these have terrible random I/O performance but excellent sequential throughput and cost per terabyte, which is exactly what you want for large sequential object reads.</p>
-
-<p>The replication system uses internal messaging — probably something like Kinesis streams or an internal equivalent for ordered, durable message delivery between components. Cross-region replication needs robust message queuing to handle the latency and potential downtime of inter-region links.</p>
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>S3-style questions appear in senior engineering interviews regularly. The question might be phrased as &ldquo;Design a distributed object storage system,&rdquo; &ldquo;Design Dropbox storage backend,&rdquo; or simply &ldquo;How would you design Amazon S3?&rdquo;</p>
-
-<p>The strong answer starts by clarifying requirements. How many objects? What sizes? What&rsquo;s the read/write ratio? What durability requirement? What consistency requirement? What latency target? These constraints dramatically shape the architecture. An interviewer who watches you jump straight to drawing a diagram without asking these questions will worry about your ability to scope real-world systems.</p>
-
-<p>Once requirements are clear, the strong candidate structures the answer in layers. Start with the simplest possible thing that could work — a single server with an HTTP API storing files on disk. Then identify where it fails — disk fills up, server crashes, can&rsquo;t scale reads — and address each failure with the right architectural pattern.</p>
-
-<p>Common weak answers in these interviews: jumping to complexity without justifying it, ignoring failure scenarios, not discussing consistency, proposing a database as the storage layer for petabytes of data, or not addressing the metadata bottleneck.</p>
-
-<p>Strong candidates discuss the metadata layer separately from the storage layer and explain why they have different scaling characteristics. They explain why flat namespaces beat hierarchical ones at scale. They talk about erasure coding versus replication and know when each makes sense. They discuss quorum reads and writes when asked about consistency. And they think through the lifecycle of a request from the client all the way to the disk and back.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Interview Area</th>
-        <th>Weak Answer</th>
-        <th>Strong Answer</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Requirements</td>
-        <td>Jumps to designing immediately</td>
-        <td>Asks about scale, durability, latency, consistency before designing</td>
-      </tr>
-      <tr>
-        <td>Storage Model</td>
-        <td>Uses relational DB for object storage</td>
-        <td>Explains flat namespace, key-value model, and why hierarchical filesystems do not scale</td>
-      </tr>
-      <tr>
-        <td>Metadata</td>
-        <td>Stores metadata in the same system as data</td>
-        <td>Separates metadata into a distributed key-value store with partitioning strategy</td>
-      </tr>
-      <tr>
-        <td>Durability</td>
-        <td>Says three replicas without explanation</td>
-        <td>Discusses erasure coding, placement constraints, and background repair</td>
-      </tr>
-      <tr>
-        <td>Consistency</td>
-        <td>Ignores the topic entirely</td>
-        <td>Discusses quorum, CAP theorem, and how to achieve strong consistency at scale</td>
-      </tr>
-      <tr>
-        <td>Scaling</td>
-        <td>Add more servers</td>
-        <td>Identifies metadata partitioning as the hard problem, discusses hot partition handling</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>One more interview tip worth emphasizing: durability and availability are different things, and mixing them up is a red flag. Durability is about not losing data. Availability is about being able to access data right now. S3 Standard has 99.999999999% durability and 99.99% availability. That means S3 almost never loses your data, but it might occasionally be temporarily inaccessible. These are independent properties that get confused often.</p>
-
-<a name="Closing.Thoughts"></a>
-<h2>Closing Thoughts</h2>
-
-<p>Amazon S3 is one of the most successful distributed systems ever built in production. It stores more data than most countries generate in a year, serves billions of requests per hour, and achieves durability levels that border on the theoretical limit. The architecture that makes this possible is not magic — it is a careful composition of well-understood distributed systems principles: flat namespaces for scalability, immutable objects for simplicity, erasure coding for storage efficiency, quorum protocols for consistency, and continuous background repair for durability.</p>
-
-<p>The real lesson from studying S3 is not any individual technique but the engineering mindset behind it. Every constraint is explicit. Every tradeoff is acknowledged. Every failure mode is designed for. The system does not hope disks will not fail — it assumes they will and builds recovery in from the start. It does not hope the network will always be reliable — it designs for partitions and adds checksums everywhere.</p>
-
-<p>When you build storage systems, even at a fraction of S3&rsquo;s scale, these principles apply equally. Know where your metadata lives and how it scales. Design for immutability where you can. Separate durability from availability in your thinking. Make checksums a first-class citizen, not an afterthought. And always, always design for the failure you have not thought of yet — because at scale, every failure mode eventually appears.</p>
 ]]></content>
     </entry>
     

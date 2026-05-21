@@ -1,0 +1,1129 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>How URL Shortener Works? - Rishijeet Mishra | Technologist | Tech Trends & Development Blog</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Bridging tech and education - Rishijeet Mishra's insights on digital learning">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/how-url-shortener-works">
+
+        <link href='https://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+         <!--adding the font awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra | Technologist | Tech Trends & Development Blog" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/system-design/">System Design</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">How URL Shortener Works?</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-21T08:04:47+05:30" pubdate><i class="fa fa-calendar"></i> May 21st, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <blockquote><p><em>There is a particular kind of engineering problem that looks deceptively small from the outside. You paste a long URL into a box, click a button, and get back something like <code>https://bit.ly/3xKp9Ld</code>. The whole interaction takes less than a second. Behind that second, though, is a distributed system that has to do quite a lot of work — generate a globally unique short code, write it durably, cache it for fast retrieval, serve hundreds of thousands of redirects per second, collect analytics events without slowing down the redirect, scan for malicious links, and stay available across multiple data centers.</em></p></blockquote>
+
+<p><img src="/images/system_design/url.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>That is the honest shape of a URL shortener at scale. A toy version you could build in an afternoon with a SQLite database and a single Flask server. A production version used by millions of people is something else entirely.</p>
+
+<p>This post walks through that production version — the architecture, the tradeoffs, the engineering decisions, and the failure modes. Whether you are preparing for a system design interview, building your own shortener, or just curious how Bitly or TinyURL actually work at scale, this should give you a real picture of what is going on inside.</p>
+
+<a name="Why.URL.Shortening.Became.a.Distributed.Systems.Problem"></a>
+<h2>Why URL Shortening Became a Distributed Systems Problem</h2>
+
+<p>The original use case was simple enough: URLs on the web can get long and ugly, especially after query parameters and tracking strings pile up. Early shorteners were literally just a database with two columns — a short code and a long URL — and a web server that did a lookup and issued a 301 redirect. That works perfectly fine at small scale.</p>
+
+<!--more-->
+
+
+<p>What changes everything is traffic. The redirect path is hit every single time someone clicks a link. A popular link posted on social media might receive hundreds of thousands of clicks in minutes. A link embedded in a marketing email to ten million subscribers gets hammered the moment that email lands. Unlike an application where different users hit different endpoints, a URL shortener has a pathological access pattern: the same few &ldquo;hot&rdquo; URLs get hit by enormous volumes of traffic, all at once.</p>
+
+<p>That single reality drives almost every architectural decision in this post. Low latency on the redirect path is non-negotiable, which means you cannot afford a database round trip for every request. The system has to be stateless so it scales horizontally. Short codes have to be generated without coordination bottlenecks. Analytics has to be collected without blocking the redirect. The system has to survive regional outages. And it has to defend itself against people who will try to use it to distribute malware.</p>
+
+<p>A simple redirect becomes a distributed systems problem because of scale, latency requirements, and the adversarial nature of public infrastructure.</p>
+
+<a name="Core.Features.of.URL.Shorteners"></a>
+<h2>Core Features of URL Shorteners</h2>
+
+<p>Before diving into architecture, it helps to be clear about what a production URL shortener actually does. The redirect is the obvious part, but modern platforms offer considerably more.</p>
+
+<p><strong>URL shortening</strong> is the core: accept a long URL, return a short one. The short code needs to be as compact as possible while still providing enough space for billions of unique values.</p>
+
+<p><strong>Redirect handling</strong> is the primary read path. When someone visits a short URL, the system looks up the destination and issues an HTTP redirect. The choice between 301 (permanent) and 302 (temporary) redirect has real consequences for analytics, as we will see.</p>
+
+<p><strong>Custom aliases</strong> let users choose their own short code — <code>company.io/sale</code> instead of <code>company.io/7fG2k</code>. This introduces uniqueness conflicts and namespace management problems.</p>
+
+<p><strong>Link analytics</strong> track who clicked, from where, on what device, through what referrer, and at what time. This is where a lot of engineering complexity lives.</p>
+
+<p><strong>Expiring links</strong> have a time-to-live after which they stop redirecting. Implementing this correctly at scale requires careful thinking about TTL propagation through caches.</p>
+
+<p><strong>QR code generation</strong> is straightforward but needs to be fast and cacheable, since the same QR code will be requested many times.</p>
+
+<p><strong>Rate limiting</strong> prevents abuse — both on the creation side and the redirect side.</p>
+
+<p><strong>Click tracking</strong> is the raw event capture that feeds the analytics pipeline. It has to be asynchronous; you cannot let analytics processing delay the redirect response.</p>
+
+<p><strong>Geo and device analytics</strong> tell you where traffic comes from and what devices people are using. This feeds dashboards and helps with fraud detection.</p>
+
+<p><strong>API support</strong> means everything above needs to be accessible programmatically with proper authentication, rate limiting, and error handling.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>The system breaks naturally into a few major subsystems: the creation path, the redirect path, and the analytics path. Each has different performance requirements and scaling characteristics.</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% Nodes
+A[Client Browser];
+B[CDN Edge];
+C[API Gateway];
+D[URL Creation Service];
+E[Redirect Service];
+F[Redis Cache Cluster];
+G[Primary Database];
+H[Analytics Service];
+I[Kafka Queue];
+J[Analytics DB];
+K[Background Workers];
+
+%% Flows
+A &#8211;>|Create URL| C;
+A &#8211;>|Redirect| B;
+
+B &#8211;>|Cache Miss| E;
+
+C &#8211;> D;
+
+D &#8211;> G;
+D &#8211;> F;
+
+E &#8211;> F;
+E &#8211;>|Cache Miss| G;
+E &#8211;>|Async Analytics| I;
+
+I &#8211;> H;
+H &#8211;> J;
+
+K &#8211;> G;
+
+%% Styles
+style A fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+style B fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95;
+style C fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+
+style D fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style E fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+
+style F fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f;
+
+style G fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+style J fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+
+style H fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+style I fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#7f1d1d;
+
+style K fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e;
+
+</div>
+
+
+<p>The creation path is write-heavy but relatively low volume. People create far fewer short URLs than they click on them. The redirect path is read-heavy and latency-sensitive — this is where the bulk of engineering effort goes. The analytics path is write-heavy but can tolerate higher latency because it runs asynchronously.</p>
+
+<a name="URL.Creation.Lifecycle"></a>
+<h3>URL Creation Lifecycle</h3>
+
+<p>When a user submits a long URL, the creation service validates it, checks for duplicates, generates a short code, writes the mapping to the database, and pre-populates the cache. The response to the user is the new short URL.</p>
+
+<a name="Redirect.Lifecycle"></a>
+<h3>Redirect Lifecycle</h3>
+
+<p>When a user clicks a short link, the request hits the CDN edge first. If the edge has the mapping cached, it issues the redirect directly without touching the origin. If not, the request reaches the redirect service, which checks Redis, then falls back to the database if needed. Regardless of where the lookup succeeds, a click event is emitted asynchronously to the analytics queue.</p>
+
+<a name="Analytics.Flow"></a>
+<h3>Analytics Flow</h3>
+
+<p>Click events land in a message queue. Analytics workers consume from the queue, enrich events with geo and device information, and write to an analytics database optimized for time-series aggregation. Real-time dashboards query this database.</p>
+
+<a name="URL.Creation.Pipeline"></a>
+<h2>URL Creation Pipeline</h2>
+
+<p>The creation pipeline is more interesting than it appears. Let us walk through what actually happens.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[User Submits URL];
+B[Input Validation];
+C[Malicious URL Scan];
+D[Duplicate Check];
+E[Short Code Generation];
+F[Database Write];
+G[Cache Population];
+H[Return Short URL];
+A &#8211;> B;
+B &#8211;>|Invalid| ERR[Return Error];
+B &#8211;>|Valid| C;
+C &#8211;>|Flagged| BLK[Block and Alert];
+C &#8211;>|Clean| D;
+D &#8211;>|Exists| G;
+D &#8211;>|New| E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p><strong>Input validation</strong> is the first gate. The system checks that the submitted value is actually a URL, that it uses an allowed scheme (typically http or https), and that the domain is not on a blocklist. This is where you reject empty inputs, non-URL strings, and javascript: scheme URLs.</p>
+
+<p><strong>Malicious URL scanning</strong> happens next. URL shorteners are heavily abused for phishing and malware distribution because they obscure the real destination. At minimum, the system checks the URL against known blocklists like Google Safe Browsing. More sophisticated implementations use ML-based classifiers to catch novel phishing pages. This step adds latency to creation, which is acceptable because creation is not as latency-sensitive as redirects.</p>
+
+<p><strong>Duplicate detection</strong> checks whether this long URL has already been shortened. If it has, returning the existing short code is more efficient than generating a new one. This is where idempotency matters: the same long URL submitted twice by the same user should return the same short URL. The lookup is typically on a hash of the normalized URL.</p>
+
+<p><strong>Short code generation</strong> is its own topic and gets its own section below.</p>
+
+<p><strong>Database write</strong> needs to be durable. The system writes to the primary database with at minimum one synchronous replica acknowledgment before returning success to the user. Losing a just-created URL mapping would be a bad user experience.</p>
+
+<p><strong>Cache population</strong> pre-warms the cache immediately after the write. If a user creates a short URL and immediately shares it, the first redirect should hit the cache, not the database.</p>
+
+<p>The creation endpoint needs to be idempotent for reliable API clients. If a client creates a URL and the network drops before receiving the response, retrying the same request should return the same short code rather than creating a duplicate.</p>
+
+<a name="Short.URL.Generation.System"></a>
+<h2>Short URL Generation System</h2>
+
+<p>This is one of the most discussed sections in system design interviews, and for good reason. Generating billions of unique, short, collision-free identifiers in a distributed system without coordination bottlenecks is a genuinely interesting problem.</p>
+
+<p><strong>Base62 encoding</strong> is the standard approach. Base62 uses the characters A-Z, a-z, and 0-9 — 62 characters total. A 7-character Base62 string gives you 62<sup>7</sup> unique values, which is approximately 3.5 trillion. That is enough for a very long time even at large scale. The advantage of Base62 over Base64 is that it avoids +, /, and = characters that are problematic in URLs.</p>
+
+<p>The generation strategy you choose matters a lot:</p>
+
+<p><strong>Sequential IDs with Base62 encoding</strong> means you auto-increment an integer counter and encode it in Base62. ID 1 becomes &ldquo;1&rdquo;, ID 62 becomes &ldquo;Z&rdquo;, ID 63 becomes &ldquo;10&rdquo;. This is simple, compact, and collision-free. The problem is that sequential IDs are predictable — an attacker can enumerate short URLs by incrementing the identifier. For a public shortener, this exposes every URL ever created.</p>
+
+<p><strong>Random codes</strong> pick characters randomly until you have a string of the desired length, then check the database for collisions. At low volumes this is fine. At high volumes, collision probability increases and the database round trip for every generation is expensive. You need to handle retry logic when a collision occurs.</p>
+
+<p><strong>Hash-based generation</strong> takes an MD5 or SHA-256 hash of the long URL and uses the first N characters of the hash encoded in Base62. This is deterministic, which means the same long URL always produces the same short code — useful for deduplication. The downside is collision risk (two different URLs producing the same first-N characters of hash) and the difficulty of supporting multiple short codes for the same long URL.</p>
+
+<p><strong>Snowflake-style ID generation</strong> is what production systems at scale actually use. Twitter&rsquo;s Snowflake approach generates 64-bit integers composed of a timestamp, a machine ID, and a sequence number. Each machine generates IDs independently without coordination. The IDs are time-ordered, which helps with database write performance. The system never generates collisions as long as machine IDs are unique. Encoding a Snowflake ID in Base62 gives you a compact, unique, non-predictable-enough short code.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Strategy</th>
+        <th>Collision Risk</th>
+        <th>Predictability</th>
+        <th>Coordination Needed</th>
+        <th>Ideal For</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Sequential Base62</td>
+        <td>None</td>
+        <td>High</td>
+        <td>Yes (single counter)</td>
+        <td>Internal tools, non-public systems</td>
+      </tr>
+      <tr>
+        <td>Random Code</td>
+        <td>Low (grows with scale)</td>
+        <td>Low</td>
+        <td>No</td>
+        <td>Small-scale shorteners</td>
+      </tr>
+      <tr>
+        <td>Hash-Based</td>
+        <td>Low-medium</td>
+        <td>Medium</td>
+        <td>No</td>
+        <td>Deduplication-focused systems</td>
+      </tr>
+      <tr>
+        <td>Snowflake-Style</td>
+        <td>None</td>
+        <td>Low</td>
+        <td>No (machine ID assignment)</td>
+        <td>Large-scale distributed systems</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>One practical optimization: pre-generate a pool of short codes in background workers and store them in a queue. When a creation request comes in, it pops a code from the queue rather than generating one on the fly. This removes ID generation latency from the critical path entirely.</p>
+
+<a name="Redirect.Pipeline.Deep.Dive"></a>
+<h2>Redirect Pipeline Deep Dive</h2>
+
+<p>The redirect path is where most requests go, and it needs to be fast. The engineering goal is to serve the vast majority of redirects without touching the origin database at all.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Browser Click];
+B[DNS Resolution];
+C[CDN Edge Node];
+D[Edge Cache Hit];
+E[Redirect Service];
+F[Redis Cache];
+G[Database Read];
+H[Issue HTTP Redirect];
+I[Emit Click Event];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;>|Hit| D;
+D &#8211;> H;
+C &#8211;>|Miss| E;
+E &#8211;> F;
+F &#8211;>|Hit| H;
+F &#8211;>|Miss| G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p><strong>DNS resolution</strong> is the first step and it happens client-side. There is nothing you can directly optimize here, but you can use a short domain name to reduce the size of the URL. <code>bit.ly</code> is better than <code>shorturl-service.example.com</code> for both aesthetics and DNS lookup time.</p>
+
+<p><strong>CDN edge handling</strong> is where you can eliminate most of the redirect latency. A CDN with edge nodes distributed globally can cache URL mappings close to users. Cloudflare Workers, for example, let you run code at the edge that performs the Redis lookup or serves a cached redirect directly. The round trip from a user in Tokyo to an origin in Virginia is ~150ms. A CDN edge node in Tokyo reduces that to ~5ms.</p>
+
+<p><strong>Cache lookup</strong> hits Redis if the edge misses. Redis lookup times are measured in microseconds for local lookups, single-digit milliseconds for remote. The redirect service checks Redis for the short code and, on a hit, issues the redirect immediately.</p>
+
+<p><strong>Database lookup</strong> is the last resort. On a cache miss, the service queries the primary database. This should be a rare event for any reasonably popular URL — the cache should have everything hot. For brand new URLs, the creation pipeline pre-warms the cache, so even the first redirect after creation should hit the cache.</p>
+
+<p><strong>HTTP redirect response</strong> is either a 301 or 302. This choice matters for analytics. A 301 (Moved Permanently) tells the browser to cache the redirect. The browser will then redirect future clicks to the same short URL directly, without contacting your server at all. This is great for performance but catastrophic for analytics — you will never see repeat clicks from the same browser. A 302 (Found/Temporary) means the browser always asks your server, ensuring every click is tracked. Most commercial URL shorteners use 302 for this reason.</p>
+
+<p><strong>Async click event emission</strong> happens after the redirect response is sent. The response goes back to the client immediately; the click event is enqueued in the background. The user experiences no latency from analytics collection.</p>
+
+<p>The redirect service should be completely stateless. Any instance should be able to handle any request. This means you can scale horizontally by adding more instances behind a load balancer without any coordination between them.</p>
+
+<a name="Database.Architecture"></a>
+<h2>Database Architecture</h2>
+
+<p>The storage layer has two distinct concerns: the URL mapping store and the analytics store. They have very different access patterns and benefit from different database choices.</p>
+
+<a name="URL.Mapping.Storage"></a>
+<h3>URL Mapping Storage</h3>
+
+<p>The URL mapping table is accessed on every redirect that misses the cache. It is almost entirely read traffic with occasional writes (URL creation). The schema is straightforward:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">short_urls</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="nb">BIGINT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">short_code</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">UNIQUE</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">long_url</span>        <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">user_id</span>         <span class="nb">BIGINT</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">custom_alias</span>    <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">created_at</span>      <span class="k">TIMESTAMP</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">expires_at</span>      <span class="k">TIMESTAMP</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">is_active</span>       <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">TRUE</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">url_hash</span>        <span class="nb">CHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">click_count</span>     <span class="nb">BIGINT</span> <span class="k">DEFAULT</span> <span class="mi">0</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_short_code</span> <span class="k">ON</span> <span class="n">short_urls</span><span class="p">(</span><span class="n">short_code</span><span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_url_hash</span> <span class="k">ON</span> <span class="n">short_urls</span><span class="p">(</span><span class="n">url_hash</span><span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_expires_at</span> <span class="k">ON</span> <span class="n">short_urls</span><span class="p">(</span><span class="n">expires_at</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">expires_at</span> <span class="k">IS</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">;</span>
+</span></code></pre></div></figure>
+
+
+<p>The <code>short_code</code> index is the hot path — it gets hit on every cache-miss redirect. The <code>url_hash</code> index supports deduplication during creation. The <code>expires_at</code> partial index is used by background cleanup jobs.</p>
+
+<p><strong>SQL vs NoSQL</strong> is a real tradeoff here. A relational database (PostgreSQL) gives you strong consistency, easy querying, and mature tooling. For a URL shortener where the primary access pattern is a single key lookup, a key-value store (DynamoDB, Redis with persistence, or Cassandra) can offer better write throughput and simpler horizontal scaling. In practice, many URL shorteners use PostgreSQL for the URL mapping store because the read load is handled by the cache layer, not the database directly.</p>
+
+<p><strong>Sharding</strong> becomes necessary when your URL mapping table grows to billions of rows. The natural shard key is the short code. You can use consistent hashing to distribute short codes across database shards. Each shard handles a fraction of the total redirect traffic. The redirect service hashes the short code to determine which shard to query.</p>
+
+<p><strong>Read replicas</strong> are essential. Route all read queries to replicas; route writes to the primary. This is standard practice and gives you read scalability proportional to the number of replicas you add.</p>
+
+<a name="Analytics.Storage"></a>
+<h3>Analytics Storage</h3>
+
+<p>Analytics data has completely different characteristics. You are writing millions of click events per hour and reading them in aggregated form for dashboards. The raw events table:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">click_events</span> <span class="p">(</span>
+</span><span class='line'>    <span class="n">id</span>              <span class="nb">BIGINT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">short_code</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">clicked_at</span>      <span class="k">TIMESTAMP</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ip_address</span>      <span class="n">INET</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_code</span>    <span class="nb">CHAR</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">city</span>            <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">device_type</span>     <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">os</span>              <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">browser</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">referrer</span>        <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">user_agent</span>      <span class="nb">TEXT</span>
+</span><span class='line'><span class="p">)</span> <span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">RANGE</span> <span class="p">(</span><span class="n">clicked_at</span><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p>Time-based partitioning lets you drop old partitions efficiently and keeps recent data fast to query. For analytics at serious scale, a columnar store like ClickHouse or Apache Cassandra is a better fit than PostgreSQL. ClickHouse in particular is excellent for time-series analytics — it ingests high-volume writes and executes aggregate queries (count by country, clicks by hour, device breakdown) very efficiently.</p>
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>The caching layer is arguably the most critical component of the redirect pipeline. If the cache is working correctly, the database almost never sees redirect traffic.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Redirect Request];
+B[CDN Edge Cache];
+C[Redis Cache Cluster];
+D[Origin Database];
+E[Cache Hit Response];
+F[Cache Populate and Respond];
+A &#8211;> B;
+B &#8211;>|Hit| E;
+B &#8211;>|Miss| C;
+C &#8211;>|Hit| E;
+C &#8211;>|Miss| D;
+D &#8211;> F;
+</div>
+
+
+<p><strong>Redis as the primary cache</strong> is the standard choice. Redis is fast (sub-millisecond for local, low-single-digit milliseconds for remote), supports TTL on keys, and handles high concurrency well. The redirect service stores URL mappings as simple key-value entries: <code>short_code -&gt; long_url</code>. It also stores metadata like expiration time.</p>
+
+<p><strong>Cache TTL</strong> is an interesting decision. If you cache a URL mapping with a TTL of 24 hours, you will not see database traffic for that URL for 24 hours — which is great. But if the URL is deleted or deactivated during that window, the cache will continue serving the redirect. Most systems accept this eventual consistency: a deleted URL might continue redirecting for up to the cache TTL. If you need immediate effect (for abuse takedowns, for example), you need an explicit cache invalidation mechanism.</p>
+
+<p><strong>Cache invalidation</strong> is one of those problems that sounds trivial but is not. When a URL is updated or deleted, you need to evict it from every layer of cache: the Redis cluster and the CDN edge. Most CDNs support cache purge APIs. Redis supports direct key deletion. The challenge is doing this reliably across a distributed system without missing any cache node.</p>
+
+<p><strong>Hotspot handling</strong> is the problem of what happens when a single URL gets millions of hits per second. A single Redis key becomes a bottleneck. Solutions include local in-process caching in the redirect service (a small in-memory LRU cache that lives inside the application), which avoids the Redis round trip entirely for the hottest URLs. The tradeoff is that this local cache is not invalidation-friendly — you rely on its short TTL to eventually expire stale entries.</p>
+
+<p><strong>Edge caching via CDN</strong> is a force multiplier. If you configure your CDN to cache the redirect response (the HTTP 302 with a Location header), the CDN edge nodes absorb the traffic without any request reaching your infrastructure. The CDN becomes your first-line cache. The challenge is that redirect responses include a <code>Cache-Control</code> header, and the logic for setting appropriate TTLs (especially for expiring links) needs to be carefully implemented.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Layer</th>
+        <th>Latency</th>
+        <th>Capacity</th>
+        <th>Invalidation</th>
+        <th>Best For</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>In-Process LRU</td>
+        <td>Microseconds</td>
+        <td>Small (MB)</td>
+        <td>TTL only</td>
+        <td>Hottest URLs in active instances</td>
+      </tr>
+      <tr>
+        <td>Redis Cluster</td>
+        <td>1-5ms</td>
+        <td>Large (GB-TB)</td>
+        <td>Key delete / TTL</td>
+        <td>All active URLs</td>
+      </tr>
+      <tr>
+        <td>CDN Edge</td>
+        <td>Sub-millisecond</td>
+        <td>Very large</td>
+        <td>Purge API</td>
+        <td>Popular public URLs</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Analytics.Infrastructure"></a>
+<h2>Analytics Infrastructure</h2>
+
+<p>The analytics pipeline is one of those systems where the naive approach (write to the database on every click) breaks down quickly. At 100,000 redirects per second, synchronous database writes would immediately overwhelm any relational database. The solution is an asynchronous event-driven pipeline.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Redirect Service];
+B[Kafka Topic click-events];
+C[Analytics Consumer];
+D[Geo Enrichment Service];
+E[Device Parser];
+F[ClickHouse DB];
+G[Dashboard API];
+H[Real-time Dashboard];
+A &#8211;>|Emit Event| B;
+B &#8211;> C;
+C &#8211;> D;
+C &#8211;> E;
+D &#8211;> F;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p><strong>Click event emission</strong> happens immediately after the redirect response is sent. The redirect service publishes a lightweight event to a Kafka topic. The event contains the short code, timestamp, IP address, user agent, referrer, and any other raw request metadata. Publishing to Kafka is fast — it is a fire-and-forget write to a local buffer that Kafka flushes asynchronously.</p>
+
+<p><strong>Kafka as the event backbone</strong> is the right choice here because Kafka provides durable, ordered, replayable event streams. If the analytics consumer goes down, events accumulate in Kafka until the consumer recovers. You can replay events if a downstream system needs to be rebuilt. Multiple consumers can read the same stream independently.</p>
+
+<p><strong>Analytics consumers</strong> read from Kafka, parse the user agent string to extract device type, OS, and browser, call a geo-IP service to resolve the IP address to country and city, and write enriched events to the analytics database. This processing pipeline can run in parallel across many consumer instances.</p>
+
+<p><strong>Aggregation</strong> runs periodically (every minute, every hour) to produce pre-computed summaries: clicks per URL per hour, clicks by country, clicks by device. These aggregated tables are what dashboards query, because querying billions of raw events for every dashboard load would be prohibitively slow.</p>
+
+<p><strong>Real-time dashboards</strong> add complexity. If a user expects to see their click count update in near-real-time, you need to either query the event stream directly (possible with Kafka Streams or Flink) or maintain a hot counter in Redis that gets incremented on every click and is periodically persisted to the database. The Redis counter approach is fast and simple, but you risk losing recent counts if Redis fails before persistence.</p>
+
+<a name="Expiration.and.Cleanup.Systems"></a>
+<h2>Expiration and Cleanup Systems</h2>
+
+<p>Expiring links need careful handling across multiple system layers.</p>
+
+<p>When a short URL has an <code>expires_at</code> timestamp, several things need to happen at expiration time:</p>
+
+<p>The redirect service needs to return a 410 Gone or 404 Not Found response rather than redirecting. The cache entry needs to reflect the expiration. The database entry can eventually be soft-deleted or marked inactive. Storage can be reclaimed by eventually deleting or archiving old records.</p>
+
+<p><strong>TTL propagation</strong> is the tricky part. If you cache a URL mapping in Redis with a TTL of 24 hours, but the URL expires in 2 hours, the Redis entry needs a TTL of 2 hours, not 24. The caching layer must be aware of URL expiration times and set cache TTLs accordingly.</p>
+
+<p><strong>CDN purging</strong> at expiration time is hard to do precisely. If a URL expires at 3:00 PM and you have cached the redirect at the CDN edge with a long TTL, users will continue to get the redirect until the CDN TTL expires. The solution is either to use short CDN TTLs for expiring links, or to call the CDN purge API at expiration time.</p>
+
+<p><strong>Background cleanup workers</strong> handle soft-deletion and storage reclamation. They run periodically, query the database for URLs past their expiration time, mark them inactive, and optionally archive or delete the records. These workers need to be careful not to reclaim short codes that might still be in flight (cached somewhere with a long TTL).</p>
+
+<div class="mermaid">
+flowchart TD;
+
+A[URL Expires];
+B[Expiry Checker Worker];
+C[Mark Inactive in DB];
+D[Evict from Redis Cache];
+E[Purge CDN Cache];
+F[Emit Expiry Event];
+G[Archive Analytics Data];
+
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+B &#8211;> E;
+B &#8211;> F;
+F &#8211;> G;
+
+%% Styles
+style A fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+style B fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+style C fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+style D fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f;
+style E fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95;
+style F fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+style G fill:#ecfccb,stroke:#65a30d,stroke-width:2px,color:#365314;
+
+</div>
+
+
+<a name="Custom.Alias.System"></a>
+<h2>Custom Alias System</h2>
+
+<p>Custom aliases — where a user chooses their own short code — introduce a set of problems that random code generation avoids.</p>
+
+<p><strong>Namespace conflicts</strong> are the core problem. If user A creates <code>company.io/sale</code>, user B cannot also create <code>company.io/sale</code>. The system needs to enforce global uniqueness across all aliases. This is a straightforward database unique constraint, but at scale you want to avoid hot spots on the uniqueness check.</p>
+
+<p><strong>Reserved keywords</strong> must be blocked from use as aliases. Words like <code>admin</code>, <code>api</code>, <code>login</code>, <code>health</code>, <code>static</code>, <code>docs</code>, and similar terms are typically used by the system itself and must be protected. The list of reserved words is surprisingly long when you account for all the paths a web application might use.</p>
+
+<p><strong>Validation</strong> needs to be strict: only alphanumeric characters plus hyphens and underscores, minimum and maximum length, no leading or trailing hyphens, no consecutive hyphens. The alias should be case-insensitive in lookup but case-preserved in display.</p>
+
+<p><strong>Abuse of custom aliases</strong> is a real problem. People will try to register brand names, celebrity names, and other valuable identifiers speculatively. You need both automated detection (keyword lists, brand name lists) and a takedown process.</p>
+
+<a name="Security.and.Abuse.Prevention"></a>
+<h2>Security and Abuse Prevention</h2>
+
+<p>URL shorteners are a uniquely attractive target for abuse. The core feature — hiding the destination URL — is precisely what makes them useful for phishing, malware distribution, and spam. A production shortener needs layered defenses.</p>
+
+<p><strong>Malicious URL scanning</strong> at creation time uses blocklists (Google Safe Browsing, PhishTank) to reject known bad URLs. This is table stakes. More sophisticated systems also scan the destination page content, look at the domain&rsquo;s reputation and age, and use ML classifiers trained on phishing page characteristics.</p>
+
+<p><strong>Rate limiting</strong> on the creation endpoint prevents bulk URL generation. Unauthenticated requests get a very low rate limit (perhaps 10 per minute per IP). Authenticated users get higher limits based on their account tier. API clients get limits based on their API key tier. Rate limiting should happen at the API gateway layer, before requests reach the creation service.</p>
+
+<p><strong>Click fraud detection</strong> matters for analytics integrity. Bot traffic inflating click counts is a common problem. Signals for bot detection include: user agent strings that look like scrapers, IP addresses in known bot ranges, click patterns that are too regular, and clicks without corresponding browser fingerprints. Filtering bot clicks from analytics requires either real-time filtering in the click event pipeline or post-hoc analysis.</p>
+
+<p><strong>Redirect abuse</strong> — using a legitimate shortener to distribute malware — happens when the destination URL changes after shortening. Some systems re-scan destination URLs periodically. Others allow the destination to be reported by users and trigger a rescan. Takedown processes need to be fast; a phishing page that is live for hours causes real harm.</p>
+
+<p><strong>API key abuse</strong> — one API key used across many different clients — is detected by analyzing the diversity of creation patterns, IP addresses, and user agents associated with a single key.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Threat</th>
+        <th>Detection Method</th>
+        <th>Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Phishing links</td>
+        <td>Blocklist + ML classifier</td>
+        <td>Block at creation, periodic rescan</td>
+      </tr>
+      <tr>
+        <td>Malware distribution</td>
+        <td>Safe Browsing API, domain reputation</td>
+        <td>Block creation, takedown existing URLs</td>
+      </tr>
+      <tr>
+        <td>Bulk link generation</td>
+        <td>Rate limiting per IP and API key</td>
+        <td>Hard limits at API gateway</td>
+      </tr>
+      <tr>
+        <td>Bot click inflation</td>
+        <td>User agent, IP reputation, pattern analysis</td>
+        <td>Filter from analytics, flag for review</td>
+      </tr>
+      <tr>
+        <td>Spam campaigns</td>
+        <td>Destination domain clustering</td>
+        <td>Suspend account, block domain</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="CDN.and.Edge.Infrastructure"></a>
+<h2>CDN and Edge Infrastructure</h2>
+
+<p>The CDN layer deserves more attention than it typically gets in system design discussions. Done correctly, a CDN can absorb the vast majority of redirect traffic without any request reaching your servers.</p>
+
+<p>The approach is to push URL mappings to the CDN edge as part of the creation pipeline. When a URL is created, the system can proactively notify edge nodes (via a CDN API or a push invalidation mechanism) that a new mapping exists. Alternatively, edges learn about mappings on first access and cache them for subsequent requests.</p>
+
+<p>Modern CDN platforms (Cloudflare Workers, Lambda@Edge, Fastly Compute) let you run actual code at the edge. You can implement the full redirect logic — cache lookup, TTL check, analytics event emission — at the edge node, completely eliminating round trips to origin servers for cached URLs.</p>
+
+<p><strong>DNS optimization</strong> is another lever. Using a CDN also means your DNS TTL can be set appropriately for geographic routing — short enough to fail over quickly, long enough to avoid excessive DNS lookups.</p>
+
+<p><strong>Regional caching</strong> at the CDN level means that a popular link shared in Europe is served by European edge nodes without touching your US-based origin. This reduces both latency for European users and load on your origin.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>The analytics pipeline illustrates a broader principle: the system uses event-driven architecture to decouple the redirect path from analytics processing.</p>
+
+<p>The redirect service does not care what happens to click events after it emits them. It fires the event and moves on. The analytics consumer does not care about the redirect service&rsquo;s implementation details. The Kafka topic is the contract between them.</p>
+
+<p>This decoupling has practical benefits. You can scale the redirect service and the analytics consumer independently. You can update the analytics pipeline without touching the redirect service. If the analytics system goes down, events accumulate in Kafka and are processed when it recovers — the redirect service is unaffected.</p>
+
+<p><strong>Event durability</strong> means Kafka retains events for a configurable period (days or weeks). If you discover a bug in your analytics processing three days after deployment, you can fix the bug and replay the events to produce correct analytics. This is not possible with a synchronous write-and-forget approach.</p>
+
+<p><strong>Consumer groups</strong> in Kafka let multiple independent consumers read the same event stream. Your analytics pipeline reads the stream. A fraud detection system reads the same stream looking for suspicious patterns. A real-time alerting system reads the stream looking for sudden traffic spikes. All three are independent consumers of the same events, with no coordination between them.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Let us talk about where the bottlenecks actually are at different scales.</p>
+
+<p><strong>At small scale</strong> (thousands of redirects per day), a single server with a database and a Redis instance handles everything comfortably. The bottleneck is usually nothing at all — the system has plenty of headroom.</p>
+
+<p><strong>At medium scale</strong> (millions of redirects per day), the database becomes a concern for reads. Adding read replicas and ensuring the cache hit rate is high (above 95%) keeps the database comfortable. The redirect service can run as multiple stateless instances behind a load balancer.</p>
+
+<p><strong>At large scale</strong> (hundreds of millions of redirects per day), CDN edge caching becomes essential. The cache hit rate needs to be very high (above 99%) because even 1% of traffic reaching your Redis cluster is millions of requests per day. The Redis cluster needs to be horizontally sharded. The analytics pipeline needs dedicated infrastructure.</p>
+
+<p><strong>At extreme scale</strong> (tens of billions of redirects per day, in the league of Bitly at peak), you are running multi-region active-active deployments, purpose-built ID generation infrastructure, globally distributed CDN caching, and dedicated analytics compute clusters. You are also dealing with hotspot URL problems that require per-instance in-process caches.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Bottleneck</th>
+        <th>Symptoms</th>
+        <th>Solution</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Database reads</td>
+        <td>High query latency, replica lag</td>
+        <td>More read replicas, better cache hit rate</td>
+      </tr>
+      <tr>
+        <td>Redis hot keys</td>
+        <td>Single key CPU saturation</td>
+        <td>In-process LRU cache for hottest URLs</td>
+      </tr>
+      <tr>
+        <td>ID generation</td>
+        <td>Contention on counter service</td>
+        <td>Snowflake-style distributed generation</td>
+      </tr>
+      <tr>
+        <td>Analytics writes</td>
+        <td>Queue lag, consumer backpressure</td>
+        <td>More Kafka partitions, more consumers</td>
+      </tr>
+      <tr>
+        <td>CDN cache misses</td>
+        <td>High origin traffic on popular URLs</td>
+        <td>Proactive cache warming, longer CDN TTLs</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>A URL shortener has a reliability characteristic that makes it feel more critical than it is: when it goes down, every short link on the internet that points to it breaks. That creates real pressure on the team to maintain high availability.</p>
+
+<p><strong>Multi-region deployment</strong> means running the redirect service in multiple regions (US East, EU West, AP Southeast) with independent databases and caches. A regional outage affects only users routed to that region. Global traffic routing (via DNS-based geo-routing or CDN) directs users to the nearest healthy region.</p>
+
+<p><strong>Cache as a reliability buffer</strong> is an underappreciated benefit. If your database goes down completely, the Redis cache and CDN cache will continue serving redirects for cached URLs until their TTLs expire. For a heavily trafficked system where most URLs are cached, this might mean the redirect service continues working for hours without a database — long enough to recover.</p>
+
+<p><strong>Graceful degradation</strong> means deciding ahead of time what the system should do when components fail. If the analytics queue is down, should the redirect fail? No — emit a log line and continue. If the malicious URL scanner is down during creation, should creation fail? Maybe — if the scanner is down, you stop accepting new URLs until it recovers, rather than accepting potentially malicious URLs.</p>
+
+<p><strong>Monitoring</strong> needs to cover cache hit rates (a sudden drop indicates a problem), redirect latency percentiles (p50, p99, p999), database query times, Kafka consumer lag, and error rates by type. Alerts should fire before users notice problems, which means setting thresholds below the point of user impact.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>These are the decisions where reasonable engineers disagree, and where the right answer depends on your specific situation.</p>
+
+<p><strong>Sequential IDs vs random codes</strong>: Sequential IDs are simpler and slightly more compact. Random codes prevent enumeration. If your shortener is for internal use, sequential is fine. If it is public-facing and you care about URL privacy, use random codes or Snowflake IDs.</p>
+
+<p><strong>301 vs 302 redirects</strong>: 301 is better for performance and reduces server load over time. 302 is necessary for click tracking. Commercial shorteners almost universally use 302. If you are building an internal tool and do not need analytics, 301 is fine.</p>
+
+<p><strong>Synchronous vs asynchronous analytics</strong>: Synchronous analytics (write to the database before returning the redirect response) guarantees no event loss but adds latency to every redirect. Asynchronous analytics via Kafka risks losing events if the queue fails but adds near-zero latency to redirects. The answer at scale is always asynchronous.</p>
+
+<p><strong>SQL vs NoSQL for URL mappings</strong>: PostgreSQL is simpler to operate and gives you strong consistency. DynamoDB or Cassandra gives you better write throughput and easier horizontal scaling. At small to medium scale, PostgreSQL with read replicas and a caching layer in front is entirely sufficient. At extreme scale, a purpose-built key-value store makes more sense.</p>
+
+<p><strong>Consistency vs availability in caching</strong>: Do you want a cache that reflects reality exactly (always consistent with the database) or one that might serve stale data for some TTL window (eventually consistent)? For URL redirects, eventual consistency is almost always acceptable. For expiring or deleted links, you need faster invalidation, which requires more complexity.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>What does this look like in practice? Here is a realistic technology stack for a production URL shortener.</p>
+
+<p><strong>Go</strong> for the redirect service. Go&rsquo;s performance characteristics — fast startup, low memory overhead, excellent concurrency with goroutines — make it ideal for a high-throughput, low-latency service. Many performance-sensitive web services at companies like Cloudflare and Uber are written in Go for exactly these reasons.</p>
+
+<p><strong>Java or Go</strong> for the creation and management services. These are less latency-sensitive and benefit from rich ecosystems. Java with Spring Boot is a common choice for business logic services.</p>
+
+<p><strong>Redis</strong> for the primary cache. Redis Cluster for horizontal scaling. Redis&rsquo;s built-in TTL support makes it natural for URL expiration. Redis Streams or a separate Kafka cluster for the analytics event queue.</p>
+
+<p><strong>PostgreSQL</strong> for the URL mapping database at medium scale. Well-understood, excellent tooling, strong consistency. Add PgBouncer for connection pooling. Add read replicas for read scaling.</p>
+
+<p><strong>Cassandra or ClickHouse</strong> for analytics data. Cassandra handles high-volume writes well and is operationally straightforward. ClickHouse is exceptional for analytical queries and dashboard workloads.</p>
+
+<p><strong>Kafka</strong> for the analytics event stream. Kafka handles high-throughput, durable event streaming. Kafka&rsquo;s consumer group model makes it easy to add new consumers (fraud detection, real-time alerting) without touching existing consumers.</p>
+
+<p><strong>Kubernetes</strong> for container orchestration. The redirect service, creation service, and analytics consumers all run as Kubernetes deployments with horizontal pod autoscaling. Traffic spikes trigger automatic scale-out.</p>
+
+<p><strong>Cloudflare or Fastly</strong> as the CDN. Both support edge computing (Workers, Compute) for running redirect logic at the edge.</p>
+
+<p><strong>Elasticsearch</strong> for log analysis and abuse detection. Storing and querying structured logs at scale is where Elasticsearch excels.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Technology</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Redirect Service</td>
+        <td>Go</td>
+        <td>Low latency, high concurrency, minimal overhead</td>
+      </tr>
+      <tr>
+        <td>Primary Cache</td>
+        <td>Redis Cluster</td>
+        <td>Sub-millisecond lookups, built-in TTL, horizontal scaling</td>
+      </tr>
+      <tr>
+        <td>URL Mapping DB</td>
+        <td>PostgreSQL + replicas</td>
+        <td>Strong consistency, rich tooling, sufficient for cached reads</td>
+      </tr>
+      <tr>
+        <td>Analytics DB</td>
+        <td>ClickHouse</td>
+        <td>Columnar storage, fast aggregations, high write throughput</td>
+      </tr>
+      <tr>
+        <td>Event Queue</td>
+        <td>Apache Kafka</td>
+        <td>Durable, replayable, high throughput, multiple consumers</td>
+      </tr>
+      <tr>
+        <td>CDN / Edge</td>
+        <td>Cloudflare Workers</td>
+        <td>Edge redirect logic, global distribution, cache purge API</td>
+      </tr>
+      <tr>
+        <td>Orchestration</td>
+        <td>Kubernetes</td>
+        <td>Horizontal autoscaling, service discovery, rolling deployments</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>URL shorteners appear constantly in system design interviews because they cover an enormous range of distributed systems concepts in a problem that is easy to explain and hard to solve at scale.</p>
+
+<p><strong>How interviewers frame the question</strong>: You will hear &ldquo;Design a URL shortening service like Bitly&rdquo; or &ldquo;Design a system that can handle 100 billion short URL redirects per day.&rdquo; The second framing is better because it forces you to think about scale from the start.</p>
+
+<p><strong>What strong candidates do</strong>:</p>
+
+<p>They start by clarifying requirements. How many URLs created per day? How many redirects? Is analytics a hard requirement? What is the acceptable redirect latency? What availability SLA do we need? These questions signal that you understand that architecture follows requirements.</p>
+
+<p>They calculate back-of-envelope numbers before drawing boxes. If you are handling 100 billion redirects per day, that is roughly 1.15 million per second at peak. A single Redis instance can handle ~100,000 operations per second, so you immediately know you need a Redis cluster. Walking through this math shows the interviewer that you reason quantitatively.</p>
+
+<p>They explain the redirect path in detail, because that is where the interesting engineering is. Walk through DNS resolution, CDN edge handling, Redis lookup, database fallback, and the async analytics event. Explain why each layer exists and what it costs to skip it.</p>
+
+<p>They discuss ID generation not as trivia but as a real engineering decision. Why Base62? Why 7 characters? Why Snowflake-style over a simple counter? Each answer connects to a real concern (URL length, global uniqueness, predictability).</p>
+
+<p>They proactively discuss failure modes. What happens if Redis is down? What happens if the analytics queue is full? What happens if the database primary fails during a write? Showing that you think about failure scenarios signals production experience.</p>
+
+<p><strong>Common mistakes</strong>:</p>
+
+<p>Jumping to solutions before establishing requirements. Drawing a database box without discussing SQL vs NoSQL or how you would handle sharding at scale.</p>
+
+<p>Using a 301 redirect without explaining the analytics tradeoff. This is a detail that signals whether someone has actually thought about the problem.</p>
+
+<p>Ignoring the CDN layer entirely. Many candidates design a system where every redirect hits an origin server, which simply does not work at scale.</p>
+
+<p>Treating analytics as an afterthought. At production scale, analytics is a significant engineering investment that deserves its own discussion.</p>
+
+<p>Forgetting about security entirely. URL shorteners are abuse vectors and interviewers will often probe here.</p>
+
+<p><strong>Strong answers explicitly discuss tradeoffs</strong>. Not &ldquo;use Redis&rdquo; but &ldquo;we can use Redis here; the tradeoff is that we need to handle cache invalidation carefully when URLs are deleted or expired.&rdquo; Not &ldquo;use Kafka&rdquo; but &ldquo;Kafka gives us durability and replay capability for click events, which is worth the operational complexity because losing analytics data is not acceptable.&rdquo;</p>
+
+<p>The goal is not to arrive at the one correct architecture — there is no such thing — but to demonstrate that you understand why each component exists, what it costs, what breaks without it, and how you would adapt if the requirements changed.</p>
+
+<p>A URL shortener is a small system that contains large distributed systems problems inside it. When you genuinely understand how it works, you have touched database sharding, distributed caching, event streaming, edge computing, ID generation at scale, and asynchronous pipeline design. That is a lot of ground from a very small URL.</p>
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2026 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div>
+    
+
+
+
+    
+
+
+
+
+<div class="hire hire--unavailable">
+    
+        
+    
+</div>
+
+</div>
+        </div>
+        
+    </div>
+</footer>
+
+
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/how-url-shortener-works/';
+        var disqus_url = 'https://rishijeet.github.io/blog/how-url-shortener-works/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+        <!--adding fancybox -->
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>
