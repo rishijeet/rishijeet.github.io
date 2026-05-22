@@ -4,7 +4,7 @@
     <title><![CDATA[Category: google | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/google/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-21T08:47:20+05:30</updated>
+    <updated>2026-05-22T09:32:44+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -664,37 +664,128 @@ K &#8211;> L;
 
 <div class="mermaid">
 flowchart TD;
+
+%% =========================
+%% Client Layer
+%% =========================
 A[Web and Mobile Clients];
+
+%% =========================
+%% Edge Layer
+%% =========================
 B[CDN Edge Servers];
-C[API Gateway and Load Balancer];
+
+%% =========================
+%% Gateway Layer
+%% =========================
+C[API Gateway and<br/>Load Balancer];
+
+%% =========================
+%% Core Services
+%% =========================
 D[Upload Service];
 E[Streaming Service];
 F[Search Service];
 G[Recommendation Service];
 H[Metadata Service];
 I[Notification Service];
+
+%% =========================
+%% Storage and Infra
+%% =========================
 J[Video Storage GCS];
 K[Transcoding Workers];
 L[Bigtable and Spanner];
 M[Kafka Event Bus];
 N[ML Training Infrastructure];
-A &#8211;> B;
-B &#8211;> C;
+
+%% =========================
+%% Main Flows
+%% =========================
+A &#8211;>|HTTPS Requests| B;
+B &#8211;>|Cache Miss| C;
+
 C &#8211;> D;
 C &#8211;> E;
 C &#8211;> F;
 C &#8211;> G;
 C &#8211;> H;
 C &#8211;> I;
-D &#8211;> K;
-K &#8211;> J;
-K &#8211;> L;
-E &#8211;> J;
-H &#8211;> L;
-M &#8211;> G;
-M &#8211;> I;
-M &#8211;> N;
-G &#8211;> N;
+
+D &#8211;>|Video Upload| K;
+
+K &#8211;>|Encoded Streams| J;
+K &#8211;>|Metadata Update| L;
+
+E &#8211;>|Read Video Segments| J;
+
+H &#8211;>|Store Metadata| L;
+
+M &#8211;>|Events| G;
+M &#8211;>|Events| I;
+M &#8211;>|Training Data| N;
+
+G &#8211;>|Recommendation Signals| N;
+
+%% =========================
+%% Fancy Styles
+%% =========================
+
+%% Clients
+style A fill:#fff7ed,stroke:#f97316,stroke-width:3px,color:#7c2d12;
+
+%% CDN
+style B fill:#ede9fe,stroke:#7c3aed,stroke-width:3px,color:#4c1d95;
+
+%% Gateway
+style C fill:#dbeafe,stroke:#2563eb,stroke-width:4px,color:#1e3a8a;
+
+%% Services
+style D fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style E fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style F fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style G fill:#fecdd3,stroke:#e11d48,stroke-width:3px,color:#881337;
+style H fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style I fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+
+%% Storage
+style J fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#14532d;
+style L fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#14532d;
+
+%% Workers
+style K fill:#fef3c7,stroke:#d97706,stroke-width:3px,color:#78350f;
+
+%% Kafka
+style M fill:#ede9fe,stroke:#7c3aed,stroke-width:4px,color:#4c1d95;
+
+%% ML Infra
+style N fill:#fce7f3,stroke:#db2777,stroke-width:4px,color:#831843;
+
+%% =========================
+%% Link Styling
+%% =========================
+linkStyle 0 stroke:#f97316,stroke-width:2px;
+linkStyle 1 stroke:#7c3aed,stroke-width:2px;
+
+linkStyle 2 stroke:#2563eb,stroke-width:2px;
+linkStyle 3 stroke:#2563eb,stroke-width:2px;
+linkStyle 4 stroke:#2563eb,stroke-width:2px;
+linkStyle 5 stroke:#2563eb,stroke-width:2px;
+linkStyle 6 stroke:#2563eb,stroke-width:2px;
+linkStyle 7 stroke:#2563eb,stroke-width:2px;
+
+linkStyle 8 stroke:#d97706,stroke-width:3px;
+linkStyle 9 stroke:#16a34a,stroke-width:3px;
+linkStyle 10 stroke:#16a34a,stroke-width:3px;
+
+linkStyle 11 stroke:#0891b2,stroke-width:2px;
+
+linkStyle 12 stroke:#7c3aed,stroke-width:3px;
+linkStyle 13 stroke:#dc2626,stroke-width:3px;
+linkStyle 14 stroke:#db2777,stroke-width:3px;
+
+linkStyle 15 stroke:#e11d48,stroke-width:3px;
+
 </div>
 
 
@@ -715,31 +806,118 @@ G &#8211;> N;
 
 <div class="mermaid">
 flowchart TD;
+
+%% =========================
+%% Client Layer
+%% =========================
 A[Creator Client];
+
+%% =========================
+%% Upload Pipeline
+%% =========================
 B[Upload Gateway];
 C[Chunk Validator];
 D[Temporary Object Storage];
 E[Upload Event Queue];
+
+%% =========================
+%% Processing Pipeline
+%% =========================
 F[Virus and Content Scanner];
 G[Metadata Extractor];
 H[Thumbnail Generator];
+
+%% =========================
+%% Transcoding Pipeline
+%% =========================
 I[Transcoding Queue];
 J[Transcoding Workers];
+
+%% =========================
+%% Storage and Indexing
+%% =========================
 K[Permanent Video Storage];
 L[Search Index Updater];
 M[Metadata Database];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-G &#8211;> I;
-I &#8211;> J;
-J &#8211;> K;
-J &#8211;> L;
-J &#8211;> M;
+
+%% =========================
+%% Main Flow
+%% =========================
+A &#8211;>|Upload Video| B;
+
+B &#8211;>|Chunk Stream| C;
+
+C &#8211;>|Validated Chunks| D;
+
+D &#8211;>|Emit Upload Event| E;
+
+E &#8211;>|Async Processing| F;
+
+F &#8211;>|Safe Content| G;
+
+G &#8211;>|Generate Preview| H;
+
+G &#8211;>|Create Encoding Job| I;
+
+I &#8211;>|Distributed Jobs| J;
+
+J &#8211;>|Store Encoded Video| K;
+
+J &#8211;>|Update Search Index| L;
+
+J &#8211;>|Persist Metadata| M;
+
+%% =========================
+%% Styles
+%% =========================
+
+%% Client
+style A fill:#fff7ed,stroke:#f97316,stroke-width:3px,color:#7c2d12;
+
+%% Upload Layer
+style B fill:#dbeafe,stroke:#2563eb,stroke-width:4px,color:#1e3a8a;
+style C fill:#bfdbfe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a;
+
+%% Temporary Storage
+style D fill:#fef3c7,stroke:#d97706,stroke-width:3px,color:#78350f;
+
+%% Queue
+style E fill:#ede9fe,stroke:#7c3aed,stroke-width:4px,color:#4c1d95;
+style I fill:#ede9fe,stroke:#7c3aed,stroke-width:4px,color:#4c1d95;
+
+%% Processing Services
+style F fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#7f1d1d;
+style G fill:#cffafe,stroke:#0891b2,stroke-width:3px,color:#164e63;
+style H fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843;
+
+%% Workers
+style J fill:#fde68a,stroke:#ca8a04,stroke-width:4px,color:#713f12;
+
+%% Final Storage
+style K fill:#dcfce7,stroke:#16a34a,stroke-width:4px,color:#14532d;
+style L fill:#bbf7d0,stroke:#16a34a,stroke-width:2px,color:#14532d;
+style M fill:#bbf7d0,stroke:#16a34a,stroke-width:2px,color:#14532d;
+
+%% =========================
+%% Link Styling
+%% =========================
+linkStyle 0 stroke:#f97316,stroke-width:2px;
+linkStyle 1 stroke:#2563eb,stroke-width:2px;
+linkStyle 2 stroke:#d97706,stroke-width:3px;
+
+linkStyle 3 stroke:#7c3aed,stroke-width:3px;
+linkStyle 4 stroke:#dc2626,stroke-width:3px;
+
+linkStyle 5 stroke:#0891b2,stroke-width:3px;
+linkStyle 6 stroke:#db2777,stroke-width:2px;
+
+linkStyle 7 stroke:#7c3aed,stroke-width:3px;
+linkStyle 8 stroke:#ca8a04,stroke-width:4px;
+
+linkStyle 9 stroke:#16a34a,stroke-width:4px;
+linkStyle 10 stroke:#16a34a,stroke-width:3px;
+linkStyle 11 stroke:#16a34a,stroke-width:3px;
+
 </div>
 
 

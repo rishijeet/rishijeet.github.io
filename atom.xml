@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-21T08:47:20+05:30</updated>
+    <updated>2026-05-22T09:32:44+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,1938 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Google Docs Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-google-docs-works/"/>
+        <updated>2026-05-22T09:20:01+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-google-docs-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>There is a moment every developer takes for granted. You open a Google Doc, your colleague is already in it, and you both start typing at the same time. The cursor moves, text appears, changes propagate in near real-time, and nothing breaks. It just works.</em></p></blockquote>
+
+<p><img src="https://rishijeet.github.io/images/system_design/googledocs-banner.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>What happens underneath that blinking cursor is one of the most sophisticated distributed systems problems in software engineering. You have multiple users modifying shared state simultaneously, across different machines, different networks, different continents. You have to handle network partitions, conflicting edits, stale state, and offline scenarios. You need to guarantee that no matter how chaotic the concurrent editing gets, every user eventually sees the same document in a consistent state.</p>
+
+<p>Google Docs is not just a word processor. It is a distributed system that happens to look like a word processor.</p>
+
+<p>This article is a genuine engineering walkthrough of how Google Docs works internally. We will go through collaborative editing algorithms, real-time synchronization infrastructure, operational transformation, CRDT concepts, version history systems, autosave mechanisms, offline editing, and scalability challenges. By the end, you should have a solid mental model of why the system is designed the way it is, not just what it does.</p>
+
+<a name="What.Makes.Collaborative.Editing.So.Hard"></a>
+<h2>What Makes Collaborative Editing So Hard</h2>
+
+<p>Before we look at how Google Docs solves the problem, it is worth understanding why the problem is hard in the first place.</p>
+
+<!--more-->
+
+
+<p>Imagine two engineers, Priya and Amos, both editing a document at the same time. The document currently reads: <code>Hello World</code></p>
+
+<p>Priya inserts <code>Beautiful</code> after <code>Hello</code>, turning it into <code>Hello Beautiful World</code>. At the same moment, Amos deletes <code>World</code> from the end, intending to turn it into <code>Hello</code>. Both operations are generated at the same timestamp. They hit the server in some order.</p>
+
+<p>If you apply Amos&rsquo;s delete first and then Priya&rsquo;s insert, you get <code>Hello Beautiful</code>. If you apply Priya&rsquo;s insert first and then Amos&rsquo;s delete, you also get <code>Hello Beautiful</code>. Great, same result in this case.</p>
+
+<p>But now change the scenario slightly. Amos deletes the character at position 6, which is <code>W</code>. Priya inserts two characters at position 5. Now Amos&rsquo;s deletion index is off because Priya&rsquo;s insertion shifted everything. If you apply these naively, Amos ends up deleting the wrong character. The document is now corrupt. Nobody explicitly made an error, but the system failed.</p>
+
+<p>This is the essence of the concurrent editing problem. Operations that look valid in isolation become invalid when applied after another operation has changed the document state they were generated against. And at scale, with hundreds of users editing documents with millions of characters, the number of potential conflicts explodes.</p>
+
+<p>Solving this requires more than clever programming. It requires a formally correct algorithm that can take two operations generated against the same document state and produce a pair of transformed operations that, when applied in any order, always produce the same result. That algorithm is called Operational Transformation.</p>
+
+<a name="Core.Features.of.Google.Docs"></a>
+<h2>Core Features of Google Docs</h2>
+
+<p>Before going deep into the internals, it helps to enumerate what the system actually has to do:</p>
+
+<ul>
+<li>Real-time collaborative editing where multiple users can type simultaneously and see each other&rsquo;s changes within milliseconds</li>
+<li>Autosave that continuously persists document state so that a browser crash loses at most a few seconds of work</li>
+<li>Complete version history that lets any user rewind the document to any point in time</li>
+<li>Live cursor and selection presence so you can see where your collaborators are working</li>
+<li>Comments, suggestions mode, and inline annotations</li>
+<li>Offline editing where you can keep working without internet and have changes synchronized when you reconnect</li>
+<li>Sharing and permission systems that range from private to publicly editable</li>
+<li>Multi-device editing so you can start on a laptop and continue on a phone</li>
+<li>Document recovery in the event of catastrophic failure</li>
+</ul>
+
+
+<p>Each of these features is nontrivial on its own. Together, they form an interconnected system where changes in one component ripple through every other. Let us look at the architecture before going into each area in depth.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>The system broadly separates into client-side state management, real-time synchronization infrastructure, backend services, and durable storage. Here is how the main components interact:</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% =========================
+%% Client Layer
+%% =========================
+A[Browser Client];
+B[Mobile Client];
+
+%% =========================
+%% Gateway Layer
+%% =========================
+C[API Gateway];
+
+%% =========================
+%% Core Collaboration Services
+%% =========================
+D[Document Service];
+E[Collaboration Server];
+F[Operational Transform Engine];
+G[Presence Service];
+H[Version History Service];
+I[Notification Service];
+J[Offline Sync Service];
+
+%% =========================
+%% Storage and Infrastructure
+%% =========================
+K[Active Document Cache];
+L[Document Store];
+M[Operation Log];
+N[Revision Store];
+O[Presence Store];
+P[Event Streaming Bus];
+
+%% =========================
+%% Client Requests
+%% =========================
+A &#8211;>|HTTPS / WebSocket| C;
+B &#8211;>|HTTPS / WebSocket| C;
+
+%% =========================
+%% Gateway Routing
+%% =========================
+C &#8211;>|Document APIs| D;
+C &#8211;>|Realtime Collaboration| E;
+
+%% =========================
+%% Collaboration Engine
+%% =========================
+E &#8211;>|Concurrent Edit Events| F;
+E &#8211;>|User Presence Updates| G;
+E &#8211;>|Emit Collaboration Events| P;
+
+%% =========================
+%% Document Storage
+%% =========================
+D &#8211;>|Hot Active Documents| K;
+D &#8211;>|Persist Documents| L;
+
+%% =========================
+%% Operational Logs
+%% =========================
+F &#8211;>|Append Operations| M;
+
+%% =========================
+%% Versioning
+%% =========================
+H &#8211;>|Store Revisions| N;
+
+%% =========================
+%% Presence Tracking
+%% =========================
+G &#8211;>|Online User State| O;
+
+%% =========================
+%% Event Driven Services
+%% =========================
+P &#8211;>|Document Revision Events| H;
+P &#8211;>|Realtime Notifications| I;
+P &#8211;>|Offline Sync Events| J;
+
+%% =========================
+%% Styles
+%% =========================
+
+%% Clients
+style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style B fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+
+%% Gateway
+style C fill:#0891b2,stroke:#0e7490,stroke-width:5px,color:#ffffff;
+
+%% Core Services
+style D fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style G fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style H fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style I fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style J fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+
+%% Collaboration Engine
+style E fill:#7c3aed,stroke:#5b21b6,stroke-width:5px,color:#ffffff;
+style F fill:#8b5cf6,stroke:#6d28d9,stroke-width:5px,color:#ffffff;
+
+%% Cache
+style K fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#000000;
+
+%% Storage
+style L fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+style M fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+style N fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+style O fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+
+%% Event Bus
+style P fill:#dc2626,stroke:#991b1b,stroke-width:5px,color:#ffffff;
+
+%% =========================
+%% Link Styling
+%% =========================
+
+%% Client Connections
+linkStyle 0 stroke:#2563eb,stroke-width:3px;
+linkStyle 1 stroke:#2563eb,stroke-width:3px;
+
+%% Gateway Routing
+linkStyle 2 stroke:#0891b2,stroke-width:3px;
+linkStyle 3 stroke:#0891b2,stroke-width:3px;
+
+%% Collaboration Flows
+linkStyle 4 stroke:#7c3aed,stroke-width:4px;
+linkStyle 5 stroke:#16a34a,stroke-width:3px;
+linkStyle 6 stroke:#dc2626,stroke-width:4px;
+
+%% Storage Flows
+linkStyle 7 stroke:#f59e0b,stroke-width:4px;
+linkStyle 8 stroke:#9333ea,stroke-width:4px;
+
+%% Operation Logs
+linkStyle 9 stroke:#8b5cf6,stroke-width:4px;
+
+%% Revision Store
+linkStyle 10 stroke:#16a34a,stroke-width:3px;
+
+%% Presence
+linkStyle 11 stroke:#16a34a,stroke-width:3px;
+
+%% Event Driven Services
+linkStyle 12 stroke:#dc2626,stroke-width:3px;
+linkStyle 13 stroke:#dc2626,stroke-width:3px;
+linkStyle 14 stroke:#dc2626,stroke-width:3px;
+
+</div>
+
+
+<p>The API Gateway handles authentication, rate limiting, and routing. Document Service manages CRUD operations on document metadata and content. The Collaboration Server is the heart of real-time editing. It maintains persistent WebSocket connections, routes operations between users sharing a document, and drives the OT engine. The Presence Service handles cursor positions, user avatars, and active session tracking. The Version History Service asynchronously processes the operation log and creates navigable revision snapshots.</p>
+
+<p>Active documents live in a distributed in-memory cache for fast reads. The Operation Log is an append-only record of every mutation. The Document Store holds the current authoritative document state. The Revision Store holds compressed snapshots for version history.</p>
+
+<a name="Real-Time.Collaborative.Editing.Pipeline"></a>
+<h2>Real-Time Collaborative Editing Pipeline</h2>
+
+<p>This is where the interesting engineering happens. Let us trace what happens from the moment you press a key to when your collaborator sees the change.</p>
+
+<div class="mermaid">
+flowchart TD;
+    A[User Presses Key];
+    B[Local State Update];
+    C[Operation Generated];
+    D[Optimistic UI Applied];
+    E[Operation Queued];
+    F[WebSocket Send];
+    G[Collaboration Server Receives];
+    H[OT Engine Transforms];
+    I[Operation Applied to Doc State];
+    J[Operation Logged];
+    K[Broadcast to Other Clients];
+    L[Other Clients Transform and Apply];
+
+    A &#8211;> B;
+    B &#8211;> C;
+    C &#8211;> D;
+    D &#8211;> E;
+    E &#8211;> F;
+    F &#8211;> G;
+    G &#8211;> H;
+    H &#8211;> I;
+    I &#8211;> J;
+    J &#8211;> K;
+    K &#8211;> L;
+
+    classDef action fill:#2563eb,stroke:#1e40af,color:#ffffff;
+    classDef local fill:#16a34a,stroke:#166534,color:#ffffff;
+    classDef server fill:#7c3aed,stroke:#5b21b6,color:#ffffff;
+    classDef storage fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+
+    class A,B,C,D,E action;
+    class F local;
+    class G,H,I,J,K server;
+    class L local;
+</div>
+
+
+<p>When you press a key, the client does not wait for server confirmation. It applies the change locally immediately. This is called an optimistic update and it is the reason editing feels instantaneous. If the client had to wait for the server before updating the display, the latency would be noticeable and the experience would feel sluggish.</p>
+
+<p>The operation is serialized and placed in a send queue. The WebSocket connection picks it up and sends it to the Collaboration Server, where the OT Engine takes over.</p>
+
+<p>The OT Engine receives the operation with a revision number. The revision number tells the server which version of the document the client was looking at when it generated the operation. If the server has processed operations since that revision, the incoming operation must be transformed against those intermediate operations before it can be safely applied.</p>
+
+<p>Once transformed, the operation is applied to the in-memory document state, appended to the operation log, and broadcast to all other connected clients. Those clients run their own local transformation to reconcile the incoming operation with any local pending operations they have not yet received confirmation for.</p>
+
+<p>The key insight is that every participant maintains a queue of sent-but-unacknowledged operations. When a remote operation arrives, the client transforms it against that queue to figure out what it means in the context of the current local state.</p>
+
+<a name="Operational.Transformation.Deep.Dive"></a>
+<h2>Operational Transformation Deep Dive</h2>
+
+<p>Operational Transformation is the algorithm that makes concurrent editing mathematically safe. The core idea is that instead of sending document snapshots, you send operations that describe mutations, and when those operations need to be applied in a different context than they were generated in, you transform them to account for that difference.</p>
+
+<p>An operation is typically one of a small set of types:</p>
+
+<ul>
+<li>Insert(position, content): Insert content at a given character position</li>
+<li>Delete(position, length): Delete a run of characters starting at a position</li>
+<li>Retain(length): Skip over a number of characters without changing them</li>
+</ul>
+
+
+<p>The critical property that OT must satisfy is called the TP1 convergence property. If two operations O1 and O2 are generated against the same document state, then applying O1 followed by Transform(O2, O1) must produce the same result as applying O2 followed by Transform(O1, O2). In other words, the order of application must not matter as long as transformations are applied correctly.</p>
+
+<p>Let us walk through a concrete example.</p>
+
+<p>The document contains: <code>abcdef</code></p>
+
+<p>User A generates Insert(2, &ldquo;XY&rdquo;) creating: <code>abXYcdef</code>
+User B generates Delete(3, 2) against the original, intending to delete <code>cd</code>: <code>abef</code></p>
+
+<p>Now these operations arrive at the server in the order A then B. A is applied: <code>abXYcdef</code>. Now B needs to be transformed against A before application. A inserted 2 characters at position 2. B&rsquo;s delete was at position 3. Since position 3 is after position 2, B&rsquo;s delete position must shift right by the number of characters A inserted: Delete(5, 2). Apply that to <code>abXYcdef</code> and you get <code>abXYef</code>. Correct.</p>
+
+<p>If they arrive in order B then A: B is applied to <code>abcdef</code> giving <code>abef</code>. Now A needs to be transformed against B. A inserted at position 2. B deleted from position 3. Since position 3 is after position 2, A&rsquo;s insert position is not affected. Apply Insert(2, &ldquo;XY&rdquo;) to <code>abef</code> giving <code>abXYef</code>. Same result.</p>
+
+<p>This works for simple cases, but real documents have complex nested operations, rich text formatting, lists, tables, embedded objects, and simultaneous changes from dozens of users. The transformation functions for each operation type must handle every possible combination of overlapping operations. Getting this right is notoriously difficult.</p>
+
+<p>There are also ordering problems. The server imposes a total order on operations. Every client must eventually apply operations in that order. But clients may have locally applied operations that are not yet acknowledged. Those must be transformed against every server-acknowledged operation that arrives while they are still pending.</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% =========================
+%% Initial Client States
+%% =========================
+A[Client A State<br/>Revision 5];
+B[Client B State<br/>Revision 5];
+
+%% =========================
+%% Concurrent Operations
+%% =========================
+C[Client A Generates<br/>Operation A at Rev 5];
+
+D[Client B Generates<br/>Operation B at Rev 5];
+
+%% =========================
+%% Server Processing
+%% =========================
+E[Server Receives<br/>Operation A First];
+
+F[Apply Operation A<br/>Document becomes Rev 6];
+
+G[Server Receives<br/>Operation B at Rev 5];
+
+H[OT Engine Transforms<br/>Operation B against Operation A];
+
+I[Apply Transformed Operation B<br/>Document becomes Rev 7];
+
+%% =========================
+%% Broadcast Phase
+%% =========================
+J[Broadcast Operation A<br/>to Client B];
+
+K[Broadcast Transformed Operation B<br/>to Client A];
+
+%% =========================
+%% Client Reconciliation
+%% =========================
+L[Client A Receives Operation B<br/>Transforms against Pending Ops];
+
+M[Client B Receives Operation A<br/>Applies Directly];
+
+%% =========================
+%% Main Flow
+%% =========================
+A &#8211;>|Local Edit| C;
+
+B &#8211;>|Local Edit| D;
+
+C &#8211;>|Send to Server| E;
+
+D &#8211;>|Send to Server| G;
+
+E &#8211;>|Server Processing| F;
+
+F &#8211;>|Current Revision = 6| H;
+
+G &#8211;>|Incoming Older Revision| H;
+
+H &#8211;>|Operational Transform| I;
+
+%% =========================
+%% Broadcast Updates
+%% =========================
+I &#8211;>|Sync Peers| J;
+
+I &#8211;>|Sync Peers| K;
+
+%% =========================
+%% Client Sync
+%% =========================
+J &#8211;>|Apply Remote Edit| M;
+
+K &#8211;>|Reconcile Local Pending Changes| L;
+
+%% =========================
+%% Fancy Styles
+%% =========================
+
+%% Clients
+style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style B fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+
+%% Operations
+style C fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style D fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+
+%% Server and OT Engine
+style E fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff;
+style F fill:#8b5cf6,stroke:#6d28d9,stroke-width:5px,color:#ffffff;
+style G fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff;
+style H fill:#ec4899,stroke:#be185d,stroke-width:6px,color:#ffffff;
+style I fill:#a855f7,stroke:#7e22ce,stroke-width:5px,color:#ffffff;
+
+%% Broadcast and Client Sync
+style J fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#000000;
+style K fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#000000;
+
+style L fill:#06b6d4,stroke:#0e7490,stroke-width:4px,color:#ffffff;
+style M fill:#06b6d4,stroke:#0e7490,stroke-width:4px,color:#ffffff;
+
+%% =========================
+%% Link Styling
+%% =========================
+
+%% Local Operations
+linkStyle 0 stroke:#2563eb,stroke-width:3px;
+linkStyle 1 stroke:#2563eb,stroke-width:3px;
+
+%% Send Operations
+linkStyle 2 stroke:#16a34a,stroke-width:4px;
+linkStyle 3 stroke:#16a34a,stroke-width:4px;
+
+%% Server Processing
+linkStyle 4 stroke:#7c3aed,stroke-width:4px;
+linkStyle 5 stroke:#8b5cf6,stroke-width:4px;
+linkStyle 6 stroke:#7c3aed,stroke-width:4px;
+linkStyle 7 stroke:#ec4899,stroke-width:5px;
+
+%% Broadcast Phase
+linkStyle 8 stroke:#f59e0b,stroke-width:4px;
+linkStyle 9 stroke:#f59e0b,stroke-width:4px;
+
+%% Client Reconciliation
+linkStyle 10 stroke:#06b6d4,stroke-width:4px;
+linkStyle 11 stroke:#06b6d4,stroke-width:4px;
+
+</div>
+
+
+<p>Google&rsquo;s approach, as documented in academic papers from the Wave project, also deals with a second property called TP2, which is needed when you have more than two clients. TP2 says that transforming O3 against O1 and then O2 must give the same result as transforming O3 against the composition of O1 followed by O2. Not all OT algorithms satisfy TP2, and the ones that do tend to be more complex. Google&rsquo;s system uses a server-based transformation model where the server acts as the arbiter of operation order, which simplifies the requirements compared to peer-to-peer OT.</p>
+
+<a name="CRDT.Concepts.and.Comparison"></a>
+<h2>CRDT Concepts and Comparison</h2>
+
+<p>Operational Transformation is not the only approach to conflict-free collaborative editing. Conflict-free Replicated Data Types, or CRDTs, take a fundamentally different angle.</p>
+
+<p>Where OT says &ldquo;I will transform your operation to account for mine,&rdquo; CRDTs say &ldquo;I will design the data structure such that merging any two states always produces the same result, regardless of order.&rdquo; The conflict resolution is baked into the data type itself rather than into a separate algorithm.</p>
+
+<p>The most well-known CRDT for collaborative text is LSEQ or RGA (Replicated Growable Array). Instead of character positions (which are fragile under concurrent inserts), each character gets a globally unique identifier that encodes its intended position relative to its neighbors. When characters are deleted, they are typically tombstoned rather than removed, so that position references do not become invalid.</p>
+
+<p>Because each operation is self-describing and idempotent, you do not need a central server to impose operation ordering. Operations can travel through the network in any order and still converge. This makes CRDTs naturally suited for peer-to-peer and decentralized systems.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Operational Transformation</th>
+        <th>CRDT</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Conflict resolution</td>
+        <td>Algorithmic transformation of operations</td>
+        <td>Embedded in data structure design</td>
+      </tr>
+      <tr>
+        <td>Ordering requirement</td>
+        <td>Requires central server for total order</td>
+        <td>Works without ordering guarantees</td>
+      </tr>
+      <tr>
+        <td>Memory overhead</td>
+        <td>Lower; characters are regular positions</td>
+        <td>Higher; tombstones and unique IDs accumulate</td>
+      </tr>
+      <tr>
+        <td>Implementation complexity</td>
+        <td>Complex transformation functions</td>
+        <td>Complex data structure management</td>
+      </tr>
+      <tr>
+        <td>Network topology</td>
+        <td>Typically hub-and-spoke via server</td>
+        <td>Supports peer-to-peer naturally</td>
+      </tr>
+      <tr>
+        <td>Deletion semantics</td>
+        <td>Clean position-based deletions</td>
+        <td>Tombstone-based, can accumulate garbage</td>
+      </tr>
+      <tr>
+        <td>Offline support</td>
+        <td>Requires careful operation queuing</td>
+        <td>Native; merge on reconnect</td>
+      </tr>
+      <tr>
+        <td>Rich text support</td>
+        <td>Mature, well-studied</td>
+        <td>More complex; less standardized</td>
+      </tr>
+      <tr>
+        <td>Production adoption</td>
+        <td>Google Docs, Etherpad</td>
+        <td>Figma, Notion, Automerge-based systems</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Google Docs uses OT rather than CRDTs for historical reasons and because OT&rsquo;s server-centric model fits naturally with the rest of its infrastructure. Systems like Figma and some newer collaborative tools use CRDTs because the peer-to-peer properties simplify certain scaling concerns.</p>
+
+<p>The honest engineering answer is that neither is strictly superior. CRDTs trade memory and garbage collection complexity for ordering flexibility. OT trades centralized ordering requirements for cleaner memory semantics and well-understood algorithms for rich text.</p>
+
+<a name="Real-Time.Synchronization.Infrastructure"></a>
+<h2>Real-Time Synchronization Infrastructure</h2>
+
+<p>The synchronization layer is what makes the collaborative editing experience feel live. The foundation is WebSockets.</p>
+
+<p>HTTP was designed for request-response. For real-time collaboration, you need a persistent, bidirectional channel where both the client and server can push messages at any time. WebSockets provide this. When you open a Google Doc, the browser establishes a WebSocket connection to a Collaboration Server. That connection stays open as long as you have the document open.</p>
+
+<p>The Collaboration Server maintains a room for each active document. Every client session connected to the same document is part of the same room. When the server receives a transformed operation, it broadcasts it to all other sessions in the room. This is the broadcast step in the pipeline we saw earlier.</p>
+
+<div class="mermaid">
+flowchart TD;
+    A[Client A WebSocket];
+    B[Client B WebSocket];
+    C[Client C WebSocket];
+    D[Collaboration Server Room];
+    E[OT Engine];
+    F[Operation Log];
+    G[In-Memory Doc State];
+
+    A &#8211;>|op at rev 12| D;
+    D &#8211;> E;
+    E &#8211;> G;
+    G &#8211;> F;
+    D &#8211;>|transformed op| B;
+    D &#8211;>|transformed op| C;
+
+    classDef client fill:#2563eb,stroke:#1e40af,color:#ffffff;
+    classDef server fill:#7c3aed,stroke:#5b21b6,color:#ffffff;
+    classDef storage fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+
+    class A,B,C client;
+    class D,E server;
+    class F,G storage;
+</div>
+
+
+<p>One of the trickier problems is what happens when a client disconnects and reconnects. The client may have been offline for anywhere from a few seconds to several minutes. During that time, the document may have advanced many revisions. The client has a queue of locally generated operations that were never acknowledged.</p>
+
+<p>On reconnect, the client sends its pending operations along with the last revision it acknowledges. The server replays all operations that happened since that revision, transforms the client&rsquo;s pending operations against that history, and sends back the catch-up state. The client discards its optimistic local state and applies the authoritative reconciled state.</p>
+
+<p>This reconnection protocol is one of the places where bugs most commonly lurk in collaborative editing systems. Edge cases include clients reconnecting in the middle of a server broadcast, operations that were partially received before disconnection, and clock skew between client and server revision numbering.</p>
+
+<p>Presence information, meaning cursor positions and user avatars, travels through the same WebSocket channel but is treated differently. Cursor updates are high-frequency but low-stakes. If a cursor position update is lost, the worst outcome is a slightly stale cursor display. So cursor updates are sent at a throttled rate and are not guaranteed to be delivered or applied in order. They are independent of the operation transformation pipeline.</p>
+
+<a name="Presence.and.Cursor.Tracking.Systems"></a>
+<h2>Presence and Cursor Tracking Systems</h2>
+
+<p>When you see your colleague&rsquo;s colored cursor blinking a few paragraphs above yours, that involves a surprisingly subtle set of engineering decisions.</p>
+
+<p>The naive approach is to send cursor position as a document character offset. But character offsets are fragile under concurrent edits. If Priya inserts 50 characters before Amos&rsquo;s cursor position, Amos&rsquo;s cursor would appear to jump 50 characters forward if you are not tracking this. The cursor position must be transformed through the same operation pipeline as edits, or maintained as a reference to a document anchor rather than an absolute offset.</p>
+
+<p>Presence updates are rate-limited and batched. If you are typing quickly, your cursor position changes on every keystroke, but the system does not send a presence update for every character. It batches updates and sends at most a few times per second. This dramatically reduces the network traffic for active sessions.</p>
+
+<p>The Presence Service uses a separate in-memory store, typically a Redis cluster, to hold current cursor state for all active sessions. Reads are fast. State is ephemeral. If the Redis node goes down, cursor presence is lost, but nobody&rsquo;s document is corrupted.</p>
+
+<p>User avatars and names are resolved from the identity service and cached on the collaboration server. When a new user joins a document session, the server sends a presence join event to all other clients in the room so that avatars appear instantly.</p>
+
+<a name="Version.History.System"></a>
+<h2>Version History System</h2>
+
+<p>One of the most underappreciated parts of Google Docs is that it stores the complete editing history of every document. You can rewind a five-year-old document to see exactly what it looked like at any moment. This is a non-trivial storage and systems problem.</p>
+
+<p>The simplest approach would be to snapshot the document on every save. But documents change hundreds of times per editing session. Storing a full snapshot each time would be enormously wasteful. A document that is a few kilobytes of text would accumulate gigabytes of history.</p>
+
+<p>The practical approach is a combination of operation logs and periodic snapshots.</p>
+
+<p>Every operation that is applied to a document is appended to the operation log in durable storage. This log is the ground truth for document history. To reconstruct the document at any point in time, you can replay the log from the beginning up to the desired timestamp. But replaying millions of operations is expensive, so the system also maintains periodic snapshots.</p>
+
+<div class="mermaid">
+flowchart TD;
+    A[Operation Applied];
+    B[Append to Operation Log];
+    C[Update In-Memory State];
+    D[Snapshot Trigger Check];
+    E[Every N Operations or T Time];
+    F[Serialize Current Doc State];
+    G[Compress and Store Snapshot];
+    H[Tag Snapshot with Rev Number];
+    I[Version History Index Updated];
+
+    A &#8211;> B;
+    A &#8211;> C;
+    B &#8211;> D;
+    D &#8211;> E;
+    E &#8211;> F;
+    F &#8211;> G;
+    G &#8211;> H;
+    H &#8211;> I;
+
+    classDef op fill:#2563eb,stroke:#1e40af,color:#ffffff;
+    classDef storage fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+    classDef snapshot fill:#16a34a,stroke:#166534,color:#ffffff;
+    classDef index fill:#f59e0b,stroke:#b45309,color:#000000;
+
+    class A,B op;
+    class C,D storage;
+    class E,F,G snapshot;
+    class H,I index;
+</div>
+
+
+<p>A snapshot is created every N operations (where N might be something like 100 or 500) or every T minutes, whichever comes first. To look up the document state at revision R, the system finds the most recent snapshot at or before revision R, loads that snapshot, and then replays only the operations between the snapshot and R. Instead of replaying 10 million operations, you might replay at most a few hundred.</p>
+
+<p>Snapshots are stored compressed. Plain text documents compress extraordinarily well because text has high redundancy. Even rich-text documents with formatting metadata compress well using standard algorithms like Brotli or Zstandard.</p>
+
+<p>The version history UI in Google Docs also groups changes into named milestones. These are user-created or automatically generated labels attached to specific revisions in the snapshot index. The underlying storage is the same; it just has a human-readable tag attached.</p>
+
+<p>Restoring a document to a previous version is implemented as applying a new operation that replaces the current document state with the historical snapshot. This means restoring is also tracked in the operation log, so you can undo a restore.</p>
+
+<a name="Autosave.Architecture"></a>
+<h2>Autosave Architecture</h2>
+
+<p>The autosave system has a deceptively simple job: make sure that if your browser crashes or your laptop loses power, you lose as little work as possible. In practice, building a reliable autosave is harder than it looks.</p>
+
+<p>Google Docs does not save on a timer the way older applications do. It saves continuously. Every operation that the client sends to the server is also persisted in the operation log on the server side. So in a sense, the document is saved every few hundred milliseconds as you type, because that is how often operations are flushed from the client to the server.</p>
+
+<p>But what about the window between your keystroke and the server acknowledging receipt? That is where local persistence comes in.</p>
+
+<p>The client maintains a local buffer of pending operations in memory. For offline support, which we will get to, these are also written to IndexedDB in the browser. If the tab crashes or the browser closes unexpectedly, the next time you open the document, the client can detect that there are unrecorded local operations and attempt to replay them.</p>
+
+<p>The server-side autosave pipeline is event-driven. Each accepted operation triggers a write to the operation log. The operation log is the durable record. The document&rsquo;s in-memory state in the cache is rebuilt from this log. If the Collaboration Server crashes, another server picks up the document and loads state from the operation log and the most recent snapshot. Recovery is fast because the log is append-only and the snapshot is always consistent.</p>
+
+<p>The frequency of autosave creates an interesting tradeoff. Saving more frequently means less data loss on failure, but it also means more write load on the operation log store. Google&rsquo;s approach of making every operation an atomic log append gives you continuous persistence without creating artificial batch saves at arbitrary intervals.</p>
+
+<a name="Offline.Editing.and.Synchronization"></a>
+<h2>Offline Editing and Synchronization</h2>
+
+<p>Offline editing is one of those features that sounds like a nice-to-have until you lose your internet on a train and realize you were in the middle of writing something important.</p>
+
+<p>When you go offline, the client detects this through WebSocket disconnection and network change events. From that point, edits continue to be applied locally. The client generates operations as you type, applies them to the local in-memory document state, and queues them in IndexedDB for durability. The local editing experience is indistinguishable from online editing.</p>
+
+<p>When you reconnect, the client sends all queued operations to the server with the revision number they were generated against. If the document has not changed on the server while you were offline, the operations apply cleanly. If other collaborators made changes while you were disconnected, the OT engine transforms your operations against theirs, and the reconciliation proceeds as in the normal concurrent editing case.</p>
+
+<p>The tricky scenarios are longer offline periods where the operation queue grows large, or where the underlying document structure changed dramatically while you were offline. Imagine you went offline and wrote a whole new section, and while you were offline someone else deleted the section you were writing in. The reconciliation has to handle that gracefully without losing either person&rsquo;s intent.</p>
+
+<p>Google&rsquo;s approach here is to replay all queued operations through the OT engine against the server&rsquo;s accumulated state since the last known good revision. The result might not always be exactly what either party intended in a semantic sense, but it will always produce a valid, consistent document state. The system prioritizes correctness over always guessing the right human intent.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>The data layer of a system like this has to make hard choices about consistency, throughput, and operational simplicity.</p>
+
+<p>Documents in Google Docs are not simple blobs. They have rich structure: paragraphs, headings, lists, tables, inline images, comments, suggestions, and formatting spans. The internal representation is more like a structured tree than raw text. Operations in the OT log describe mutations to this tree, not just plain text positions.</p>
+
+<p>A simplified view of the storage schema looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- Core document metadata</span>
+</span><span class='line'><span class="n">documents</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">doc_id</span>        <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">owner_id</span>      <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">title</span>         <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">created_at</span>    <span class="k">TIMESTAMP</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">updated_at</span>    <span class="k">TIMESTAMP</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">current_rev</span>   <span class="nb">BIGINT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">is_deleted</span>    <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Append-only operation log</span>
+</span><span class='line'><span class="n">document_operations</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">op_id</span>         <span class="n">UUID</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+</span><span class='line'>  <span class="n">doc_id</span>        <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">revision</span>      <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">author_id</span>     <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="k">operation</span>     <span class="n">BYTEA</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>  <span class="c1">-- serialized protobuf</span>
+</span><span class='line'>  <span class="n">applied_at</span>    <span class="k">TIMESTAMP</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">doc_id</span><span class="p">,</span> <span class="n">revision</span><span class="p">)</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Periodic snapshots for fast history access</span>
+</span><span class='line'><span class="n">revisions</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">revision_id</span>   <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">doc_id</span>        <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">revision</span>      <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">snapshot_data</span> <span class="n">BYTEA</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>  <span class="c1">-- compressed serialized state</span>
+</span><span class='line'>  <span class="n">created_at</span>    <span class="k">TIMESTAMP</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">label</span>         <span class="nb">TEXT</span>  <span class="c1">-- optional named version</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Comments and threads</span>
+</span><span class='line'><span class="n">comments</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">comment_id</span>    <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">doc_id</span>        <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">author_id</span>     <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">anchor_start</span>  <span class="nb">BIGINT</span><span class="p">,</span>  <span class="c1">-- character offset when comment was created</span>
+</span><span class='line'>  <span class="n">anchor_end</span>    <span class="nb">BIGINT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">content</span>       <span class="nb">TEXT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">resolved</span>      <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">created_at</span>    <span class="k">TIMESTAMP</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">parent_id</span>     <span class="n">UUID</span>  <span class="c1">-- for threaded replies</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Permissions and sharing</span>
+</span><span class='line'><span class="n">permissions</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">doc_id</span>        <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">principal_id</span>  <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>  <span class="c1">-- user or group</span>
+</span><span class='line'>  <span class="n">principal_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">16</span><span class="p">),</span>   <span class="c1">-- user, group, domain, public</span>
+</span><span class='line'>  <span class="k">role</span>          <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">16</span><span class="p">),</span>    <span class="c1">-- viewer, commenter, editor, owner</span>
+</span><span class='line'>  <span class="n">granted_at</span>    <span class="k">TIMESTAMP</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">granted_by</span>    <span class="n">UUID</span><span class="p">,</span>
+</span><span class='line'>  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">doc_id</span><span class="p">,</span> <span class="n">principal_id</span><span class="p">)</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Active presence sessions</span>
+</span><span class='line'><span class="n">presence_sessions</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">session_id</span>    <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">doc_id</span>        <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">user_id</span>       <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">cursor_pos</span>    <span class="nb">BIGINT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">selection_end</span> <span class="nb">BIGINT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">last_seen</span>     <span class="k">TIMESTAMP</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">connection_id</span> <span class="nb">TEXT</span>
+</span><span class='line'><span class="p">)</span>
+</span></code></pre></div></figure>
+
+
+<p>The <code>document_operations</code> table is the most write-intensive table in the system. It must support high-throughput sequential appends and fast range reads by <code>(doc_id, revision)</code>. This is a natural fit for a time-series or log-oriented storage engine. Google&rsquo;s internal systems would use Bigtable or Spanner for this, where rows can be stored in sorted key order and range scans are efficient.</p>
+
+<p>The <code>revisions</code> table is read-heavy during version history navigation and write-infrequent during normal editing. Snapshots are typically stored in an object store like Google Cloud Storage with metadata indexed in Spanner.</p>
+
+<p>The <code>presence_sessions</code> table is updated constantly during active editing and should live in a low-latency cache layer like Redis rather than durable storage. Presence state is inherently ephemeral.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Storage Layer</th>
+        <th>Technology</th>
+        <th>Consistency Level</th>
+        <th>Primary Concern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Operation Log</td>
+        <td>Spanner / Bigtable</td>
+        <td>Strong, serializable</td>
+        <td>Append throughput, range read speed</td>
+      </tr>
+      <tr>
+        <td>Document Metadata</td>
+        <td>Spanner</td>
+        <td>Strong</td>
+        <td>Consistency for permissions checks</td>
+      </tr>
+      <tr>
+        <td>Snapshot Store</td>
+        <td>GCS + Spanner metadata</td>
+        <td>Eventually consistent for reads</td>
+        <td>Storage cost, compression ratio</td>
+      </tr>
+      <tr>
+        <td>Active Document Cache</td>
+        <td>In-memory on Collab Server</td>
+        <td>Single writer</td>
+        <td>Sub-millisecond operation apply</td>
+      </tr>
+      <tr>
+        <td>Presence State</td>
+        <td>Redis</td>
+        <td>Best effort</td>
+        <td>Write throughput, low latency</td>
+      </tr>
+      <tr>
+        <td>Permission Cache</td>
+        <td>Redis + local cache</td>
+        <td>Eventually consistent</td>
+        <td>Fast auth checks per operation</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Operations in Google Docs do not travel through a monolithic service. Different concerns are handled by different services, and they communicate through an event bus.</p>
+
+<p>When an operation is applied by the OT Engine, it emits an event to the event bus. Subscribers to this event include:</p>
+
+<ul>
+<li>The Version History Service, which asynchronously processes operations to update the operation log and trigger snapshot creation</li>
+<li>The Notification Service, which checks if the operation should send email notifications to document watchers</li>
+<li>The Search Indexer, which updates full-text search indexes for the document</li>
+<li>The Analytics pipeline, which records document activity for usage metrics</li>
+</ul>
+
+
+<p>Using an event bus means these consumers can be scaled independently. If the notification service is slow, it does not block the real-time editing pipeline. If the search indexer falls behind, real-time collaboration is unaffected. The editing pipeline is the critical path, and everything else is asynchronous and decoupled.</p>
+
+<p>The event bus itself must be durable. If the notification service is down when an operation event is emitted, the event cannot be lost. A Kafka-like system with persistent message logs and consumer group offsets is the natural fit here. Consumers can catch up from their last processed offset after a restart.</p>
+
+<a name="Caching.System.Design"></a>
+<h2>Caching System Design</h2>
+
+<p>A document with fifty active collaborators generates dozens of operations per second. If every operation had to go through a database read-write cycle, the latency would be unacceptable and the storage load would be enormous.</p>
+
+<p>The active document state lives in memory on the Collaboration Server that owns the document. When a document is first accessed, its state is loaded from the most recent snapshot and reconstructed by replaying recent operations. After that, all operations are applied to the in-memory state and the snapshot is updated asynchronously.</p>
+
+<p>This means reads of the current document state are effectively free from a latency standpoint. They are already in memory. The only writes that hit durable storage synchronously are operation log appends, which are sequential and fast.</p>
+
+<p>The tricky case is hotspot documents: a shared document with hundreds of simultaneous editors. A single Collaboration Server can only handle so many concurrent WebSocket connections and operations per second before it becomes a bottleneck. For extremely hot documents, the system can shard the document into sections and distribute sections across multiple servers, though this adds complexity to the OT coordination across shards.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Layer</th>
+        <th>What It Holds</th>
+        <th>Eviction Policy</th>
+        <th>Invalidation Strategy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Collab Server In-Memory</td>
+        <td>Active document state, pending ops</td>
+        <td>Document unloads after inactivity</td>
+        <td>N/A; single writer per document</td>
+      </tr>
+      <tr>
+        <td>Redis Presence Cache</td>
+        <td>Cursor positions, active sessions</td>
+        <td>TTL per session (seconds)</td>
+        <td>Direct invalidation on disconnect</td>
+      </tr>
+      <tr>
+        <td>Redis Permission Cache</td>
+        <td>ACL lookups per doc+user</td>
+        <td>TTL (minutes)</td>
+        <td>Push invalidation on share change</td>
+      </tr>
+      <tr>
+        <td>Revision Cache</td>
+        <td>Recent document snapshots</td>
+        <td>LRU by document popularity</td>
+        <td>Version-stamped keys</td>
+      </tr>
+      <tr>
+        <td>Client-Side IndexedDB</td>
+        <td>Offline ops, doc state, drafts</td>
+        <td>Manual cleanup on sync</td>
+        <td>Cleared on successful reconciliation</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Permission.and.Sharing.Systems"></a>
+<h2>Permission and Sharing Systems</h2>
+
+<p>Permissions in Google Docs are a deceptively complex system because they are both hierarchical and dynamic.</p>
+
+<p>A document can be owned by an individual, shared with specific users, shared with an entire Google Workspace domain, or made public to anyone with the link. Each level has a role: viewer, commenter, editor, or owner. And permissions can be changed at any time by someone with sufficient access.</p>
+
+<p>The permission check happens on every operation before it is accepted. &ldquo;Can this user perform this operation on this document?&rdquo; is evaluated at the collaboration server level using a cached version of the permission data. The cache has a short TTL and is invalidated on permission changes, balancing performance against correctness.</p>
+
+<p>Access revocation is one of the more subtle cases. When someone&rsquo;s access is revoked, any active WebSocket sessions they have for that document must be terminated. This requires pushing an invalidation event to the Collaboration Server, which then closes the relevant connections. If this is not handled promptly, a revoked user could continue receiving document updates for the duration of their WebSocket session.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Building a collaborative editor for millions of simultaneous users requires thinking carefully about every component&rsquo;s scaling behavior.</p>
+
+<p>The Collaboration Server is the most constrained component because it holds per-document in-memory state and maintains WebSocket connections. Horizontal scaling here is tricky because all users editing the same document must connect to the same server instance (or a coordinating cluster) to maintain OT correctness.</p>
+
+<p>The solution is consistent hashing on document ID. All users editing document D are routed to the same Collaboration Server (or set of servers for high-traffic documents). This means the collaboration layer scales by adding more server instances and redistributing document ownership. A document migration is needed when a server is added or removed, but since documents with no active editors are just database entries, the migrations only matter for active documents.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Scaling Strategy</th>
+        <th>Key Bottleneck</th>
+        <th>Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>API Gateway</td>
+        <td>Stateless horizontal scaling</td>
+        <td>Authn/authz latency</td>
+        <td>Token caching, edge validation</td>
+      </tr>
+      <tr>
+        <td>Collaboration Server</td>
+        <td>Document-based sharding</td>
+        <td>Hot documents, WebSocket limits</td>
+        <td>Per-document load balancing</td>
+      </tr>
+      <tr>
+        <td>OT Engine</td>
+        <td>Co-located with Collab Server</td>
+        <td>Complex operation transforms</td>
+        <td>Efficient algorithms, batching</td>
+      </tr>
+      <tr>
+        <td>Operation Log</td>
+        <td>Partitioned by doc_id</td>
+        <td>Write throughput per hot doc</td>
+        <td>Batched log appends</td>
+      </tr>
+      <tr>
+        <td>Presence Service</td>
+        <td>Stateless + Redis cluster</td>
+        <td>Update frequency at scale</td>
+        <td>Client-side rate limiting</td>
+      </tr>
+      <tr>
+        <td>Version History</td>
+        <td>Async, independent scaling</td>
+        <td>Snapshot generation cost</td>
+        <td>Background jobs, compression</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Multi-region deployments add another dimension. For latency reasons, you want users to connect to a collaboration server geographically close to them. But document ownership is typically in one primary region, and cross-region OT coordination adds latency. Google addresses this with leader-based replication where the primary region owns the OT coordination for a document and other regions forward operations to the primary and receive broadcasts back.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Even a well-designed system fails. The reliability story for Google Docs is built around making failures fast to detect and recover from.</p>
+
+<p>Every Collaboration Server exposes health check endpoints and emits operational metrics: operation processing latency, WebSocket connection count, operation queue depths, and error rates. A service mesh monitors these and routes traffic away from unhealthy servers.</p>
+
+<p>When a Collaboration Server crashes mid-operation, the clients connected to it detect the disconnect through WebSocket closure events. They enter a reconnect loop, which first tries to reconnect to the same server and then falls back to other servers in the pool. The new server loads the document state from the operation log and snapshot store, and the clients replay their pending operations.</p>
+
+<p>The operation log itself is the durability guarantee. As long as every applied operation is appended to the durable log before a success acknowledgment is sent to the client, no work is ever lost due to server failure. The in-memory state on the server can always be reconstructed. This is an important design choice: durability before acknowledgment. The performance cost of a synchronous log write is worth the correctness guarantee.</p>
+
+<a name="Engineering.Tradeoffs.in.Practice"></a>
+<h2>Engineering Tradeoffs in Practice</h2>
+
+<p>Every major design decision in this system involves a genuine tradeoff. Let us look at a few that are worth discussing in an interview or architecture review.</p>
+
+<p>The choice between OT and CRDTs is not purely technical. OT requires a central server to impose operation order, which fits naturally with a server-centric deployment. But it makes peer-to-peer or decentralized editing harder. CRDTs enable decentralized architectures but consume more memory due to tombstones and require more complex GC logic. For a system as large as Google Docs with billions of documents, the memory overhead of CRDTs would be significant.</p>
+
+<p>Optimistic updates (applying changes locally before server confirmation) dramatically improve the editing experience but introduce complexity. Every client must maintain a pending operation queue and be prepared to reconcile local state when server-transformed operations arrive. Getting this wrong produces jitter: text appearing to jump around as local state is corrected. Google invests significant engineering in making this invisible to users.</p>
+
+<p>Autosave frequency versus storage cost is a real tension. Every operation appended to the operation log is durable storage that costs money. Over a billion documents each with hundreds of daily operations, the log grows fast. Compression and periodic compaction (merging many small operations into a single snapshot) are essential for keeping storage costs manageable.</p>
+
+<p>The consistency versus availability tradeoff in the permission system is another example. Strong consistency means that when you revoke someone&rsquo;s access, they are guaranteed to be locked out within milliseconds. But achieving that requires synchronous permission invalidation across distributed caches, which adds latency to every operation. Most systems accept a short window of stale permission state in exchange for lower latency in the common case.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>A system like Google Docs would realistically be built with a combination of:</p>
+
+<p>Java and Go for backend services. Java is heavily used at Google for services that benefit from mature libraries and the JVM ecosystem. Go is increasingly used for high-throughput, low-latency network servers like the Collaboration Server, where its goroutine model handles thousands of concurrent WebSocket connections efficiently.</p>
+
+<p>TypeScript on the client side. The document editor itself is a complex stateful application. TypeScript provides the type safety necessary to manage the OT operation types, document state, and synchronization state without making subtle bugs in the transformation logic.</p>
+
+<p>WebSockets for real-time communication. No serious alternative exists for low-latency bidirectional communication in browsers. gRPC-web or Server-Sent Events could handle one-way push, but the full bidirectional nature of collaborative editing requires WebSockets.</p>
+
+<p>Redis for presence and cache layers. The sub-millisecond read latency and support for pub/sub make Redis the natural choice for ephemeral state that needs to be shared across servers.</p>
+
+<p>Spanner for the operation log and document metadata. Spanner&rsquo;s combination of global consistency and horizontal scalability is uniquely suited to operation logs that need total ordering within a document while being distributed across datacenters.</p>
+
+<p>Kafka for the event bus. The durable, ordered, partitioned log model maps perfectly to the operation event stream. Consumers can independently tail the log and process events at their own pace.</p>
+
+<p>Protocol Buffers for serialization. Operations, document state, and presence updates are all serialized as protobufs. The schema enforcement and compact binary format are both important at this scale.</p>
+
+<p>Kubernetes for orchestration. The collaboration servers, presence services, and all stateless services run in Kubernetes clusters for automated deployment, scaling, and health management.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>If you are asked to design Google Docs or a real-time collaborative text editor in a system design interview, there are several areas where strong candidates distinguish themselves from average ones.</p>
+
+<p>Weak answers describe the feature set and then jump to &ldquo;we need WebSockets and a database.&rdquo; They miss the fundamental difficulty of the problem, which is concurrent state management.</p>
+
+<p>Strong answers immediately identify Operational Transformation or CRDTs as the core algorithmic challenge. They explain why naive approaches (last-write-wins, locking) do not work for collaborative text editing and why you need a conflict resolution algorithm that preserves intent.</p>
+
+<p>Strong answers also treat the server architecture as a distributed systems problem. The Collaboration Server cannot be a simple stateless service because it holds document state. That statefulness has sharding and failover implications that need to be addressed.</p>
+
+<p>In terms of interview structure, a good approach is to:</p>
+
+<p>Start with the data model. What does an operation look like? What does document state look like?</p>
+
+<p>Move to the synchronization protocol. How do you handle two users editing the same character position at the same time?</p>
+
+<p>Address the infrastructure. WebSockets, Collaboration Server design, operation log, caching.</p>
+
+<p>Discuss scaling. How do you handle 10,000 concurrent editors on the same document? Different document? Multi-region?</p>
+
+<p>Address reliability. What happens when the Collaboration Server crashes mid-operation? What happens when a client loses connectivity?</p>
+
+<p>Common mistakes include: forgetting offline editing entirely, treating permission checks as trivially easy, ignoring the presence system, not explaining how version history is stored efficiently, and failing to discuss the tradeoff between optimistic updates and correctness.</p>
+
+<p>One thing interviewers consistently value is when a candidate explains why a design choice was made rather than just what the choice is. &ldquo;We use append-only operation logs because they give us both durability and a basis for version history reconstruction without the complexity of mutable state management&rdquo; is a much stronger statement than &ldquo;we log every operation.&rdquo;</p>
+
+<a name="Putting.It.All.Together"></a>
+<h2>Putting It All Together</h2>
+
+<p>Google Docs is a reminder that the features users take for granted are often the hardest engineering problems. That blinking cursor synchronized across continents. That version history that goes back five years. That editing session that recovers seamlessly after your laptop loses wifi on a train. None of it is simple.</p>
+
+<p>The system is built on a foundation of formally correct algorithms, append-only durable storage, event-driven asynchronous processing, and carefully managed in-memory state. Every component is designed with failure in mind: what happens when this goes down, what state is lost, and how do we recover?</p>
+
+<p>Understanding these systems at this level of depth is useful not just for interviews. The patterns here - OT for concurrent state management, append-only logs for durability, event sourcing for derived state, optimistic updates with reconciliation - show up in many distributed systems. Understanding why they exist in Google Docs helps you recognize where to apply them elsewhere.</p>
+
+<p>The next time you type into a shared document and watch your colleague&rsquo;s cursor respond, you will have a better sense of what just happened.</p>
+]]></content>
+    </entry>
+    
+    <entry>
+        <title type="html"><![CDATA[How Instagram Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-instagram-works/"/>
+        <updated>2026-05-22T08:59:03+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-instagram-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>Instagram serves over two billion active users every month. On any given day, people upload hundreds of millions of photos and videos, watch billions of reels, send hundreds of millions of messages, and scroll through feeds that feel magically personalized to each person. Behind that experience is one of the most complex distributed systems ever built.</em></p></blockquote>
+
+<p><img src="https://rishijeet.github.io/images/system_design/instagram-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This is not a shallow overview. We are going to walk through the internals — the media pipelines, the feed generation engines, the recommendation systems, the reels infrastructure, the CDN architecture, the messaging stack, the caching layers, and the engineering tradeoffs that make all of it work at a scale that is genuinely hard to comprehend.</p>
+
+<p>If you are a backend engineer, a system design interview candidate, or just someone who has ever wondered what actually happens when you tap &ldquo;Post&rdquo; on Instagram, this is for you.</p>
+
+<a name="What.Instagram.Really.Is"></a>
+<h2>What Instagram Really Is</h2>
+
+<p>Instagram launched in 2010 as a simple photo-sharing app. The original architecture could probably run on a single decent server. Fast forward to today, and Instagram is a full-scale media platform with feeds, stories, reels, live streaming, direct messaging, an explore page, shopping features, creator tools, and a recommendation engine that rivals anything in the industry.</p>
+
+<p>The engineering challenge is not just size. It is the combination of things that makes Instagram uniquely difficult to build:</p>
+
+<!--more-->
+
+
+<ul>
+<li><strong>Real-time personalization at scale.</strong> Every user sees a different feed, ranked differently, refreshed continuously.</li>
+<li><strong>Massive media throughput.</strong> Billions of photos and videos are processed, transcoded, compressed, and distributed globally every day.</li>
+<li><strong>Variable traffic patterns.</strong> When a celebrity posts, millions of followers need to see it within seconds. That is a thundering herd problem at a scale most systems never encounter.</li>
+<li><strong>Latency requirements.</strong> Reels need to start playing in under 200 milliseconds. Stories need to load instantly. The moment a user waits, they leave.</li>
+<li><strong>Ephemeral content.</strong> Stories disappear after 24 hours, which means the system needs to handle large-scale TTL-based deletions continuously.</li>
+<li><strong>Social graph complexity.</strong> The follow graph has billions of edges. Graph queries need to be fast even when traversing multiple hops.</li>
+</ul>
+
+
+<p>Let us start with the big picture and then drill down into each major subsystem.</p>
+
+<a name="Core.Features"></a>
+<h2>Core Features</h2>
+
+<p>Before going deep on architecture, it helps to understand what features Instagram actually supports, because each one has its own infrastructure demands.</p>
+
+<p><strong>Feed posts</strong> are the original Instagram feature — photos and videos that appear in your home feed, ranked by a machine learning model. <strong>Stories</strong> are 15-second ephemeral clips and photos that expire after 24 hours, shown in the circle bubbles at the top of the feed. <strong>Reels</strong> are short-form videos (up to 90 seconds) served in an infinite scroll format with TikTok-style algorithmic recommendations. <strong>Explore</strong> is the discovery page where Instagram surfaces content from accounts you do not follow, driven entirely by recommendation models.</p>
+
+<p>Beyond content, there is <strong>direct messaging</strong> — real-time chat, media sharing, disappearing messages, and group threads. There is <strong>live streaming</strong> where creators broadcast to followers in real time. There is <strong>search</strong> across users, hashtags, and content. And there is a <strong>notification system</strong> that fans out events like likes, comments, and follows to the right users across multiple channels.</p>
+
+<p>Each of these features deserves its own engineering discussion. Let us go through the architecture systematically.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<div class="mermaid">
+flowchart TD;
+
+%% =========================
+%% Client Layer
+%% =========================
+A[Mobile and Web Client];
+
+%% =========================
+%% Gateway Layer
+%% =========================
+B[API Gateway];
+
+%% =========================
+%% Core Services
+%% =========================
+C[Feed Service];
+D[Media Upload Service];
+E[Reels Service];
+F[Story Service];
+G[Messaging Service];
+H[Notification Service];
+I[Search Service];
+J[Recommendation Engine];
+
+%% =========================
+%% Infrastructure
+%% =========================
+K[Object Storage];
+L[CDN Edge Network];
+M[Distributed Cache];
+N[Primary Databases];
+O[Event Streaming Platform];
+
+%% =========================
+%% Client Requests
+%% =========================
+A &#8211;>|HTTPS API Calls| B;
+
+%% =========================
+%% Gateway Routing
+%% =========================
+B &#8211;>|Feed APIs| C;
+B &#8211;>|Upload APIs| D;
+B &#8211;>|Reels APIs| E;
+B &#8211;>|Story APIs| F;
+B &#8211;>|Messaging APIs| G;
+B &#8211;>|Notification APIs| H;
+B &#8211;>|Search APIs| I;
+
+%% =========================
+%% Feed and Recommendation
+%% =========================
+C &#8211;>|Personalization Signals| J;
+C &#8211;>|Read Cached Feed| M;
+C &#8211;>|Persist Feed State| N;
+
+%% =========================
+%% Media Pipeline
+%% =========================
+D &#8211;>|Store Media| K;
+D &#8211;>|Publish Upload Event| O;
+
+K &#8211;>|Global Content Delivery| L;
+
+%% =========================
+%% Reels Pipeline
+%% =========================
+E &#8211;>|Recommendation Signals| J;
+E &#8211;>|Stream Media| L;
+
+%% =========================
+%% Event Streaming
+%% =========================
+H &#8211;>|Emit Notification Events| O;
+
+O &#8211;>|User Activity Events| J;
+O &#8211;>|Delivery Events| H;
+
+%% =========================
+%% Fancy Styles
+%% =========================
+
+%% Client
+style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+
+%% Gateway
+style B fill:#0f172a,stroke:#334155,stroke-width:5px,color:#ffffff;
+
+%% Services
+style C fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
+style D fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
+style E fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
+style F fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
+style G fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
+style H fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
+style I fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
+
+%% Recommendation Engine
+style J fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff;
+
+%% Infra
+style K fill:#dc2626,stroke:#991b1b,stroke-width:4px,color:#ffffff;
+style N fill:#dc2626,stroke:#991b1b,stroke-width:4px,color:#ffffff;
+
+style L fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+style M fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+
+%% Event Streaming
+style O fill:#f59e0b,stroke:#b45309,stroke-width:5px,color:#ffffff;
+
+%% =========================
+%% Link Styling
+%% =========================
+
+%% Client and Gateway
+linkStyle 0 stroke:#2563eb,stroke-width:3px;
+
+%% Gateway to Services
+linkStyle 1 stroke:#16a34a,stroke-width:2px;
+linkStyle 2 stroke:#16a34a,stroke-width:2px;
+linkStyle 3 stroke:#16a34a,stroke-width:2px;
+linkStyle 4 stroke:#16a34a,stroke-width:2px;
+linkStyle 5 stroke:#16a34a,stroke-width:2px;
+linkStyle 6 stroke:#16a34a,stroke-width:2px;
+linkStyle 7 stroke:#16a34a,stroke-width:2px;
+
+%% Feed and Recommendations
+linkStyle 8 stroke:#ec4899,stroke-width:3px;
+linkStyle 9 stroke:#9333ea,stroke-width:3px;
+linkStyle 10 stroke:#dc2626,stroke-width:3px;
+
+%% Media Pipeline
+linkStyle 11 stroke:#dc2626,stroke-width:3px;
+linkStyle 12 stroke:#f59e0b,stroke-width:3px;
+
+%% CDN
+linkStyle 13 stroke:#9333ea,stroke-width:4px;
+
+%% Reels
+linkStyle 14 stroke:#ec4899,stroke-width:3px;
+linkStyle 15 stroke:#9333ea,stroke-width:4px;
+
+%% Notifications and Events
+linkStyle 16 stroke:#f59e0b,stroke-width:3px;
+linkStyle 17 stroke:#ec4899,stroke-width:3px;
+linkStyle 18 stroke:#16a34a,stroke-width:3px;
+
+</div>
+
+
+<p>When a user opens Instagram, the mobile app talks to an <strong>API Gateway</strong> — a single entry point that handles authentication, rate limiting, request routing, and SSL termination. Behind that gateway are dozens of specialized services, each owning a specific domain. The feed service handles feed generation. The media service handles uploads. The reels service handles short video recommendations and delivery. These services communicate with each other through a combination of direct RPC calls and asynchronous event streams.</p>
+
+<p>Everything that needs to be fast lives close to the user. That means an aggressive CDN for media delivery, distributed caches for hot data, and regional deployments that reduce the physical distance between the user and the servers responding to them.</p>
+
+<a name="Media.Upload.Pipeline"></a>
+<h2>Media Upload Pipeline</h2>
+
+<p>When you tap &ldquo;Post&rdquo; on Instagram, a lot happens before your photo or video actually appears in anyone&rsquo;s feed. The upload pipeline is one of the most critical paths in the entire system.</p>
+
+<div class="mermaid">
+flowchart TD;
+  Upload[Client Upload];
+  Chunk[Chunk Upload Handler];
+  Validate[Media Validator];
+  VirusScan[Virus Scanner];
+  Transcode[Transcoding Service];
+  Thumbnail[Thumbnail Generator];
+  Store[Object Storage];
+  CDNPush[CDN Distribution];
+  Queue[Event Queue];
+  FeedFanout[Feed Fanout Service];
+
+  Upload &#8211;> Chunk;
+  Chunk &#8211;> Validate;
+  Validate &#8211;> VirusScan;
+  VirusScan &#8211;> Transcode;
+  Transcode &#8211;> Thumbnail;
+  Thumbnail &#8211;> Store;
+  Store &#8211;> CDNPush;
+  Store &#8211;> Queue;
+  Queue &#8211;> FeedFanout;
+
+  classDef input fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef process fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef storage fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef output fill:#f59e0b,stroke:#b45309,color:#ffffff;
+
+  class Upload input;
+  class Chunk,Validate,VirusScan,Transcode,Thumbnail process;
+  class Store storage;
+  class CDNPush,Queue,FeedFanout output;
+</div>
+
+
+<p><strong>Chunked uploads</strong> are the first thing worth understanding. If you try to upload a 60-second video as a single HTTP request, you will have intermittent failures constantly, especially on mobile networks. Instead, the client breaks the file into smaller chunks — say, 512KB to 2MB each — and uploads them independently. Each chunk gets a checksum. The server can receive them in any order, and if one fails, only that chunk needs to be retried. This makes large uploads resumable, which is critical for unreliable mobile connections.</p>
+
+<p><strong>Media validation</strong> happens immediately. The server checks that the file is actually the format it claims to be (not just checking file extension — it reads the actual bytes), verifies dimensions are within limits, and checks file size. Broken or malformed uploads are rejected early before any expensive processing begins.</p>
+
+<p><strong>Virus scanning</strong> runs on every uploaded file. Instagram does not want to become a malware distribution network. The scanning happens asynchronously but before the content becomes visible.</p>
+
+<p><strong>Transcoding</strong> is where the heavy lifting happens for video. Instagram does not store your video in the exact format you uploaded it. It transcodes every video into multiple formats and resolutions — typically H.264 and H.265, at multiple bitrates (say, 360p, 720p, 1080p) to support adaptive streaming. This process is CPU-intensive, so it runs on a fleet of dedicated transcoding workers, not the upload servers themselves. A transcoding job gets queued, workers pick it up, and the results are written back to object storage.</p>
+
+<p>For photos, compression and resizing happen similarly. Instagram generates multiple versions at different resolutions — thumbnails for grid views, medium-resolution for feed display, high resolution for full-screen views.</p>
+
+<p><strong>CDN distribution</strong> is the final step. Once the media files are stored in the origin object storage (something like Amazon S3 or a comparable system), they are pushed out to CDN edge nodes globally. This does not mean copying every file everywhere immediately — CDN nodes typically pull from origin on first request and cache locally. But for popular content (anything from a large account), Instagram proactively pushes media to edge nodes in advance.</p>
+
+<p><strong>Feed fanout</strong> is triggered asynchronously. Once the media is processed, an event goes into a queue (think Kafka), and the feed fanout service picks it up and distributes the post to the feeds of the poster&rsquo;s followers. We will dig into how that works shortly.</p>
+
+<p>One important failure scenario: what happens if transcoding fails? The post might appear broken or unavailable for a while. Instagram handles this with retries, exponential backoff, and a dead-letter queue for jobs that fail repeatedly. The user might see a &ldquo;processing&rdquo; state on their post for a few minutes if transcoding is slow or fails.</p>
+
+<a name="Feed.Generation.System"></a>
+<h2>Feed Generation System</h2>
+
+<p>Feed generation is where the complexity of Instagram&rsquo;s architecture really shows itself. The core question is: when you open Instagram, how does the system figure out which posts to show you, in what order?</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% =========================
+%% User Layer
+%% =========================
+A[User Feed Request];
+
+%% =========================
+%% Cache Layer
+%% =========================
+B[Feed Cache Check];
+C[Return Cached Feed];
+J[Write Feed to Cache];
+
+%% =========================
+%% Feed Generation Pipeline
+%% =========================
+D[Feed Builder];
+E[Candidate Retrieval Engine];
+F[ML Ranking Model];
+G[Deduplication Engine];
+H[Final Feed Assembly];
+
+%% =========================
+%% Data Sources
+%% =========================
+K[Social Graph Store];
+L[Post Storage];
+M[Recommendation Engine];
+
+%% =========================
+%% Request Flow
+%% =========================
+A &#8211;>|Open Home Feed| B;
+
+%% Cache Hit
+B &#8211;>|Cache Hit| C;
+
+%% Cache Miss
+B &#8211;>|Cache Miss| D;
+
+%% Feed Building
+D &#8211;>|Fetch Candidate Posts| E;
+
+%% Data Retrieval
+E &#8211;>|Follower Graph Lookup| K;
+E &#8211;>|Recent and Popular Posts| L;
+E &#8211;>|Personalization Signals| M;
+
+%% Ranking Pipeline
+E &#8211;>|Candidate Set| F;
+
+F &#8211;>|Ranked Feed Items| G;
+
+G &#8211;>|Remove Duplicates and Spam| H;
+
+%% Cache and Response
+H &#8211;>|Cache Fresh Feed| J;
+
+%% =========================
+%% Styles
+%% =========================
+
+%% User
+style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+
+%% Cache Layer
+style B fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#ffffff;
+style C fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#ffffff;
+style J fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#ffffff;
+
+%% Feed Services
+style D fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style E fill:#22c55e,stroke:#15803d,stroke-width:4px,color:#ffffff;
+style F fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff;
+style G fill:#14b8a6,stroke:#0f766e,stroke-width:4px,color:#ffffff;
+style H fill:#06b6d4,stroke:#0e7490,stroke-width:5px,color:#ffffff;
+
+%% Storage and ML
+style K fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+style L fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff;
+style M fill:#8b5cf6,stroke:#6d28d9,stroke-width:5px,color:#ffffff;
+
+%% =========================
+%% Link Styling
+%% =========================
+
+%% Request and Cache
+linkStyle 0 stroke:#2563eb,stroke-width:3px;
+linkStyle 1 stroke:#f59e0b,stroke-width:4px;
+linkStyle 2 stroke:#ef4444,stroke-width:4px;
+
+%% Feed Building
+linkStyle 3 stroke:#16a34a,stroke-width:4px;
+
+%% Candidate Retrieval
+linkStyle 4 stroke:#9333ea,stroke-width:3px;
+linkStyle 5 stroke:#7c3aed,stroke-width:3px;
+linkStyle 6 stroke:#8b5cf6,stroke-width:3px;
+
+%% Ranking Pipeline
+linkStyle 7 stroke:#ec4899,stroke-width:4px;
+linkStyle 8 stroke:#14b8a6,stroke-width:4px;
+
+%% Final Feed
+linkStyle 9 stroke:#06b6d4,stroke-width:5px;
+
+</div>
+
+
+<p>There are two fundamental approaches to building feeds: <strong>fanout on write</strong> and <strong>fanout on read</strong>. Understanding the tradeoffs between them is essential.</p>
+
+<p><strong>Fanout on write</strong> means: whenever someone posts, immediately push that post into the feed cache of every one of their followers. The advantage is that reading the feed is fast — the feed is pre-built and ready to serve. The disadvantage is that writing is expensive. If a user has ten million followers, posting a photo means writing that post ID into ten million feed caches. This is a huge amount of write amplification.</p>
+
+<p><strong>Fanout on read</strong> means: when a user requests their feed, the system looks up everyone they follow, fetches recent posts from each of them, and assembles the feed on the fly. Reading is expensive, but writing is cheap.</p>
+
+<p>Instagram uses a <strong>hybrid approach</strong> because neither pure strategy works at their scale. For normal users (say, under 100,000 followers), fanout on write makes sense. Their posts are pre-pushed into follower feeds. For celebrities and large accounts (millions of followers), fanout on write is too expensive — you cannot write to millions of caches on every post. Instead, Instagram uses fanout on read selectively, pulling in celebrity posts at read time and merging them with the pre-computed feed.</p>
+
+<p>This is the <strong>celebrity problem</strong> in feed systems. Every large-scale social network has to solve it. The solution is always some variant of treating high-follower accounts differently.</p>
+
+<p><strong>Feed ranking</strong> is what happens after candidate posts are gathered. Instagram does not show you posts in reverse-chronological order anymore (though you can opt into that in settings). Instead, a machine learning ranking model scores every candidate post and reorders them by predicted engagement probability. Factors that go into this scoring include your past interaction history with the poster, the recency of the post, the type of content, how many others have engaged with the post recently, and signals about your current context (time of day, what device you are using, etc.).</p>
+
+<p><strong>Deduplication</strong> runs before the feed is finalized to make sure the same post does not appear twice, which can happen when combining pre-computed fanout feeds with on-the-fly celebrity post fetches.</p>
+
+<p>The assembled feed is written to a feed cache (usually Redis or a similar in-memory store) so subsequent requests for the same user can be served without rebuilding from scratch.</p>
+
+<a name="Recommendation.and.Ranking.Systems"></a>
+<h2>Recommendation and Ranking Systems</h2>
+
+<p>The recommendation engine is the brain of Instagram. It powers the Explore page, Reels recommendations, and the ranking within your home feed. Getting this right is the difference between a product people use for ten minutes a day and one they use for two hours.</p>
+
+<p>At a high level, the recommendation system works in three stages: <strong>candidate generation</strong>, <strong>scoring and ranking</strong>, and <strong>post-filtering</strong>.</p>
+
+<p><strong>Candidate generation</strong> is about narrowing the universe of content down to a manageable set. There are billions of posts on Instagram. The ranking model cannot score all of them. So the first stage uses faster, simpler methods to pull a few thousand candidates. This might include collaborative filtering (users who like what you like also liked these posts), content-based similarity (posts similar to ones you engaged with), and social graph signals (posts liked by people you follow).</p>
+
+<p><strong>Scoring and ranking</strong> is where the deep learning models come in. Each candidate gets scored by a model that predicts engagement probability. Instagram likely uses a multi-task learning setup where a single model predicts multiple outcomes simultaneously: probability of like, probability of comment, probability of share, probability of the user spending more than a few seconds looking at the content. These predictions are weighted and combined into a final ranking score.</p>
+
+<p><strong>User embeddings</strong> and <strong>content embeddings</strong> are central to how this works. Every user has a vector representation (an embedding) that captures their interests. Every piece of content has a vector representation that captures what it is about. The closer a content embedding is to a user embedding in vector space, the more likely the user is to engage with that content. These embeddings are learned from historical engagement data and updated continuously.</p>
+
+<p><strong>Exploration vs. exploitation</strong> is one of the most important tradeoffs in recommendation systems. If you only show people content similar to what they have liked before, the feed becomes a filter bubble. Users stop discovering new things, and eventually engagement decreases because the feed feels stale and predictable. So recommendation systems deliberately inject some exploratory content — posts from accounts you do not follow, content in categories you have not engaged with recently. Getting the balance right is genuinely hard and requires constant experimentation.</p>
+
+<p>The Explore page is specifically designed for exploration. It is almost entirely driven by the recommendation engine and deliberately surfaces content from accounts you do not follow. The ranking here weights novelty and diversity more heavily than the home feed.</p>
+
+<p><strong>Watch-time prediction</strong> is particularly important for Reels and video content. A like on a video is less informative than whether the user watched the whole thing. The recommendation system trains models specifically to predict whether a user will watch a video to completion, because completion is a strong signal of genuine interest.</p>
+
+<a name="Reels.Infrastructure.Deep.Dive"></a>
+<h2>Reels Infrastructure Deep Dive</h2>
+
+<p>Reels is Instagram&rsquo;s answer to TikTok, and the infrastructure behind it reflects lessons learned from watching TikTok&rsquo;s extraordinary success. The core insight TikTok proved is that you can build an extremely engaging product if you can serve a perfectly personalized short video in under a second, continuously, for as long as the user scrolls.</p>
+
+<div class="mermaid">
+flowchart TD;
+  Scroll[User Scrolls];
+  Prefetch[Prefetch Engine];
+  RecPipeline[Recommendation Pipeline];
+  Candidates[Video Candidates];
+  Ranker[Ranking Model];
+  Queue[Prefetch Queue];
+  CDNEdge[CDN Edge Node];
+  Player[Video Player];
+  EngSignals[Engagement Signals];
+  ModelUpdate[Model Update Pipeline];
+
+  Scroll &#8211;> Prefetch;
+  Prefetch &#8211;> RecPipeline;
+  RecPipeline &#8211;> Candidates;
+  Candidates &#8211;> Ranker;
+  Ranker &#8211;> Queue;
+  Queue &#8211;> CDNEdge;
+  CDNEdge &#8211;> Player;
+  Player &#8211;> EngSignals;
+  EngSignals &#8211;> ModelUpdate;
+  ModelUpdate &#8211;> RecPipeline;
+
+  classDef user fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef service fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef feedback fill:#f59e0b,stroke:#b45309,color:#ffffff;
+
+  class Scroll user;
+  class Prefetch,RecPipeline,Candidates,Ranker,Queue service;
+  class CDNEdge,Player infra;
+  class EngSignals,ModelUpdate feedback;
+</div>
+
+
+<p>The key engineering challenge for Reels is <strong>latency</strong>. If there is any buffering or waiting between videos, users disengage. The goal is to have the next video loaded and ready to play before the current one finishes.</p>
+
+<p><strong>Prefetching</strong> is how this is achieved. As you watch a video, the app is already fetching the next two or three videos in the background. The recommendation engine is queried ahead of time to generate a ranked list of upcoming videos, and those videos start downloading before you ever ask to see them. This requires the CDN to handle requests efficiently and for the recommendation pipeline to run fast enough that the next video is ranked and ready before you finish the current one.</p>
+
+<p><strong>Adaptive streaming</strong> is critical for video quality. Instagram uses ABR (Adaptive Bitrate) streaming, where the video player switches between quality levels based on available bandwidth. If your connection is slow, you get 360p. If it is fast, you get 1080p. This is similar to how YouTube and Netflix work. The video is split into small segments (typically two to four seconds each), and each segment is available at multiple quality levels. The player requests segments one at a time and can switch quality between segments.</p>
+
+<p><strong>Recommendation freshness</strong> is a real challenge for Reels. If you watch 20 reels in one session, the system needs to keep generating fresh recommendations. It cannot just pre-compute a list of 20 videos and serve them — users scroll for much longer than that, and the system needs to adapt based on what you are engaging with in real time within the session. Instagram likely maintains a session-level context that updates as you watch, feeding back into the recommendation pipeline to continuously refine what comes next.</p>
+
+<a name="Story.System.Architecture"></a>
+<h2>Story System Architecture</h2>
+
+<p>Stories introduced a genuinely novel infrastructure challenge: <strong>ephemeral content at scale</strong>. The 24-hour expiration means the system constantly needs to delete content, invalidate caches, and update story rings to reflect which stories have expired.</p>
+
+<p>The story upload pipeline is similar to the photo upload pipeline — media is processed, compressed, and distributed to CDN. The key difference is how stories are stored and managed.</p>
+
+<p><strong>TTL-based expiration</strong> is the mechanism for deletion. When a story is created, its expiry timestamp is stored alongside its metadata. Background workers continuously scan for expired stories and remove them from storage, CDN caches, and the story tray metadata. This scan needs to be efficient — running a full table scan on billions of stories every hour would be prohibitive. Instead, stories are stored with TTL in systems like Redis (which has native TTL support) or in a database partitioned by expiry time.</p>
+
+<p><strong>Seen/unseen tracking</strong> is required so that story rings show the right visual state (full color for unseen, grayed out for seen). This is a write-heavy workload because every story view generates a write. At Instagram&rsquo;s scale, tracking views for every story for every user can generate enormous write volume. The system likely uses a combination of in-memory sets and periodic flushes to durable storage, accepting some lag in the seen state rather than persisting every view synchronously.</p>
+
+<p><strong>Story ordering</strong> at the top of the feed is not purely chronological. Instagram applies a ranking model to the story tray, promoting stories from accounts you interact with most. This is a simpler ranking than the main feed but still requires knowing who you engage with regularly.</p>
+
+<a name="Messaging.Infrastructure"></a>
+<h2>Messaging Infrastructure</h2>
+
+<p>Direct messaging on Instagram is a real-time communication system with all the associated complexity — presence indicators, read receipts, message delivery guarantees, media sharing, and synchronization across devices.</p>
+
+<p><strong>WebSockets</strong> are the foundation of real-time messaging. When you open Instagram and navigate to messages, your client establishes a persistent WebSocket connection to a messaging server. Messages flow over this connection in both directions. The challenge is managing millions of simultaneous WebSocket connections, each consuming memory and CPU on the server side. Instagram likely maintains a fleet of connection servers, with each server handling tens of thousands of connections. When a message needs to be delivered to a specific user, the system needs to know which connection server that user is connected to (or if they are connected at all).</p>
+
+<p><strong>Presence systems</strong> track whether a user is currently online and when they were last active. This is surprisingly difficult at scale. Presence information changes frequently (users open and close the app constantly), and you want updates to propagate quickly. The typical approach is to maintain presence in a distributed cache and use heartbeat signals from the client (small periodic pings) to update the presence state.</p>
+
+<p><strong>Offline message delivery</strong> is handled through push notifications. If a user is not connected when a message arrives, the message is persisted to a database and a push notification is sent through APNs (Apple Push Notification Service) or FCM (Firebase Cloud Messaging). When the user opens the app, their client syncs with the server to fetch any messages received while offline.</p>
+
+<p><strong>Message delivery guarantees</strong> in distributed messaging systems are inherently tricky. The standard model is at-least-once delivery with deduplication on the receiver side. Messages get sequence numbers, and the client tracks which sequence numbers it has seen, requesting retransmission for any gaps. This handles network failures and reconnections gracefully.</p>
+
+<a name="Social.Graph.Infrastructure"></a>
+<h2>Social Graph Infrastructure</h2>
+
+<p>The social graph — who follows whom — is the backbone of Instagram&rsquo;s content distribution. Almost every feed generation, notification, and recommendation decision involves traversing parts of this graph.</p>
+
+<p>At Instagram&rsquo;s scale, the follow graph has billions of nodes and hundreds of billions of edges. Storing this efficiently and querying it quickly is a significant engineering challenge.</p>
+
+<p><strong>Adjacency lists</strong> are the standard data structure. Each user has a list of follower IDs and a list of following IDs. These are stored in a database optimized for this access pattern. The challenge is that these lists can be enormous for large accounts — a user with 50 million followers has a follower list with 50 million entries.</p>
+
+<p><strong>Graph partitioning</strong> determines how the graph is distributed across database nodes. A naive approach — partitioning by user ID — might put all of a celebrity&rsquo;s followers on the same shard, creating a hot spot. Better approaches use consistent hashing with shard-level load balancing to distribute heavy nodes more evenly.</p>
+
+<p><strong>Distributed graph queries</strong> become necessary for features like &ldquo;mutual connections&rdquo; or &ldquo;people you might know.&rdquo; These queries require traversing multiple hops of the graph, potentially across multiple shards. This is expensive, and Instagram likely batches and caches these query results aggressively rather than computing them on the fly for every user.</p>
+
+<a name="CDN.and.Media.Delivery"></a>
+<h2>CDN and Media Delivery</h2>
+
+<p>The CDN is what makes Instagram feel fast anywhere in the world. Without it, every request for a photo or video would travel from a user&rsquo;s device all the way to Instagram&rsquo;s origin servers — which might be on the other side of the planet. That would make latency unbearable.</p>
+
+<div class="mermaid">
+flowchart TD;
+  User[User Device];
+  EdgeNode[CDN Edge Node];
+  RegionalCache[Regional Cache];
+  OriginShield[Origin Shield];
+  ObjectStorage[Object Storage];
+  TranscodeOut[Transcoded Media Files];
+
+  User &#8211;>|media request| EdgeNode;
+  EdgeNode &#8211;>|cache miss| RegionalCache;
+  RegionalCache &#8211;>|cache miss| OriginShield;
+  OriginShield &#8211;>|cache miss| ObjectStorage;
+  ObjectStorage &#8211;> TranscodeOut;
+  TranscodeOut &#8211;> ObjectStorage;
+  ObjectStorage &#8211;> OriginShield;
+  OriginShield &#8211;> RegionalCache;
+  RegionalCache &#8211;> EdgeNode;
+  EdgeNode &#8211;> User;
+
+  classDef user fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef cdn fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef origin fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef storage fill:#dc2626,stroke:#991b1b,color:#ffffff;
+
+  class User user;
+  class EdgeNode,RegionalCache,OriginShield cdn;
+  class ObjectStorage,TranscodeOut storage;
+</div>
+
+
+<p>Instagram&rsquo;s CDN architecture works in layers. <strong>Edge nodes</strong> are the outermost layer — geographically distributed points of presence (PoPs) located in cities around the world. These edge nodes cache media files locally. When a user in Tokyo requests a photo, they get it from a CDN edge node in Tokyo, not from a server in California.</p>
+
+<p><strong>Regional caches</strong> sit behind edge nodes. If an edge node does not have a file cached, it checks the regional cache before going all the way to origin. This layered caching approach dramatically reduces origin load for popular content.</p>
+
+<p><strong>Origin shields</strong> are a protection mechanism. Without them, a sudden spike in requests for a specific piece of content (say, a viral post) would send millions of simultaneous requests to origin storage. An origin shield is a single node that all CDN requests for a given object route through, collapsing thousands of simultaneous cache misses into a single origin request.</p>
+
+<p><strong>Image optimization</strong> at the CDN level is another powerful technique. Edge nodes can resize images on the fly based on the requesting device&rsquo;s screen size, serve WebP format to browsers that support it, and apply quality adjustments based on network conditions. This reduces bandwidth and speeds up delivery without requiring Instagram&rsquo;s origin to store a version for every possible screen size.</p>
+
+<p><strong>Video delivery</strong> uses the adaptive streaming approach described in the Reels section. For regular video posts, the CDN serves the segments of the adaptive stream. For Reels, prefetching makes this even more aggressive — the CDN is serving segments before the user has explicitly requested them.</p>
+
+<a name="Search.and.Hashtag.Systems"></a>
+<h2>Search and Hashtag Systems</h2>
+
+<p>Instagram&rsquo;s search needs to handle users, hashtags, locations, and audio tracks. Each of these has different query characteristics and different freshness requirements.</p>
+
+<p>The foundation is a search index built on top of something like <strong>Elasticsearch</strong>. Every user, hashtag, and post is indexed with relevant text fields. When you type in the search box, your query goes to the search service, which executes a query against the index and returns ranked results.</p>
+
+<p><strong>Hashtag indexing</strong> is interesting because hashtags need real-time freshness. When a post with a new hashtag goes viral, that hashtag should start appearing in search suggestions within seconds, not hours. This requires a near-real-time indexing pipeline where new posts are ingested into the search index as soon as they are published.</p>
+
+<p><strong>Typo tolerance</strong> is essential for search UX. If you type &ldquo;sunst&rdquo; you probably mean &ldquo;sunset.&rdquo; Search systems handle this with techniques like fuzzy matching, n-gram indexing, and phonetic algorithms. Elasticsearch has built-in support for this, though tuning it for good results at scale takes significant work.</p>
+
+<p><strong>Trending hashtags</strong> require a different system — one that tracks the velocity of hashtag usage across the platform in real time. A hashtag that is suddenly being used at ten times its normal rate is probably trending. This is computed by stream processing systems that continuously aggregate hashtag usage counts with time-decay weighting, so recent usage counts more than older usage.</p>
+
+<a name="Real-Time.Notification.Infrastructure"></a>
+<h2>Real-Time Notification Infrastructure</h2>
+
+<p>Notifications are an event-driven fanout problem. When someone likes your photo, that event needs to trigger a push notification to you. When someone you follow posts a Story, that might trigger a notification to your phone. At Instagram&rsquo;s scale, this notification fanout is enormous.</p>
+
+<p>The notification pipeline starts with <strong>event streaming</strong>. Every significant action on Instagram — a like, a comment, a follow, a story post — generates an event that gets published to a Kafka-like stream. Notification workers consume these events, look up who should be notified, and send the notifications.</p>
+
+<p><strong>Prioritization</strong> is crucial because not all notifications are equal. A direct message needs to arrive in seconds. A &ldquo;someone liked your post from three days ago&rdquo; notification can wait a few minutes. The notification system segments notifications by priority and processes high-priority ones on dedicated, faster pipelines.</p>
+
+<p><strong>Notification fanout</strong> can get expensive for large accounts. If a celebrity posts a Story and 20 million followers should be notified, that is 20 million push notification jobs. The system batches these aggressively and uses dedicated fanout worker pools to handle spikes from large accounts without starving notifications for normal users.</p>
+
+<p><strong>Retry logic</strong> is essential because push notification delivery is not guaranteed. APNs and FCM can drop notifications if the device is offline, and delivery receipts are not always reliable. The notification system tracks which notifications have been acknowledged and retries ones that have not been confirmed after a timeout.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>Instagram&rsquo;s data spans several different storage systems, each chosen to fit its particular access patterns.</p>
+
+<p><strong>Relational databases</strong> (PostgreSQL historically, at scale sharded with something like Vitess) handle structured data with complex query patterns: user profiles, post metadata, follow relationships for smaller graphs, and anything where joins are needed.</p>
+
+<p><strong>Cassandra</strong> is well-suited for the write-heavy, time-series-like data that Instagram generates at scale — engagement events, story view records, and notification state. It scales horizontally with excellent write throughput and handles the wide row pattern (one row per user with columns for each event) efficiently.</p>
+
+<p><strong>Redis</strong> is everywhere — feed caches, story metadata, session data, rate limiting counters, presence information, and anything that needs sub-millisecond access. Instagram&rsquo;s Redis deployment is massive and carefully partitioned to avoid hot spots.</p>
+
+<p>Here are the core schemas that any Instagram-like system needs:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Table</th>
+        <th>Key Columns</th>
+        <th>Storage System</th>
+        <th>Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>users</td>
+        <td>user_id, username, email, bio, follower_count, created_at</td>
+        <td>PostgreSQL</td>
+        <td>Read-heavy, low write volume</td>
+      </tr>
+      <tr>
+        <td>posts</td>
+        <td>post_id, user_id, media_url, caption, created_at, like_count</td>
+        <td>PostgreSQL + Cassandra</td>
+        <td>Write once, read many</td>
+      </tr>
+      <tr>
+        <td>reels</td>
+        <td>reel_id, user_id, video_url, duration_ms, watch_count, created_at</td>
+        <td>Cassandra</td>
+        <td>High write volume (view counts)</td>
+      </tr>
+      <tr>
+        <td>stories</td>
+        <td>story_id, user_id, media_url, expires_at, created_at</td>
+        <td>Cassandra + Redis TTL</td>
+        <td>Write once, expire automatically</td>
+      </tr>
+      <tr>
+        <td>followers</td>
+        <td>follower_id, following_id, created_at</td>
+        <td>Sharded PostgreSQL</td>
+        <td>Graph traversal, high read volume</td>
+      </tr>
+      <tr>
+        <td>engagement_events</td>
+        <td>event_id, user_id, target_id, event_type, timestamp</td>
+        <td>Cassandra</td>
+        <td>Append-only, very high write volume</td>
+      </tr>
+      <tr>
+        <td>messages</td>
+        <td>message_id, thread_id, sender_id, content, created_at, read_at</td>
+        <td>Cassandra</td>
+        <td>Time-ordered, high write volume</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Indexing strategy</strong> matters enormously. Posts need to be retrieved by user_id (all posts from a user) and by time (recent posts from users you follow). These two access patterns require different indices. The system also needs indices on hashtag associations for search.</p>
+
+<p><strong>Sharding</strong> distributes data across multiple database nodes. The typical approach is to shard by user_id, so all data associated with a user lives on the same shard. This makes per-user queries efficient. The downside is that very active users can create hot shards, requiring careful monitoring and occasional shard rebalancing.</p>
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>If there is one thing that makes Instagram possible at its current scale, it is aggressive caching. The databases simply cannot handle the raw query volume that Instagram generates. Caching sits in front of almost every data access.</p>
+
+<p><strong>Feed caches</strong> are the most critical. A pre-computed list of post IDs for your feed lives in Redis, ready to be served instantly. The cache has a TTL, and it gets refreshed proactively by the feed building service rather than waiting for it to expire.</p>
+
+<p><strong>Celebrity traffic spikes</strong> create a particular challenge called <strong>cache hotspots</strong>. When Cristiano Ronaldo posts something, millions of people refresh their feeds simultaneously. If all those requests go to the same cache key, the cache node hosting that key gets overwhelmed. Solutions include replicating hot keys across multiple cache nodes (consistent hashing with virtual nodes), local in-process caching on the API servers to absorb burst traffic, and request coalescing where multiple simultaneous requests for the same key get collapsed into a single backend request.</p>
+
+<p><strong>Cache invalidation</strong> is the famously hard problem in computer science. When a post is deleted, its ID needs to be removed from every follower&rsquo;s feed cache. When a user updates their profile, their cached profile needs to be invalidated. These invalidation events flow through the same event stream that powers notifications, ensuring cache invalidations happen asynchronously without blocking the original write operation.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Layer</th>
+        <th>Data Cached</th>
+        <th>TTL</th>
+        <th>Invalidation Strategy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Feed Cache</td>
+        <td>Ordered list of post IDs per user</td>
+        <td>15-30 minutes</td>
+        <td>Event-driven rebuild</td>
+      </tr>
+      <tr>
+        <td>User Profile Cache</td>
+        <td>Username, bio, follower count</td>
+        <td>5 minutes</td>
+        <td>Write-through on profile update</td>
+      </tr>
+      <tr>
+        <td>Post Metadata Cache</td>
+        <td>Caption, like count, media URLs</td>
+        <td>10 minutes</td>
+        <td>Event-driven on post update/delete</td>
+      </tr>
+      <tr>
+        <td>Story Tray Cache</td>
+        <td>Active story IDs per user&#8217;s following</td>
+        <td>Until story expires</td>
+        <td>TTL-based + deletion events</td>
+      </tr>
+      <tr>
+        <td>Recommendation Cache</td>
+        <td>Ranked candidate lists per user</td>
+        <td>1-5 minutes</td>
+        <td>Periodic refresh by rec engine</td>
+      </tr>
+      <tr>
+        <td>Social Graph Cache</td>
+        <td>Follower/following lists</td>
+        <td>5 minutes</td>
+        <td>Invalidate on follow/unfollow</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Instagram&rsquo;s backend is extensively event-driven. Almost every significant action generates events that flow through a Kafka-like streaming system, decoupling producers from consumers and enabling asynchronous processing at scale.</p>
+
+<p>When you post a photo, the media upload service publishes a &ldquo;post_created&rdquo; event. Multiple consumers react to this event independently: the feed fanout service updates follower feeds, the notification service sends alerts to followers who have notifications enabled, the search indexing service adds the new post to the search index, the recommendation engine updates its models, and the analytics service records the post metrics. None of these services need to be synchronous with the upload — they all work off the event stream at their own pace.</p>
+
+<p><strong>Stream processing</strong> for real-time analytics uses frameworks similar to Apache Flink or Spark Streaming. These systems continuously aggregate engagement events (likes, comments, shares, watch-time) to update engagement counters, recalculate trending content, and feed signals back into ranking models.</p>
+
+<p><strong>Event durability</strong> is critical. If a consumer falls behind or fails, events need to be retained so processing can be resumed. Kafka-like systems retain events for a configurable period (typically days to weeks), allowing consumers to replay from any point.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Let us talk about the specific bottlenecks that appear when scaling Instagram-like systems and how they are addressed.</p>
+
+<p><strong>Feed bottlenecks</strong> appear most obviously around large accounts. The fanout-on-write approach breaks down at celebrity scale. The hybrid model (write for normal users, read for celebrities) solves the immediate write amplification problem but introduces complexity in the feed assembly step.</p>
+
+<p><strong>Recommendation bottlenecks</strong> stem from the computational cost of running large neural network models in real time. Instagram likely serves recommendations from a combination of precomputed results (batch-processed recommendations stored and ready to serve) and real-time inference (for freshness and personalization). Batch processing runs on GPU clusters overnight to generate personalized candidate lists; real-time re-ranking applies at request time using lighter models.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Bottleneck</th>
+        <th>Root Cause</th>
+        <th>Solution</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Feed fanout for celebrities</td>
+        <td>Write amplification to millions of followers</td>
+        <td>Hybrid fanout: read-time merge for large accounts</td>
+        <td>Higher read-time latency</td>
+      </tr>
+      <tr>
+        <td>Real-time recommendation inference</td>
+        <td>ML model computation cost</td>
+        <td>Precomputed candidates + lightweight real-time reranking</td>
+        <td>Reduced recommendation freshness</td>
+      </tr>
+      <tr>
+        <td>Media transcoding queue depth</td>
+        <td>CPU-intensive transcoding jobs</td>
+        <td>Elastic transcoding worker pool, priority queuing</td>
+        <td>Higher cost for burst capacity</td>
+      </tr>
+      <tr>
+        <td>Cache hot spots</td>
+        <td>Sudden viral traffic to single cache key</td>
+        <td>Key replication, local in-process cache, request coalescing</td>
+        <td>Stale data window increases</td>
+      </tr>
+      <tr>
+        <td>Social graph queries</td>
+        <td>Large adjacency lists for celebrity accounts</td>
+        <td>Precomputed graph summaries, graph caching</td>
+        <td>Stale follower counts</td>
+      </tr>
+      <tr>
+        <td>WebSocket connection scaling</td>
+        <td>Memory and CPU per persistent connection</td>
+        <td>Horizontally scaled connection server pool</td>
+        <td>Added complexity in message routing</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Multi-region deployments</strong> are essential for global latency. Instagram runs across multiple geographic regions — US East, US West, Europe, Asia Pacific, and others. Each region has its own full stack, with data replicated across regions. Users are routed to the nearest region by DNS-based geo-routing. Cross-region replication introduces the classic distributed systems challenges around consistency — if you follow someone and they post immediately, will you see that post? The answer at this scale is &ldquo;eventually,&rdquo; and the system is designed to tolerate short inconsistency windows.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Instagram targets very high availability. Any significant outage for a platform this large affects millions of users and generates enormous revenue loss and reputational damage.</p>
+
+<p><strong>Multi-region failover</strong> means that if one region goes down, traffic can be rerouted to healthy regions. This requires the data replication lag to be low enough that the failover does not result in significant data loss. For critical data like posts and messages, asynchronous replication with low lag is the goal.</p>
+
+<p><strong>Graceful degradation</strong> is important for partial failures. If the recommendation system is degraded, Instagram can fall back to showing a simpler chronological feed. If the CDN has issues in a specific region, the system can route to a different edge or serve lower-resolution media. The goal is to always show the user something reasonable even when parts of the system are struggling.</p>
+
+<p><strong>Observability</strong> — the combination of metrics, logs, and distributed traces — is how Instagram engineers know when things are going wrong before users report them. Every service emits metrics on request rates, latency percentiles (p50, p95, p99), error rates, and custom business metrics. Dashboards and automated alerting fire when these metrics deviate from normal patterns.</p>
+
+<a name="Security.and.Privacy.Systems"></a>
+<h2>Security and Privacy Systems</h2>
+
+<p>At Instagram&rsquo;s scale, abuse is constant and creative. Bot networks try to inflate engagement metrics. Spam accounts flood comments. Malware gets hidden in media files. Bad actors attempt account takeovers.</p>
+
+<p><strong>Bot detection</strong> uses a combination of behavioral signals (accounts that follow 1,000 people per hour are probably bots), device fingerprinting, IP reputation, and machine learning classifiers trained on known bot patterns. The challenge is that sophisticated bots deliberately mimic human behavior to avoid detection.</p>
+
+<p><strong>Content moderation</strong> at Instagram&rsquo;s scale cannot rely purely on human review — there is simply too much content posted every second. The first pass is automated classifiers that flag potentially violating content. Human reviewers then handle flagged content that the classifiers are uncertain about, and their decisions feed back into the training data for the classifiers.</p>
+
+<p><strong>Privacy controls</strong> allow users to set posts to private (only followers can see), control who can comment, and hide their story from specific users. These controls need to be enforced everywhere the content appears — in feeds, in search results, in recommendations, and in API responses. Enforcing them correctly across a distributed system is surprisingly difficult and requires careful access control logic that propagates through the recommendation and feed systems.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Real engineering is about making decisions under constraints, not finding the single right answer. Here are the real tradeoffs Instagram faces continuously.</p>
+
+<p><strong>Real-time ranking vs. latency.</strong> The more sophisticated your ranking model, the more computation it requires, and the higher your feed load latency. Instagram has to decide how much computation to spend at request time versus how much to precompute offline. A perfect real-time ranking might take 500ms — too slow. A good offline ranking from an hour ago might be served in 50ms — fast but potentially stale.</p>
+
+<p><strong>Recommendation quality vs. compute cost.</strong> Running large transformer-based recommendation models for every user at request time would be ideal for quality but would cost an extraordinary amount of compute. The practical solution involves lighter models at inference time, precomputed embeddings, and approximate nearest neighbor search rather than exact search.</p>
+
+<p><strong>Caching vs. consistency.</strong> Aggressive caching makes Instagram fast, but cached data goes stale. If your feed is cached, it might not reflect posts from the last few minutes. If a user deletes a post, it might still appear in cached feeds briefly. Instagram accepts these small consistency windows in exchange for the performance gains from caching.</p>
+
+<p><strong>Personalization vs. privacy.</strong> Better personalization requires more data about user behavior. Users and regulators increasingly care about what data is collected and how it is used. There is a genuine tension here that does not have a clean technical solution — it requires policy decisions as much as engineering decisions.</p>
+
+<p><strong>Media quality vs. bandwidth.</strong> Serving 4K video everywhere would look great but would consume enormous bandwidth, especially on mobile data connections. The adaptive streaming approach is a practical middle ground, but there is always a tension between quality and the cost of delivering that quality.</p>
+
+<a name="Technology.Stack"></a>
+<h2>Technology Stack</h2>
+
+<p>Understanding why Instagram (or a system designed like it) would choose specific technologies requires thinking about fit, not just familiarity.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Use Case at Instagram Scale</th>
+        <th>Why This Choice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Python / Django</td>
+        <td>Core API services and web backend</td>
+        <td>Instagram was built on Django; rich ecosystem, fast iteration</td>
+      </tr>
+      <tr>
+        <td>Go</td>
+        <td>High-throughput services like notification fanout</td>
+        <td>Low latency, efficient concurrency model for network services</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Feed caches, session storage, rate limiting</td>
+        <td>Sub-millisecond reads, native data structures (sorted sets, sets), TTL support</td>
+      </tr>
+      <tr>
+        <td>Cassandra</td>
+        <td>Engagement events, messages, story views</td>
+        <td>Linear horizontal scalability, excellent write throughput, tunable consistency</td>
+      </tr>
+      <tr>
+        <td>Apache Kafka</td>
+        <td>Event streaming backbone</td>
+        <td>Durable, ordered, high-throughput event delivery; consumer group model</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>User and hashtag search</td>
+        <td>Full-text search, fuzzy matching, near-real-time indexing</td>
+      </tr>
+      <tr>
+        <td>TensorFlow / PyTorch</td>
+        <td>Recommendation and ranking models</td>
+        <td>GPU-optimized training, scalable serving infrastructure</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Container orchestration for microservices</td>
+        <td>Elastic scaling, service isolation, rollout management</td>
+      </tr>
+      <tr>
+        <td>CDN (Fastly/Cloudflare-like)</td>
+        <td>Media delivery globally</td>
+        <td>Global edge network, reduces origin load, adaptive delivery</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When interviewers ask you to design Instagram, they are testing your ability to reason about distributed systems at scale, not your ability to memorize Instagram&rsquo;s actual architecture.</p>
+
+<p><strong>What interviewers want to see</strong> is structured thinking. Start with requirements — clarify the scale (how many users, what features are in scope), the consistency requirements (is it okay if feeds are slightly stale?), and the latency requirements (how fast does a feed load need to be?). Then sketch a high-level architecture before diving into specifics.</p>
+
+<p><strong>Strong candidates</strong> talk about the celebrity problem in feed generation without being prompted. They recognize that fanout on write and fanout on read are both incomplete solutions, and they propose the hybrid approach. They discuss why media needs to be transcoded into multiple formats, not just stored as-is. They think about cache invalidation proactively, not just as an afterthought.</p>
+
+<p><strong>Common mistakes</strong> include designing a system that works but does not scale, jumping into database schemas before establishing the architecture, not discussing the tradeoffs of decisions (saying &ldquo;use Cassandra&rdquo; without explaining why over Postgres), and forgetting about failure scenarios entirely.</p>
+
+<p><strong>For the recommendation system component</strong>, strong candidates distinguish between candidate generation and ranking. They know that you cannot run a deep learning model over all two billion posts for every user request — there has to be a funnel. They talk about embeddings, collaborative filtering, and exploration vs exploitation.</p>
+
+<p><strong>For the media delivery component</strong>, strong candidates understand CDN architecture intuitively — that media should never be served from origin at scale, that multiple quality levels are necessary for adaptive streaming, and that prefetching is what makes Reels feel instant.</p>
+
+<p>The most important thing to remember in these interviews: justify your decisions. Every architectural choice should come with a &ldquo;because.&rdquo; Not &ldquo;I will use Kafka&rdquo; but &ldquo;I will use Kafka because we need durable, ordered event delivery with the ability for multiple consumer groups to process the same events independently — the feed service, notification service, and analytics service all need to react to the same post-created event.&rdquo;</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Instagram&rsquo;s engineering is a masterclass in what distributed systems look like when they grow beyond the point where any single clever solution works. The photo-sharing app that Kevin Systrom and Mike Krieger launched in 2010 ran on a handful of servers. The platform that serves two billion users today is a collection of hundreds of specialized services, massive distributed caches, globally distributed CDN infrastructure, and machine learning systems that are constantly learning from billions of daily interactions.</p>
+
+<p>What makes Instagram particularly interesting as a system design case study is that it combines almost every major distributed systems challenge in one place: real-time data at scale, complex recommendation systems, media processing pipelines, ephemeral content, real-time communication, and global distribution. Understanding how each of these pieces works — and more importantly, why they work the way they do — gives you a mental toolkit that applies far beyond Instagram to virtually any large-scale digital product.</p>
+
+<p>The engineering tradeoffs discussed here are not Instagram-specific. The celebrity problem exists in any social network. The fanout problem exists in any notification system. The consistency vs. performance tradeoff exists in any caching strategy. The recommendation latency vs. quality tradeoff exists in any ML-powered personalization system. Instagram&rsquo;s solutions to these problems are worth understanding because they represent hard-won lessons from operating at a scale that very few systems in history have reached.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How Meta Serverless Works?]]></title>
@@ -9197,6 +11129,8 @@ K &#8211;> L;
 
 <div class="mermaid">
 flowchart TD;
+
+%% Nodes
 A[Driver Mobile App];
 B[GPS Ingestion Service];
 C[Map Matching Service];
@@ -9209,20 +11143,53 @@ I[Trip Orchestration Service];
 J[Kafka Event Bus];
 K[Redis Cache];
 L[Cassandra DB];
+
+%% Flows
 A &#8211;>|GPS ping every 4s| B;
-B &#8211;>|raw location event| J;
+
+B &#8211;>|Raw location event| J;
+
 J &#8211;> C;
 J &#8211;> D;
-C &#8211;>|matched road position| E;
-D &#8211;>|traffic snapshot| E;
-E &#8211;>|candidate routes| F;
+
+C &#8211;>|Matched road position| E;
+D &#8211;>|Traffic snapshot| E;
+
+E &#8211;>|Candidate routes| F;
+
 F &#8211;> G;
-G &#8211;>|adjusted ETA| F;
+G &#8211;>|Adjusted ETA| F;
+
 F &#8211;>|ETA result| K;
-I &#8211;>|trip state| F;
+
+I &#8211;>|Trip state| F;
+
 H &#8211;>|ETA request| I;
-F &#8211;>|cached ETA| H;
+
+F &#8211;>|Cached ETA| H;
+
 F &#8211;> L;
+
+%% Styles
+style A fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+style H fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+
+style B fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+style I fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a;
+
+style C fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style D fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style E fill:#cffafe,stroke:#0891b2,stroke-width:3px,color:#164e63;
+
+style F fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#7f1d1d;
+style G fill:#fecaca,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+
+style J fill:#ede9fe,stroke:#7c3aed,stroke-width:3px,color:#4c1d95;
+
+style K fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f;
+
+style L fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+
 </div>
 
 
@@ -10503,37 +12470,128 @@ F &#8211;> G;
 
 <div class="mermaid">
 flowchart TD;
+
+%% =========================
+%% Client Layer
+%% =========================
 A[Web and Mobile Clients];
+
+%% =========================
+%% Edge Layer
+%% =========================
 B[CDN Edge Servers];
-C[API Gateway and Load Balancer];
+
+%% =========================
+%% Gateway Layer
+%% =========================
+C[API Gateway and<br/>Load Balancer];
+
+%% =========================
+%% Core Services
+%% =========================
 D[Upload Service];
 E[Streaming Service];
 F[Search Service];
 G[Recommendation Service];
 H[Metadata Service];
 I[Notification Service];
+
+%% =========================
+%% Storage and Infra
+%% =========================
 J[Video Storage GCS];
 K[Transcoding Workers];
 L[Bigtable and Spanner];
 M[Kafka Event Bus];
 N[ML Training Infrastructure];
-A &#8211;> B;
-B &#8211;> C;
+
+%% =========================
+%% Main Flows
+%% =========================
+A &#8211;>|HTTPS Requests| B;
+B &#8211;>|Cache Miss| C;
+
 C &#8211;> D;
 C &#8211;> E;
 C &#8211;> F;
 C &#8211;> G;
 C &#8211;> H;
 C &#8211;> I;
-D &#8211;> K;
-K &#8211;> J;
-K &#8211;> L;
-E &#8211;> J;
-H &#8211;> L;
-M &#8211;> G;
-M &#8211;> I;
-M &#8211;> N;
-G &#8211;> N;
+
+D &#8211;>|Video Upload| K;
+
+K &#8211;>|Encoded Streams| J;
+K &#8211;>|Metadata Update| L;
+
+E &#8211;>|Read Video Segments| J;
+
+H &#8211;>|Store Metadata| L;
+
+M &#8211;>|Events| G;
+M &#8211;>|Events| I;
+M &#8211;>|Training Data| N;
+
+G &#8211;>|Recommendation Signals| N;
+
+%% =========================
+%% Fancy Styles
+%% =========================
+
+%% Clients
+style A fill:#fff7ed,stroke:#f97316,stroke-width:3px,color:#7c2d12;
+
+%% CDN
+style B fill:#ede9fe,stroke:#7c3aed,stroke-width:3px,color:#4c1d95;
+
+%% Gateway
+style C fill:#dbeafe,stroke:#2563eb,stroke-width:4px,color:#1e3a8a;
+
+%% Services
+style D fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style E fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style F fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style G fill:#fecdd3,stroke:#e11d48,stroke-width:3px,color:#881337;
+style H fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style I fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+
+%% Storage
+style J fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#14532d;
+style L fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#14532d;
+
+%% Workers
+style K fill:#fef3c7,stroke:#d97706,stroke-width:3px,color:#78350f;
+
+%% Kafka
+style M fill:#ede9fe,stroke:#7c3aed,stroke-width:4px,color:#4c1d95;
+
+%% ML Infra
+style N fill:#fce7f3,stroke:#db2777,stroke-width:4px,color:#831843;
+
+%% =========================
+%% Link Styling
+%% =========================
+linkStyle 0 stroke:#f97316,stroke-width:2px;
+linkStyle 1 stroke:#7c3aed,stroke-width:2px;
+
+linkStyle 2 stroke:#2563eb,stroke-width:2px;
+linkStyle 3 stroke:#2563eb,stroke-width:2px;
+linkStyle 4 stroke:#2563eb,stroke-width:2px;
+linkStyle 5 stroke:#2563eb,stroke-width:2px;
+linkStyle 6 stroke:#2563eb,stroke-width:2px;
+linkStyle 7 stroke:#2563eb,stroke-width:2px;
+
+linkStyle 8 stroke:#d97706,stroke-width:3px;
+linkStyle 9 stroke:#16a34a,stroke-width:3px;
+linkStyle 10 stroke:#16a34a,stroke-width:3px;
+
+linkStyle 11 stroke:#0891b2,stroke-width:2px;
+
+linkStyle 12 stroke:#7c3aed,stroke-width:3px;
+linkStyle 13 stroke:#dc2626,stroke-width:3px;
+linkStyle 14 stroke:#db2777,stroke-width:3px;
+
+linkStyle 15 stroke:#e11d48,stroke-width:3px;
+
 </div>
 
 
@@ -10554,31 +12612,118 @@ G &#8211;> N;
 
 <div class="mermaid">
 flowchart TD;
+
+%% =========================
+%% Client Layer
+%% =========================
 A[Creator Client];
+
+%% =========================
+%% Upload Pipeline
+%% =========================
 B[Upload Gateway];
 C[Chunk Validator];
 D[Temporary Object Storage];
 E[Upload Event Queue];
+
+%% =========================
+%% Processing Pipeline
+%% =========================
 F[Virus and Content Scanner];
 G[Metadata Extractor];
 H[Thumbnail Generator];
+
+%% =========================
+%% Transcoding Pipeline
+%% =========================
 I[Transcoding Queue];
 J[Transcoding Workers];
+
+%% =========================
+%% Storage and Indexing
+%% =========================
 K[Permanent Video Storage];
 L[Search Index Updater];
 M[Metadata Database];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-G &#8211;> I;
-I &#8211;> J;
-J &#8211;> K;
-J &#8211;> L;
-J &#8211;> M;
+
+%% =========================
+%% Main Flow
+%% =========================
+A &#8211;>|Upload Video| B;
+
+B &#8211;>|Chunk Stream| C;
+
+C &#8211;>|Validated Chunks| D;
+
+D &#8211;>|Emit Upload Event| E;
+
+E &#8211;>|Async Processing| F;
+
+F &#8211;>|Safe Content| G;
+
+G &#8211;>|Generate Preview| H;
+
+G &#8211;>|Create Encoding Job| I;
+
+I &#8211;>|Distributed Jobs| J;
+
+J &#8211;>|Store Encoded Video| K;
+
+J &#8211;>|Update Search Index| L;
+
+J &#8211;>|Persist Metadata| M;
+
+%% =========================
+%% Styles
+%% =========================
+
+%% Client
+style A fill:#fff7ed,stroke:#f97316,stroke-width:3px,color:#7c2d12;
+
+%% Upload Layer
+style B fill:#dbeafe,stroke:#2563eb,stroke-width:4px,color:#1e3a8a;
+style C fill:#bfdbfe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a;
+
+%% Temporary Storage
+style D fill:#fef3c7,stroke:#d97706,stroke-width:3px,color:#78350f;
+
+%% Queue
+style E fill:#ede9fe,stroke:#7c3aed,stroke-width:4px,color:#4c1d95;
+style I fill:#ede9fe,stroke:#7c3aed,stroke-width:4px,color:#4c1d95;
+
+%% Processing Services
+style F fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#7f1d1d;
+style G fill:#cffafe,stroke:#0891b2,stroke-width:3px,color:#164e63;
+style H fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843;
+
+%% Workers
+style J fill:#fde68a,stroke:#ca8a04,stroke-width:4px,color:#713f12;
+
+%% Final Storage
+style K fill:#dcfce7,stroke:#16a34a,stroke-width:4px,color:#14532d;
+style L fill:#bbf7d0,stroke:#16a34a,stroke-width:2px,color:#14532d;
+style M fill:#bbf7d0,stroke:#16a34a,stroke-width:2px,color:#14532d;
+
+%% =========================
+%% Link Styling
+%% =========================
+linkStyle 0 stroke:#f97316,stroke-width:2px;
+linkStyle 1 stroke:#2563eb,stroke-width:2px;
+linkStyle 2 stroke:#d97706,stroke-width:3px;
+
+linkStyle 3 stroke:#7c3aed,stroke-width:3px;
+linkStyle 4 stroke:#dc2626,stroke-width:3px;
+
+linkStyle 5 stroke:#0891b2,stroke-width:3px;
+linkStyle 6 stroke:#db2777,stroke-width:2px;
+
+linkStyle 7 stroke:#7c3aed,stroke-width:3px;
+linkStyle 8 stroke:#ca8a04,stroke-width:4px;
+
+linkStyle 9 stroke:#16a34a,stroke-width:4px;
+linkStyle 10 stroke:#16a34a,stroke-width:3px;
+linkStyle 11 stroke:#16a34a,stroke-width:3px;
+
 </div>
 
 
@@ -13150,514 +15295,6 @@ I &#8211;> J;
 <li><a href="https://github.com/reddit-archive/reddit">The original Reddit source code (2008)</a> — worth a look if you want to see where it all started</li>
 </ul>
 
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How WhatsApp Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-whatsapp-works/"/>
-        <updated>2026-05-01T22:30:48+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-whatsapp-works</id>
-        <content type="html"><![CDATA[<a name="The.Insane.Scale.of.WhatsApp"></a>
-<h2>The Insane Scale of WhatsApp</h2>
-
-<p>Let&rsquo;s start with numbers, because they&rsquo;re genuinely mind-blowing. WhatsApp isn&rsquo;t just a chat app — it&rsquo;s one of the largest distributed systems ever built by humans.</p>
-
-<p><img src="https://rishijeet.github.io/images/system_design/whatsapp.png" height="300" width="900" alt="Alt text" /></p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Metric</th>
-        <th>Number</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Monthly Active Users</td>
-        <td>2 billion+</td>
-      </tr>
-      <tr>
-        <td>Messages sent per day</td>
-        <td>100 billion</td>
-      </tr>
-      <tr>
-        <td>Peak messages per second</td>
-        <td>1 million+</td>
-      </tr>
-      <tr>
-        <td>Photos shared daily</td>
-        <td>60 billion</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>And here&rsquo;s the kicker — in 2012, when WhatsApp hit 27 billion messages per day, they had only <strong>32 engineers</strong>. That&rsquo;s the kind of engineering efficiency that makes the rest of the tech world jealous.</p>
-
-<!--more-->
-
-
-<blockquote><p><em>&ldquo;WhatsApp is proof that you don&rsquo;t need thousands of engineers to build something used by billions — you need brilliant architecture.&rdquo;</em></p></blockquote>
-
-<a name="Bird.s-Eye.Architecture"></a>
-<h2>Bird&rsquo;s-Eye Architecture</h2>
-
-<p>At the highest level, WhatsApp is built around a few key ideas: keep the servers as dumb as possible, push logic to the clients, store as little as possible centrally, and make delivery fast and reliable.</p>
-
-<p>Here&rsquo;s how the major layers stack up:</p>
-
-<p><img src="https://rishijeet.github.io/images/system_design/whatsapp-architecture.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>WhatsApp originally built on <strong>XMPP</strong> (Extensible Messaging and Presence Protocol) — an open standard for real-time messaging. They heavily modified it over the years to fit their scale, but the core idea remains: a protocol designed for real-time, push-based communication.</p>
-
-<a name="The.Journey.of.a.Single.Message"></a>
-<h2>The Journey of a Single Message</h2>
-
-<p>You tap send. What happens next? Let&rsquo;s trace the path of a single &ldquo;Hey! 👋&rdquo; from your phone to your friend&rsquo;s screen.</p>
-
-<ul>
-<li><strong>Step 1 — You hit send</strong>
-
-<ul>
-<li>Your app <strong>encrypts the message on-device</strong> using the Signal Protocol (more on this below). The raw text never leaves your phone unencrypted.</li>
-</ul>
-</li>
-<li><strong>Step 2 — Sent to WhatsApp&rsquo;s chat server</strong>
-
-<ul>
-<li>The encrypted blob travels over a persistent <strong>WebSocket connection</strong> (or TCP connection) that your app keeps open with the nearest WhatsApp data center. This is why WhatsApp feels instant — there&rsquo;s no &ldquo;dialing in&rdquo; every time you send a message.</li>
-</ul>
-</li>
-<li><strong>Step 3 — Server acknowledges receipt</strong>
-
-<ul>
-<li>The server sends back an acknowledgement to your app — this is when you see the <strong>single grey tick ✓</strong>. The server received it. Job done on your side.</li>
-</ul>
-</li>
-<li><strong>Step 4 — Server looks up the recipient</strong>
-
-<ul>
-<li>WhatsApp checks if your friend is online (has an active connection). If yes, it pushes the message immediately. If not, it queues the message and waits.</li>
-</ul>
-</li>
-<li><strong>Step 5 — Message delivered to the recipient&rsquo;s device</strong>
-
-<ul>
-<li>The encrypted message arrives on your friend&rsquo;s phone. Their app decrypts it locally. You see the <strong>double grey tick ✓✓</strong> — delivered.</li>
-</ul>
-</li>
-<li><strong>Step 6 — Read receipt fires back</strong>
-
-<ul>
-<li>When your friend opens the chat and the message is displayed, their app fires a &ldquo;read&rdquo; event back to the server, which relays it to you — turning those ticks <strong>blue ✓✓</strong>.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="End-to-End.Encryption.....The.Signal.Protocol"></a>
-<h2>End-to-End Encryption — The Signal Protocol</h2>
-
-<p>This is one of WhatsApp&rsquo;s most impressive engineering decisions. Every message is end-to-end encrypted, meaning <strong>even WhatsApp cannot read your messages</strong>. Not even if a government asks nicely.</p>
-
-<p>They use the <strong>Signal Protocol</strong> — the same protocol built by Open Whisper Systems. Here&rsquo;s how it works at a conceptual level.</p>
-
-<a name="Key.Exchange.....The.Double.Ratchet.Algorithm"></a>
-<h3>Key Exchange — The Double Ratchet Algorithm</h3>
-
-<p>When you first message someone, your apps do a cryptographic handshake — they exchange <strong>public keys</strong> without ever revealing private keys. Think of it like passing padlocks through the mail. Anyone can lock something with your padlock, but only you have the key to open it.</p>
-
-<p>WhatsApp uses a mechanism called the <strong>Double Ratchet Algorithm</strong>, which does something clever: every single message gets its own unique encryption key. Even if a hacker somehow got the key for message #47, they still can&rsquo;t decrypt message #48. This is called <strong>forward secrecy</strong>.</p>
-
-<blockquote><p><strong>Why this matters for system design:</strong> WhatsApp&rsquo;s servers are essentially routing encrypted blobs they cannot understand. This massively simplifies their legal liability and trust model — they genuinely cannot be a surveillance back-door, because the math makes it impossible.</p></blockquote>
-
-<a name="What.Happens.When.You.re.Offline."></a>
-<h2>What Happens When You&rsquo;re Offline?</h2>
-
-<p>This is where <strong>message queuing</strong> comes in. If your friend is offline when you send a message, WhatsApp&rsquo;s server holds onto it — encrypted — in a message store.</p>
-
-<p>The moment your friend&rsquo;s phone reconnects (opens the app, comes back online), their device establishes a persistent connection to WhatsApp&rsquo;s servers. The server notices the connection, looks up any queued messages, and pushes them all immediately.</p>
-
-<p>One important detail: <strong>WhatsApp only stores messages on their servers until delivery.</strong> Once a message is delivered to your device, it&rsquo;s deleted from the server. Your chat history lives on your phone, not in a central WhatsApp database. This is a deliberate design choice — it&rsquo;s cheaper to store, more private, and reduces liability.</p>
-
-<a name="Push.Notifications"></a>
-<h3>Push Notifications</h3>
-
-<p>If your app is killed in the background, WhatsApp uses:
-- <strong>APNs</strong> (Apple Push Notification Service) for iOS
-- <strong>Firebase Cloud Messaging (FCM)</strong> for Android</p>
-
-<p>&hellip;to wake up your app when a message arrives. This is how you see notifications even when the app isn&rsquo;t running.</p>
-
-<a name="How.Media.Works.....Photos..Videos..amp..Documents"></a>
-<h2>How Media Works — Photos, Videos &amp; Documents</h2>
-
-<p>Text messages are tiny. A photo is 2–5 MB. A video might be 50 MB. You can&rsquo;t run these through the same messaging pipeline without everything grinding to a halt. So WhatsApp separates the two completely.</p>
-
-<p>When you send a photo, here&rsquo;s what actually happens:</p>
-
-<ul>
-<li><strong>Step 1 — Compress and encrypt on-device</strong>
-
-<ul>
-<li>Your app compresses the image and encrypts it with a one-time key generated just for this file.</li>
-</ul>
-</li>
-<li><strong>Step 2 — Upload to WhatsApp&rsquo;s media servers</strong>
-
-<ul>
-<li>The encrypted file is uploaded to blob storage (backed by data centers globally). You get back a URL.</li>
-</ul>
-</li>
-<li><strong>Step 3 — Send a tiny text message</strong>
-
-<ul>
-<li>Instead of sending the photo through the chat server, WhatsApp sends a small text message containing:</li>
-<li>The URL of the encrypted file</li>
-<li>The decryption key</li>
-<li>Metadata (thumbnail, dimensions, file size)</li>
-<li>The chat server only ever sees tiny, fast-moving messages.</li>
-</ul>
-</li>
-<li><strong>Step 4 — Recipient downloads &amp; decrypts</strong>
-
-<ul>
-<li>Your friend&rsquo;s app receives the message, fetches the encrypted file from the CDN, decrypts it with the embedded key, and shows you the photo. Clean separation of concerns.</li>
-</ul>
-</li>
-</ul>
-
-
-<a name="Read.Receipts..amp..Presence.....The.Ticks.Explained"></a>
-<h2>Read Receipts &amp; Presence — The Ticks Explained</h2>
-
-<p>The humble tick is one of the most data-efficient features in WhatsApp. Here&rsquo;s what each state actually represents in system terms:</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Status</th>
-        <th>What it means technically</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>🕐</td>
-        <td>Sending</td>
-        <td>Message is in the outgoing queue on your device, not yet sent to server</td>
-      </tr>
-      <tr>
-        <td>✓</td>
-        <td>Sent</td>
-        <td>Server received and acknowledged the message</td>
-      </tr>
-      <tr>
-        <td>✓✓</td>
-        <td>Delivered</td>
-        <td>Message pushed to recipient&#8217;s device; their app sent a delivery ack</td>
-      </tr>
-      <tr>
-        <td>✓✓ (blue)</td>
-        <td>Read</td>
-        <td>Recipient opened the chat; their app fired a &#8220;seen&#8221; event</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="L.Last.Seen......How.Presence.Works"></a>
-<h3>&ldquo;Last Seen&rdquo; — How Presence Works</h3>
-
-<p>When you open WhatsApp, your client tells the server you&rsquo;re <strong>online</strong>. When you close it, it sends an offline event with a timestamp. That timestamp becomes your <strong>last seen</strong> time. WhatsApp stores this in a fast in-memory store (like Redis) so it can serve it to your contacts instantly.</p>
-
-<a name="Group.Chats.....The.Fan-Out.Problem"></a>
-<h2>Group Chats — The Fan-Out Problem</h2>
-
-<p>Here&rsquo;s where things get tricky. When you send a message to a group of 256 people, WhatsApp needs to deliver that message to 255 other devices — each with their own encryption key, potentially on different servers, with different online/offline states.</p>
-
-<p>This is called the <strong>fan-out problem</strong>: one message needs to branch out to many recipients.</p>
-
-<a name="WhatsApp.s.Solution.....Sender.Key"></a>
-<h3>WhatsApp&rsquo;s Solution — Sender Key</h3>
-
-<p>Instead of encrypting the message separately 255 times (once for each recipient), the sender encrypts the message <strong>once</strong> with a group key. This group key is then distributed to all members using individual encrypted sessions.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Scenario</th>
-        <th>Breakdown</th>
-        <th>Result</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Without Sender Key</td>
-        <td>1 message × 255 encryptions</td>
-        <td>= 255 encrypt operations</td>
-      </tr>
-      <tr>
-        <td>With Sender Key</td>
-        <td>1 message × 1 encryption + 255 small key deliveries</td>
-        <td>= Much cheaper at scale</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>The result? Sending a group message requires roughly the same server-side effort whether you&rsquo;re sending to 5 people or 256.</p>
-
-<blockquote><p><strong>Group metadata vs. message content:</strong> Group membership info, admin roles, and settings are stored on WhatsApp&rsquo;s servers. But the actual message content is end-to-end encrypted — the server routes the encrypted blob without reading it.</p></blockquote>
-
-<a name="Why.WhatsApp.Runs.on.Erlang"></a>
-<h2>Why WhatsApp Runs on Erlang</h2>
-
-<p>Most startups reach for Node.js or Go. WhatsApp chose <strong>Erlang</strong> — a 1986 language designed by Ericsson for telecom switches. This sounds like a weird choice until you understand what Erlang was built for: handling millions of concurrent connections with incredibly high reliability.</p>
-
-<a name="What.makes.Erlang.special"></a>
-<h3>What makes Erlang special</h3>
-
-<p><strong>Lightweight processes</strong>
-Erlang can run millions of tiny concurrent &ldquo;processes&rdquo; (not OS threads). Each user connection gets its own process — this maps perfectly to WhatsApp&rsquo;s model where every user session is stateful and persistent.</p>
-
-<p><strong>&ldquo;Let it crash&rdquo; philosophy</strong>
-Erlang&rsquo;s approach is to write simple code and let the runtime handle failures gracefully. Processes crash, supervisors restart them automatically, the user never notices. This is how WhatsApp achieves high uptime without heroic error handling.</p>
-
-<p><strong>Hot code reloading</strong>
-You can deploy new code to a running Erlang system <strong>without restarting it</strong>. Zero-downtime deployments are built into the language itself.</p>
-
-<p>The modified Ejabberd XMPP server WhatsApp runs could handle <strong>2 million TCP connections per server</strong> — a number that would make most Java developers weep.</p>
-
-<a name="Key.Takeaways.for.System.Designers"></a>
-<h2>Key Takeaways for System Designers</h2>
-
-<p>If you&rsquo;re studying system design or building your own messaging feature, here&rsquo;s what WhatsApp teaches us:</p>
-
-<ul>
-<li><strong>Use persistent connections, not polling</strong>
-
-<ul>
-<li>WebSockets/TCP keep-alive connections are why WhatsApp feels instant. HTTP polling at scale would be catastrophically expensive.</li>
-</ul>
-</li>
-<li><strong>Separate text from binary data</strong>
-
-<ul>
-<li>Never run large files through your messaging pipeline. Upload to blob storage, pass a reference. Keep your message broker handling only small, fast-moving messages.</li>
-</ul>
-</li>
-<li><strong>Message queues are your offline strategy</strong>
-
-<ul>
-<li>Assume recipients are offline. Queue messages server-side and push on reconnect. This is more reliable than any &ldquo;retry from client&rdquo; approach.</li>
-</ul>
-</li>
-<li><strong>Store as little centrally as possible</strong>
-
-<ul>
-<li>WhatsApp deletes messages from servers after delivery. Less data = lower cost, simpler architecture, and better privacy by default.</li>
-</ul>
-</li>
-<li><strong>Pick your tech for the problem, not the hype</strong>
-
-<ul>
-<li>Erlang was 30 years old when WhatsApp picked it. It was simply the right tool. Be boring, be reliable, be scalable.</li>
-</ul>
-</li>
-</ul>
-
-
-<blockquote><p><em>&ldquo;The best system design is usually the one with the fewest moving parts that still solves the problem reliably at scale.&rdquo;</em></p></blockquote>
-
-<p>WhatsApp is a masterclass in restraint — minimal central state, maximum client responsibility, clever use of encryption to simplify the trust model, and a language ecosystem built for exactly this kind of concurrent, fault-tolerant problem.</p>
-
-<p>Not bad for an app that started as a simple status update tool.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[A Desert Bean and an Oil Revolution]]></title>
-        <link href="https://rishijeet.github.io/blog/a-desert-bean-and-an-oil-revolution/"/>
-        <updated>2026-04-11T17:31:23+05:30</updated>
-        <id>https://rishijeet.github.io/blog/a-desert-bean-and-an-oil-revolution</id>
-        <content type="html"><![CDATA[<p><em>How a nation that once begged OPEC for oil became the world&rsquo;s largest producer, with a little help from Rajasthan&rsquo;s desert farmers</em></p>
-
-<p><img src="https://rishijeet.github.io/images/2026/oil.jpg" height="300" width="900" alt="Alt text" /></p>
-
-<a name="The.Smell.of.Dependence"></a>
-<h2>The Smell of Dependence</h2>
-
-<p>Picture this. It is October 1973. Richard Nixon is in the White House. The Vietnam War is winding down. And in the Middle East, a coalition of Arab nations has just made a decision that will bring the most powerful economy on Earth to its knees.</p>
-
-<p>In retaliation for American support of Israel during the Yom Kippur War, the Arab members of OPEC, led by Saudi Arabia, announced an oil embargo against the United States. Overnight, the taps were turned off. Oil prices quadrupled from $3 to $12 a barrel. Petrol stations ran dry. Americans queued for hours, sometimes all night, just to fill their tanks. The speed limit on highways was slashed to 55 mph to conserve fuel. The lights on the Christmas tree at Rockefeller Center were dimmed. The world&rsquo;s richest country was brought to a standstill by a commodity it did not control.</p>
-
-<!--more-->
-
-
-<p>That was the moment America truly understood its vulnerability.</p>
-
-<p>But here is what makes that story even more remarkable. It did not have to be that way. The United States had been the world&rsquo;s dominant oil producer for most of the 20th century. It was an American, Edwin Drake, who drilled the first commercial oil well in Titusville, Pennsylvania, in 1859. It was American companies like Standard Oil, Texaco, and Gulf that built the global oil industry. It was American engineers who first discovered oil in Saudi Arabia in 1938. America created the oil world. And then, slowly, it became enslaved to it.</p>
-
-<p>How did that happen? And how did America fight its way back to the top, helped unexpectedly by a humble bean from the deserts of Rajasthan? That is the story we are about to tell.</p>
-
-<a name="The.Century.of.Plenty..and.Then.the.Cliff"></a>
-<h2>The Century of Plenty, and Then the Cliff</h2>
-
-<p>From the late 1800s through the mid-20th century, the United States was swimming in oil. Texas, Oklahoma, California, Louisiana. Oil gushed from the ground with almost comical ease. In 1901, the Spindletop well in Beaumont, Texas, erupted with such force that it took nine days to cap it. When it finally stabilised, it was producing more oil per day than all other American wells combined. It was the single most consequential oil discovery in history.
-<img src="https://rishijeet.github.io/images/2026/spindletop.avif" height="300" width="900" alt="Alt text" /><em>Spindletop Oil Field</em></p>
-
-<p>For decades, America&rsquo;s domestic production was more than sufficient. It powered two World Wars. It kept the factories running. It built the automobile culture, the highways, suburbs and drive-ins, that became synonymous with American identity. At its peak in 1970, the United States was producing 9.6 million barrels a day.</p>
-
-<p>And then it began to decline.</p>
-
-<p>The problem was simple geology. The easy, shallow, cheap-to-extract oil was running out. Production peaked in 1970, a fact predicted almost exactly a decade earlier by geologist M. King Hubbert in what became known as Hubbert&rsquo;s Peak theory. As domestic production fell, imports rose to fill the gap. By 1973, the United States was importing over 6 million barrels a day, with a significant chunk coming from the Arab world.</p>
-
-<p>Enter the embargo. Enter the queues. Enter the humiliation.</p>
-
-<a name="The.Long.Dependency"></a>
-<h2>The Long Dependency</h2>
-
-<p>After the shock of 1973, America made bold declarations about energy independence. President Nixon launched Project Independence. President Carter installed solar panels on the White House roof. But the declarations faded, the solar panels were removed by Reagan, and the imports kept rising.</p>
-
-<p>Through the 1980s, 1990s, and 2000s, the United States became progressively more dependent on Middle Eastern oil. The top source countries for American petroleum imports included Saudi Arabia, Iraq, and other Gulf states, alongside Canada and Mexico. At the peak of dependence in the early 2000s, America was importing close to 12 million barrels a day, sending hundreds of billions of dollars to foreign governments, some of whom were ideologically hostile.</p>
-
-<p>The strategic implications were enormous. American foreign policy became tangled in the Persian Gulf. The United States maintained a massive military presence in the region, aircraft carriers in the Arabian Sea, bases in Saudi Arabia, diplomatic partnerships with kingdoms whose human rights records were troubling, all at least in part to protect the oil supply.</p>
-
-<p>The Gulf War of 1990 to 1991, when Saddam Hussein invaded Kuwait, was ostensibly about sovereignty. But everyone understood the subtext. Kuwait&rsquo;s oil fields, which held about 10% of global reserves, could not fall into hostile hands. American soldiers died in the desert sands to protect the world&rsquo;s energy supply.</p>
-
-<p>Then came 9/11. Fifteen of the nineteen hijackers were Saudi nationals. The uncomfortable relationship between American security and Saudi oil grew even more fraught. The dependency was costing America not just money. It was costing lives, influence, and moral clarity.</p>
-
-<p>Something had to change.</p>
-
-<a name="The.Revolution.Underground"></a>
-<h2>The Revolution Underground</h2>
-
-<p>The revolution, when it came, did not come from Washington. It did not come from Big Oil boardrooms or military strategy. It came from a stubborn Texas oilman named George Mitchell.</p>
-
-<p>Through the 1980s and 1990s, Mitchell, the founder of Mitchell Energy, became obsessed with an idea that most people in the industry considered insane: extracting oil and gas from shale rock, a dense and impermeable formation that held enormous reserves but gave up its contents grudgingly, if at all.</p>
-
-<p>The conventional wisdom said it was impossible. Shale rock does not flow. You cannot pump oil out of solid rock. Mitchell did not listen.</p>
-
-<p>After years of costly experimentation, his team cracked the code in 1998 using a technique called hydraulic fracturing, or fracking. The idea was simple in concept. Drill down into the shale, turn the drill sideways using horizontal drilling, and then pump millions of litres of water, sand, and chemicals into the rock at enormous pressure. The pressure fractures the rock. The sand holds the fractures open. And the oil and gas flows out.</p>
-
-<p><img src="https://rishijeet.github.io/images/2026/shale-gas-extraction.png" height="300" width="900" alt="Alt text" /><em>Shale fracking</em></p>
-
-<p>Mitchell sold his company to Devon Energy in 2002 for $3.1 billion. Devon combined hydraulic fracturing with horizontal drilling, and the results were staggering. The shale revolution had begun.</p>
-
-<p>Within a decade, the Permian Basin in Texas, the Bakken Formation in North Dakota, and the Eagle Ford shale in southern Texas were producing oil at a scale no one had imagined possible. By 2018, the United States had surpassed Saudi Arabia and Russia to become the world&rsquo;s largest oil producer, a title it had not held since 1970.</p>
-
-<p>It was one of the most dramatic industrial reversals in history.</p>
-
-<a name="The.Secret.Ingredient:.How.Rajasthan.Fed.the.American.Oil.Boom"></a>
-<h2>The Secret Ingredient: How Rajasthan Fed the American Oil Boom</h2>
-
-<p>Now here is the part of the story that almost nobody knows. The part that connects the oil derricks of West Texas to the dusty fields of northwestern India. The part that involves a humble, drought-resistant bean called guar, and how it quietly powered the greatest energy revolution of the 21st century.</p>
-
-<p>To understand the connection, you need to understand what fracking actually requires. When a fracking crew pumps fluid into a shale well, they are not using plain water. They need a substance that can thicken the water into a viscous gel that carries tiny grains of sand deep into the fractures at high pressure, holds them in suspension, and then breaks down cleanly after the job is done. It needs to be extraordinarily effective. It needs to be available in massive quantities. And it needs to be cheap enough to use by the million pounds.</p>
-
-<p><img src="https://rishijeet.github.io/images/2026/guar.jpg" height="300" width="900" alt="Alt text" /><em>Guar Plant</em></p>
-
-<p>The only substance on Earth that ticked all those boxes was guar gum. It is a powder made from the seeds of the guar bean, a desert legume that has grown in Rajasthan and Gujarat for centuries. For generations, it was used as cattle feed and occasionally cooked as a poor man&rsquo;s vegetable curry. Nobody in Texas had ever heard of it. Nobody in the global oil industry had ever cared about it.</p>
-
-<p>And then the fracking boom arrived and changed everything.</p>
-
-<p>India produces around 90% of the world&rsquo;s guar, and roughly 72% of that comes from Rajasthan alone. There is simply no substitute of comparable scale, reliability, or cost. American frackers needed Indian guar. That was the beginning and the end of the matter.</p>
-
-<p>The scale of what happened next is almost hard to believe. Between 2006 and 2011, North American fracking companies quadrupled the amount of guar gum they were consuming, driving usage up to one billion pounds in 2011. A single shale well typically consumed around 4,000 kilograms of guar gum. By 2012, Halliburton alone was using 14 million pounds of guar gum every single month.</p>
-
-<p><em>Read that again. Fourteen million pounds. Per month. From a single company.</em></p>
-
-<p>India&rsquo;s exports of guar gum shot up from roughly $20 million in 2003 to $3.5 billion in 2012 to 2013, and nearly 80% of those exports were going directly to shale gas producers in the United States. Guar had gone from being India&rsquo;s most ignored agricultural crop to its single largest farm export almost overnight.</p>
-
-<p>The price followed the demand. Before the shale boom, a tonne of guar gum sold for around $2,000. By 2012, that same tonne was fetching $28,000. That is a 1,400% increase in just a few years. The guar price was rising so fast that Indian commodity exchanges actually halted futures trading to allow for a government inquiry. Panic buying had set in. Prices were doubling week by week.</p>
-
-<p>The impact on Rajasthan was seismic.</p>
-
-<p>Farmers who had spent generations scratching out a living on sandy, arid soil suddenly found themselves sitting on what locals began calling their own black gold. In the city of Jodhpur, under the shadow of an ancient fort, traders were buying guar seed at ten times the price they had paid just a year earlier. Farmers were clearing debts they had carried for decades. They were building concrete houses. Buying tractors, televisions, and mobile phones. Funding lavish weddings. Sending their children to school.</p>
-
-<p>One farmer named Shivlal made five times his usual seasonal income from just five acres of guar planted in sandy Rajasthan soil. He built a concrete house and bought a colour television. He told reporters he was planning to grow guar on his rooftop the following season.</p>
-
-<p><img src="https://rishijeet.github.io/images/2026/guar_export.ppm" height="300" width="900" alt="Alt text" /><em>Guar Gum Export Trend</em></p>
-
-<p>A company called Vikas WSP, based in Rajasthan, distributed 3,000 metric tonnes of guar seeds to 200,000 Indian farmers, encouraging them to abandon cotton and lentils and switch to guar. In 2011, guar became India&rsquo;s single largest agricultural export to the United States, with sales reaching $915 million in one year.</p>
-
-<p>The American shale revolution, the greatest domestic energy comeback in history, was now dependent on the monsoon rains of Rajasthan. Oil executives in Houston were watching Indian weather forecasts with genuine anxiety. If the monsoon failed, guar supplies would tighten. If guar supplies tightened, fracking costs would rise. If fracking costs rose too sharply, the shale boom itself could slow.</p>
-
-<p>Workers on oil rigs in West Texas and North Dakota had no idea. But somewhere in the supply chain that kept their drills turning, a Rajasthani farmer was deciding how many acres to plant that season. The two worlds were connected by a little green bean that most Americans could not have named or recognised.</p>
-
-<p>It is one of the most extraordinary and underreported supply chain stories in modern industrial history.</p>
-
-<a name="The.Numbers:.How.Big.Did.America.Get."></a>
-<h2>The Numbers: How Big Did America Get?</h2>
-
-<p>The statistics of America&rsquo;s shale-driven oil renaissance are genuinely staggering.</p>
-
-<p>In 2008, the United States was producing around 5 million barrels of oil a day and importing nearly twice that. A decade later, the picture had completely reversed. By 2023, the United States was producing a record 13.5 million barrels of crude oil per day, up 9% from the year before. It was exporting oil to 173 countries. Oil exports alone brought in $117 billion in 2023. In 2024, the United States exported 55% of its entire crude oil and natural gas liquids production, setting new records for both production and export volume.</p>
-
-<p><img src="https://rishijeet.github.io/images/2026/us_prod.svg" height="300" width="900" alt="Alt text" /><em>US Production of Crude Oil since 1920</em></p>
-
-<p>The total revenue of the American oil and gas industry reached $244 billion in 2023, even after declining from a peak of $330 billion in 2022, when oil prices spiked following Russia&rsquo;s invasion of Ukraine.</p>
-
-<p>America had gone from supplicant to supplier. And the Permian Basin alone was producing more oil per day than any single OPEC member nation.</p>
-
-<a name="The.Paradox:.Why.America.Still.Imports.Oil"></a>
-<h2>The Paradox: Why America Still Imports Oil</h2>
-
-<p>Here is where many people get confused. If America is the world&rsquo;s largest oil producer, why does it still import millions of barrels a day?</p>
-
-<p>The answer is engineering, not economics.</p>
-
-<p>American shale oil, particularly from the Permian Basin, is predominantly light sweet crude. It is low in sulfur and relatively easy to refine into petrol and diesel. It is excellent oil. But here is the problem. Most American oil refineries, built decades ago when the country was importing from the Middle East and Venezuela, were specifically designed to process heavy sour crude. That is the thick, high-sulfur oil that Saudi Arabia, Mexico, and Canada produce.</p>
-
-<p>You cannot simply swap one type of crude for another in a refinery built for a different feedstock. Retrofitting or rebuilding refineries costs billions of dollars and takes years. So the United States exports its light shale oil to Europe and Asia, where refineries are set up to handle it, and simultaneously imports heavy crude from Canada, Mexico, and Saudi Arabia for its Gulf Coast refineries.</p>
-
-<p>In 2023, the United States imported about 8.5 million barrels per day while exporting about 10.15 million barrels per day, making it a net petroleum exporter of around 1.64 million barrels per day.</p>
-
-<p>It sounds paradoxical. It is entirely rational. America sells what it has, buys what its machinery needs, and profits in the process.</p>
-
-<a name="The.Money:.What.Does.America.Actually.Earn."></a>
-<h2>The Money: What Does America Actually Earn?</h2>
-
-<p>Oil is not just an energy story. It is one of the biggest economic stories in the world.</p>
-
-<p>The U.S. oil and gas sector directly employs over 150,000 people in extraction, and supports millions more in refining, transportation, equipment manufacturing, and services. Oil is the second largest U.S. export commodity by value, accounting for nearly 6% of all American exports. American crude oil and petroleum products now flow to Europe, South Korea, Japan, India, China, and dozens of other nations.</p>
-
-<p>The shale revolution also reshaped geopolitics in ways that would have seemed impossible in 1973. When Russia invaded Ukraine in 2022 and European nations scrambled to replace Russian gas, it was American LNG tankers that sailed across the Atlantic to keep European homes heated that winter. Energy had become a weapon of statecraft, and America was now one of the largest arsenals.</p>
-
-<a name="A.Reversed.World.Order"></a>
-<h2>A Reversed World Order</h2>
-
-<p>The story of America&rsquo;s oil journey is ultimately a story about vulnerability, ingenuity, and the unexpected ways the global economy connects people who will never meet.</p>
-
-<p>It is the story of a superpower humiliated at petrol stations in 1973, forced to tie its foreign policy to desert kingdoms for five decades, and then engineering a reversal so complete that it now exports oil to 173 countries across the world.</p>
-
-<p>It is the story of George Mitchell, who refused to accept that the rock would not yield. Of engineers who figured out how to drill sideways. Of a technology that was messy, controversial, and environmentally fraught, but undeniably transformative.</p>
-
-<p>And it is, improbably, the story of a small green bean in the Thar Desert.</p>
-
-<p>When American shale production took off, it brought extraordinary prosperity to farmers living 21,000 kilometres away in Rajasthan who had never heard of the Permian Basin. Farmers who did not know what a shale formation was. Farmers who simply grew what the desert allowed them to grow and found, to their astonishment, that the world&rsquo;s most powerful industry could not function without them.</p>
-
-<p>As one farmer&rsquo;s wife in Sri Ganganagar told reporters at the time: &ldquo;Everyone in the village is now growing guar. No one talks of anything else. It has changed the village. If you came here two years ago, you would not see joy on anyone&rsquo;s face.&rdquo;</p>
-
-<p>That is the real story of the American oil revolution. Not just Texas and North Dakota. Not just Halliburton and ExxonMobil. But also Rajasthan. Also guar. Also a farmer named Shivlal who built a concrete house and bought a colour television because Texas needed his beans to crack open rocks half a world away.</p>
-
-<p>Oil has always connected the world in ways we do not fully see until we look closely. America&rsquo;s journey from dependence to dominance is perhaps the most dramatic illustration of that truth the modern era has produced.</p>
-
-<p>And it is not over yet.</p>
-
-<hr />
-
-<p><em>As America pushes toward renewables, as electric vehicles begin to reshape petrol demand, as solar and wind transform the electricity grid, oil remains stubbornly irreplaceable in plastics, aviation, shipping, and petrochemicals. The shale revolution bought the world time. What the world does with that time is the next chapter of the story.</em></p>
-
-<hr />
 ]]></content>
     </entry>
     

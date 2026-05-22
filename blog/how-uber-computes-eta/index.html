@@ -161,6 +161,8 @@
 
 <div class="mermaid">
 flowchart TD;
+
+%% Nodes
 A[Driver Mobile App];
 B[GPS Ingestion Service];
 C[Map Matching Service];
@@ -173,20 +175,53 @@ I[Trip Orchestration Service];
 J[Kafka Event Bus];
 K[Redis Cache];
 L[Cassandra DB];
+
+%% Flows
 A &#8211;>|GPS ping every 4s| B;
-B &#8211;>|raw location event| J;
+
+B &#8211;>|Raw location event| J;
+
 J &#8211;> C;
 J &#8211;> D;
-C &#8211;>|matched road position| E;
-D &#8211;>|traffic snapshot| E;
-E &#8211;>|candidate routes| F;
+
+C &#8211;>|Matched road position| E;
+D &#8211;>|Traffic snapshot| E;
+
+E &#8211;>|Candidate routes| F;
+
 F &#8211;> G;
-G &#8211;>|adjusted ETA| F;
+G &#8211;>|Adjusted ETA| F;
+
 F &#8211;>|ETA result| K;
-I &#8211;>|trip state| F;
+
+I &#8211;>|Trip state| F;
+
 H &#8211;>|ETA request| I;
-F &#8211;>|cached ETA| H;
+
+F &#8211;>|Cached ETA| H;
+
 F &#8211;> L;
+
+%% Styles
+style A fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+style H fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+
+style B fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+style I fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a;
+
+style C fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style D fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style E fill:#cffafe,stroke:#0891b2,stroke-width:3px,color:#164e63;
+
+style F fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#7f1d1d;
+style G fill:#fecaca,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+
+style J fill:#ede9fe,stroke:#7c3aed,stroke-width:3px,color:#4c1d95;
+
+style K fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f;
+
+style L fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+
 </div>
 
 
