@@ -1,0 +1,947 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: slack | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/slack/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2026-05-23T17:02:24+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[How Slack Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-slack-works/"/>
+        <updated>2026-05-23T16:55:37+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-slack-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>There is a version of Slack that most engineers imagine when they first think about how it works. You type a message, hit Enter, and it shows up on someone else&rsquo;s screen. Simple enough. But the moment you start pulling at the threads of that interaction, things get complicated fast. What happens when a thousand people are in the same channel? What happens when someone is on mobile with spotty connectivity? What happens when your company has 80,000 employees and legal needs a full audit trail of every message sent over the last three years?</em></p></blockquote>
+
+<p><img src="/images/system_design/slack-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>Slack is not just a chat application. It is a distributed, event-driven, real-time collaboration platform operating at a scale where individual engineering decisions ripple out into millions of daily user experiences. It handles hundreds of millions of messages per day, maintains persistent WebSocket connections for millions of concurrent users, and does all of this while offering sub-second message delivery, reliable push notifications, full-text search across years of history, and enterprise-grade security.</p>
+
+<p>Building any one of those systems in isolation is a meaningful engineering problem. Building them together, making them interact reliably under load, and then keeping them running around the clock for paying enterprise customers is a genuinely difficult distributed systems challenge. This blog is about how that all works.</p>
+
+<p>We will move from the high-level shape of the system down into the guts of individual subsystems. Some sections will feel like a system design interview. Others will feel like a postmortem. That is intentional. The goal is not just to understand Slack academically but to develop real engineering instincts about why real-time collaboration platforms are designed the way they are.</p>
+
+<a name="Core.Features.of.Slack"></a>
+<h2>Core Features of Slack</h2>
+
+<p>Before diving into the architecture, it helps to enumerate what the system actually needs to do. Engineers sometimes skip this step and then wonder why their schema does not support threads or why their fanout logic breaks on large channels.</p>
+
+<!--more-->
+
+
+<p>Slack&rsquo;s core feature surface includes:</p>
+
+<ul>
+<li><strong>Channels</strong>: Named conversation spaces, public or private, that any workspace member can join or be invited to. Channels are the fundamental unit of Slack&rsquo;s communication model.</li>
+<li><strong>Direct messages and group DMs</strong>: Private conversations between two or more individuals, outside the channel structure.</li>
+<li><strong>Threads</strong>: Nested reply chains attached to a parent message, allowing focused discussion without polluting the main channel feed.</li>
+<li><strong>Reactions</strong>: Emoji responses attached to messages, replicated across all viewers of that message.</li>
+<li><strong>Mentions</strong>: The @username and @channel mechanisms that trigger notifications and draw user attention.</li>
+<li><strong>Presence indicators</strong>: Online, away, do-not-disturb, and custom status signals that tell other users whether someone is available.</li>
+<li><strong>Typing indicators</strong>: The transient signal that someone is actively composing a message in a channel.</li>
+<li><strong>Search</strong>: Full-text retrieval across messages, files, and channels going back years.</li>
+<li><strong>File sharing</strong>: Upload and delivery of images, documents, code snippets, and other binary assets with preview generation.</li>
+<li><strong>Notifications</strong>: Push alerts to mobile, desktop, and email when relevant activity occurs.</li>
+<li><strong>Integrations and bots</strong>: Third-party app connections via APIs, incoming webhooks, slash commands, and event subscriptions.</li>
+<li><strong>Workspaces</strong>: The organizational container that isolates one company&rsquo;s data from another.</li>
+<li><strong>Voice and video calls</strong>: Real-time audio/video communication directly within Slack, built on WebRTC.</li>
+</ul>
+
+
+<p>Each of these features is a system in its own right. Some of them, like typing indicators, seem trivial until you realize that propagating them to hundreds of active channel members at high frequency without creating a thundering herd is a genuine architectural challenge.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>At the highest level, Slack&rsquo;s architecture looks like this. Clients connect to an API gateway layer, which routes requests to specialized backend services. Most real-time communication flows through WebSocket gateways rather than HTTP. Behind the gateways, a set of microservices handles messaging, channel management, presence, notifications, and search. Events flow through a Kafka-like streaming backbone. Data is stored in a mix of MySQL (with Vitess for sharding), Redis, and Elasticsearch.</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% =========================
+%% Client Applications
+%% =========================
+A[Web Client];
+B[Mobile Client];
+C[Desktop Client];
+
+%% =========================
+%% Gateway Layer
+%% =========================
+D[API Gateway];
+E[WebSocket Gateway];
+
+%% =========================
+%% Core Messaging Services
+%% =========================
+F[Message Service];
+G[Channel Service];
+H[Presence Service];
+I[Notification Service];
+J[Search Service];
+K[File Service];
+
+%% =========================
+%% Event Streaming
+%% =========================
+L[Event Stream - Kafka];
+
+%% =========================
+%% Storage and Infrastructure
+%% =========================
+M[MySQL - Vitess];
+N[Redis Cache];
+O[Elasticsearch];
+P[CDN Edge Network];
+
+%% =========================
+%% Client Connections
+%% =========================
+A &#8211;>|REST APIs| D;
+B &#8211;>|REST APIs| D;
+C &#8211;>|REST APIs| D;
+
+A &#8211;>|Realtime Socket| E;
+B &#8211;>|Realtime Socket| E;
+C &#8211;>|Realtime Socket| E;
+
+%% =========================
+%% Gateway Routing
+%% =========================
+D &#8211;>|Messaging APIs| F;
+D &#8211;>|Channel APIs| G;
+D &#8211;>|Upload APIs| K;
+
+%% =========================
+%% Event Driven Pipeline
+%% =========================
+F &#8211;>|Message Events| L;
+G &#8211;>|Channel Events| L;
+H &#8211;>|Presence Updates| L;
+
+%% =========================
+%% Event Consumers
+%% =========================
+L &#8211;>|Push Events| I;
+L &#8211;>|Indexing Events| J;
+L &#8211;>|Presence Fanout| H;
+
+%% =========================
+%% Persistent Storage
+%% =========================
+F &#8211;>|Persist Messages| M;
+G &#8211;>|Persist Channels| M;
+
+%% =========================
+%% Cache Layer
+%% =========================
+F &#8211;>|Hot Conversations| N;
+H &#8211;>|Online User State| N;
+
+%% =========================
+%% Search Infrastructure
+%% =========================
+J &#8211;>|Search Index Updates| O;
+
+%% =========================
+%% Media Delivery
+%% =========================
+K &#8211;>|Serve Files and Media| P;
+
+%% =========================
+%% Fancy Styles
+%% =========================
+
+%% Clients
+style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style B fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style C fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+
+%% Gateway Layer
+style D fill:#0891b2,stroke:#0e7490,stroke-width:5px,color:#ffffff;
+style E fill:#0ea5e9,stroke:#0369a1,stroke-width:5px,color:#ffffff;
+
+%% Core Services
+style F fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style G fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style H fill:#22c55e,stroke:#15803d,stroke-width:4px,color:#ffffff;
+style I fill:#22c55e,stroke:#15803d,stroke-width:4px,color:#ffffff;
+style J fill:#14b8a6,stroke:#0f766e,stroke-width:4px,color:#ffffff;
+style K fill:#14b8a6,stroke:#0f766e,stroke-width:4px,color:#ffffff;
+
+%% Event Stream
+style L fill:#f59e0b,stroke:#b45309,stroke-width:6px,color:#000000;
+
+%% Storage
+style M fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
+style N fill:#a855f7,stroke:#7e22ce,stroke-width:4px,color:#ffffff;
+style O fill:#8b5cf6,stroke:#6d28d9,stroke-width:4px,color:#ffffff;
+style P fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff;
+
+%% =========================
+%% Link Styling
+%% =========================
+
+%% REST APIs
+linkStyle 0 stroke:#2563eb,stroke-width:3px;
+linkStyle 1 stroke:#2563eb,stroke-width:3px;
+linkStyle 2 stroke:#2563eb,stroke-width:3px;
+
+%% WebSockets
+linkStyle 3 stroke:#0ea5e9,stroke-width:3px;
+linkStyle 4 stroke:#0ea5e9,stroke-width:3px;
+linkStyle 5 stroke:#0ea5e9,stroke-width:3px;
+
+%% Gateway Routing
+linkStyle 6 stroke:#16a34a,stroke-width:3px;
+linkStyle 7 stroke:#16a34a,stroke-width:3px;
+linkStyle 8 stroke:#14b8a6,stroke-width:3px;
+
+%% Event Publishing
+linkStyle 9 stroke:#f59e0b,stroke-width:4px;
+linkStyle 10 stroke:#f59e0b,stroke-width:4px;
+linkStyle 11 stroke:#f59e0b,stroke-width:4px;
+
+%% Event Consumers
+linkStyle 12 stroke:#22c55e,stroke-width:4px;
+linkStyle 13 stroke:#14b8a6,stroke-width:4px;
+linkStyle 14 stroke:#22c55e,stroke-width:4px;
+
+%% Database Writes
+linkStyle 15 stroke:#9333ea,stroke-width:4px;
+linkStyle 16 stroke:#9333ea,stroke-width:4px;
+
+%% Cache
+linkStyle 17 stroke:#a855f7,stroke-width:4px;
+linkStyle 18 stroke:#a855f7,stroke-width:4px;
+
+%% Search
+linkStyle 19 stroke:#8b5cf6,stroke-width:4px;
+
+%% CDN
+linkStyle 20 stroke:#7c3aed,stroke-width:4px;
+
+</div>
+
+
+<p>The reason this architecture is split along these lines is not arbitrary. The WebSocket gateway and the API gateway are separate because their scaling profiles are completely different. HTTP requests are short-lived and stateless. WebSocket connections are long-lived and stateful. You cannot scale them with the same infrastructure. The event streaming backbone exists because many downstream systems, like notifications and search indexing, do not need to be in the critical path of message delivery. Putting them there would add latency and create brittle coupling.</p>
+
+<p>The message lifecycle for a user sending a message looks roughly like this:</p>
+
+<ol>
+<li>The client sends the message to the API gateway over HTTPS.</li>
+<li>The Message Service persists it to MySQL.</li>
+<li>The Message Service publishes a <code>message.created</code> event to Kafka.</li>
+<li>The WebSocket Gateway consumes the event and pushes the message to all connected channel members.</li>
+<li>The Notification Service consumes the event and sends push alerts to offline members.</li>
+<li>The Search Indexer consumes the event and indexes the message text.</li>
+</ol>
+
+
+<p>Each step is largely decoupled. The user gets a response as soon as step 2 completes. Everything downstream happens asynchronously.</p>
+
+<a name="Realtime.Messaging.Pipeline"></a>
+<h2>Realtime Messaging Pipeline</h2>
+
+<p>This is where the magic and the hard problems live. When you hit Enter in Slack, you expect that message to appear on your colleague&rsquo;s screen in under a second. Meeting that expectation at scale requires a carefully designed pipeline.</p>
+
+<div class="mermaid">
+flowchart TD;
+    A[User Sends Message];
+    B[Client Optimistic Render];
+    C[API Gateway - HTTPS POST];
+    D[Auth and Rate Limit Check];
+    E[Message Service];
+    F[Deduplication Check];
+    G[Persist to MySQL];
+    H[Assign Message ID and Timestamp];
+    I[Publish to Kafka];
+    J[WebSocket Fanout Service];
+    K[Connected Clients Receive Message];
+    L[Notification Service];
+    M[Search Indexer];
+    A &#8211;> B;
+    A &#8211;> C;
+    C &#8211;> D;
+    D &#8211;> E;
+    E &#8211;> F;
+    F &#8211;> G;
+    G &#8211;> H;
+    H &#8211;> I;
+    I &#8211;> J;
+    J &#8211;> K;
+    I &#8211;> L;
+    I &#8211;> M;
+    classDef user fill:#2563eb,stroke:#1e40af,color:#ffffff;
+    classDef gate fill:#0891b2,stroke:#0e7490,color:#ffffff;
+    classDef process fill:#16a34a,stroke:#166534,color:#ffffff;
+    classDef store fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+    classDef stream fill:#f59e0b,stroke:#b45309,color:#000000;
+    classDef output fill:#dc2626,stroke:#991b1b,color:#ffffff;
+    class A,B user;
+    class C,D gate;
+    class E,F,H process;
+    class G store;
+    class I stream;
+    class J,K,L,M output;
+</div>
+
+
+<p>A few things in this pipeline deserve closer attention.</p>
+
+<p><strong>Optimistic rendering.</strong> The client does not wait for server confirmation before displaying the message to the sender. It renders it immediately with a pending state. If the server fails, the client rolls back. This is the right tradeoff because most sends succeed, and adding even 200ms of perceived latency to every message would feel terrible over a full workday.</p>
+
+<p><strong>Deduplication.</strong> The client includes a client-generated nonce with each message. If a send request is retried due to a network timeout, the server uses the nonce to detect and discard the duplicate. Without this, unreliable mobile connections would create visible duplicate messages.</p>
+
+<p><strong>Message IDs and ordering.</strong> Slack needs messages to appear in the order they were sent, at least within a channel. The server assigns a monotonically increasing timestamp (with enough precision to detect ordering conflicts) at write time. This becomes the canonical ordering. The client cannot be trusted to generate ordering-safe timestamps because clocks drift.</p>
+
+<p><strong>Fanout via Kafka.</strong> The Message Service itself does not push messages to WebSocket connections. It publishes an event and hands off. This is important because the Message Service and the WebSocket infrastructure scale independently. If fanout were synchronous and in-band, a slow WebSocket push to a large channel would block the entire message pipeline.</p>
+
+<p><strong>Eventual consistency in delivery.</strong> If a user&rsquo;s WebSocket connection is temporarily disrupted, they will miss the real-time push. When they reconnect, the client fetches recent messages via REST and reconciles with its local state. This means message delivery is eventually consistent, not guaranteed real-time. For a collaboration tool, this is an acceptable tradeoff. Losing a message entirely is not acceptable. Seeing it 3 seconds late because of a reconnect is fine.</p>
+
+<a name="WebSocket.Infrastructure.Deep.Dive"></a>
+<h2>WebSocket Infrastructure Deep Dive</h2>
+
+<p>The WebSocket layer is arguably the most operationally complex part of Slack. You are maintaining millions of long-lived, stateful TCP connections simultaneously and routing events to them with sub-second latency.</p>
+
+<div class="mermaid">
+flowchart TD;
+    A[Client A - Desktop];
+    B[Client B - Mobile];
+    C[Client C - Web];
+    D[Load Balancer - Layer 4];
+    E[WebSocket Gateway Node 1];
+    F[WebSocket Gateway Node 2];
+    G[WebSocket Gateway Node 3];
+    H[Connection Registry - Redis];
+    I[Event Fanout Consumer];
+    J[Kafka - message.created];
+    A &#8211;> D;
+    B &#8211;> D;
+    C &#8211;> D;
+    D &#8211;> E;
+    D &#8211;> F;
+    D &#8211;> G;
+    E &#8211;> H;
+    F &#8211;> H;
+    G &#8211;> H;
+    J &#8211;> I;
+    I &#8211;> H;
+    I &#8211;> E;
+    I &#8211;> F;
+    I &#8211;> G;
+    classDef client fill:#2563eb,stroke:#1e40af,color:#ffffff;
+    classDef infra fill:#0891b2,stroke:#0e7490,color:#ffffff;
+    classDef registry fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+    classDef stream fill:#f59e0b,stroke:#b45309,color:#000000;
+    class A,B,C client;
+    class D,E,F,G infra;
+    class H registry;
+    class I,J stream;
+</div>
+
+
+<p>Each WebSocket Gateway node holds an in-memory map of connection ID to socket object. When a <code>message.created</code> event arrives from Kafka, the Fanout Consumer needs to know which gateway nodes have connections for each channel member. It does not push to every node. Instead, the Connection Registry (backed by Redis) stores a mapping of user ID to gateway node ID. The Fanout Consumer looks up each channel member, finds their gateway node, and sends the event directly to that node.</p>
+
+<p><strong>Scaling millions of connections.</strong> A single WebSocket Gateway node can handle tens of thousands of concurrent connections before CPU and memory become limiting factors. Scaling to millions means running hundreds of gateway nodes. The load balancer uses Layer 4 routing (TCP-level) rather than Layer 7 HTTP routing because WebSocket connections are long-lived. Once a connection is established to a specific node, it needs to stay there. Layer 7 load balancers can do this with sticky sessions, but Layer 4 is simpler and more reliable for long-lived TCP.</p>
+
+<p><strong>Heartbeats.</strong> The gateway sends periodic ping frames to each client. The client responds with a pong. If a pong is not received within a timeout window, the server marks the connection as dead and cleans up the registry entry. Without this, stale connections accumulate, the registry becomes inaccurate, and fanout starts delivering events to connections that no longer exist.</p>
+
+<p><strong>Reconnect handling.</strong> Mobile clients lose connectivity constantly. When a client reconnects, it performs a sequence number negotiation, sending the ID of the last event it received. The server replays any missed events from that point. This requires the event log to be retained for at least a short window, which Kafka handles naturally via its configurable retention.</p>
+
+<p><strong>Connection failover.</strong> When a gateway node crashes, all its connections are dropped. Clients detect this immediately because the TCP socket closes, and they begin reconnecting. The load balancer distributes reconnection requests across surviving nodes. The connection registry entries for the dead node are cleaned up via a TTL-based expiration. This means there is a brief window during which some fanout attempts will target a dead node and fail, but the client reconnect logic ensures no messages are permanently lost.</p>
+
+<p>Why is WebSocket infrastructure so hard? Because every property you want, low latency, high availability, stateful connections, ordered delivery, scales in tension with the others. Stateful connections are hard to load balance. Ordered delivery requires coordination. High availability of stateful systems requires careful failover logic. There is no clean, elegant solution. There are only thoughtful tradeoffs.</p>
+
+<a name="Channel.Architecture.and.Fanout.Systems"></a>
+<h2>Channel Architecture and Fanout Systems</h2>
+
+<p>Channels are the core abstraction in Slack. From the outside, a channel is simple. From the inside, it is a carefully managed index of members, a storage partition for messages, a permission boundary, and a fanout target.</p>
+
+<p><strong>The fanout problem.</strong> When a message is sent to a channel with 50 members, Slack needs to push that message to all 50 connected clients. This is manageable. When a channel has 50,000 members (common in large enterprise deployments with all-company announcements), pushing to all connected members becomes a significant fan-out operation. If even 10% of members are connected, that is 5,000 WebSocket pushes per message.</p>
+
+<p>There are a few strategies for managing this:</p>
+
+<ul>
+<li><strong>Lazy fanout</strong>: Rather than pushing to all members immediately, the system publishes the event and lets each member&rsquo;s client poll or pull the update. This reduces server push load but increases latency and client polling overhead.</li>
+<li><strong>Push to active members only</strong>: The system tracks which channel members are currently active (have had recent heartbeats) and only pushes to them. Inactive members catch up when they reconnect. This is what most large-scale chat systems do.</li>
+<li><strong>Chunked fanout</strong>: The fanout operation is split into batches processed in parallel. Rather than pushing to 5,000 connections sequentially, you process them in chunks of 100 across many workers.</li>
+<li><strong>Hierarchical fanout</strong>: For extremely large channels, a tree-based fanout can distribute the push operation across intermediate nodes, reducing the load on any single system.</li>
+</ul>
+
+
+<p><strong>Private channels and membership indexing.</strong> Every channel has a membership table. For private channels, this table is the authoritative access control boundary. When a message is published, the system must look up the channel membership to determine who should receive the fanout. This lookup needs to be fast. Slack caches channel membership aggressively in Redis. When membership changes (someone joins or leaves), the cache is invalidated and the updated membership is loaded.</p>
+
+<p><strong>Thread systems.</strong> Threads in Slack are essentially child channels with a parent message reference. A thread message is stored with a <code>thread_ts</code> field pointing to the root message&rsquo;s timestamp. Fanout for thread replies only goes to users who have replied to or explicitly followed the thread, not to all channel members. This significantly reduces fanout volume for threaded conversations.</p>
+
+<p><strong>Direct messages.</strong> DMs are structurally just private channels with exactly two members. Group DMs are private channels with a small fixed membership. This consistency simplifies the codebase considerably. The same message storage, delivery, and search infrastructure handles all conversation types.</p>
+
+<a name="Presence.and.Typing.Indicator.Systems"></a>
+<h2>Presence and Typing Indicator Systems</h2>
+
+<p>Presence is one of those features that sounds easy until you try to build it at scale.</p>
+
+<p><strong>The basic model.</strong> Each client sends a heartbeat to the Presence Service every 30 seconds while active. If the Presence Service does not receive a heartbeat within a threshold window, it marks the user as away or offline. The client also sends explicit status changes (active, away, do-not-disturb) when the user interacts with the UI.</p>
+
+<p><strong>Scaling presence updates.</strong> In a large workspace, presence changes are frequent. Multiplying users times presence heartbeats per minute gives you a constant stream of writes. Storing each heartbeat as a database write would be expensive. Instead, the Presence Service maintains an in-memory store (Redis) of last-seen timestamps. Heartbeats update an in-memory TTL key. A background process periodically snapshots presence state to durable storage for recovery purposes.</p>
+
+<p><strong>Propagating presence to clients.</strong> Clients need to see the online status of other users. Pushing every presence change to every connected client in a workspace would generate enormous traffic. Slack takes a more selective approach: presence updates are only pushed to clients that are currently viewing a conversation with the affected user, or who have the affected user visible in their sidebar. This requires the system to track which users are visible on a given client&rsquo;s screen, which adds complexity but dramatically reduces network chatter.</p>
+
+<p><strong>Typing indicators.</strong> When you start typing, your client sends a <code>typing_start</code> event to the server. This event is propagated to other channel members via WebSocket. Typing indicators are intentionally ephemeral. They do not need to be persisted. If they are lost, the UI just shows nothing. This lets the system handle them with low overhead: fire and forget, no Kafka persistence, no database write.</p>
+
+<p>The challenge is throttling. If a user types continuously, the client should not send a <code>typing_start</code> event on every keystroke. Clients typically send one event when typing starts and then nothing unless there is a pause of more than a few seconds (which resets the indicator). The server-side TTL on the typing indicator state matches this cadence.</p>
+
+<a name="Notification.Infrastructure"></a>
+<h2>Notification Infrastructure</h2>
+
+<p>Notifications are where system design gets philosophically interesting. The goal is to notify users about things that matter without overloading them with noise. Getting this wrong in either direction hurts users badly.</p>
+
+<div class="mermaid">
+flowchart TD;
+    A[message.created Event - Kafka];
+    B[Notification Service];
+    C[User Preferences Lookup];
+    D[Mention Detection];
+    E[DND and Schedule Check];
+    F[Priority Classification];
+    G[Push Queue - High Priority];
+    H[Push Queue - Normal];
+    I[Email Queue];
+    J[APNs - iOS];
+    K[FCM - Android];
+    L[Desktop Push];
+    M[Email Delivery];
+    A &#8211;> B;
+    B &#8211;> C;
+    B &#8211;> D;
+    C &#8211;> E;
+    D &#8211;> F;
+    E &#8211;> F;
+    F &#8211;> G;
+    F &#8211;> H;
+    F &#8211;> I;
+    G &#8211;> J;
+    G &#8211;> K;
+    G &#8211;> L;
+    H &#8211;> J;
+    H &#8211;> K;
+    I &#8211;> M;
+    classDef event fill:#f59e0b,stroke:#b45309,color:#000000;
+    classDef service fill:#16a34a,stroke:#166534,color:#ffffff;
+    classDef queue fill:#0891b2,stroke:#0e7490,color:#ffffff;
+    classDef delivery fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+    class A event;
+    class B,C,D,E,F service;
+    class G,H,I queue;
+    class J,K,L,M delivery;
+</div>
+
+
+<p><strong>How notifications are triggered.</strong> The Notification Service consumes <code>message.created</code> events from Kafka. For each message, it evaluates several conditions:</p>
+
+<ul>
+<li>Does the message @mention specific users?</li>
+<li>Does it @channel or @here?</li>
+<li>Is it in a channel the user has notification preferences set for?</li>
+<li>Is the user online? If so, they are already receiving the message via WebSocket and may not need a push notification.</li>
+<li>Is the user in do-not-disturb mode?</li>
+<li>Is it outside the user&rsquo;s notification schedule?</li>
+</ul>
+
+
+<p>This evaluation is stateful and requires fetching user preferences from a database or cache. This lookup happens millions of times per day, which is why notification preference data is aggressively cached in Redis.</p>
+
+<p><strong>Mobile push delivery.</strong> iOS notifications go through Apple&rsquo;s Push Notification Service (APNs). Android goes through Firebase Cloud Messaging (FCM). Both are external, third-party systems. Slack cannot guarantee delivery through them. If APNs returns a delivery failure, Slack may retry, but there is no way to force delivery to a device that is truly offline. Mobile push is best-effort and fire-and-forget by nature.</p>
+
+<p><strong>Batching and rate limiting.</strong> In a busy channel, many messages may arrive within seconds of each other. Sending a separate push notification for each one would flood a user&rsquo;s phone. Slack batches notifications in a short time window, collapsing multiple messages into a single alert. The batching window trades freshness for conciseness.</p>
+
+<p><strong>Email fallback.</strong> If a user has been offline for an extended period (typically configurable), Slack delivers unread mentions and direct messages via email. This is a stateful operation because the system needs to track which messages have already been included in email digests.</p>
+
+<a name="Search.Infrastructure"></a>
+<h2>Search Infrastructure</h2>
+
+<p>Search in a collaboration platform is not like search on the web. Users expect to find a specific message someone sent six months ago in a 400-person channel. They expect typo tolerance. They expect results to be ranked by recency and relevance. They expect results to appear within a second.</p>
+
+<p>This requires a full-text search infrastructure, not a SQL LIKE query.</p>
+
+<p><strong>Elasticsearch (or OpenSearch) at the core.</strong> Slack&rsquo;s search indexes messages, channels, files, and users. Elasticsearch is purpose-built for full-text search. It uses inverted indexes, where each word in the corpus maps to a list of documents containing that word. When a query arrives, it looks up the terms in the inverted index and computes a relevance score using a combination of term frequency and document recency.</p>
+
+<p><strong>Indexing pipeline.</strong> When a message is created, the <code>message.created</code> event flows from Kafka to a Search Indexer consumer. The indexer writes to Elasticsearch asynchronously. This means there is a brief delay (typically seconds) before a new message is searchable. For most use cases, this is acceptable. Users are not typically searching for a message that was sent 10 seconds ago.</p>
+
+<p><strong>Workspace isolation in search.</strong> Each workspace&rsquo;s messages are indexed separately, and all search queries are scoped to the requesting user&rsquo;s workspace. More precisely, every indexed document is tagged with a workspace ID, and all queries include a workspace ID filter. This ensures tenant isolation at the search layer.</p>
+
+<p><strong>Channel-level permission enforcement.</strong> Search results cannot include messages from private channels the user is not a member of. The search index does not inherently know about channel membership, so permission filtering happens at query time. The search service fetches the list of channels the user is a member of, adds them as a filter to the Elasticsearch query, and only returns results from accessible channels. This approach is called post-retrieval filtering or result-level ACL enforcement.</p>
+
+<p><strong>Ranking signals.</strong> Slack&rsquo;s search ranking uses several signals beyond pure text relevance. Recent messages rank higher than old ones. Messages in frequently used channels get a boost. Messages that the user sent themselves or that directly mention them get a small boost. This recency-and-relevance blend is tuned empirically.</p>
+
+<p><strong>Why search is hard to scale.</strong> Writing to Elasticsearch is expensive. Each indexed document goes through tokenization, analysis, and inverted index updates. At Slack&rsquo;s message volume, this creates sustained write pressure on the search cluster. The cluster needs to be sized not just for query load but for indexing throughput. Read and write paths in Elasticsearch compete for the same cluster resources, so over-indexing degrades query latency.</p>
+
+<a name="File.Upload.and.Media.Systems"></a>
+<h2>File Upload and Media Systems</h2>
+
+<p>File sharing looks straightforward from the outside but requires a careful pipeline for security, performance, and cost.</p>
+
+<p><strong>Upload pipeline.</strong> When a user selects a file to upload, the client first requests an upload URL from the File Service. The File Service generates a signed URL pointing directly to object storage (like Amazon S3 or an equivalent). The client uploads the file directly to storage, bypassing Slack&rsquo;s application servers. This keeps large binary payloads off application tier resources and reduces latency.</p>
+
+<p>Once the upload completes, the client notifies the File Service, which triggers asynchronous post-processing:</p>
+
+<ul>
+<li><strong>Virus scanning</strong>: The file is scanned before being made accessible to any user.</li>
+<li><strong>Preview generation</strong>: For images, Slack generates multiple thumbnail resolutions. For PDFs, it renders a first-page preview. For code files, it applies syntax highlighting.</li>
+<li><strong>Media transcoding</strong>: For video files, transcoding produces multiple quality tiers.</li>
+</ul>
+
+
+<p><strong>CDN delivery.</strong> Files are served to clients through a CDN, not directly from object storage. The CDN caches frequently accessed files at edge nodes close to users. This keeps latency low and reduces origin bandwidth costs.</p>
+
+<p><strong>Access control.</strong> Files inherit the channel&rsquo;s privacy settings. A file shared in a private channel is only accessible to members of that channel. Slack generates short-lived signed download URLs rather than permanent public URLs. Even if someone extracts a URL from a private Slack message, the URL will expire before they can share it externally.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>The Kafka-based event streaming backbone is what makes Slack&rsquo;s architecture composable and resilient. Rather than services calling each other directly, they communicate through events.</p>
+
+<div class="mermaid">
+flowchart TD;
+    A[Message Service];
+    B[Channel Service];
+    C[Presence Service];
+    D[Kafka - Event Bus];
+    E[WebSocket Fanout Consumer];
+    F[Notification Consumer];
+    G[Search Indexer Consumer];
+    H[Analytics Consumer];
+    I[Audit Log Consumer];
+    A &#8211;> D;
+    B &#8211;> D;
+    C &#8211;> D;
+    D &#8211;> E;
+    D &#8211;> F;
+    D &#8211;> G;
+    D &#8211;> H;
+    D &#8211;> I;
+    classDef producer fill:#2563eb,stroke:#1e40af,color:#ffffff;
+    classDef bus fill:#f59e0b,stroke:#b45309,color:#000000;
+    classDef consumer fill:#16a34a,stroke:#166534,color:#ffffff;
+    class A,B,C producer;
+    class D bus;
+    class E,F,G,H,I consumer;
+</div>
+
+
+<p><strong>Why event-driven?</strong> Three reasons matter most. First, it decouples services. The Message Service does not know or care about notifications. It publishes an event and continues. Second, it provides natural backpressure handling. If the Search Indexer falls behind during a spike, messages queue in Kafka rather than timing out at the Message Service. Third, it enables easy addition of new consumers. When Slack added an Audit Log feature, it was a new Kafka consumer, not a change to every upstream service.</p>
+
+<p><strong>Event durability.</strong> Kafka persists events to disk. If a consumer crashes, it restarts and resumes from its last committed offset. Events are not lost. This is fundamentally different from a pub/sub system where missed events are gone forever.</p>
+
+<p><strong>Exactly-once semantics.</strong> Kafka offers at-least-once delivery by default. Consumers may see the same event twice if they crash after processing but before committing their offset. For idempotency-sensitive consumers (like the search indexer), this means the indexing operation must be idempotent. Reindexing the same message twice should not create duplicates. Most systems handle this by keying indexed documents on the message ID.</p>
+
+<a name="Multi-Device.Synchronization"></a>
+<h2>Multi-Device Synchronization</h2>
+
+<p>A Slack user might have the app open on a MacBook, an iPhone, and a work PC simultaneously. All three need to show the same message state, same read receipts, and same notification history.</p>
+
+<p><strong>Read receipts.</strong> When a user reads a message, the client sends a read-position update to the server. This update records the timestamp of the last read message in each channel. When the same user opens Slack on another device, it fetches the read-position state and marks everything before that timestamp as read. This is eventually consistent, meaning there can be a brief window where one device shows unread messages that another has already dismissed.</p>
+
+<p><strong>Offline synchronization.</strong> When a client comes back online after being offline, it performs a catch-up sequence. It sends the timestamp of the last event it received to the server. The server returns all events from that point forward. This can be a large payload if the client was offline for a long time. Slack handles this gracefully by fetching incrementally and rendering progressively, so the user can start using the app while the full sync completes in the background.</p>
+
+<p><strong>Conflict resolution.</strong> Slack messages are immutable once sent (except for edits, which are explicit actions). This makes synchronization much simpler than, say, a document editor. There are no merge conflicts. The main synchronization challenge is ordering: ensuring that messages arrive in the correct sequence on all devices. The server-assigned timestamp is the canonical ordering key.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>Slack&rsquo;s persistence layer is not a single database. Different data has different access patterns, durability requirements, and scale profiles.</p>
+
+<p><strong>MySQL with Vitess for messages.</strong> Messages are the most write-heavy and most read-heavy data. They are stored in MySQL, sharded horizontally via Vitess. Vitess is a database sharding middleware that provides MySQL compatibility with the ability to distribute data across many MySQL instances. Sharding is done by workspace ID, so all messages within a workspace typically live on the same shard, which keeps channel-scoped queries fast.</p>
+
+<p>Here is a simplified schema for the core entities:</p>
+
+<pre><code class="sql">-- Users
+CREATE TABLE users (
+  user_id        BIGINT PRIMARY KEY,
+  workspace_id   BIGINT NOT NULL,
+  username       VARCHAR(64) NOT NULL,
+  display_name   VARCHAR(128),
+  email          VARCHAR(256) NOT NULL,
+  status         VARCHAR(32),
+  created_at     BIGINT NOT NULL,
+  INDEX idx_workspace (workspace_id)
+);
+
+-- Channels
+CREATE TABLE channels (
+  channel_id     BIGINT PRIMARY KEY,
+  workspace_id   BIGINT NOT NULL,
+  name           VARCHAR(128) NOT NULL,
+  is_private     BOOLEAN DEFAULT FALSE,
+  created_by     BIGINT NOT NULL,
+  created_at     BIGINT NOT NULL,
+  INDEX idx_workspace (workspace_id)
+);
+
+-- Channel Membership
+CREATE TABLE channel_members (
+  channel_id     BIGINT NOT NULL,
+  user_id        BIGINT NOT NULL,
+  joined_at      BIGINT NOT NULL,
+  PRIMARY KEY (channel_id, user_id),
+  INDEX idx_user (user_id)
+);
+
+-- Messages
+CREATE TABLE messages (
+  message_id     BIGINT PRIMARY KEY,
+  channel_id     BIGINT NOT NULL,
+  user_id        BIGINT NOT NULL,
+  workspace_id   BIGINT NOT NULL,
+  text           TEXT,
+  thread_ts      BIGINT,
+  client_nonce   VARCHAR(64),
+  created_at     BIGINT NOT NULL,
+  is_edited      BOOLEAN DEFAULT FALSE,
+  INDEX idx_channel_time (channel_id, created_at),
+  INDEX idx_thread (thread_ts),
+  UNIQUE KEY uk_nonce (channel_id, client_nonce)
+);
+
+-- Reactions
+CREATE TABLE reactions (
+  message_id     BIGINT NOT NULL,
+  user_id        BIGINT NOT NULL,
+  emoji          VARCHAR(64) NOT NULL,
+  created_at     BIGINT NOT NULL,
+  PRIMARY KEY (message_id, user_id, emoji)
+);
+
+-- Presence Sessions
+CREATE TABLE presence_sessions (
+  session_id     BIGINT PRIMARY KEY,
+  user_id        BIGINT NOT NULL,
+  device_type    VARCHAR(32),
+  last_seen_at   BIGINT NOT NULL,
+  status         VARCHAR(32),
+  INDEX idx_user (user_id)
+);
+
+-- Notifications
+CREATE TABLE notifications (
+  notification_id  BIGINT PRIMARY KEY,
+  user_id          BIGINT NOT NULL,
+  message_id       BIGINT NOT NULL,
+  type             VARCHAR(64),
+  is_read          BOOLEAN DEFAULT FALSE,
+  created_at       BIGINT NOT NULL,
+  INDEX idx_user_unread (user_id, is_read)
+);
+</code></pre>
+
+<p><strong>Redis for caching and ephemeral state.</strong> Redis handles several categories of data:
+- Channel membership lists (read-heavy, rarely changes)
+- User presence state (write-heavy, low durability requirement)
+- WebSocket connection registry (ephemeral, must be fast)
+- Notification preference caches (read-heavy)
+- Typing indicator state (ephemeral, TTL-based)</p>
+
+<p><strong>Elasticsearch for search.</strong> Message text, channel metadata, and file names are indexed in Elasticsearch. The index schema mirrors the message schema but optimized for text retrieval, with custom analyzers for handling special characters common in technical communication (code snippets, command names, URLs).</p>
+
+<a name="Caching.System.Deep.Dive"></a>
+<h2>Caching System Deep Dive</h2>
+
+<p>At Slack&rsquo;s scale, the database cannot absorb direct reads for every client request. Caching is not an optimization. It is a structural requirement.</p>
+
+<p><strong>Message cache.</strong> The most recently accessed messages in active channels are cached in Redis. Most reads in a chat application are for recent messages. A user loading a channel almost always wants the last 50-100 messages, and those messages were likely sent in the last hour. Caching them in Redis reduces database reads by a large margin on the hot path.</p>
+
+<p><strong>Channel membership cache.</strong> Fanout and permission checking both require knowing who is in a channel. These lookups happen on every message delivery. Membership data changes infrequently (join/leave events). Caching membership with a reasonable TTL and invalidating on changes is a clear win.</p>
+
+<p><strong>Hotspot channels.</strong> A company-wide announcement channel in a large organization generates a massive read spike right after a message is posted. Everyone opens it at once. Without caching, this would hammer the database. With Redis caching, the first request fetches from the database, and all subsequent requests within the cache TTL window are served from memory.</p>
+
+<p><strong>Cache invalidation.</strong> This is notoriously the hard part. Slack&rsquo;s approach for membership caches is event-driven invalidation: when a join or leave event occurs, the event is published to Kafka, a cache invalidation consumer picks it up and deletes or updates the relevant Redis key. This is more reliable than trying to keep cache and database perfectly synchronized with write-through strategies, and it means the cache is eventually consistent with the database, not immediately consistent.</p>
+
+<p><strong>Presence cache.</strong> Presence data is almost entirely served from Redis. It is written frequently (heartbeats) and read frequently (rendering online indicators in the UI). The durability requirement is low. Losing a few seconds of presence data in a Redis failure is tolerable. For this reason, Slack can use Redis without complex persistence configurations for the presence layer.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Layer</th>
+        <th>Data Stored</th>
+        <th>Invalidation Strategy</th>
+        <th>TTL</th>
+        <th>Durability Requirement</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Message Cache</td>
+        <td>Recent channel messages</td>
+        <td>Time-based TTL + event-driven on edit/delete</td>
+        <td>5-15 minutes</td>
+        <td>Low (DB is source of truth)</td>
+      </tr>
+      <tr>
+        <td>Membership Cache</td>
+        <td>Channel member lists</td>
+        <td>Event-driven on join/leave</td>
+        <td>30 minutes</td>
+        <td>Low (DB is source of truth)</td>
+      </tr>
+      <tr>
+        <td>Presence Cache</td>
+        <td>User online status, last seen</td>
+        <td>TTL-based (heartbeat refresh)</td>
+        <td>60 seconds</td>
+        <td>Very Low (ephemeral state)</td>
+      </tr>
+      <tr>
+        <td>Connection Registry</td>
+        <td>User ID to gateway node mapping</td>
+        <td>TTL + explicit cleanup on disconnect</td>
+        <td>90 seconds</td>
+        <td>Very Low (rebuilt on reconnect)</td>
+      </tr>
+      <tr>
+        <td>Notification Preferences</td>
+        <td>Per-user notification rules</td>
+        <td>Event-driven on settings change</td>
+        <td>10 minutes</td>
+        <td>Low (DB is source of truth)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Every subsystem in Slack has a different scaling bottleneck, and understanding them separately is important.</p>
+
+<p><strong>WebSocket gateway scaling.</strong> Each gateway node has a hard ceiling on concurrent connections based on available file descriptors and memory. Scaling horizontally means adding more nodes. The load balancer needs to distribute new connections evenly while keeping existing connections on their current nodes. This is typically done with consistent hashing on user session IDs at the load balancer level.</p>
+
+<p><strong>Fanout bottlenecks.</strong> Very large channels (100k+ members) create extreme fanout pressure. Even if only 1% of members are connected, that is 1,000 WebSocket pushes per message. At high message frequency, this can saturate the fanout workers. Solutions include tiered fanout (push only to most-active members in real time, others catch up on poll), chunked parallel fanout, and rate limiting message frequency in extremely large channels.</p>
+
+<p><strong>Search bottlenecks.</strong> Elasticsearch clusters have write throughput limits. At high message volumes, the indexing pipeline can fall behind. This creates a lag between message creation and message searchability. The solution is to size the cluster for peak indexing load, use index partitioning by workspace to distribute write pressure, and accept that indexing is eventually consistent.</p>
+
+<p><strong>Storage bottlenecks.</strong> MySQL shards fill over time. Vitess handles resharding, but it is operationally complex. Slack archives old messages to cheaper cold storage (object storage like S3) and serves them through a separate archive retrieval path. This keeps the hot MySQL shards lean and fast.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Subsystem</th>
+        <th>Primary Bottleneck</th>
+        <th>Mitigation Strategy</th>
+        <th>Scaling Approach</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>WebSocket Gateway</td>
+        <td>Connection count per node</td>
+        <td>Horizontal scaling with consistent hashing</td>
+        <td>Stateful horizontal scale-out</td>
+      </tr>
+      <tr>
+        <td>Message Fanout</td>
+        <td>Large channel member counts</td>
+        <td>Active-member filtering, chunked fanout</td>
+        <td>Parallel async fanout workers</td>
+      </tr>
+      <tr>
+        <td>Message Storage</td>
+        <td>Write throughput, shard size</td>
+        <td>Vitess resharding, cold storage archival</td>
+        <td>Horizontal shard scaling</td>
+      </tr>
+      <tr>
+        <td>Search Indexing</td>
+        <td>Elasticsearch write throughput</td>
+        <td>Workspace-partitioned indexes, batch indexing</td>
+        <td>Cluster horizontal scaling</td>
+      </tr>
+      <tr>
+        <td>Notification Delivery</td>
+        <td>APNs/FCM rate limits and latency</td>
+        <td>Priority queues, batching, retry logic</td>
+        <td>Multiple delivery workers</td>
+      </tr>
+      <tr>
+        <td>Presence Service</td>
+        <td>Heartbeat write frequency</td>
+        <td>In-memory Redis, reduced propagation scope</td>
+        <td>Redis cluster sharding</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p><strong>Multi-region deployments.</strong> Slack serves customers globally. Running everything in a single region creates unacceptable latency for users in Asia or Europe when the origin is in the US. Multi-region deployments replicate data to regional clusters and route users to their nearest region. The hard problem is cross-region consistency. When a message is written in the US region and a user in Europe needs to see it, there needs to be a replication mechanism. Slack approaches this with asynchronous replication, accepting that cross-region latency introduces a short consistency window.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>For enterprise customers, reliability is not a feature. It is the product. Downtime at a company like Salesforce or Airbnb, where Slack is the communication backbone, directly affects business operations.</p>
+
+<p><strong>Multi-region failover.</strong> If an AWS region becomes unavailable, Slack needs to reroute traffic to a secondary region. This requires keeping secondary regions warm with replicated data and routing infrastructure. DNS-based failover can accomplish geographic rerouting within minutes, though active-active configurations are more expensive and complex.</p>
+
+<p><strong>Message durability.</strong> Before a message is acknowledged to the client, it is written to MySQL. MySQL uses synchronous replication to at least one replica. This means a message is durable across at least two copies before the sender sees a success confirmation. The Kafka event published after persistence is best-effort for delivery guarantees, but the message itself is already safely on disk.</p>
+
+<p><strong>Monitoring and observability.</strong> A system this complex needs deep instrumentation. Slack uses metrics (Prometheus or equivalent), distributed tracing (Jaeger or similar), and structured logging. Key metrics include WebSocket connection counts per node, message delivery latency (from API receipt to WebSocket push), notification pipeline lag (from event creation to push delivery), and search indexing lag. Alerts fire when these metrics deviate from baseline.</p>
+
+<p><strong>Stale presence.</strong> If the Presence Service crashes and Redis is not persisting data, the system loses all presence state. Clients reconnecting will show everyone as offline until heartbeats repopulate the store. This is a known degradation mode rather than a data loss scenario. The UI handles it by showing uncertain presence state temporarily.</p>
+
+<p><strong>WebSocket outages.</strong> If the WebSocket gateway layer has an outage, clients fall back to polling. Slack clients are designed to detect WebSocket connection loss and fall back to periodic HTTP polling for new messages. This fallback is slower and more battery-intensive, but it keeps the app functional.</p>
+
+<a name="Security.and.Enterprise.Infrastructure"></a>
+<h2>Security and Enterprise Infrastructure</h2>
+
+<p>Enterprise customers care deeply about security, and for good reason. Slack sits at the center of their internal communications.</p>
+
+<p><strong>Workspace isolation.</strong> Every query, every cache key, every storage operation is scoped by workspace ID. A bug that leaks data across workspace boundaries would be catastrophic. This isolation is enforced at multiple layers: database, search index, API authorization checks, and in the event streaming infrastructure (Kafka topics are partitioned by workspace).</p>
+
+<p><strong>Authentication.</strong> Slack supports SAML-based single sign-on for enterprise customers. This means authentication is delegated to the customer&rsquo;s identity provider (Okta, Azure AD, Google Workspace). Slack never stores or processes the customer&rsquo;s passwords. Session tokens are short-lived JWTs signed with workspace-specific keys.</p>
+
+<p><strong>Encryption.</strong> All data in transit uses TLS. Data at rest is encrypted at the storage layer. Enterprise customers with specific compliance requirements (HIPAA, FedRAMP) can bring their own encryption keys through Slack&rsquo;s Bring Your Own Key (BYOK) program, which ensures that Slack&rsquo;s own engineers cannot access plaintext customer data.</p>
+
+<p><strong>Audit logging.</strong> Enterprise compliance teams need a complete record of what happened, who sent what, and who accessed what. Slack&rsquo;s audit log streams every administrative action and message event to an append-only audit trail. The Kafka consumer for audit logging writes to a separate, immutable storage system. Customers can export this to their own SIEM (security information and event management) system.</p>
+
+<p><strong>Permission propagation.</strong> When a user is removed from a workspace, their access tokens must be immediately revoked across all systems. This is harder than it sounds. If the revocation event is processed asynchronously, there is a window during which the user might still be able to receive messages or access files. Slack handles this through a combination of synchronous invalidation for high-security operations and eventual revocation via event-driven propagation.</p>
+
+<a name="Integrations.and.Bot.Platform"></a>
+<h2>Integrations and Bot Platform</h2>
+
+<p>Slack&rsquo;s integration ecosystem is a significant part of its value. Thousands of third-party apps connect to Slack via its platform APIs.</p>
+
+<p><strong>Event subscriptions.</strong> Third-party apps register for specific event types (new message in a channel, user joins workspace, file uploaded). When an event occurs, Slack calls the registered webhook URL with the event payload. This is a push-based integration model. The alternative, polling, is less efficient and puts more load on Slack&rsquo;s APIs.</p>
+
+<p><strong>Rate limiting.</strong> The API layer enforces rate limits per workspace per app. Without this, a poorly behaved app or a malicious bot could generate enough API traffic to degrade service for other workspace members. Rate limits are tracked in Redis with sliding window counters.</p>
+
+<p><strong>Bot security.</strong> Third-party apps with bot permissions can read messages in channels they are added to. This has security implications. Enterprise customers can restrict which apps are permitted in their workspace. Slack&rsquo;s app approval workflow forces enterprise admins to review and explicitly authorize each integration.</p>
+
+<p><strong>Slash commands and workflow automations.</strong> When a user triggers a slash command, Slack sends an HTTP request to the app&rsquo;s registered endpoint and waits for a response. This introduces a latency dependency on the third-party server. Slack enforces strict response timeouts and surfaces errors to the user when integrations are slow.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Real engineering is about making good tradeoffs with imperfect information. Here are the most important tradeoffs in Slack&rsquo;s architecture.</p>
+
+<p><strong>Realtime delivery versus scalability.</strong> Pushing every event to every connected client in real time is the ideal. But as channel size grows, this becomes prohibitively expensive. The practical solution is to define &ldquo;real time&rdquo; as &ldquo;within a second for active members&rdquo; and accept that inactive members receive messages slightly later. Purity of the real-time guarantee is sacrificed for scalability.</p>
+
+<p><strong>WebSocket persistence versus operational complexity.</strong> Long-lived WebSocket connections give the best user experience: zero-latency push delivery, fast typing indicators, instant presence updates. But maintaining millions of stateful connections across a fleet of servers is operationally complex. It requires specialized load balancing, careful failover logic, and a connection registry that must always be consistent. Some systems choose HTTP long-polling or server-sent events for simpler operation at the cost of some latency. Slack made the right call choosing WebSockets given its real-time requirements, but it came with significant operational investment.</p>
+
+<p><strong>Search indexing versus storage cost.</strong> Indexing every word in every message enables fast full-text search. But the index grows proportionally with message volume. Large enterprise customers with years of history have enormous indexes. The tradeoff is between search speed and index storage cost. Slack mitigates this by using compressed index storage and tiering older messages to cheaper index segments with slightly higher query latency.</p>
+
+<p><strong>Notification richness versus notification fatigue.</strong> More granular notification options mean users get more relevant alerts. But complex notification rules require more computation per message and more state storage per user. The pragmatic limit is a notification model that is flexible enough to cover 95% of user needs without creating unmanageable backend complexity.</p>
+
+<p><strong>Caching versus consistency.</strong> Aggressive caching reduces latency and database load. But cache staleness can cause users to see outdated information. The right answer depends on the data type. Presence state can be seconds stale without harm. Channel membership that is stale can cause a message to be delivered to someone who left a private channel. The consistency requirement dictates the acceptable cache TTL and invalidation aggressiveness.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Role in Slack</th>
+        <th>Why This Choice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Java / Go</td>
+        <td>Core backend services</td>
+        <td>Java for mature service ecosystem; Go for high-concurrency services like WebSocket gateways where goroutines provide lightweight connection handling</td>
+      </tr>
+      <tr>
+        <td>MySQL with Vitess</td>
+        <td>Primary message and metadata storage</td>
+        <td>MySQL is battle-tested and ACID-compliant; Vitess adds horizontal sharding without changing the MySQL API surface</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Caching, presence, connection registry, rate limiting</td>
+        <td>Sub-millisecond reads and writes, native data structures (sorted sets for leaderboards, pub/sub for simple fanout, TTL keys for presence)</td>
+      </tr>
+      <tr>
+        <td>Apache Kafka</td>
+        <td>Event streaming backbone</td>
+        <td>Durable, high-throughput, ordered event log with replay capability; enables decoupled async processing across all pipeline stages</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch / OpenSearch</td>
+        <td>Full-text message and file search</td>
+        <td>Purpose-built inverted index search; handles typo tolerance, relevance ranking, and full-text tokenization out of the box</td>
+      </tr>
+      <tr>
+        <td>Amazon S3 / Object Storage</td>
+        <td>File storage, media assets, cold message archive</td>
+        <td>Infinitely scalable, durable, cheap per GB; designed exactly for large binary asset storage</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Container orchestration for services</td>
+        <td>Enables horizontal scaling, rolling deployments, health checks, and resource isolation across hundreds of microservices</td>
+      </tr>
+      <tr>
+        <td>CDN (CloudFront or equivalent)</td>
+        <td>File delivery, static asset delivery</td>
+        <td>Caches files at geographic edge nodes; eliminates latency for globally distributed users accessing shared media</td>
+      </tr>
+      <tr>
+        <td>WebSockets over TLS</td>
+        <td>Realtime client-server communication</td>
+        <td>Full-duplex, low-overhead persistent connection; the right primitive for push-based event delivery to millions of clients</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Go deserves special mention for the WebSocket gateway layer. Go&rsquo;s concurrency model, lightweight goroutines and channels, makes it efficient to maintain hundreds of thousands of concurrent connections per process. Each connection gets its own goroutine with minimal memory overhead. Java&rsquo;s thread-per-connection model would not scale to the same connection density without using async IO frameworks like Netty, which add complexity. Go gives you the concurrency model for free.</p>
+
+<p>Vitess over raw MySQL is worth understanding. MySQL alone does not horizontally shard. You either use a single large instance (which has limits) or build application-level sharding logic yourself. Vitess abstracts the sharding logic behind a MySQL-compatible proxy. Services talk to Vitess exactly as they would to MySQL. Vitess handles routing to the right shard, query rewriting across shards, and coordinating cross-shard operations. This separation of concerns keeps business logic clean while enabling the storage layer to scale horizontally.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>If you are preparing for a system design interview and you get &ldquo;Design Slack&rdquo; or &ldquo;Design a real-time messaging system,&rdquo; here is how to approach it well.</p>
+
+<p><strong>Start with requirements clarification.</strong> Ask about scale (daily active users, messages per day), real-time requirements (how fresh does delivery need to be?), feature scope (just messaging or full platform?), and consistency requirements (is it acceptable to miss a message in a transient failure?). Interviewers are assessing whether you think about requirements before jumping to solutions.</p>
+
+<p><strong>Establish core flows early.</strong> Walk through the message send flow first, because it touches every major component. Starting with the database schema or the notification system is common and usually signals that the candidate is not thinking end-to-end.</p>
+
+<p><strong>Name the hard problems explicitly.</strong> Fanout at scale, WebSocket connection management, search indexing lag, notification deduplication. Interviewers want to see that you know where the real complexity lives, not just a list of components connected by arrows.</p>
+
+<p><strong>Common mistakes to avoid:</strong></p>
+
+<ul>
+<li>Putting all logic in the API layer instead of using async event pipelines</li>
+<li>Ignoring mobile clients and assuming all users are on stable desktop connections</li>
+<li>Designing search as a SQL LIKE query rather than an inverted index</li>
+<li>Forgetting about notification preferences and do-not-disturb states</li>
+<li>Not addressing how messages are delivered to users who are offline</li>
+<li>Designing a single giant database table without thinking about sharding</li>
+</ul>
+
+
+<p><strong>Strong versus weak answers.</strong> A weak answer lists technologies and draws boxes connected by lines. A strong answer explains why each component exists, what happens when it fails, how it scales under load, and what the key tradeoffs are. The difference is not the breadth of knowledge. It is the depth of reasoning.</p>
+
+<p>When discussing WebSocket scaling, do not just say &ldquo;use WebSockets.&rdquo; Explain that WebSocket connections are stateful, that stateful services are harder to scale than stateless ones, that you need a connection registry to route events to the right node, and that node failure means all connections to that node drop simultaneously and reconnect. That level of operational reasoning is what separates strong candidates.</p>
+
+<p>When discussing search, do not just say &ldquo;use Elasticsearch.&rdquo; Explain that Elasticsearch uses inverted indexes, that indexing is asynchronous and introduces a searchability lag, that you need to enforce channel-level permissions in the query layer rather than the index, and that large enterprise workspaces have index sizes that require careful resource management.</p>
+
+<p>The systems that power Slack are not magic. They are layers of well-understood distributed systems patterns, applied carefully, with clear reasoning about the tradeoffs at each layer. Understanding the why behind each architectural decision, and being able to articulate it clearly under interview pressure, is the real skill.</p>
+
+<p>Slack is a lesson in what happens when real-time requirements meet enterprise scale. Neither problem alone is easy. Together, they demand a degree of engineering discipline that is worth studying carefully, whether you are preparing for interviews, building your own collaboration tool, or simply trying to become a better distributed systems engineer.</p>
+]]></content>
+    </entry>
+    
+</feed>

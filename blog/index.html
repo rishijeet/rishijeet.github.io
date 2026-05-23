@@ -86,6 +86,78 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-slack-works/">How Slack Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-23T16:55:37+05:30" pubdate><i class="fa fa-calendar"></i> May 23rd, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/slack/'>slack</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is a version of Slack that most engineers imagine when they first think about how it works. You type a message, hit Enter, and it shows up on someone else&rsquo;s screen. Simple enough. But the moment you start pulling at the threads of that interaction, things get complicated fast. What happens when a thousand people are in the same channel? What happens when someone is on mobile with spotty connectivity? What happens when your company has 80,000 employees and legal needs a full audit trail of every message sent over the last three years?</em></p></blockquote>
+
+<p><img src="/images/system_design/slack-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>Slack is not just a chat application. It is a distributed, event-driven, real-time collaboration platform operating at a scale where individual engineering decisions ripple out into millions of daily user experiences. It handles hundreds of millions of messages per day, maintains persistent WebSocket connections for millions of concurrent users, and does all of this while offering sub-second message delivery, reliable push notifications, full-text search across years of history, and enterprise-grade security.</p>
+
+<p>Building any one of those systems in isolation is a meaningful engineering problem. Building them together, making them interact reliably under load, and then keeping them running around the clock for paying enterprise customers is a genuinely difficult distributed systems challenge. This blog is about how that all works.</p>
+
+<p>We will move from the high-level shape of the system down into the guts of individual subsystems. Some sections will feel like a system design interview. Others will feel like a postmortem. That is intentional. The goal is not just to understand Slack academically but to develop real engineering instincts about why real-time collaboration platforms are designed the way they are.</p>
+
+<a name="Core.Features.of.Slack"></a>
+<h2>Core Features of Slack</h2>
+
+<p>Before diving into the architecture, it helps to enumerate what the system actually needs to do. Engineers sometimes skip this step and then wonder why their schema does not support threads or why their fanout logic breaks on large channels.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-slack-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-apple-airtags-work/">How Apple Airtags Work?</a>
         </h1>
     
@@ -114,6 +186,8 @@
                 <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
             
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/apple/'>apple</a></li>
             
             
         </ul>
@@ -185,6 +259,8 @@
             
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
             
+                <li><a class='category' href='/blog/categories/google/'>google</a></li>
+            
             
         </ul>
     </div>
@@ -254,6 +330,10 @@
                 <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
             
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/meta/'>meta</a></li>
+            
+                <li><a class='category' href='/blog/categories/instagram/'>instagram</a></li>
             
             
         </ul>
@@ -325,6 +405,8 @@
             
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
             
+                <li><a class='category' href='/blog/categories/meta/'>meta</a></li>
+            
             
         </ul>
     </div>
@@ -356,78 +438,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-meta-serverless-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-x-timeline-works/">How X Timeline Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-21T08:23:07+05:30" pubdate><i class="fa fa-calendar"></i> May 21st, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a moment, every time you open X, that feels effortless. A feed of tweets appears. Some are from people you follow. Others are from accounts you have never seen before but somehow feel relevant. A viral post catches your eye. A trending topic surfaces at just the right time. It all feels instant.</em></p></blockquote>
-
-<p><img src="/images/system_design/x-banner.jpeg" height="300" width="900" alt="Alt text" /></p>
-
-<p>Behind every timeline refresh is a chain of distributed systems doing extraordinary amounts of work in milliseconds. Machines are computing your interests, traversing social graphs with hundreds of millions of edges, fetching precomputed timelines from tiered caches, ranking thousands of candidate tweets using machine learning models, and delivering the result before your thumb stops scrolling. At peak traffic, X handles hundreds of millions of active users simultaneously, each expecting their own personalized, fresh, low-latency feed.</p>
-
-<p>Understanding how this actually works is one of the richest system design problems in modern software engineering. It touches distributed databases, event streaming, ML-based ranking, graph traversal, cache design, and real-time data pipelines all at once.</p>
-
-<p>This post walks through the full architecture from first principles. Whether you are preparing for a system design interview or simply want to understand how large-scale social media infrastructure is built, this is the engineering deep dive you have been looking for.</p>
-
-<a name="Core.Features.of.the.X.Timeline"></a>
-<h2>Core Features of the X Timeline</h2>
-
-<p>Before jumping into architecture, it is worth being precise about what the timeline actually is. X has two primary feed surfaces.</p>
-
-<p>The Following tab shows tweets from accounts you explicitly follow, sorted by relevance and recency. The For You tab, which is the default, is a fully personalized algorithmic feed. It pulls in tweets from accounts you follow, accounts you interact with, accounts that are popular in your network, trending content, and content from accounts you do not follow but that the recommendation engine believes you will engage with.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-x-timeline-works/">Read on &rarr;</a>
     </div>
 
         </article>
