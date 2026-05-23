@@ -1,0 +1,1165 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>How Apple Airtags Work? - Rishijeet Mishra | Technologist | Tech Trends & Development Blog</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Bridging tech and education - Rishijeet Mishra's insights on digital learning">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/how-apple-airtags-work">
+
+        <link href='https://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+         <!--adding the font awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra | Technologist | Tech Trends & Development Blog" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/system-design/">System Design</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">How Apple Airtags Work?</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-23T13:36:17+05:30" pubdate><i class="fa fa-calendar"></i> May 23rd, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <blockquote><p><em>There is a small white disc sitting on your key ring right now. It weighs eleven grams. It has no GPS chip, no cellular radio, and no Wi-Fi antenna. Its battery lasts over a year. And yet, if you drop your keys somewhere in downtown Tokyo, there is a very good chance you will get an accurate location update within minutes, without Apple ever knowing where your keys are.</em></p></blockquote>
+
+<p><img src="/images/system_design/airtags.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>That combination of properties is not magic. It is one of the most carefully engineered consumer-scale distributed systems in the world, and the design decisions behind it touch almost every interesting area of modern infrastructure: Bluetooth Low Energy networking, end-to-end encrypted relay systems, crowd-sourced location discovery, ultra-wideband spatial positioning, privacy-preserving cryptography, and a globally distributed event pipeline spanning hundreds of millions of devices.</p>
+
+<p>This blog walks through the full internal architecture of Apple AirTags, from the radio signals pulsing out of the hardware to the cloud infrastructure that receives, processes, and delivers location events back to owners. By the end, you should understand not just what AirTags do, but why each system is designed the way it is, what the tradeoffs are, and how this infrastructure scales to a network of over a billion Apple devices.</p>
+
+<a name="What.Apple.AirTags.Are.and.Why.They.Matter"></a>
+<h2>What Apple AirTags Are and Why They Matter</h2>
+
+<p>Before AirTags, tracking a lost item typically meant relying on GPS. GPS trackers work reasonably well outdoors but require cellular or Wi-Fi connectivity to upload their position, have batteries measured in days or weeks, and broadcast their presence loudly to anyone listening. They also cost more, require SIM cards in some cases, and fundamentally cannot work indoors where GPS signals are too weak.</p>
+
+<p>AirTags sidestep all of that. Instead of using their own GPS or cellular connection, they hitchhike on the massive installed base of Apple devices around them. An AirTag sitting inside a bag on a train broadcasts a short Bluetooth Low Energy advertisement packet. Every iPhone and iPad nearby receives that advertisement, silently looks up the AirTag&rsquo;s rotating public key, uses it to encrypt the current GPS position of the iPhone, and uploads that encrypted blob to Apple&rsquo;s servers. The AirTag&rsquo;s owner can then download that blob, decrypt it with the matching private key that only they hold, and recover the location.</p>
+
+<!--more-->
+
+
+<p>The elegance is that Apple&rsquo;s servers receive an encrypted blob and a hashed key identifier. They can match the blob to a specific AirTag for retrieval purposes, but they cannot decrypt the location. The relaying iPhone does not know it helped track someone else&rsquo;s item. The AirTag does not know where it is. The privacy properties are not marketing language; they are architectural constraints baked into the cryptographic design.</p>
+
+<p>That is a genuinely hard problem to solve at scale, and it is why AirTags became a landmark in consumer IoT design rather than just another item tracker.</p>
+
+<a name="Core.Features.of.Apple.AirTags"></a>
+<h2>Core Features of Apple AirTags</h2>
+
+<p>Understanding the features before the architecture helps frame why certain design decisions were made.</p>
+
+<ul>
+<li>Item tracking through passive Bluetooth advertisement broadcasting with no active connection required.</li>
+<li>Precision Finding using Ultra Wideband radio to guide the user to within centimeters of the AirTag when physically nearby.</li>
+<li>Crowd-sourced location relay through the Find My network, enabling location updates even when the AirTag is far from the owner.</li>
+<li>Lost Mode, which sends a notification to the owner when the AirTag is detected by any device in the Find My network.</li>
+<li>Anti-stalking protections including audible alerts, cross-platform detection apps, and automatic notifications to non-Apple users when an unknown AirTag has been traveling with them.</li>
+<li>End-to-end encrypted location data ensuring Apple cannot read location history even though it routes the relay traffic.</li>
+<li>Over-a-year battery life from a single CR2032 coin cell, achieved through extremely aggressive power management of the BLE radio.</li>
+<li>Seamless onboarding via NFC-assisted pairing that ties the AirTag to an Apple ID through Apple&rsquo;s identity infrastructure.</li>
+</ul>
+
+
+<p>Each of these features creates engineering constraints that shape every layer of the system architecture.</p>
+
+<a name="High-Level.AirTag.Architecture"></a>
+<h2>High-Level AirTag Architecture</h2>
+
+<p>The full system has four major planes: the AirTag hardware itself, the network of finder devices (iPhones, iPads, Macs), the Apple cloud backend, and the owner&rsquo;s device where location is ultimately decrypted and displayed.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[AirTag Device];
+  B[BLE Advertisement];
+  C[Nearby iPhone - Finder];
+  D[GPS Location Capture];
+  E[Location Encryption];
+  F[Apple Find My Servers];
+  G[Location Event Store];
+  H[Owner iPhone];
+  I[Private Key Decryption];
+  J[Location Displayed];
+
+  A &#8211;>|BLE Beacon| B;
+  B &#8211;>|Detected by| C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;>|Encrypted Blob Upload| F;
+  F &#8211;> G;
+  H &#8211;>|Fetch Events| G;
+  G &#8211;>|Encrypted Blob| H;
+  H &#8211;> I;
+  I &#8211;> J;
+
+  classDef device fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef process fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef cloud fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef owner fill:#f59e0b,stroke:#b45309,color:#000000;
+
+  class A,C,H device;
+  class B,D,E,I process;
+  class F,G cloud;
+  class J owner;
+</div>
+
+
+<p>Notice what is missing from this diagram: there is no direct connection from the AirTag to Apple&rsquo;s servers. The AirTag never talks to the internet. It only talks to nearby Bluetooth devices, and those devices do the heavy lifting of uploading location data on its behalf. This architectural choice is central to the entire system&rsquo;s viability. It means the AirTag needs no internet radio, no cellular modem, and no persistent network connection. The battery cost stays minimal.</p>
+
+<p>The tradeoff is that location freshness depends on how many finder devices are physically near the AirTag. In a dense urban area with thousands of iPhones passing by every hour, location updates arrive very frequently. In a rural area with few Apple devices, updates may be sparse or delayed. The system&rsquo;s coverage is essentially a function of Apple device density in the physical world.</p>
+
+<a name="Bluetooth.Low.Energy.Deep.Dive"></a>
+<h2>Bluetooth Low Energy Deep Dive</h2>
+
+<p>Bluetooth Low Energy is the backbone of AirTag communication, and understanding it well explains most of the hardware design decisions.</p>
+
+<p>BLE was designed specifically for devices that need to communicate infrequently and at low data rates while consuming minimal power. Unlike classic Bluetooth, which maintains persistent connections, BLE uses a broadcast-and-listen model. A device can broadcast tiny advertisement packets (typically 31 bytes of payload) on one of three advertising channels at a configurable interval, and other devices can passively scan for those packets without establishing any connection.</p>
+
+<p>An AirTag operates almost entirely in advertiser mode. It wakes up, broadcasts a small packet containing a rotating identifier derived from its current public key, and goes back to sleep. This cycle repeats roughly every two seconds. The actual radio-on time per cycle is measured in milliseconds. The rest of the time, the processor and radio are in deep sleep, consuming microamps of current. Over the year-long battery life, the AirTag&rsquo;s power budget is dominated not by any single high-energy operation but by the accumulated cost of millions of these tiny wakeup cycles.</p>
+
+<p>The advertisement interval is an interesting engineering tradeoff. Shorter intervals mean more frequent broadcasts, which increases the chance that a passing iPhone detects the AirTag quickly. But shorter intervals also mean more wakeup cycles per hour, draining the battery faster. Longer intervals save power but increase the latency before a passing finder device detects the AirTag. Apple appears to have settled on an interval that balances detection probability with battery life, and the system tolerates the resulting staleness because the use case does not demand sub-second location freshness for most scenarios.</p>
+
+<p>When an iPhone is scanning for BLE advertisements, it does not need to be actively looking. iOS runs a background BLE scan continuously, and when the Find My system receives an advertisement that matches the format of a tracked item, it processes it transparently. The user of the finder iPhone never sees this happening. There is no UI, no notification, no drain on the visible battery indicator beyond what background processing normally costs.</p>
+
+<div class="mermaid">
+flowchart LR;
+  A[AirTag Wakes];
+  B[Generate BLE Packet];
+  C[Broadcast on Channels 37 38 39];
+  D[Return to Deep Sleep];
+  E[iPhone BLE Scanner];
+  F[Packet Detected];
+  G[Parse Rotating ID];
+  H[Capture GPS];
+  I[Encrypt and Upload];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> A;
+  C &#8211;>|Advertisement| E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  H &#8211;> I;
+
+  classDef airtag fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef iphone fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef upload fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+
+  class A,B,C,D airtag;
+  class E,F,G,H iphone;
+  class I upload;
+</div>
+
+
+<p>One subtlety worth noting: BLE uses three dedicated advertising channels (channels 37, 38, and 39) specifically to minimize interference with Wi-Fi, which occupies the same 2.4 GHz band. These advertising channels are positioned in spectrum gaps between the primary Wi-Fi channels. AirTags rotate through all three advertising channels each cycle, which gives any nearby scanner a good chance of receiving the packet regardless of which channel it happens to be listening to at any given moment.</p>
+
+<p>The signal strength (RSSI) of the received advertisement also carries useful information. A stronger signal means the AirTag is physically closer. While BLE RSSI is notoriously noisy, averaging multiple readings over time can give a rough distance estimate, and iOS uses this information to display a directional hint in the Find My app even before UWB Precision Finding is activated.</p>
+
+<a name="Find.My.Network.Architecture"></a>
+<h2>Find My Network Architecture</h2>
+
+<p>The Find My network is essentially a crowd-sourced location relay system at planetary scale. As of recent estimates, there are over a billion Apple devices in active use worldwide. Every iPhone, iPad, and Mac running a recent version of iOS or macOS participates in the Find My network as a passive relay, uploading location information on behalf of any tracked AirTag it detects.</p>
+
+<p>The coordination problem this creates is interesting. Apple needs hundreds of millions of devices to participate in background scanning and uploading without those devices knowing whose items they are tracking, without meaningful battery impact, and without requiring explicit user consent for each individual relay operation. Users consent once during device setup to participate in the Find My network, and after that the system runs invisibly.</p>
+
+<p>From a distributed systems perspective, the Find My network is a push-based, opportunistic relay system with no guarantees about delivery timing, relay overlap, or coverage density. It is designed for eventual consistency, not real-time tracking. The owner expects to know roughly where their item was within the last few minutes or hours, not the exact current position updated every second.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[AirTag Lost Item];
+  B[iPhone 1 Passes By];
+  C[iPhone 2 Passes By];
+  D[Mac at Coffee Shop];
+  E[All Devices Upload Encrypted Location];
+  F[Find My Cloud Servers];
+  G[Location Events Stored by Key Hash];
+  H[Owner Requests Location];
+  I[Encrypted Blobs Returned];
+  J[Owner Decrypts with Private Key];
+  K[Location Shown on Map];
+
+  A &#8211;>|BLE| B;
+  A &#8211;>|BLE| C;
+  A &#8211;>|BLE| D;
+  B &#8211;> E;
+  C &#8211;> E;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  H &#8211;> G;
+  G &#8211;> I;
+  I &#8211;> J;
+  J &#8211;> K;
+
+  classDef airtag fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef finder fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef cloud fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef owner fill:#16a34a,stroke:#166534,color:#ffffff;
+
+  class A airtag;
+  class B,C,D finder;
+  class E,F,G cloud;
+  class H,I,J,K owner;
+</div>
+
+
+<p>The relay architecture has an important deduplication problem. If an AirTag sits in a busy coffee shop for an hour, dozens of iPhones may detect it and upload location events. Apple&rsquo;s servers would receive dozens of encrypted blobs representing essentially the same location. The system needs to handle this gracefully: store enough events to ensure the owner gets a recent location, but not store unlimited duplicates indefinitely.</p>
+
+<p>Apple addresses this partly through upload throttling on the finder device side. An iPhone that has already recently uploaded a location event for a given AirTag key will not upload another one immediately. The local device maintains a lightweight record of recently relayed identifiers and suppresses redundant uploads within a time window. This reduces server load and network usage without meaningfully degrading location freshness from the owner&rsquo;s perspective.</p>
+
+<a name="Encrypted.Location.Relay.System"></a>
+<h2>Encrypted Location Relay System</h2>
+
+<p>This is where the system gets genuinely sophisticated. Apple had to solve a hard problem: enable relay devices to report the location of items they detected, without revealing to Apple what item was detected, who owns it, or where it was. The solution uses public-key cryptography in a clever way.</p>
+
+<p>When an AirTag is paired with an owner&rsquo;s Apple ID, a master secret key is generated on the owner&rsquo;s device and stored there and on the AirTag. From that master secret, a large family of public/private key pairs is derived deterministically. The AirTag rotates through these public keys over time, broadcasting a different one every fifteen minutes in the identifier included in its BLE advertisement.</p>
+
+<p>When a finder iPhone detects the advertisement, it extracts the current public key identifier, captures its own GPS location, and uses that public key to encrypt the location data. It then uploads the encrypted blob to Apple&rsquo;s servers along with a hash of the public key. Apple&rsquo;s servers store the blob indexed by the key hash.</p>
+
+<p>When the owner wants to know where their AirTag is, their device requests the encrypted blobs associated with the known key hashes for that AirTag&rsquo;s current rotation window. Apple&rsquo;s servers return the blobs without being able to read them. The owner&rsquo;s device has the private keys corresponding to those public keys, decrypts each blob locally, and recovers the original GPS coordinates.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[AirTag broadcasts current public key ID];
+  B[Finder iPhone captures GPS location];
+  C[Encrypt GPS using AirTag public key];
+  D[Upload encrypted blob plus key hash];
+  E[Apple stores blob indexed by key hash];
+  F[Owner requests blobs for known key hashes];
+  G[Apple returns encrypted blobs];
+  H[Owner device decrypts with private key];
+  I[Owner sees GPS location];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  F &#8211;> E;
+  E &#8211;> G;
+  G &#8211;> H;
+  H &#8211;> I;
+
+  classDef airtag fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef finder fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef cloud fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef owner fill:#f59e0b,stroke:#b45309,color:#000000;
+
+  class A airtag;
+  class B,C,D finder;
+  class E,F,G cloud;
+  class H,I owner;
+</div>
+
+
+<p>The key rotation is crucial for privacy. If the AirTag broadcast the same identifier indefinitely, any observer with a BLE scanner could track its physical movement over time by following that identifier through space. By rotating the identifier every fifteen minutes, the AirTag becomes unlinkable across rotation windows to any observer who does not have the master secret. Different finder devices that detect the same AirTag in different time windows upload blobs with different key hashes, and only the owner can link them together because only the owner knows the derivation sequence.</p>
+
+<p>This design means Apple&rsquo;s servers hold a table of encrypted blobs keyed by opaque hashes. Apple cannot tell which blobs belong to the same AirTag, which AirTag corresponds to which user, or what location data any blob contains. The privacy guarantees are not dependent on Apple choosing not to look; they are dependent on Apple being technically unable to look without breaking the encryption.</p>
+
+<a name="Ultra.Wideband.and.Precision.Finding"></a>
+<h2>Ultra Wideband and Precision Finding</h2>
+
+<p>BLE gives you a city-block-level location. Ultra Wideband gives you sub-meter accuracy. These two radios serve fundamentally different purposes in the AirTag system, and it is worth understanding why both are necessary.</p>
+
+<p>Ultra Wideband is a radio technology that uses very short pulses spread across a very wide frequency spectrum, typically hundreds of megahertz or more. Because the pulses are so short, the time it takes a signal to travel from transmitter to receiver can be measured very precisely, on the order of a few nanoseconds. Since radio signals travel at the speed of light, nanosecond time precision translates to centimeter-level distance precision. This technique is called Time of Flight ranging.</p>
+
+<p>When the owner is physically near their AirTag and activates Precision Finding, the iPhone&rsquo;s U1 chip (or its successor) engages in a UWB ranging exchange with the AirTag. The U1 measures the time of flight to the AirTag and reports an accurate distance. Because the iPhone can also measure the angle of arrival of the UWB signal, the system can combine distance and angle to give directional guidance: the arrow on the Precision Finding screen points toward the AirTag and the distance readout updates in real time as the user moves.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Bluetooth Low Energy</th>
+        <th>Ultra Wideband</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Range</td>
+        <td>Up to ~100m outdoors</td>
+        <td>Up to ~10m typical</td>
+      </tr>
+      <tr>
+        <td>Position accuracy</td>
+        <td>Several meters (RSSI-based)</td>
+        <td>10 to 30 centimeters</td>
+      </tr>
+      <tr>
+        <td>Direction finding</td>
+        <td>Limited, angle of arrival optional</td>
+        <td>Yes, precise angle of arrival</td>
+      </tr>
+      <tr>
+        <td>Power consumption</td>
+        <td>Very low</td>
+        <td>Moderate, active ranging only</td>
+      </tr>
+      <tr>
+        <td>Use case</td>
+        <td>Background discovery and relay</td>
+        <td>Active guided recovery</td>
+      </tr>
+      <tr>
+        <td>Interference sensitivity</td>
+        <td>Medium, shares 2.4 GHz</td>
+        <td>Low, wide spectrum spread</td>
+      </tr>
+      <tr>
+        <td>Indoor performance</td>
+        <td>Degraded by multipath</td>
+        <td>Good, robust to multipath</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>UWB is not used for background relay because the power cost of continuous UWB ranging would drain the AirTag&rsquo;s coin cell in days rather than years. UWB activates only on demand when the owner opens the Precision Finding interface. The rest of the time, the AirTag uses BLE exclusively.</p>
+
+<p>Indoor positioning is a famously hard problem. GPS signals are too weak inside buildings. Wi-Fi-based positioning has meter-level accuracy at best. UWB solves the last-meter problem that GPS and BLE cannot address. When you know your item is somewhere in a room but cannot see it, the directional arrow and distance readout turn the search into a game you can win in under a minute.</p>
+
+<a name="Device.Pairing.and.Authentication"></a>
+<h2>Device Pairing and Authentication</h2>
+
+<p>Pairing an AirTag to an Apple ID needs to be simple enough that any consumer can do it in under thirty seconds, while establishing a cryptographic identity that cannot be forged or hijacked. Apple solved this with NFC-assisted onboarding backed by iCloud authentication infrastructure.</p>
+
+<p>When you bring a new AirTag close to an iPhone, the NFC field triggers an initial communication that bootstraps the BLE connection. Once the BLE link is up, the AirTag and iPhone perform a mutual authentication handshake using a shared secret provisioned at the factory. This confirms that the device is a genuine Apple AirTag rather than a counterfeit or rogue tracker. The iPhone then registers the AirTag with iCloud, associating the master public key with the owner&rsquo;s Apple ID and storing the private key material in the owner&rsquo;s iCloud Keychain with end-to-end encryption.</p>
+
+<p>From a security standpoint, the critical property is that the private key material never leaves the owner&rsquo;s trusted devices. It lives in the Secure Enclave on iPhone hardware and in the encrypted iCloud Keychain blob. Even if someone compromised Apple&rsquo;s servers, they could not recover the private keys needed to decrypt location events.</p>
+
+<p>Anti-replay protection matters here too. If an attacker captured the pairing exchange and replayed it later, could they steal ownership? The handshake includes nonces (random values used once) that ensure each pairing exchange is unique. A replayed message from a prior session fails validation because the expected nonce does not match.</p>
+
+<a name="Real-Time.Tracking.Pipeline"></a>
+<h2>Real-Time Tracking Pipeline</h2>
+
+<p>&ldquo;Real-time&rdquo; is a relative term for AirTags. The pipeline is designed around a latency budget of minutes rather than seconds, which allows for batch uploads, asynchronous processing, and significant optimization opportunities that a truly real-time system could not exploit.</p>
+
+<p>The pipeline works as follows. An AirTag broadcasts continuously. Finder devices detect advertisements during background BLE scans. After detecting a relevant advertisement, a finder device captures its current location, encrypts it, and queues the encrypted blob for upload. The upload happens opportunistically when the device has network connectivity, typically over Wi-Fi or cellular within seconds to minutes. Apple&rsquo;s servers ingest the upload, associate it with the hashed key identifier, and make it available for retrieval.</p>
+
+<p>The owner&rsquo;s Find My app polls for new location events at configurable intervals, or receives push notifications when a new event arrives. The app decrypts the most recent blob and updates the map.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[AirTag BLE Broadcast];
+  B[Finder Device Detects Advertisement];
+  C[Capture Finder GPS];
+  D[Encrypt Location];
+  E[Queue Upload];
+  F[Upload over Wi-Fi or Cellular];
+  G[Find My Ingest Service];
+  H[Store Encrypted Event];
+  I[Push Notification to Owner];
+  J[Owner App Fetches Events];
+  K[Decrypt Latest Location];
+  L[Render on Map];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  D &#8211;> E;
+  E &#8211;> F;
+  F &#8211;> G;
+  G &#8211;> H;
+  H &#8211;> I;
+  I &#8211;> J;
+  J &#8211;> K;
+  K &#8211;> L;
+
+  classDef airtag fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef finder fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef cloud fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+  classDef owner fill:#16a34a,stroke:#166534,color:#ffffff;
+
+  class A airtag;
+  class B,C,D,E,F finder;
+  class G,H,I cloud;
+  class J,K,L owner;
+</div>
+
+
+<p>The queuing step on the finder device is important for reliability. If the device has no network at the moment of detection (common in underground transit, for example), the event sits in a local queue and uploads the next time connectivity is available. This means a finder device that was offline briefly will eventually deliver its relay even after the window has passed. Location history is thus more complete than it might initially seem.</p>
+
+<p>Location freshness degrades in proportion to the time since the last finder device detected the AirTag. In dense cities, freshness is typically measured in minutes. In remote areas, it can be hours or days. The system is honest about this uncertainty: the Find My app shows the time of the last known location, not a claimed real-time position.</p>
+
+<a name="Anti-Stalking.and.Privacy.Systems"></a>
+<h2>Anti-Stalking and Privacy Systems</h2>
+
+<p>AirTags created a serious dual-use problem from the beginning. A technology designed to help people find their keys is also, in the wrong hands, a tool to covertly track people. Apple had to build anti-stalking protections into the system architecture itself, not just as afterthoughts.</p>
+
+<p>The core protection is the unknown tracker alert. iOS and Android (via Apple&rsquo;s Tracker Detect app, later embedded in Android&rsquo;s operating system) continuously scan for AirTags that are traveling with a device but are not registered to the device&rsquo;s owner. If an AirTag has been near a particular person for an extended period, separated from the owner it is registered to, the non-owner receives a notification that an unknown AirTag has been traveling with them.</p>
+
+<p>The detection logic is more nuanced than it first appears. An AirTag sitting in a store owner&rsquo;s shop will be near many customers each day, but it is not following any single customer. The system avoids false positives by requiring the AirTag to have been consistently near the same non-owner device across time and space, establishing a pattern of co-movement rather than simple proximity.</p>
+
+<p>When the three-day alert timer expires on a stationary AirTag (separated from its owner), the AirTag also begins emitting an audible chirping sound, making it physically discoverable even for someone without a smartphone.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Unknown AirTag Near Non-Owner Device];
+  B[Device Tracks Co-Movement Over Time];
+  C{Consistent Co-Movement Detected};
+  D[Send Unknown Tracker Alert];
+  E[Show AirTag Serial Number];
+  F[Offer Instructions to Disable AirTag];
+  G[No Action - Normal Proximity];
+  H[AirTag Separated from Owner 3 Days];
+  I[AirTag Emits Audible Alert];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;>|Yes| D;
+  C &#8211;>|No| G;
+  D &#8211;> E;
+  E &#8211;> F;
+  A &#8211;> H;
+  H &#8211;> I;
+
+  classDef alert fill:#dc2626,stroke:#991b1b,color:#ffffff;
+  classDef process fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef decision fill:#f59e0b,stroke:#b45309,color:#000000;
+  classDef safe fill:#16a34a,stroke:#166534,color:#ffffff;
+
+  class A,D,E,F,I alert;
+  class B,H process;
+  class C decision;
+  class G safe;
+</div>
+
+
+<p>The tradeoff here is interesting. A more aggressive detection threshold catches more stalking scenarios but generates more false positives, annoying users and eroding trust in the system. A more lenient threshold fails to catch sophisticated stalking where someone places an AirTag briefly. Apple has adjusted these parameters over time based on real-world reports of both missed detections and false positives, which is an ongoing empirical engineering challenge.</p>
+
+<p>The privacy system also had to be designed carefully to avoid introducing new privacy problems in the act of solving existing ones. The unknown tracker alert needs to work even for Android users who do not have an Apple ID. Apple&rsquo;s approach was to build the detection into the Bluetooth scanning layer of Android, later partnering with Google to integrate this functionality directly into Android itself, so that any Bluetooth-capable Android device can detect unknown trackers without requiring a special app.</p>
+
+<a name="Geo-Location.and.Position.Estimation"></a>
+<h2>Geo-Location and Position Estimation</h2>
+
+<p>The location stored in an encrypted relay blob is not the AirTag&rsquo;s location. It is the finder device&rsquo;s location at the moment it detected the AirTag. This distinction matters for accuracy.</p>
+
+<p>On an iPhone with clear sky view, GPS accuracy is typically two to five meters. Inside a building, the iPhone falls back to Wi-Fi positioning using Apple&rsquo;s large database of Wi-Fi access point geolocations, which can give ten to fifty meter accuracy. In dense urban canyons or areas with poor GPS, accuracy degrades further. In the worst case, cellular tower triangulation provides city-block-level accuracy of a hundred meters or more.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Positioning Method</th>
+        <th>Typical Accuracy</th>
+        <th>Works Indoors</th>
+        <th>Power Cost</th>
+        <th>Latency</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPS</td>
+        <td>2 to 5 meters</td>
+        <td>No</td>
+        <td>High</td>
+        <td>Cold start 30-60s, warm start 1-3s</td>
+      </tr>
+      <tr>
+        <td>Wi-Fi positioning</td>
+        <td>10 to 50 meters</td>
+        <td>Yes</td>
+        <td>Medium</td>
+        <td>Under 1 second</td>
+      </tr>
+      <tr>
+        <td>Cellular triangulation</td>
+        <td>50 to 300 meters</td>
+        <td>Partial</td>
+        <td>Low</td>
+        <td>Under 1 second</td>
+      </tr>
+      <tr>
+        <td>UWB Precision Finding</td>
+        <td>10 to 30 centimeters</td>
+        <td>Yes</td>
+        <td>Medium</td>
+        <td>Real-time continuous</td>
+      </tr>
+      <tr>
+        <td>BLE RSSI estimation</td>
+        <td>1 to 5 meters approximate</td>
+        <td>Yes</td>
+        <td>Very low</td>
+        <td>Real-time with averaging</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The system implicitly trusts the finder device&rsquo;s self-reported location. This creates an interesting attack surface: a malicious finder device could report false GPS coordinates in the encrypted blob. Since the blob is encrypted with the AirTag&rsquo;s public key, Apple cannot validate the location inside it. The owner would receive a plausible-looking but incorrect location. This is a known limitation of the architecture. The mitigation is that the incentive to do this at scale is unclear, and the find My network&rsquo;s consensus effect means multiple independent relays from real devices usually outweigh any single bad actor.</p>
+
+<a name="Database.and.Storage.Design"></a>
+<h2>Database and Storage Design</h2>
+
+<p>Apple&rsquo;s Find My backend needs to store encrypted location blobs, device identifiers (in hashed form), pairing records, and safety alert data. The schema design is constrained by two forces pulling in opposite directions: the need to efficiently retrieve events by key hash, and the need to avoid storing data that could reveal the relationship between items, owners, and locations.</p>
+
+<p>A simplified schema for the core entities looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="c1">-- Encrypted location events uploaded by finder devices</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">location_events</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">id</span>              <span class="n">UUID</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">key_hash</span>        <span class="n">BYTEA</span>       <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>       <span class="c1">-- SHA-256 of current public key</span>
+</span><span class='line'>  <span class="n">encrypted_blob</span>  <span class="n">BYTEA</span>       <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>       <span class="c1">-- GPS data encrypted with public key</span>
+</span><span class='line'>  <span class="n">uploaded_at</span>     <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">ttl_expires_at</span>  <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span>        <span class="c1">-- Events expire after 24 hours</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_location_events_key_hash</span> <span class="k">ON</span> <span class="n">location_events</span> <span class="p">(</span><span class="n">key_hash</span><span class="p">,</span> <span class="n">uploaded_at</span> <span class="k">DESC</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Rotating public key hashes per AirTag, owned by the owner&#39;s device</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">device_key_hashes</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">id</span>              <span class="n">UUID</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">airtag_token</span>    <span class="n">BYTEA</span>       <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>       <span class="c1">-- Opaque token, not a plain Apple ID</span>
+</span><span class='line'>  <span class="n">key_hash</span>        <span class="n">BYTEA</span>       <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">valid_from</span>      <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">valid_until</span>     <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_device_key_hashes_token</span> <span class="k">ON</span> <span class="n">device_key_hashes</span> <span class="p">(</span><span class="n">airtag_token</span><span class="p">,</span> <span class="n">valid_from</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Safety alerts for non-owner devices detecting unknown trackers</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">safety_alerts</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">id</span>              <span class="n">UUID</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">alert_type</span>      <span class="nb">TEXT</span>        <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>       <span class="c1">-- UNKNOWN_TRACKER, SEPARATED_OWNER</span>
+</span><span class='line'>  <span class="n">key_hash</span>        <span class="n">BYTEA</span>       <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">first_seen_at</span>   <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">last_seen_at</span>    <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">alert_sent_at</span>   <span class="n">TIMESTAMPTZ</span>
+</span><span class='line'><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Relay participation record for throttling</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">relay_throttle</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">finder_token</span>    <span class="n">BYTEA</span>       <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>       <span class="c1">-- Hashed device identifier</span>
+</span><span class='line'>  <span class="n">key_hash</span>        <span class="n">BYTEA</span>       <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">last_relayed_at</span> <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+</span><span class='line'>  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">finder_token</span><span class="p">,</span> <span class="n">key_hash</span><span class="p">)</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></div></figure>
+
+
+<p>Notice that the server-side schema never stores Apple IDs in plaintext next to device identifiers. The link between an owner&rsquo;s identity and a specific AirTag lives only in the owner&rsquo;s iCloud account, encrypted. The server knows an opaque token maps to some set of key hashes. It cannot determine which user that token belongs to without querying the iCloud identity system separately, with appropriate authentication.</p>
+
+<p>Location events are short-lived. Apple retains them for roughly 24 hours before expiration. This data minimization policy limits the exposure window if the server is ever compromised, and it reflects the fact that location history older than 24 hours is rarely needed for finding a lost item (if it is, the AirTag will have generated new events since then).</p>
+
+<p>For geo-spatial indexing, the encrypted blob means Apple&rsquo;s servers cannot index by location. All spatial queries happen on the decrypted data on the owner&rsquo;s device. This is an unusual database design constraint forced by the privacy architecture: you cannot build a PostGIS index on data you cannot read.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>The volume of location events flowing through Apple&rsquo;s infrastructure is enormous. With over a billion finder devices, even if each device relays one event per day on average, that is a billion write operations per day to the location events table, roughly twelve thousand writes per second sustained, with significant spikes during peak hours.</p>
+
+<p>A synchronous write path from finder device to relational database would not survive this volume. The architecture almost certainly uses an event streaming layer as a buffer between the upload endpoint and the storage backend.</p>
+
+<div class="mermaid">
+flowchart TD;
+  A[Finder Device Upload];
+  B[Find My Ingest API];
+  C[Event Stream - Kafka-like];
+  D[Deduplication Consumer];
+  E[Throttle Check Consumer];
+  F[Location Event Store];
+  G[Safety Alert Consumer];
+  H[Alert Notification Service];
+  I[Owner Push Notification];
+
+  A &#8211;> B;
+  B &#8211;> C;
+  C &#8211;> D;
+  C &#8211;> E;
+  C &#8211;> G;
+  D &#8211;> F;
+  E &#8211;>|Throttle table update| F;
+  G &#8211;> H;
+  H &#8211;> I;
+
+  classDef input fill:#2563eb,stroke:#1e40af,color:#ffffff;
+  classDef stream fill:#f59e0b,stroke:#b45309,color:#000000;
+  classDef consumer fill:#16a34a,stroke:#166534,color:#ffffff;
+  classDef storage fill:#9333ea,stroke:#6b21a8,color:#ffffff;
+
+  class A,B input;
+  class C stream;
+  class D,E,G,H consumer;
+  class F,I storage;
+</div>
+
+
+<p>The event streaming layer provides durability guarantees: even if a downstream consumer crashes, the event is retained in the stream and reprocessed when the consumer recovers. It also enables fan-out, where a single upload event is consumed by multiple independent consumers: the storage consumer, the deduplication consumer, the safety alert consumer, and potentially analytics pipelines.</p>
+
+<p>The deduplication consumer needs to identify and collapse multiple relays of the same AirTag detection from nearby devices within the same time window. This is fundamentally a windowed aggregation problem. The consumer groups events by key hash within rolling time windows and stores only the most recent or highest-quality relay, discarding lower-confidence duplicates.</p>
+
+<a name="Caching.System.Design"></a>
+<h2>Caching System Design</h2>
+
+<p>Location lookup is a read-heavy workload once the event writing infrastructure is handled. When an owner opens the Find My app, they want their AirTag&rsquo;s last known location immediately, not after a database scan through millions of records.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cache Layer</th>
+        <th>What Is Cached</th>
+        <th>TTL</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Device metadata cache</td>
+        <td>AirTag token to key hash mapping</td>
+        <td>15 minutes (key rotation window)</td>
+        <td>Avoid repeated key hash lookups</td>
+      </tr>
+      <tr>
+        <td>Latest event cache</td>
+        <td>Most recent encrypted blob per key hash</td>
+        <td>5 minutes</td>
+        <td>Fast retrieval for owner app polling</td>
+      </tr>
+      <tr>
+        <td>Throttle cache</td>
+        <td>Finder token plus key hash last relay time</td>
+        <td>Match throttle window, typically 10 min</td>
+        <td>Prevent redundant relay uploads in memory</td>
+      </tr>
+      <tr>
+        <td>Authentication token cache</td>
+        <td>Validated session tokens</td>
+        <td>Session lifetime</td>
+        <td>Avoid repeated iCloud auth round-trips</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Cache invalidation for the latest event cache is event-driven. When the event streaming consumer stores a new location event for a key hash, it also invalidates or updates the cache entry for that key hash. This keeps the cached value fresh without requiring the owner&rsquo;s app to bypass the cache on every poll.</p>
+
+<p>The throttle cache is interesting because it needs to be shared across all ingest API nodes. A finder device might upload to any of thousands of ingest servers globally due to load balancing. If the throttle check were local to each server, the same device could relay the same AirTag event to all thousand servers before any throttle kicked in. The throttle cache must be distributed, either in a Redis cluster or similar shared in-memory store, and the write must be atomic to prevent race conditions.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Scaling the Find My network means scaling several distinct subsystems that have very different bottleneck profiles.</p>
+
+<p>The BLE side scales naturally because it is fully distributed. Each AirTag broadcasts independently, and each finder device scans independently. There is no coordination needed between AirTags or between finder devices. The BLE layer scales with the number of devices in the physical world, and Apple has the largest such network in existence.</p>
+
+<p>The ingest API is the first potential centralized bottleneck. With billions of potential uploads per day, horizontal scaling behind a global load balancer is essential. The ingest service needs to be stateless so any server can handle any upload without needing to consult a shared state before processing. Authentication token validation should be cached. Database writes should be asynchronous through the event stream.</p>
+
+<p>The event stream itself needs to be partitioned carefully. Partitioning by key hash ensures that all events for the same AirTag are processed by the same consumer, which makes deduplication efficient. But if certain AirTags are in extraordinarily high-traffic locations (an airport, for example), the partition holding that key hash might become a hot spot. Careful partition assignment with hotspot mitigation is needed.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Subsystem</th>
+        <th>Primary Bottleneck</th>
+        <th>Mitigation Strategy</th>
+        <th>Scaling Model</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>BLE broadcasting</td>
+        <td>Device radio power budget</td>
+        <td>Optimized advertisement interval</td>
+        <td>Fully distributed, no central bottleneck</td>
+      </tr>
+      <tr>
+        <td>Ingest API</td>
+        <td>Upload request throughput</td>
+        <td>Stateless horizontal scaling, async writes</td>
+        <td>Horizontal with global load balancing</td>
+      </tr>
+      <tr>
+        <td>Event stream</td>
+        <td>Partition hotspots</td>
+        <td>Dynamic partition rebalancing</td>
+        <td>Horizontal partition scaling</td>
+      </tr>
+      <tr>
+        <td>Location storage</td>
+        <td>Write volume and read latency</td>
+        <td>Sharding by key hash, TTL-based expiry</td>
+        <td>Sharded with time-based partitions</td>
+      </tr>
+      <tr>
+        <td>Owner retrieval API</td>
+        <td>Cache miss rate</td>
+        <td>Distributed cache, push notifications to reduce polling</td>
+        <td>Horizontal with shared cache layer</td>
+      </tr>
+      <tr>
+        <td>Safety alert pipeline</td>
+        <td>Complex co-movement detection logic</td>
+        <td>Windowed streaming aggregation</td>
+        <td>Streaming compute with state stores</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Multi-region deployment is critical for both latency and availability. A finder device in London should upload to a European data center, not traverse the Atlantic to reach a US-based server. Apple operates a global CDN and infrastructure footprint that naturally provides geographic affinity. Events generated in a region are stored in that region initially, and the owner&rsquo;s retrieval request is routed to the region holding the data, or the data is asynchronously replicated to the owner&rsquo;s home region.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>The Find My network&rsquo;s reliability model is interesting because it tolerates significant imperfection at every layer. AirTags will miss broadcast cycles due to interference. Finder devices will miss advertisements because they were not scanning at that exact moment. Uploads will be delayed by connectivity gaps. None of this is catastrophic because the use case does not require continuous real-time tracking.</p>
+
+<p>The reliability engineering focuses on ensuring that across the many opportunities per day to relay a location, enough successful relays happen to give the owner a usefully recent location. A system that is 90% reliable at any individual relay attempt will successfully relay multiple times per hour in a reasonably populated area. The redundancy comes from the sheer number of independent relay opportunities.</p>
+
+<p>For the server infrastructure, standard practices apply: multi-region active-active deployments with cross-region replication, health checks with automatic traffic failover, circuit breakers on downstream dependencies, and aggressive monitoring of ingestion rates, relay latencies, and decryption failure rates on the owner side.</p>
+
+<p>Stale location is the primary reliability concern from the user&rsquo;s perspective. The system should display the timestamp of the last known location prominently so users can assess whether the information is actionable. A location from thirty seconds ago is very different from one from eight hours ago, and the UI should make this unambiguous.</p>
+
+<a name="Security.Architecture"></a>
+<h2>Security Architecture</h2>
+
+<p>The security architecture of AirTags needs to protect against several distinct threat models.</p>
+
+<p>Against Apple itself: the encryption design ensures Apple cannot read location data even with full server access. This is the strongest guarantee and is achieved through the public-key relay design described earlier.</p>
+
+<p>Against the relay network: finder devices upload encrypted blobs and cannot read them. Even a compromised finder device can only submit incorrect location data, not steal the AirTag owner&rsquo;s real location from the relay.</p>
+
+<p>Against physical attackers: an AirTag that is physically found and examined does not reveal its owner&rsquo;s identity. The device stores keying material but not the owner&rsquo;s Apple ID or contact information. The serial number can be used to contact Apple, who can in turn notify law enforcement if a legal request is made, but this path requires deliberate action and judicial oversight.</p>
+
+<p>Against cryptographic attacks: AirTags use elliptic curve cryptography for key derivation and public-key encryption. The specific curves and key lengths are not publicly documented by Apple, but the design follows industry best practices for efficient embedded-device crypto.</p>
+
+<p>The Secure Enclave on iPhone plays a critical role in protecting the owner&rsquo;s private key material from extraction. Even if an attacker had code execution on the owner&rsquo;s iPhone, the Secure Enclave&rsquo;s hardware isolation prevents direct key extraction. Key operations happen inside the enclave and results are returned, but the raw key bytes never leave the enclave.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Threat</th>
+        <th>Mitigation</th>
+        <th>Residual Risk</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Apple reads location data</td>
+        <td>End-to-end encryption, Apple holds no private keys</td>
+        <td>Metadata correlation attacks (theoretical)</td>
+      </tr>
+      <tr>
+        <td>Finder device reads location</td>
+        <td>Location encrypted before upload, finder has no private key</td>
+        <td>Finder reports false location in encrypted blob</td>
+      </tr>
+      <tr>
+        <td>Identifier tracking across rotations</td>
+        <td>15-minute key rotation makes identifier unlinkable</td>
+        <td>Sufficiently dense observer network could correlate rotations</td>
+      </tr>
+      <tr>
+        <td>Physical AirTag analysis</td>
+        <td>No owner info stored on device, keying material protected</td>
+        <td>Serial number can link to Apple record with legal process</td>
+      </tr>
+      <tr>
+        <td>Replay attacks on pairing</td>
+        <td>Nonce-based handshake prevents replay</td>
+        <td>Physical device theft before pairing</td>
+      </tr>
+      <tr>
+        <td>Covert stalking</td>
+        <td>Unknown tracker alerts, audible chirp after separation</td>
+        <td>Short-duration covert placement window</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every design decision in the AirTag system reflects a tradeoff that could have been made differently with different consequences.</p>
+
+<p>BLE advertisement interval versus battery life is the most fundamental tradeoff. A two-second interval gives good detection probability with finder devices scanning at typical intervals. A one-second interval would give better detection at roughly double the wake-up power cost. Apple could have chosen ten seconds to dramatically extend battery life, but detection probability in sparse areas would drop significantly. The chosen interval represents Apple&rsquo;s judgment about where acceptable user experience meets acceptable battery life.</p>
+
+<p>Privacy versus discoverability is a structural tension. A more aggressive anti-stalking system that detected unknown trackers within minutes rather than hours would better protect potential victims. But it would also generate false positives, for example, when a parent tracks a child who visits a friend, or when a piece of luggage travels through an airport near the same passenger for several hours. Apple has adjusted this window over time, and it remains genuinely difficult to calibrate.</p>
+
+<p>Location freshness versus power consumption is solved architecturally by using finder devices for all location reporting. The AirTag itself never uploads anything. But freshness is then limited by the density of finder devices nearby and the upload latency from those devices. In sparse areas, there is no engineering trick that fixes this: the physics of BLE range and the distribution of Apple devices in the world are the binding constraints.</p>
+
+<p>Anonymous relay versus operational complexity is an interesting case where privacy engineering adds genuine infrastructure complexity. If relays were not anonymous, the deduplication problem would be simpler, the throttling mechanism would be simpler, and abuse detection would be easier. Every privacy-preserving design element adds implementation complexity and testing surface. The system&rsquo;s designers chose to accept this complexity because the privacy properties were non-negotiable requirements, not nice-to-haves.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>The technologies underlying a system like AirTags reflect both the constraints of the hardware and the scale of the backend.</p>
+
+<p>On the AirTag hardware, the radio stack is likely a custom Apple SoC combining BLE (Bluetooth 5.0 or later), UWB (the U1 chip technology), and NFC into a single low-power package. Firmware is likely written in C or C++ for memory efficiency and predictable timing. The cryptographic operations use hardware acceleration built into the SoC.</p>
+
+<p>On the iOS side, Core Bluetooth provides the BLE scanning APIs that the Find My system builds on. The UWB ranging APIs are exposed through the Nearby Interaction framework. The Find My background daemon is a native Swift or Objective-C process running with elevated background execution privileges. Location encoding and encryption happen in a security-sensitive extension with access to the Secure Enclave via the CryptoKit framework.</p>
+
+<p>On the backend, the ingest API is almost certainly built on a horizontally scalable framework capable of handling millions of requests per second, deployed globally behind Apple&rsquo;s CDN infrastructure. The event streaming layer resembles Apache Kafka architecturally, though Apple likely operates a proprietary equivalent. Storage uses a combination of distributed key-value stores for the short-lived location events and relational stores for device identity and ownership records. Redis or a compatible distributed cache handles the throttle layer and latest-event cache. The notification delivery system likely integrates directly with Apple Push Notification Service infrastructure.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design an AirTag-like system, they are testing whether you can reason about several challenging distributed systems problems simultaneously. Here is how to approach it.</p>
+
+<p>Start by clarifying the requirements. What is the latency budget? Do you need real-time location or eventual consistency with minutes of lag? What are the privacy requirements? How many devices and AirTags are in scope? Getting these answers changes the architecture significantly.</p>
+
+<p>Walk through the data flow before jumping to components. Explain how an event travels from the AirTag to the owner&rsquo;s screen. Interviewers want to see that you understand the end-to-end system before you start optimizing individual pieces.</p>
+
+<p>Address privacy proactively. Most candidates describe a tracker system and only address privacy if asked. Strong candidates explain the encryption design and key rotation scheme as part of the core architecture, because privacy is not a feature you bolt on later.</p>
+
+<p>Discuss the interesting failure modes. What happens when there are no finder devices near the AirTag? What happens if the owner&rsquo;s private key is compromised? What happens if an attacker uploads fake relay events? Showing you have thought about failure modes demonstrates production-level thinking.</p>
+
+<p>For the interview&rsquo;s scalability discussion, identify the distinct bottleneck regimes. The BLE layer scales differently from the ingest API, which scales differently from the event pipeline, which scales differently from the storage layer. Each has different characteristics and solutions. Conflating them into a single &ldquo;scale horizontally&rdquo; answer signals shallow thinking.</p>
+
+<p>Common mistakes to avoid: designing a system that uploads raw GPS coordinates to a server the owner queries, without any encryption; ignoring the power constraints of the AirTag hardware; proposing a GPS chip in the AirTag (candidates who suggest this either did not think about power or do not know that GPS requires its own active network connection to be useful); and failing to discuss the anti-stalking requirements, which is a major part of the real system and a rich source of interesting design discussion.</p>
+
+<p>A strong answer will describe the BLE-only AirTag broadcasting rotating public-key-derived identifiers, the crowd-sourced relay network, the end-to-end encrypted relay design, the key rotation scheme, and the anti-stalking notification pipeline. It will discuss approximate latency budgets, the tradeoff between privacy and real-time tracking, and the scalability challenges of processing billions of relay events per day.</p>
+
+<p>The goal is to leave the interviewer feeling that you have genuinely thought about how this system works in production, not that you have recited a list of buzzwords. The best system design discussions feel like conversations between engineers who have both operated systems at scale.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Understanding how AirTags work is, in one sense, understanding how to build a privacy-preserving distributed sensor network that runs entirely on borrowed compute and power from devices you do not own. The key insight is that Apple&rsquo;s billion-device installed base is not just a sales metric; it is a piece of infrastructure that can be put to work solving a real engineering problem in a way that would be impossible for any smaller operator.</p>
+
+<p>The cryptographic architecture that makes privacy guarantees hold under adversarial conditions is a template for any system that needs to route information through untrusted intermediaries. The BLE power optimization techniques apply to any battery-constrained IoT device. The crowd-sourced relay model is relevant to any location-aware system trying to cover the physical world without building dedicated hardware infrastructure.</p>
+
+<p>Every design decision in AirTags serves either the goal of battery life, privacy, accuracy, or scale. When you understand why those goals create tension with each other, and how the specific design choices resolve those tensions, you understand not just AirTags but the broader principles of building location-aware distributed systems at global scale.</p>
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2026 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div>
+    
+
+
+
+    
+
+
+
+
+<div class="hire hire--unavailable">
+    
+        
+    
+</div>
+
+</div>
+        </div>
+        
+    </div>
+</footer>
+
+
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/how-apple-airtags-work/';
+        var disqus_url = 'https://rishijeet.github.io/blog/how-apple-airtags-work/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+        <!--adding fancybox -->
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

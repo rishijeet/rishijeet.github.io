@@ -86,6 +86,76 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-apple-airtags-work/">How Apple Airtags Work?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-23T13:36:17+05:30" pubdate><i class="fa fa-calendar"></i> May 23rd, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is a small white disc sitting on your key ring right now. It weighs eleven grams. It has no GPS chip, no cellular radio, and no Wi-Fi antenna. Its battery lasts over a year. And yet, if you drop your keys somewhere in downtown Tokyo, there is a very good chance you will get an accurate location update within minutes, without Apple ever knowing where your keys are.</em></p></blockquote>
+
+<p><img src="/images/system_design/airtags.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>That combination of properties is not magic. It is one of the most carefully engineered consumer-scale distributed systems in the world, and the design decisions behind it touch almost every interesting area of modern infrastructure: Bluetooth Low Energy networking, end-to-end encrypted relay systems, crowd-sourced location discovery, ultra-wideband spatial positioning, privacy-preserving cryptography, and a globally distributed event pipeline spanning hundreds of millions of devices.</p>
+
+<p>This blog walks through the full internal architecture of Apple AirTags, from the radio signals pulsing out of the hardware to the cloud infrastructure that receives, processes, and delivers location events back to owners. By the end, you should understand not just what AirTags do, but why each system is designed the way it is, what the tradeoffs are, and how this infrastructure scales to a network of over a billion Apple devices.</p>
+
+<a name="What.Apple.AirTags.Are.and.Why.They.Matter"></a>
+<h2>What Apple AirTags Are and Why They Matter</h2>
+
+<p>Before AirTags, tracking a lost item typically meant relying on GPS. GPS trackers work reasonably well outdoors but require cellular or Wi-Fi connectivity to upload their position, have batteries measured in days or weeks, and broadcast their presence loudly to anyone listening. They also cost more, require SIM cards in some cases, and fundamentally cannot work indoors where GPS signals are too weak.</p>
+
+<p>AirTags sidestep all of that. Instead of using their own GPS or cellular connection, they hitchhike on the massive installed base of Apple devices around them. An AirTag sitting inside a bag on a train broadcasts a short Bluetooth Low Energy advertisement packet. Every iPhone and iPad nearby receives that advertisement, silently looks up the AirTag&rsquo;s rotating public key, uses it to encrypt the current GPS position of the iPhone, and uploads that encrypted blob to Apple&rsquo;s servers. The AirTag&rsquo;s owner can then download that blob, decrypt it with the matching private key that only they hold, and recover the location.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-apple-airtags-work/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-google-docs-works/">How Google Docs Works?</a>
         </h1>
     
@@ -358,74 +428,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-x-timeline-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-url-shortener-works/">How URL Shortener Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-21T08:04:47+05:30" pubdate><i class="fa fa-calendar"></i> May 21st, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a particular kind of engineering problem that looks deceptively small from the outside. You paste a long URL into a box, click a button, and get back something like <code>https://bit.ly/3xKp9Ld</code>. The whole interaction takes less than a second. Behind that second, though, is a distributed system that has to do quite a lot of work — generate a globally unique short code, write it durably, cache it for fast retrieval, serve hundreds of thousands of redirects per second, collect analytics events without slowing down the redirect, scan for malicious links, and stay available across multiple data centers.</em></p></blockquote>
-
-<p><img src="/images/system_design/url.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>That is the honest shape of a URL shortener at scale. A toy version you could build in an afternoon with a SQLite database and a single Flask server. A production version used by millions of people is something else entirely.</p>
-
-<p>This post walks through that production version — the architecture, the tradeoffs, the engineering decisions, and the failure modes. Whether you are preparing for a system design interview, building your own shortener, or just curious how Bitly or TinyURL actually work at scale, this should give you a real picture of what is going on inside.</p>
-
-<a name="Why.URL.Shortening.Became.a.Distributed.Systems.Problem"></a>
-<h2>Why URL Shortening Became a Distributed Systems Problem</h2>
-
-<p>The original use case was simple enough: URLs on the web can get long and ugly, especially after query parameters and tracking strings pile up. Early shorteners were literally just a database with two columns — a short code and a long URL — and a web server that did a lookup and issued a 301 redirect. That works perfectly fine at small scale.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-url-shortener-works/">Read on &rarr;</a>
     </div>
 
         </article>

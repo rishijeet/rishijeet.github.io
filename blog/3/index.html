@@ -86,6 +86,75 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-amazon-s3-works/">How Amazon S3 Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-17T14:17:39+05:30" pubdate><i class="fa fa-calendar"></i> May 17th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/aws/'>aws</a></li>
+            
+                <li><a class='category' href='/blog/categories/s3/'>s3</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is a particular kind of quiet confidence in systems that just work. You upload a file, get a URL back, and years later that file is still exactly where you left it. No corruption. No missing bytes. The same object, bit-for-bit identical, retrieved in milliseconds from the other side of the planet. That is Amazon S3 in everyday terms. But the engineering underneath that simplicity is anything but simple.</em></p></blockquote>
+
+<p>Amazon Simple Storage Service launched in 2006 and redefined what developers expected from infrastructure. Before S3, running storage at scale meant buying racks of hardware, managing replication yourself, worrying about disk failures, planning for capacity, and building your own data durability systems. S3 flipped that model completely. You pay for what you store, you never think about the hardware, and the system promises eleven nines of durability — meaning you would expect to lose one object for every 100 billion objects stored every 10,000 years.</p>
+
+<p><img src="/images/system_design/s3.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>That number sounds like marketing. It is also one of the hardest engineering targets in existence.</p>
+
+<p>This article is a real engineering walkthrough of how S3 works at the architecture level. We will go from the basics of what object storage actually is, through upload pipelines, metadata infrastructure, replication systems, consistency models, and scaling strategies. By the end, you should have a clear mental model of what makes S3 tick — and why the decisions its architects made were the right ones.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-amazon-s3-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-kafka-works/">How Kafka Works?</a>
         </h1>
     
@@ -363,75 +432,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-nginx-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-google-search-works/">How Google Search Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-16T12:14:14+05:30" pubdate><i class="fa fa-calendar"></i> May 16th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/google/'>google</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>Let me ask you something. You type three words into a text box. Half a second later, you are staring at ten blue links, a knowledge panel, an image carousel, and a featured snippet that almost perfectly answers your question. That page was assembled, ranked, and delivered to you from across the planet faster than you can blink.</em></p></blockquote>
-
-<p><img src="/images/system_design/google-search.webp" height="300" width="900" alt="Alt text" /></p>
-
-<p>Now consider what had to happen behind the scenes. Someone had to crawl hundreds of billions of web pages, extract their content, understand what each page was actually about, store all of that in a way that can be queried at low latency, figure out which of the billions of candidate results is most relevant to your specific query, personalize it a little, check it for spam, and ship it to you over the network before you notice any delay. At peak hours, Google handles tens of thousands of search queries per second, globally.</p>
-
-<p>This is not a solved problem. This is one of the hardest distributed systems problems that has ever been built and maintained in production. The reason it feels effortless is precisely because so much engineering is hidden beneath it.</p>
-
-<p>The interesting part is not just that it works. The interesting part is why it is designed the way it is. Every caching layer, every index shard, every ranking signal, every crawl scheduler exists because someone ran into a wall at scale and had to find a way through. That is what this article is about.</p>
-
-<p>We will walk through the entire system end to end. Crawling. Parsing. Indexing. Query processing. Ranking. Distributed serving. Caching. Machine learning. We will look at what happens when things go wrong, and we will talk honestly about the tradeoffs that make this architecture look the way it does.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-google-search-works/">Read on &rarr;</a>
     </div>
 
         </article>
