@@ -86,6 +86,74 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-spotify-works/">How Spotify Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-18T08:48:39+05:30" pubdate><i class="fa fa-calendar"></i> May 18th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/spotify/'>spotify</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>A fraction of a second before music starts flowing through your headphones, an invisible chain of systems has already sprung into action. Your device must figure out what track to play next, determine whether the audio is stored locally or needs to be fetched, connect to the nearest CDN edge server, stream and decode compressed audio packets in real time, and deliver uninterrupted playback before you even notice the delay. At Spotify’s scale — serving hundreds of millions of listeners across wildly different devices, bandwidth conditions, and geographies — this is not just streaming. It is a massive distributed system constantly balancing speed, reliability, and personalization, while quietly predicting the next song you are most likely to fall in love with.</em></p></blockquote>
+
+<p><img src="/images/system_design/spotify.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>That is not a simple problem. It is one of the most interesting distributed systems challenges in consumer software, combining real-time media delivery, personalization at scale, search infrastructure, offline sync, and a licensing system that would give most engineers a headache. This article is a deep walk through all of it. Whether you are preparing for a system design interview, curious about how streaming infrastructure really works, or building something similar at a smaller scale, the goal is to leave you with a genuine mental model, not just a list of buzzwords.</p>
+
+<a name="Why.Music.Streaming.Is.Hard"></a>
+<h2>Why Music Streaming Is Hard</h2>
+
+<p>Before diving into architecture, it is worth spending a moment on why this problem is genuinely difficult, because the instinctive answer — &ldquo;just serve audio files from a server&rdquo; — misses most of what makes Spotify interesting.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-spotify-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-stock-exchange-works/">How Stock Exchange Works?</a>
         </h1>
     
@@ -364,78 +432,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-pastebin-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-tinder-works/">How Tinder Works</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-16T15:04:27+05:30" pubdate><i class="fa fa-calendar"></i> May 16th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/tinder/'>tinder</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a moment every Tinder engineer has probably thought about: a user swipes right, and within a second, both people get a match notification. That notification feels instant, almost magical. But behind that single interaction is an entire distributed system firing in coordination — a recommendation engine, a geo-spatial query, a mutual-match check, a real-time push notification, and a chat channel being provisioned, all happening faster than the human brain can process what just occurred.</em></p></blockquote>
-
-<p>Tinder is not a simple CRUD app with a swiping UI on top. It is one of the most sophisticated consumer-grade distributed systems ever built. On any given day, Tinder processes over 1.6 billion swipes globally, serves users across hundreds of countries, and must deliver personalized, geo-aware recommendation feeds to millions of concurrent users, all while keeping latency below perceptible thresholds.</p>
-
-<p><img src="/images/system_design/tinder.jpg" height="300" width="900" alt="Alt text" /></p>
-
-<p>The engineering challenges here are real and genuinely hard. You are dealing with write-heavy workloads from swipe events, read-heavy workloads from feed generation, real-time geo queries at planetary scale, ML-based ranking pipelines that need to be both fast and personalized, and a messaging layer that must guarantee delivery even when mobile connections are flaky. Understanding how Tinder solves these problems teaches you almost everything you need to know about modern distributed systems engineering.</p>
-
-<p>This blog is going to walk through the entire architecture, piece by piece, from how a swipe is processed to how the recommendation engine decides whose profile appears next on your screen. We will cover the tradeoffs, the bottlenecks, and the engineering reasoning behind each decision. By the end, you should feel like you genuinely understand how this system works at production scale.</p>
-
-<a name="Core.Features.of.Tinder"></a>
-<h2>Core Features of Tinder</h2>
-
-<p>Before diving into the architecture, it helps to understand exactly what the system needs to do. Tinder&rsquo;s feature set is wider than most people realize.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-tinder-works/">Read on &rarr;</a>
     </div>
 
         </article>
