@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2026-05-30T13:32:30+05:30</updated>
+  <updated>2026-05-31T12:19:35+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,575 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[How Indigo Booking Works?]]></title>
+    <summary><![CDATA[]]></summary>
+    <link href="https://rishijeet.github.io/blog/how-indigo-booking-works/"/>
+    <updated>2026-05-31T12:02:55+05:30</updated>
+    <id>https://rishijeet.github.io/blog/how-indigo-booking-works</id>
+    <content type="html"><![CDATA[<blockquote><p><em>IndiGo is India&rsquo;s largest airline by market share, operating hundreds of flights daily across domestic and international routes. If you&rsquo;ve ever booked a flight on goindigo.in or the IndiGo app, you interacted with one of the most sophisticated transactional systems in the country — a system that has to handle millions of searches, coordinate real-time inventory across thousands of flights, process payments securely, and issue legally valid tickets, all within a few seconds.</em></p></blockquote>
+
+<p><img src="https://rishijeet.github.io/images/system_design/indigo-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>Airline reservation systems are not just booking systems. They are distributed systems problems at scale, with real money, real people, and legally binding contracts involved. A failed payment that results in a confirmed seat is a liability. A double-booked seat is a disaster. A slow search experience sends users to a competitor. The stakes are incredibly high.</p>
+
+<p>What makes airline booking particularly hard compared to, say, an e-commerce system? In e-commerce, you can slightly oversell and manage the backorder. In airline booking, there is no backorder. If seat 14A on flight 6E-205 departing Mumbai at 8:30 AM is sold, it is sold. You cannot manufacture another 14A. Inventory is finite, time-bounded, and irreplaceable.</p>
+
+<!--more-->
+
+
+<p>Add to this the following complexity: prices change every few minutes based on demand, remaining seats, time to departure, competitor pricing, and internal revenue management algorithms. Two users searching the same route at the same time may see different prices. A seat that showed available when you started the booking flow may be gone by the time you hit confirm. And the system must handle all of this consistently, at scale, with zero tolerance for double bookings.</p>
+
+<p>This is why airline reservation systems sit alongside banking and healthcare as the most critical transactional systems in the software world.</p>
+
+<a name="Core.Components.of.an.Airline.Booking.Platform"></a>
+<h2>Core Components of an Airline Booking Platform</h2>
+
+<p>Before diving into each component, it helps to understand what the full system looks like from a bird&rsquo;s eye view.</p>
+
+<p>The <strong>Flight Search Service</strong> handles all user queries about available flights between origin and destination pairs across specific dates. It is read-heavy and latency-sensitive.</p>
+
+<p>The <strong>Fare Engine</strong> calculates the price a specific user should see for a specific flight at a specific point in time. This is not a simple lookup. It involves revenue management rules, demand signals, fare class availability, taxes, surcharges, and promotional logic.</p>
+
+<p>The <strong>Seat Inventory Service</strong> tracks exactly how many seats are available, held, reserved, or sold across every flight in the network. This is the most write-contended component in the system.</p>
+
+<p>The <strong>Reservation Service</strong> orchestrates the process of temporarily locking a seat, coordinating payment, and confirming the booking. It manages the lifecycle from &ldquo;user clicked book&rdquo; to &ldquo;ticket issued.&rdquo;</p>
+
+<p>The <strong>Payment Service</strong> handles the actual money movement — authorization, capture, refund, and reconciliation — across UPI, credit cards, debit cards, net banking, and wallets.</p>
+
+<p>The <strong>Ticketing Service</strong> generates the official e-ticket after payment is confirmed. The ticket is a legally recognized travel document.</p>
+
+<p>The <strong>PNR Generation System</strong> creates the unique booking reference that ties together the passenger, flight, seat, and payment into a single retrievable record.</p>
+
+<p>The <strong>Check-In System</strong> manages the online and airport check-in process, including boarding pass generation and seat finalization.</p>
+
+<p>The <strong>Notification Service</strong> delivers booking confirmations, reminders, boarding alerts, and delay notifications via SMS, email, and push notifications.</p>
+
+<p>The <strong>Loyalty and Ancillary Systems</strong> handle frequent flyer points, baggage add-ons, meal preferences, and other revenue-generating services.</p>
+
+<a name="High-Level.Booking.Architecture"></a>
+<h2>High-Level Booking Architecture</h2>
+
+<p>When you open the IndiGo app and search for a flight, your request travels through multiple services before you see results. Here is a simplified view of the overall architecture:</p>
+
+<div class="mermaid">
+graph TD
+  A[Mobile App] &#8211;> B[API Gateway]
+  C[Web App] &#8211;> B
+  B &#8211;> D[Flight Search Service]
+  B &#8211;> E[Pricing Engine]
+  B &#8211;> F[Inventory Service]
+  B &#8211;> G[Reservation Service]
+  B &#8211;> H[Payment Service]
+  B &#8211;> I[Ticketing Service]
+  B &#8211;> J[Notification Service]
+  D &#8211;> K[Search Index]
+  D &#8211;> F
+  E &#8211;> L[Fare Rules DB]
+  E &#8211;> F
+  F &#8211;> M[Inventory DB]
+  G &#8211;> F
+  G &#8211;> H
+  H &#8211;> N[Payment Gateway]
+  I &#8211;> O[Ticket Store]
+  G &#8211;> I
+  I &#8211;> J
+
+  classDef client fill:#1a73e8,color:#fff,stroke:none
+  classDef gateway fill:#0d47a1,color:#fff,stroke:none
+  classDef service fill:#1565c0,color:#fff,stroke:none
+  classDef store fill:#0a3d62,color:#fff,stroke:none
+
+  class A,C client
+  class B gateway
+  class D,E,F,G,H,I,J service
+  class K,L,M,N,O store
+</div>
+
+
+<p>The API Gateway is the entry point for all client traffic. It handles authentication, rate limiting, SSL termination, and request routing. Behind it, each service is independently deployable and independently scalable. This separation is intentional — the search service handles dramatically more traffic than the payment service, so they need to scale differently.</p>
+
+<a name="Flight.Search.System.Deep.Dive"></a>
+<h2>Flight Search System Deep Dive</h2>
+
+<p>Search is the highest volume operation in the entire booking platform. For every booking that completes, there are hundreds of searches. Users search, compare, abandon, search again, and eventually book. This means the search system must be extremely fast, extremely available, and must not create write load on the inventory system.</p>
+
+<p>When you search for a flight from Delhi to Mumbai on a specific date, here is what actually happens:</p>
+
+<p>The search service first checks a distributed cache (typically Redis or Memcached) for a pre-computed result set for that origin-destination-date combination. Popular routes like DEL-BOM are searched thousands of times per hour. Pre-computing and caching these results means the database is not hit for every search request.</p>
+
+<p>If the cache misses, the system queries an Elasticsearch or Solr-based search index that contains flight schedules, availability buckets, and price ranges. This index is periodically refreshed from the inventory system but is not a real-time view. The goal of search is to give the user a fast, accurate-enough result, not a millisecond-precise inventory snapshot.</p>
+
+<p>Why not query live inventory for every search? Because inventory is stored in a transactional database optimized for writes and consistency. Hitting that database with millions of search queries simultaneously would destroy its performance and create lock contention that slows down actual bookings.</p>
+
+<p>The search index is updated asynchronously. When inventory changes — a seat is booked, a hold expires, a fare bucket closes — an event is published to a message queue. Search index consumers read from this queue and update the index with a short lag, typically a few seconds. This means search results might not be perfectly real-time, but they are fast, scalable, and close enough for a user browsing flights.</p>
+
+<p>Search results are returned with available seat counts and price ranges. The exact price is calculated only when a user selects a specific flight, because fare calculation is more expensive than a search index lookup.</p>
+
+<a name="Seat.Inventory.Management"></a>
+<h2>Seat Inventory Management</h2>
+
+<p>This is arguably the most complex component in the entire airline system. Understanding seat inventory requires understanding how airlines think about their product.</p>
+
+<p>An airline does not just have seats. It has fare classes. Fare classes are subdivisions of the cabin that allow the airline to sell the same physical seat at different prices to different customers. On a typical IndiGo flight, you might have fare classes like S, T, V, Q, L, K, M, B, H, Y — each representing a different price point and set of rules.</p>
+
+<p>The inventory system tracks how many seats are available within each fare class on each flight. This is called a fare bucket. When you buy a cheap ticket, you are buying from a low-priced fare bucket. When that bucket empties, the cheapest available price jumps to the next bucket. This is why flight prices increase as you approach the travel date and as more seats are sold.</p>
+
+<p>Here is a simplified view of what an inventory record looks like:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Fare Class</th>
+        <th>Total Seats</th>
+        <th>Available</th>
+        <th>Held</th>
+        <th>Sold</th>
+        <th>Price Range</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>S</td><td>4</td><td>0</td><td>0</td><td>4</td><td>Lowest</td></tr>
+      <tr><td>T</td><td>6</td><td>0</td><td>0</td><td>6</td><td>Low</td></tr>
+      <tr><td>V</td><td>8</td><td>2</td><td>1</td><td>5</td><td>Medium-Low</td></tr>
+      <tr><td>Q</td><td>10</td><td>7</td><td>0</td><td>3</td><td>Medium</td></tr>
+      <tr><td>Y</td><td>20</td><td>18</td><td>0</td><td>2</td><td>Highest</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The hardest problem in inventory management is race conditions. Imagine two users simultaneously trying to book the last seat in fare class V on the same flight. Both query inventory, both see one seat available, both initiate the booking flow. Without proper concurrency control, both bookings could complete, resulting in an oversold seat.</p>
+
+<p>Airlines solve this with a technique called seat locking or inventory holding. When a user selects a flight and starts the booking flow, the system places a soft hold on inventory: it decrements the available count and increments the held count. This hold is temporary — typically 10 to 15 minutes. If payment is not completed within that window, the hold expires and inventory is restored.</p>
+
+<p>Implementing this correctly in a distributed system is non-trivial. The inventory service cannot simply do a read-then-write in two separate database operations, because another process could read and modify the same row between those two operations. The update must be atomic.</p>
+
+<p>A typical implementation uses optimistic locking with database-level compare-and-swap operations. The inventory update includes a version check: &ldquo;Update inventory where available_seats = 1 and version = 42, set available_seats = 0, held_seats = 1, version = 43.&rdquo; If another transaction has already modified this row, the version check fails, and the system retries or rejects the request.</p>
+
+<p>For high-throughput scenarios, some systems use pessimistic locking with SELECT FOR UPDATE, which acquires a row-level lock before reading. This prevents concurrent modifications but reduces write throughput on heavily contended flights.</p>
+
+<p>Another approach is to move inventory management to an in-memory system like Redis and use Redis&rsquo;s atomic operations (DECR, WATCH/MULTI/EXEC) to manage seat counts. This provides much higher throughput than a relational database for hot inventory, with the relational database serving as the durable source of truth that Redis is synchronized with.</p>
+
+<a name="Dynamic.Fare.Calculation.Engine"></a>
+<h2>Dynamic Fare Calculation Engine</h2>
+
+<p>The fare engine is where airline economics becomes visible in the system. Understanding why it works the way it does requires understanding the concept of revenue management.</p>
+
+<p>Airlines have a fixed inventory that expires at a specific time. An empty seat on a departed flight generates zero revenue. The goal of revenue management is to maximize total revenue across all seats by selling the right seat to the right customer at the right price at the right time.</p>
+
+<p>This is why prices are dynamic. Early in the booking window, when a flight has many empty seats, the airline offers low prices to stimulate demand and fill the plane. As the flight fills up and the departure date approaches, prices rise because the remaining seats are scarce and late-booking travelers tend to be less price-sensitive business travelers who value flexibility.</p>
+
+<p>The fare calculation engine takes multiple inputs:</p>
+
+<p>The base fare for the route, which reflects operating costs including fuel, crew, airport fees, and overhead. The fare class the user is eligible for, which depends on inventory availability at query time. Taxes and surcharges, which include government-mandated passenger service fees, fuel surcharges, and airport development fees. These are not discretionary — they must be applied accurately.</p>
+
+<p>On top of the base fare and taxes, the engine applies modifiers. A promotional code might apply a discount. Booking far in advance might unlock an early-bird fare. Booking for a group might apply group pricing rules. A user with IndiGo&rsquo;s frequent flyer status might see a different fare structure.</p>
+
+<p>The reason two users see different prices is often because they query at slightly different times, with different inventory states. User A queries and sees 3 seats available in fare class V. User B queries 30 seconds later, after those 3 seats have been placed on hold by other users, and now sees only Q class available, which is more expensive.</p>
+
+<p>The fare engine itself is typically stateless — it takes inputs (flight, date, fare class, passenger type, applied promotions) and returns a price. State is managed by the inventory system. This makes the fare engine horizontally scalable. You can run dozens of instances behind a load balancer.</p>
+
+<a name="Reservation.System.Deep.Dive"></a>
+<h2>Reservation System Deep Dive</h2>
+
+<p>The reservation system orchestrates the most critical workflow in the platform: converting a user&rsquo;s intent to buy into a confirmed booking.</p>
+
+<p>The reservation lifecycle has several distinct states:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>State</th>
+        <th>Description</th>
+        <th>Duration</th>
+        <th>Trigger</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>INITIATED</td><td>User begins booking flow</td><td>Seconds</td><td>User selects flight</td></tr>
+      <tr><td>HELD</td><td>Inventory soft-locked</td><td>10-15 min</td><td>Passenger details submitted</td></tr>
+      <tr><td>PENDING_PAYMENT</td><td>Awaiting payment confirmation</td><td>5-10 min</td><td>Payment initiated</td></tr>
+      <tr><td>PAYMENT_CONFIRMED</td><td>Payment authorized</td><td>Seconds</td><td>Payment gateway callback</td></tr>
+      <tr><td>CONFIRMED</td><td>Booking complete, PNR issued</td><td>Permanent</td><td>Ticket generated</td></tr>
+      <tr><td>CANCELLED</td><td>Booking voided</td><td>Permanent</td><td>User or system action</td></tr>
+      <tr><td>EXPIRED</td><td>Hold timed out</td><td>Permanent</td><td>TTL expiry</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The transition from HELD to CONFIRMED involves a distributed transaction across the inventory service, payment service, and ticketing service. This is where things get architecturally challenging.</p>
+
+<p>In a traditional database world, you would wrap these operations in a single ACID transaction. But in a microservices architecture, each service has its own database. You cannot span a database transaction across service boundaries.</p>
+
+<p>Airlines solve this with the Saga pattern. A saga is a sequence of local transactions, each with a compensating transaction that can undo it if a later step fails. The booking saga looks like this:</p>
+
+<p>Step 1: Lock inventory (compensating action: release lock). Step 2: Charge payment (compensating action: refund). Step 3: Generate ticket (compensating action: void ticket). Step 4: Issue PNR (compensating action: cancel PNR).</p>
+
+<p>If payment succeeds but ticket generation fails, the saga triggers the compensating actions in reverse order: the payment is refunded, the inventory lock is released. This ensures the system reaches a consistent state even when individual steps fail.</p>
+
+<p>The saga can be implemented in two ways. Choreography-based sagas use events: each service publishes an event after completing its step, and the next service listens for that event. Orchestration-based sagas use a central orchestrator service that explicitly calls each step and handles failures. For complex booking workflows, orchestration tends to be easier to reason about and debug.</p>
+
+<a name="Booking.Workflow"></a>
+<h2>Booking Workflow</h2>
+
+<p>Let us walk through the complete end-to-end flow, including what happens at each step and what can go wrong.</p>
+
+<div class="mermaid">
+graph TD
+  A[User Searches Flight] &#8211;> B[Search Service returns results]
+  B &#8211;> C[User selects fare]
+  C &#8211;> D[Fare Engine calculates price]
+  D &#8211;> E[User enters passenger details]
+  E &#8211;> F[Inventory Service places hold]
+  F &#8211;> G{Hold successful?}
+  G &#8211;>|No| H[Show seat unavailable]
+  G &#8211;>|Yes| I[User initiates payment]
+  I &#8211;> J[Payment Service calls gateway]
+  J &#8211;> K{Payment authorized?}
+  K &#8211;>|No| L[Release hold and show failure]
+  K &#8211;>|Yes| M[Ticketing Service generates e-ticket]
+  M &#8211;> N[PNR Generation Service creates PNR]
+  N &#8211;> O[Notification Service sends confirmation]
+  O &#8211;> P[Booking Complete]
+
+  classDef step fill:#1565c0,color:#fff,stroke:none
+  classDef decision fill:#0d47a1,color:#fff,stroke:none
+  classDef terminal fill:#0a3d62,color:#fff,stroke:none
+  classDef failure fill:#b71c1c,color:#fff,stroke:none
+
+  class A,B,C,D,E,F,I,J,M,N,O step
+  class G,K decision
+  class P terminal
+  class H,L failure
+</div>
+
+
+<p>When the user submits passenger details, the reservation service immediately tries to place a soft hold on inventory. This is the first critical moment. If the hold fails — because another user got there first — the system surfaces a friendly &ldquo;seat no longer available&rdquo; message and sends the user back to search results.</p>
+
+<p>If the hold succeeds, the user is given a time window to complete payment. A countdown timer in the UI reflects the hold expiry. On the backend, a scheduled job monitors held reservations and releases those that expire without payment.</p>
+
+<p>After payment, the system receives a callback from the payment gateway. This callback must be processed idempotently — it could arrive more than once if the network is unreliable. The payment service records the payment authorization ID from the gateway and checks whether it has already processed a booking for this authorization ID before taking action.</p>
+
+<p>Once payment is confirmed, the reservation transitions to PAYMENT_CONFIRMED and the ticketing workflow begins.</p>
+
+<a name="Payment.Infrastructure"></a>
+<h2>Payment Infrastructure</h2>
+
+<p>Payment is where real money moves, and where the consequences of failures are most visible to users. IndiGo&rsquo;s payment infrastructure must handle a wide variety of payment methods with varying reliability characteristics.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Payment Method</th>
+        <th>Latency</th>
+        <th>Reliability</th>
+        <th>Failure Mode</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>UPI</td><td>1-3 seconds</td><td>High</td><td>Bank timeout, user rejection</td></tr>
+      <tr><td>Credit Card</td><td>2-5 seconds</td><td>High</td><td>Decline, 3DS failure</td></tr>
+      <tr><td>Debit Card</td><td>2-5 seconds</td><td>Medium</td><td>Insufficient funds, bank down</td></tr>
+      <tr><td>Net Banking</td><td>5-30 seconds</td><td>Medium</td><td>Bank redirect failure</td></tr>
+      <tr><td>Wallet</td><td>1-2 seconds</td><td>High</td><td>Insufficient balance</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The payment service does not directly integrate with every bank and wallet. It integrates with a payment aggregator (like Razorpay, PayU, or Cashfree in the Indian context) that handles the downstream integrations. The aggregator provides a unified API and handles the complexity of bank-specific protocols.</p>
+
+<p>The trickiest scenario in payment processing is what engineers call the &ldquo;dual write&rdquo; problem: payment succeeds at the gateway, but the callback to the booking system fails or times out. Now the user&rsquo;s money has been deducted, but the booking system does not know about it.</p>
+
+<p>Airlines handle this with a reconciliation job. The payment service periodically queries the gateway for the status of all pending transactions. When it finds a transaction that the gateway shows as successful but the booking system has not confirmed, it triggers the booking confirmation flow retroactively.</p>
+
+<p>This is why sometimes your bank shows a deduction before you receive the booking confirmation email. The payment captured, but the confirmation flow was delayed.</p>
+
+<p>Idempotency is critical throughout. Every payment request is assigned a unique idempotency key — typically a combination of the reservation ID and an attempt number. If the same payment request is submitted twice (due to a retry), the payment service checks whether it has already processed a request with this idempotency key and returns the cached result instead of creating a duplicate charge.</p>
+
+<a name="PNR.Generation.System"></a>
+<h2>PNR Generation System</h2>
+
+<p>PNR stands for Passenger Name Record. It is the six-character alphanumeric code that uniquely identifies your booking. When you call the airline, this is the first thing they ask for.</p>
+
+<p>PNRs are not just user-facing identifiers. They are the primary key of the global booking record in airline systems. They are recognized by Global Distribution Systems (GDS) like Amadeus and Sabre, which airlines use to coordinate with travel agents and codeshare partners.</p>
+
+<p>Generating a PNR has specific requirements. It must be unique across all bookings, not just current bookings but all historical bookings. It must be short enough to be communicated verbally. It must not contain characters that look similar (0 and O, 1 and I are typically excluded). It must be generated in a distributed system where multiple instances need to produce non-colliding IDs simultaneously.</p>
+
+<p>The simplest approach is to generate a random 6-character alphanumeric string from a safe character set (A-Z, 2-9, excluding confusable characters) and check for collisions before committing. With roughly 34<sup>6</sup> possible combinations (about 1.5 billion), the collision probability is very low in practice.</p>
+
+<p>A more sophisticated approach uses a distributed ID generation service — similar to Twitter&rsquo;s Snowflake or Flickr&rsquo;s ticket server — that guarantees uniqueness without requiring a collision check. The service encodes a timestamp, a machine ID, and a sequence number into a compact representation that maps to the PNR character space.</p>
+
+<p>The PNR lookup system must be extremely fast. Airport agents, customer service representatives, and self-service kiosks all query PNRs constantly. The PNR record and its associated booking details are cached aggressively in a fast key-value store like Redis, with the relational database serving as the authoritative source.</p>
+
+<a name="Ticketing.System"></a>
+<h2>Ticketing System</h2>
+
+<p>The e-ticket is a legally valid travel document. It proves that you have a confirmed reservation on a specific flight. Its generation is not optional — without a ticket, the booking is not complete.</p>
+
+<p>E-ticket generation involves assembling a record that includes the passenger name exactly as it appears on their ID document, the flight details (number, date, departure, arrival, times), the seat assignment, the fare paid, applicable taxes, the ticket number (distinct from the PNR), the booking class, the ticket validity dates, and any ancillary services purchased.</p>
+
+<p>Ticket numbers follow the IATA standard format: a three-digit airline code followed by a ten-digit number. IndiGo&rsquo;s airline code is 6E, which corresponds to a specific numeric prefix in the IATA ticketing system. These numbers must be unique, sequentially issued, and globally unambiguous.</p>
+
+<p>After generation, the ticket is stored in the ticketing database and the PDF or structured data is made available for download and email delivery. The ticket data is also transmitted to the Departure Control System (DCS), which airport staff use to manage boarding.</p>
+
+<p>Ticket modification — a name correction, a date change — triggers a re-issuance workflow. The original ticket is voided and a new ticket is generated with a new ticket number. The fare difference, if any, is collected or refunded. This re-issuance must maintain the integrity of the audit trail.</p>
+
+<a name="Check-In.Architecture"></a>
+<h2>Check-In Architecture</h2>
+
+<p>Online check-in typically opens 48 hours before departure and closes a few hours before boarding. The check-in system is architecturally simpler than the reservation system, but it has strict operational constraints.</p>
+
+<p>When a passenger checks in online, the system validates that the reservation is in CONFIRMED state, that the check-in window is open, that the passenger&rsquo;s travel documents are valid (for international flights), and that no operational holds exist on the booking (such as an unpaid fee).</p>
+
+<p>If validation passes, the system upgrades the booking to CHECKED_IN state and generates a boarding pass. The boarding pass contains the passenger name, flight number, seat number, boarding time, gate number, and a barcode or QR code that encodes the BCBP (Bar Coded Boarding Pass) standard used globally.</p>
+
+<p>The boarding pass barcode must be scannable at airport security and at the gate. This requires the check-in system to be synchronized with the Departure Control System in real time. The DCS is the system of record during airport operations — it knows which passengers have checked in, which bags have been tagged, which passengers have boarded, and whether the flight is ready to close.</p>
+
+<p>In the event of a flight delay or gate change, the DCS triggers notifications that flow through the airline&rsquo;s notification infrastructure to reach passengers via SMS and app push notifications.</p>
+
+<a name="Notification.Infrastructure"></a>
+<h2>Notification Infrastructure</h2>
+
+<p>Notifications in an airline system are not a nice-to-have. A missed gate change notification can mean a passenger misses their flight. A delayed refund notification affects trust. A timely check-in reminder reduces no-shows.</p>
+
+<p>The notification system consumes events from the main booking and operations event stream. When a booking is confirmed, a BOOKING_CONFIRMED event is published. The notification service listens for this event and dispatches confirmations via email, SMS, and push notification.</p>
+
+<p>Different notification channels have different reliability characteristics. Email is reliable but slow. SMS is fast but can fail in poor network areas. Push notifications require the user to have the app installed with notifications enabled.</p>
+
+<p>For critical notifications like booking confirmations, the system sends via multiple channels simultaneously and tracks delivery receipts where possible. For reminders, the system schedules notifications in a job queue with retry logic — if an SMS fails to deliver, the job retries with exponential backoff.</p>
+
+<p>At scale, notification delivery is managed through dedicated providers: AWS SES or SendGrid for email, Twilio or Route Mobile for SMS, Firebase Cloud Messaging for push. The booking system itself does not directly call these providers — it publishes events, and the notification service handles the downstream dispatch. This decoupling means a transient SMS provider outage does not affect the booking flow.</p>
+
+<a name="Cancellation.and.Refund.Systems"></a>
+<h2>Cancellation and Refund Systems</h2>
+
+<p>Cancellation is the unhappy path, and it involves undoing a completed distributed transaction — which is hard.</p>
+
+<p>When a user cancels a booking, the system must: update the reservation state to CANCELLED, calculate the refund amount based on the fare rules and cancellation timing, release the inventory back to the flight, initiate the refund through the payment service, generate a cancellation ticket, and notify the passenger.</p>
+
+<p>Refund calculation is non-trivial. IndiGo (like most airlines) has tiered cancellation penalties based on how many hours before departure the cancellation occurs. The fare rules engine must apply these penalties correctly, accounting for non-refundable components like certain taxes and surcharges, seat selection fees, and baggage fees.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cancellation Window</th>
+        <th>Refund Percentage</th>
+        <th>Processing Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>More than 7 days before departure</td><td>High (minus penalty)</td><td>5-7 business days</td></tr>
+      <tr><td>2-7 days before departure</td><td>Medium (minus penalty)</td><td>5-7 business days</td></tr>
+      <tr><td>Less than 48 hours</td><td>Low or nil depending on fare type</td><td>5-7 business days</td></tr>
+      <tr><td>Non-refundable fares</td><td>Taxes only</td><td>5-7 business days</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Payment reversal is initiated through the payment gateway&rsquo;s refund API. The refund takes days to reflect in the customer&rsquo;s account because it must travel through the payment network back to the customer&rsquo;s bank or card, which operates on T+2 or T+3 settlement cycles.</p>
+
+<p>Reconciliation is a significant operational challenge. The airline&rsquo;s internal accounting system must track every booking, payment, refund, and partial refund and ensure that the amounts match what the payment gateway and bank settlement reports show. Discrepancies must be investigated and resolved, which requires detailed audit logs at every step of the payment and refund flow.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Modern airline platforms are deeply event-driven. Almost every significant action in the booking lifecycle produces an event, and those events drive subsequent processing asynchronously.</p>
+
+<div class="mermaid">
+graph TD
+  A[Reservation Service] &#8211;>|BookingConfirmed| B[Event Bus]
+  C[Payment Service] &#8211;>|PaymentCaptured| B
+  D[Inventory Service] &#8211;>|InventoryUpdated| B
+  E[Ticketing Service] &#8211;>|TicketIssued| B
+  F[Check-in Service] &#8211;>|PassengerCheckedIn| B
+  B &#8211;> G[Notification Service]
+  B &#8211;> H[Analytics Platform]
+  B &#8211;> I[Loyalty Service]
+  B &#8211;> J[Search Index Updater]
+  B &#8211;> K[Audit Log Service]
+  B &#8211;> L[Reconciliation Service]
+
+  classDef producer fill:#1565c0,color:#fff,stroke:none
+  classDef bus fill:#0d47a1,color:#fff,stroke:none
+  classDef consumer fill:#0a3d62,color:#fff,stroke:none
+
+  class A,C,D,E,F producer
+  class B bus
+  class G,H,I,J,K,L consumer
+</div>
+
+
+<p>The event bus (typically Kafka in production systems of this scale) acts as the central nervous system. Services publish events without knowing who will consume them. New consumers — a new analytics pipeline, a new loyalty integration — can be added without modifying the producers.</p>
+
+<p>Kafka&rsquo;s durability guarantees mean that events are not lost even if a consumer is temporarily down. When the notification service restarts after an outage, it resumes consuming from where it left off and delivers any confirmations that were queued during downtime.</p>
+
+<p>Kafka partitioning ensures ordering. Events for the same booking are routed to the same partition, guaranteeing that a TicketIssued event for booking X is processed after the BookingConfirmed event for booking X by the same consumer.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The core entities in an airline booking system and their rough schemas:</p>
+
+<p>Flights table: flight_id, flight_number, origin, destination, departure_time, arrival_time, aircraft_type, status. Indexed on (origin, destination, departure_date) for search queries.</p>
+
+<p>Inventory table: flight_id, fare_class, total_seats, available_seats, held_seats, sold_seats, version. The version column enables optimistic locking. This table sees extremely high write contention and may benefit from row-level sharding or in-memory replication.</p>
+
+<p>Bookings table: booking_id, pnr, status, created_at, updated_at, user_id, total_fare, currency. Partitioned by created_at for query performance. Indexed on pnr for fast lookups.</p>
+
+<p>Passengers table: passenger_id, booking_id, first_name, last_name, dob, passport_number, nationality, seat_number, meal_preference. Linked to bookings via booking_id.</p>
+
+<p>Payments table: payment_id, booking_id, amount, currency, status, gateway_transaction_id, payment_method, created_at, updated_at. The gateway_transaction_id must have a unique index to prevent duplicate payment recording.</p>
+
+<p>Tickets table: ticket_id, ticket_number, booking_id, passenger_id, flight_id, issued_at, voided_at, status. Ticket numbers are globally unique and indexed for fast retrieval.</p>
+
+<p>Refunds table: refund_id, booking_id, payment_id, amount, reason, status, initiated_at, completed_at. Linked to both the booking and the original payment for reconciliation.</p>
+
+<p>Partitioning strategy: bookings and payments tables are partitioned by date range. Older partitions are moved to cold storage or archived. Active partitions for recent months remain on fast SSD-backed storage. This keeps query performance high as the dataset grows over years.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching is what allows an airline platform to serve millions of requests per day without melting its databases.</p>
+
+<p>Flight schedule data — routes, flight numbers, departure times — changes infrequently. This is aggressively cached at the CDN level and in application-level Redis caches with TTLs of several hours.</p>
+
+<p>Fare data changes frequently but not per-millisecond. Fare cache entries for a specific route-date-class combination have TTLs of one to five minutes. This means a user might see a price that is slightly stale, but the actual price is confirmed at checkout. If the price has changed, the user is informed and asked to confirm.</p>
+
+<p>Inventory data is the most volatile. The available seat count for a hot route can change tens of times per minute. The inventory service uses a write-through cache: every inventory update writes to both Redis and the database. The cache is the primary read path for the booking flow (checking if seats are available), while the database is the authoritative write path (actually decrementing counts with optimistic locking).</p>
+
+<p>Search results for popular routes like DEL-BOM or BOM-GOI are precomputed and cached at the CDN edge. When a user in Chennai searches for a popular domestic route, the response can be served from a CDN node in Chennai without any backend processing. This reduces both latency and backend load dramatically.</p>
+
+<p>Cache invalidation for inventory is event-driven. When an inventory update event is published to Kafka, a cache invalidation consumer reads the event and invalidates or updates the relevant cache entries. This keeps the cache reasonably fresh without requiring the write path to manage cache coherence synchronously.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>IndiGo sees enormous traffic spikes during flash sales, long weekends, holiday announcements, and flight schedule releases. The system must handle 10x or 20x normal traffic during these events.</p>
+
+<p>The search service is the easiest to scale horizontally. Since it is stateless and primarily read-oriented, adding more search service instances behind the load balancer immediately increases capacity. The search index (Elasticsearch) can be horizontally scaled by adding data nodes and increasing replica count.</p>
+
+<p>The inventory service is harder to scale because it is write-heavy and requires strong consistency. Horizontal scaling of the inventory service requires careful partitioning — all inventory operations for a given flight must go to the same database shard, to prevent cross-shard distributed transactions. Flights can be partitioned by flight_id modulo the number of shards.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Scaling Strategy</th>
+        <th>Bottleneck</th>
+        <th>Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Search Service</td><td>Horizontal, stateless</td><td>Index refresh lag</td><td>Increase replicas, tune refresh interval</td></tr>
+      <tr><td>Fare Engine</td><td>Horizontal, stateless</td><td>Fare rules DB reads</td><td>Cache fare rules aggressively</td></tr>
+      <tr><td>Inventory Service</td><td>Sharded by flight</td><td>Write contention on hot flights</td><td>Redis atomic ops, retry with backoff</td></tr>
+      <tr><td>Reservation Service</td><td>Horizontal with saga orchestration</td><td>Payment gateway latency</td><td>Async payment confirmation</td></tr>
+      <tr><td>Payment Service</td><td>Horizontal, idempotent</td><td>Gateway rate limits</td><td>Multiple gateway integrations, circuit breaker</td></tr>
+      <tr><td>Notification Service</td><td>Horizontal consumers from Kafka</td><td>Provider rate limits</td><td>Queue and batch, multiple providers</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>During flash sales, one additional technique is queue-based load leveling. Instead of allowing all users to hit the booking service simultaneously, the system places booking requests into a queue and processes them at a controlled rate. Users see a virtual waiting room UI while their request queues. This protects backend systems from being overwhelmed while ensuring all users are served in order.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>An airline booking platform must be extremely available. Downtime directly costs revenue and damages brand trust. The target availability for the core booking path is typically 99.95% or higher.</p>
+
+<p>Reliability is achieved through redundancy at every layer. Multiple availability zones for all services. Active-active database replication for reads. Automated failover for primary database failures. Circuit breakers on all external dependencies — if the payment gateway starts responding slowly, the circuit breaker opens and surfaces a friendly error instead of allowing requests to pile up and cause cascading failures.</p>
+
+<p>Health checks and automated instance replacement ensure that unhealthy service instances are removed from the load balancer pool and replaced by the container orchestration platform (Kubernetes) automatically.</p>
+
+<p>Chaos engineering — deliberately injecting failures into the system in controlled ways — is practiced by mature engineering teams to identify weaknesses before they manifest as production incidents.</p>
+
+<a name="Security.Considerations"></a>
+<h2>Security Considerations</h2>
+
+<p>Payment security is governed by PCI-DSS compliance requirements. IndiGo&rsquo;s payment infrastructure does not store raw card numbers — these are tokenized by the payment gateway and replaced with non-sensitive tokens that can be stored and used for refunds without exposing card data.</p>
+
+<p>All communication between services is encrypted in transit using TLS. Authentication between services uses mutual TLS or JWT tokens issued by a central identity service.</p>
+
+<p>Fraud detection runs asynchronously on booking data. Signals like unusual booking velocity from a single IP, multiple bookings for the same passenger on overlapping flights, and card BIN country mismatch with billing address trigger fraud scoring. High-score bookings may be flagged for manual review or automatically blocked.</p>
+
+<p>Bot attacks and fare scraping are countered with rate limiting at the API Gateway level, CAPTCHA challenges for suspicious traffic patterns, and behavioral analysis that distinguishes human users from automated scrapers by examining mouse movement patterns, request timing, and session behavior.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every architectural decision in a booking system involves tradeoffs. Understanding these tradeoffs is what separates a good system designer from a great one.</p>
+
+<p>Consistency vs availability in inventory: A strictly consistent inventory system ensures zero double bookings but may reject valid booking requests under high contention (for example, when optimistic locking retries are exhausted). A more available system might allow a tiny number of oversells and resolve them operationally. Most airlines choose strict consistency and accept the small percentage of failed booking attempts, because overselling a seat creates a far worse experience than a booking failure.</p>
+
+<p>Reservation hold duration vs user experience: A longer hold gives users more time to complete payment, reducing checkout abandonment. But longer holds mean inventory is locked for longer, which can make flights appear more full than they are, discouraging other potential buyers. Airlines tune hold durations carefully — 10 to 15 minutes is a common sweet spot.</p>
+
+<p>Fare caching vs freshness: Caching fares for five minutes means users occasionally see slightly stale prices. The alternative — computing fares in real time for every display — is far more expensive and slower. The solution is to cache the displayed fare but revalidate the price at checkout, which is the industry standard approach.</p>
+
+<p>Dynamic pricing vs predictability: Revenue management systems that reprice frequently maximize airline revenue but create an unpredictable experience for users. This is a deliberate business decision, not a technical limitation. Some airlines offer price-lock features (often for a small fee) that let users lock a fare while they decide, which is itself a product built on top of the reservation hold mechanism.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>Large-scale airline booking platforms typically use a combination of the following technologies, each chosen for specific characteristics:</p>
+
+<p>Java and Spring Boot form the backbone of most reservation and payment services. Java&rsquo;s maturity, strong concurrency support, and vast ecosystem make it a reliable choice for financial-grade transaction processing.</p>
+
+<p>Go is increasingly used for high-throughput, low-latency services like the search API and the notification dispatcher. Go&rsquo;s lightweight goroutines and fast startup time make it excellent for services that handle massive concurrent request volumes.</p>
+
+<p>Apache Kafka is the event streaming backbone. It provides durable, ordered, partitioned event streams with replay capability. For an airline platform, the ability to replay events is invaluable for debugging incidents and reprocessing failed operations.</p>
+
+<p>Redis serves multiple roles: distributed cache, session store, inventory counter with atomic operations, and rate limiter. Its single-threaded event loop and in-memory speed make it ideal for high-throughput, low-latency operations.</p>
+
+<p>PostgreSQL is the primary relational database for bookings, payments, and passengers. Its strong ACID guarantees, row-level locking, and mature replication features make it well-suited for financial transaction records.</p>
+
+<p>Elasticsearch powers the flight search index. Its full-text search and aggregation capabilities, combined with horizontal scalability, make it the right tool for search workloads.</p>
+
+<p>Kubernetes orchestrates all services. It provides automatic scaling, health management, rolling deployments, and resource isolation.</p>
+
+<p>CDN systems (Akamai, Cloudflare) cache static assets and popular search results at edge nodes globally, reducing latency for end users and offloading traffic from origin servers.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design an airline booking system like IndiGo, they are primarily testing your understanding of distributed systems, concurrency, and tradeoffs — not your knowledge of airlines specifically.</p>
+
+<p>The most common opening question is: &ldquo;Design a flight search and booking system.&rdquo; Strong candidates immediately clarify requirements: read vs write ratio, expected scale, consistency requirements, and failure tolerance.</p>
+
+<p>The areas that differentiate strong from weak answers are exactly the areas covered in this blog. Weak candidates design a simple CRUD application with a single database. They propose a direct SELECT from the inventory table for every search query and ignore concurrency issues in the booking flow.</p>
+
+<p>Strong candidates identify the read-write asymmetry immediately: search is orders of magnitude more frequent than booking, so they deserve separate optimization strategies. They introduce caching for search, a dedicated inventory service with optimistic locking for booking, and an event-driven architecture for post-booking processes.</p>
+
+<p>The inventory management section is the most important thing to get right in an interview. Explain fare buckets, soft holds, optimistic locking, and expiry TTLs. This shows you understand the real complexity of the problem.</p>
+
+<p>The payment section is where candidates demonstrate understanding of distributed failure scenarios. Discuss idempotency keys, the dual-write problem, and the reconciliation job. Interviewers at companies like Flipkart, Razorpay, MakeMyTrip, and OYO ask exactly these kinds of questions.</p>
+
+<p>On scalability, go beyond &ldquo;add more servers.&rdquo; Discuss partitioning strategies for the inventory service, CDN caching for search, and Kafka-based decoupling for async processing. Explain the tradeoffs of each decision.</p>
+
+<p>Common mistakes to avoid: not handling the inventory race condition, not discussing payment failure scenarios, ignoring the hold expiry mechanism, and not distinguishing between the search data model and the booking data model.</p>
+
+<p>The best answers treat the booking system as what it really is: a distributed systems problem with financial consequences, where correctness and reliability matter more than raw throughput.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Building a system like IndiGo&rsquo;s booking platform is one of the genuinely hard engineering challenges in the software industry. It combines real-time inventory management, financial transaction correctness, distributed system coordination, and high availability into a single product that millions of people depend on daily.</p>
+
+<p>The engineering principles that make this system work — event sourcing, idempotency, optimistic locking, saga-based distributed transactions, aggressive caching with event-driven invalidation, and graceful degradation — are the same principles that apply across any system that must be fast, reliable, and correct at scale.</p>
+
+<p>If you understand how a flight booking platform is built, you understand distributed systems. And that understanding translates directly into better system design across every domain you work in.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[How YouTube Scaled to Billions of Users Using MySQL?]]></title>

@@ -4,7 +4,7 @@
     <title><![CDATA[Category: architecture | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/architecture/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-30T13:32:30+05:30</updated>
+    <updated>2026-05-31T12:19:35+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,574 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How Indigo Booking Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-indigo-booking-works/"/>
+        <updated>2026-05-31T12:02:55+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-indigo-booking-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>IndiGo is India&rsquo;s largest airline by market share, operating hundreds of flights daily across domestic and international routes. If you&rsquo;ve ever booked a flight on goindigo.in or the IndiGo app, you interacted with one of the most sophisticated transactional systems in the country — a system that has to handle millions of searches, coordinate real-time inventory across thousands of flights, process payments securely, and issue legally valid tickets, all within a few seconds.</em></p></blockquote>
+
+<p><img src="/images/system_design/indigo-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>Airline reservation systems are not just booking systems. They are distributed systems problems at scale, with real money, real people, and legally binding contracts involved. A failed payment that results in a confirmed seat is a liability. A double-booked seat is a disaster. A slow search experience sends users to a competitor. The stakes are incredibly high.</p>
+
+<p>What makes airline booking particularly hard compared to, say, an e-commerce system? In e-commerce, you can slightly oversell and manage the backorder. In airline booking, there is no backorder. If seat 14A on flight 6E-205 departing Mumbai at 8:30 AM is sold, it is sold. You cannot manufacture another 14A. Inventory is finite, time-bounded, and irreplaceable.</p>
+
+<!--more-->
+
+
+<p>Add to this the following complexity: prices change every few minutes based on demand, remaining seats, time to departure, competitor pricing, and internal revenue management algorithms. Two users searching the same route at the same time may see different prices. A seat that showed available when you started the booking flow may be gone by the time you hit confirm. And the system must handle all of this consistently, at scale, with zero tolerance for double bookings.</p>
+
+<p>This is why airline reservation systems sit alongside banking and healthcare as the most critical transactional systems in the software world.</p>
+
+<a name="Core.Components.of.an.Airline.Booking.Platform"></a>
+<h2>Core Components of an Airline Booking Platform</h2>
+
+<p>Before diving into each component, it helps to understand what the full system looks like from a bird&rsquo;s eye view.</p>
+
+<p>The <strong>Flight Search Service</strong> handles all user queries about available flights between origin and destination pairs across specific dates. It is read-heavy and latency-sensitive.</p>
+
+<p>The <strong>Fare Engine</strong> calculates the price a specific user should see for a specific flight at a specific point in time. This is not a simple lookup. It involves revenue management rules, demand signals, fare class availability, taxes, surcharges, and promotional logic.</p>
+
+<p>The <strong>Seat Inventory Service</strong> tracks exactly how many seats are available, held, reserved, or sold across every flight in the network. This is the most write-contended component in the system.</p>
+
+<p>The <strong>Reservation Service</strong> orchestrates the process of temporarily locking a seat, coordinating payment, and confirming the booking. It manages the lifecycle from &ldquo;user clicked book&rdquo; to &ldquo;ticket issued.&rdquo;</p>
+
+<p>The <strong>Payment Service</strong> handles the actual money movement — authorization, capture, refund, and reconciliation — across UPI, credit cards, debit cards, net banking, and wallets.</p>
+
+<p>The <strong>Ticketing Service</strong> generates the official e-ticket after payment is confirmed. The ticket is a legally recognized travel document.</p>
+
+<p>The <strong>PNR Generation System</strong> creates the unique booking reference that ties together the passenger, flight, seat, and payment into a single retrievable record.</p>
+
+<p>The <strong>Check-In System</strong> manages the online and airport check-in process, including boarding pass generation and seat finalization.</p>
+
+<p>The <strong>Notification Service</strong> delivers booking confirmations, reminders, boarding alerts, and delay notifications via SMS, email, and push notifications.</p>
+
+<p>The <strong>Loyalty and Ancillary Systems</strong> handle frequent flyer points, baggage add-ons, meal preferences, and other revenue-generating services.</p>
+
+<a name="High-Level.Booking.Architecture"></a>
+<h2>High-Level Booking Architecture</h2>
+
+<p>When you open the IndiGo app and search for a flight, your request travels through multiple services before you see results. Here is a simplified view of the overall architecture:</p>
+
+<div class="mermaid">
+graph TD
+  A[Mobile App] &#8211;> B[API Gateway]
+  C[Web App] &#8211;> B
+  B &#8211;> D[Flight Search Service]
+  B &#8211;> E[Pricing Engine]
+  B &#8211;> F[Inventory Service]
+  B &#8211;> G[Reservation Service]
+  B &#8211;> H[Payment Service]
+  B &#8211;> I[Ticketing Service]
+  B &#8211;> J[Notification Service]
+  D &#8211;> K[Search Index]
+  D &#8211;> F
+  E &#8211;> L[Fare Rules DB]
+  E &#8211;> F
+  F &#8211;> M[Inventory DB]
+  G &#8211;> F
+  G &#8211;> H
+  H &#8211;> N[Payment Gateway]
+  I &#8211;> O[Ticket Store]
+  G &#8211;> I
+  I &#8211;> J
+
+  classDef client fill:#1a73e8,color:#fff,stroke:none
+  classDef gateway fill:#0d47a1,color:#fff,stroke:none
+  classDef service fill:#1565c0,color:#fff,stroke:none
+  classDef store fill:#0a3d62,color:#fff,stroke:none
+
+  class A,C client
+  class B gateway
+  class D,E,F,G,H,I,J service
+  class K,L,M,N,O store
+</div>
+
+
+<p>The API Gateway is the entry point for all client traffic. It handles authentication, rate limiting, SSL termination, and request routing. Behind it, each service is independently deployable and independently scalable. This separation is intentional — the search service handles dramatically more traffic than the payment service, so they need to scale differently.</p>
+
+<a name="Flight.Search.System.Deep.Dive"></a>
+<h2>Flight Search System Deep Dive</h2>
+
+<p>Search is the highest volume operation in the entire booking platform. For every booking that completes, there are hundreds of searches. Users search, compare, abandon, search again, and eventually book. This means the search system must be extremely fast, extremely available, and must not create write load on the inventory system.</p>
+
+<p>When you search for a flight from Delhi to Mumbai on a specific date, here is what actually happens:</p>
+
+<p>The search service first checks a distributed cache (typically Redis or Memcached) for a pre-computed result set for that origin-destination-date combination. Popular routes like DEL-BOM are searched thousands of times per hour. Pre-computing and caching these results means the database is not hit for every search request.</p>
+
+<p>If the cache misses, the system queries an Elasticsearch or Solr-based search index that contains flight schedules, availability buckets, and price ranges. This index is periodically refreshed from the inventory system but is not a real-time view. The goal of search is to give the user a fast, accurate-enough result, not a millisecond-precise inventory snapshot.</p>
+
+<p>Why not query live inventory for every search? Because inventory is stored in a transactional database optimized for writes and consistency. Hitting that database with millions of search queries simultaneously would destroy its performance and create lock contention that slows down actual bookings.</p>
+
+<p>The search index is updated asynchronously. When inventory changes — a seat is booked, a hold expires, a fare bucket closes — an event is published to a message queue. Search index consumers read from this queue and update the index with a short lag, typically a few seconds. This means search results might not be perfectly real-time, but they are fast, scalable, and close enough for a user browsing flights.</p>
+
+<p>Search results are returned with available seat counts and price ranges. The exact price is calculated only when a user selects a specific flight, because fare calculation is more expensive than a search index lookup.</p>
+
+<a name="Seat.Inventory.Management"></a>
+<h2>Seat Inventory Management</h2>
+
+<p>This is arguably the most complex component in the entire airline system. Understanding seat inventory requires understanding how airlines think about their product.</p>
+
+<p>An airline does not just have seats. It has fare classes. Fare classes are subdivisions of the cabin that allow the airline to sell the same physical seat at different prices to different customers. On a typical IndiGo flight, you might have fare classes like S, T, V, Q, L, K, M, B, H, Y — each representing a different price point and set of rules.</p>
+
+<p>The inventory system tracks how many seats are available within each fare class on each flight. This is called a fare bucket. When you buy a cheap ticket, you are buying from a low-priced fare bucket. When that bucket empties, the cheapest available price jumps to the next bucket. This is why flight prices increase as you approach the travel date and as more seats are sold.</p>
+
+<p>Here is a simplified view of what an inventory record looks like:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Fare Class</th>
+        <th>Total Seats</th>
+        <th>Available</th>
+        <th>Held</th>
+        <th>Sold</th>
+        <th>Price Range</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>S</td><td>4</td><td>0</td><td>0</td><td>4</td><td>Lowest</td></tr>
+      <tr><td>T</td><td>6</td><td>0</td><td>0</td><td>6</td><td>Low</td></tr>
+      <tr><td>V</td><td>8</td><td>2</td><td>1</td><td>5</td><td>Medium-Low</td></tr>
+      <tr><td>Q</td><td>10</td><td>7</td><td>0</td><td>3</td><td>Medium</td></tr>
+      <tr><td>Y</td><td>20</td><td>18</td><td>0</td><td>2</td><td>Highest</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The hardest problem in inventory management is race conditions. Imagine two users simultaneously trying to book the last seat in fare class V on the same flight. Both query inventory, both see one seat available, both initiate the booking flow. Without proper concurrency control, both bookings could complete, resulting in an oversold seat.</p>
+
+<p>Airlines solve this with a technique called seat locking or inventory holding. When a user selects a flight and starts the booking flow, the system places a soft hold on inventory: it decrements the available count and increments the held count. This hold is temporary — typically 10 to 15 minutes. If payment is not completed within that window, the hold expires and inventory is restored.</p>
+
+<p>Implementing this correctly in a distributed system is non-trivial. The inventory service cannot simply do a read-then-write in two separate database operations, because another process could read and modify the same row between those two operations. The update must be atomic.</p>
+
+<p>A typical implementation uses optimistic locking with database-level compare-and-swap operations. The inventory update includes a version check: &ldquo;Update inventory where available_seats = 1 and version = 42, set available_seats = 0, held_seats = 1, version = 43.&rdquo; If another transaction has already modified this row, the version check fails, and the system retries or rejects the request.</p>
+
+<p>For high-throughput scenarios, some systems use pessimistic locking with SELECT FOR UPDATE, which acquires a row-level lock before reading. This prevents concurrent modifications but reduces write throughput on heavily contended flights.</p>
+
+<p>Another approach is to move inventory management to an in-memory system like Redis and use Redis&rsquo;s atomic operations (DECR, WATCH/MULTI/EXEC) to manage seat counts. This provides much higher throughput than a relational database for hot inventory, with the relational database serving as the durable source of truth that Redis is synchronized with.</p>
+
+<a name="Dynamic.Fare.Calculation.Engine"></a>
+<h2>Dynamic Fare Calculation Engine</h2>
+
+<p>The fare engine is where airline economics becomes visible in the system. Understanding why it works the way it does requires understanding the concept of revenue management.</p>
+
+<p>Airlines have a fixed inventory that expires at a specific time. An empty seat on a departed flight generates zero revenue. The goal of revenue management is to maximize total revenue across all seats by selling the right seat to the right customer at the right price at the right time.</p>
+
+<p>This is why prices are dynamic. Early in the booking window, when a flight has many empty seats, the airline offers low prices to stimulate demand and fill the plane. As the flight fills up and the departure date approaches, prices rise because the remaining seats are scarce and late-booking travelers tend to be less price-sensitive business travelers who value flexibility.</p>
+
+<p>The fare calculation engine takes multiple inputs:</p>
+
+<p>The base fare for the route, which reflects operating costs including fuel, crew, airport fees, and overhead. The fare class the user is eligible for, which depends on inventory availability at query time. Taxes and surcharges, which include government-mandated passenger service fees, fuel surcharges, and airport development fees. These are not discretionary — they must be applied accurately.</p>
+
+<p>On top of the base fare and taxes, the engine applies modifiers. A promotional code might apply a discount. Booking far in advance might unlock an early-bird fare. Booking for a group might apply group pricing rules. A user with IndiGo&rsquo;s frequent flyer status might see a different fare structure.</p>
+
+<p>The reason two users see different prices is often because they query at slightly different times, with different inventory states. User A queries and sees 3 seats available in fare class V. User B queries 30 seconds later, after those 3 seats have been placed on hold by other users, and now sees only Q class available, which is more expensive.</p>
+
+<p>The fare engine itself is typically stateless — it takes inputs (flight, date, fare class, passenger type, applied promotions) and returns a price. State is managed by the inventory system. This makes the fare engine horizontally scalable. You can run dozens of instances behind a load balancer.</p>
+
+<a name="Reservation.System.Deep.Dive"></a>
+<h2>Reservation System Deep Dive</h2>
+
+<p>The reservation system orchestrates the most critical workflow in the platform: converting a user&rsquo;s intent to buy into a confirmed booking.</p>
+
+<p>The reservation lifecycle has several distinct states:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>State</th>
+        <th>Description</th>
+        <th>Duration</th>
+        <th>Trigger</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>INITIATED</td><td>User begins booking flow</td><td>Seconds</td><td>User selects flight</td></tr>
+      <tr><td>HELD</td><td>Inventory soft-locked</td><td>10-15 min</td><td>Passenger details submitted</td></tr>
+      <tr><td>PENDING_PAYMENT</td><td>Awaiting payment confirmation</td><td>5-10 min</td><td>Payment initiated</td></tr>
+      <tr><td>PAYMENT_CONFIRMED</td><td>Payment authorized</td><td>Seconds</td><td>Payment gateway callback</td></tr>
+      <tr><td>CONFIRMED</td><td>Booking complete, PNR issued</td><td>Permanent</td><td>Ticket generated</td></tr>
+      <tr><td>CANCELLED</td><td>Booking voided</td><td>Permanent</td><td>User or system action</td></tr>
+      <tr><td>EXPIRED</td><td>Hold timed out</td><td>Permanent</td><td>TTL expiry</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The transition from HELD to CONFIRMED involves a distributed transaction across the inventory service, payment service, and ticketing service. This is where things get architecturally challenging.</p>
+
+<p>In a traditional database world, you would wrap these operations in a single ACID transaction. But in a microservices architecture, each service has its own database. You cannot span a database transaction across service boundaries.</p>
+
+<p>Airlines solve this with the Saga pattern. A saga is a sequence of local transactions, each with a compensating transaction that can undo it if a later step fails. The booking saga looks like this:</p>
+
+<p>Step 1: Lock inventory (compensating action: release lock). Step 2: Charge payment (compensating action: refund). Step 3: Generate ticket (compensating action: void ticket). Step 4: Issue PNR (compensating action: cancel PNR).</p>
+
+<p>If payment succeeds but ticket generation fails, the saga triggers the compensating actions in reverse order: the payment is refunded, the inventory lock is released. This ensures the system reaches a consistent state even when individual steps fail.</p>
+
+<p>The saga can be implemented in two ways. Choreography-based sagas use events: each service publishes an event after completing its step, and the next service listens for that event. Orchestration-based sagas use a central orchestrator service that explicitly calls each step and handles failures. For complex booking workflows, orchestration tends to be easier to reason about and debug.</p>
+
+<a name="Booking.Workflow"></a>
+<h2>Booking Workflow</h2>
+
+<p>Let us walk through the complete end-to-end flow, including what happens at each step and what can go wrong.</p>
+
+<div class="mermaid">
+graph TD
+  A[User Searches Flight] &#8211;> B[Search Service returns results]
+  B &#8211;> C[User selects fare]
+  C &#8211;> D[Fare Engine calculates price]
+  D &#8211;> E[User enters passenger details]
+  E &#8211;> F[Inventory Service places hold]
+  F &#8211;> G{Hold successful?}
+  G &#8211;>|No| H[Show seat unavailable]
+  G &#8211;>|Yes| I[User initiates payment]
+  I &#8211;> J[Payment Service calls gateway]
+  J &#8211;> K{Payment authorized?}
+  K &#8211;>|No| L[Release hold and show failure]
+  K &#8211;>|Yes| M[Ticketing Service generates e-ticket]
+  M &#8211;> N[PNR Generation Service creates PNR]
+  N &#8211;> O[Notification Service sends confirmation]
+  O &#8211;> P[Booking Complete]
+
+  classDef step fill:#1565c0,color:#fff,stroke:none
+  classDef decision fill:#0d47a1,color:#fff,stroke:none
+  classDef terminal fill:#0a3d62,color:#fff,stroke:none
+  classDef failure fill:#b71c1c,color:#fff,stroke:none
+
+  class A,B,C,D,E,F,I,J,M,N,O step
+  class G,K decision
+  class P terminal
+  class H,L failure
+</div>
+
+
+<p>When the user submits passenger details, the reservation service immediately tries to place a soft hold on inventory. This is the first critical moment. If the hold fails — because another user got there first — the system surfaces a friendly &ldquo;seat no longer available&rdquo; message and sends the user back to search results.</p>
+
+<p>If the hold succeeds, the user is given a time window to complete payment. A countdown timer in the UI reflects the hold expiry. On the backend, a scheduled job monitors held reservations and releases those that expire without payment.</p>
+
+<p>After payment, the system receives a callback from the payment gateway. This callback must be processed idempotently — it could arrive more than once if the network is unreliable. The payment service records the payment authorization ID from the gateway and checks whether it has already processed a booking for this authorization ID before taking action.</p>
+
+<p>Once payment is confirmed, the reservation transitions to PAYMENT_CONFIRMED and the ticketing workflow begins.</p>
+
+<a name="Payment.Infrastructure"></a>
+<h2>Payment Infrastructure</h2>
+
+<p>Payment is where real money moves, and where the consequences of failures are most visible to users. IndiGo&rsquo;s payment infrastructure must handle a wide variety of payment methods with varying reliability characteristics.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Payment Method</th>
+        <th>Latency</th>
+        <th>Reliability</th>
+        <th>Failure Mode</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>UPI</td><td>1-3 seconds</td><td>High</td><td>Bank timeout, user rejection</td></tr>
+      <tr><td>Credit Card</td><td>2-5 seconds</td><td>High</td><td>Decline, 3DS failure</td></tr>
+      <tr><td>Debit Card</td><td>2-5 seconds</td><td>Medium</td><td>Insufficient funds, bank down</td></tr>
+      <tr><td>Net Banking</td><td>5-30 seconds</td><td>Medium</td><td>Bank redirect failure</td></tr>
+      <tr><td>Wallet</td><td>1-2 seconds</td><td>High</td><td>Insufficient balance</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The payment service does not directly integrate with every bank and wallet. It integrates with a payment aggregator (like Razorpay, PayU, or Cashfree in the Indian context) that handles the downstream integrations. The aggregator provides a unified API and handles the complexity of bank-specific protocols.</p>
+
+<p>The trickiest scenario in payment processing is what engineers call the &ldquo;dual write&rdquo; problem: payment succeeds at the gateway, but the callback to the booking system fails or times out. Now the user&rsquo;s money has been deducted, but the booking system does not know about it.</p>
+
+<p>Airlines handle this with a reconciliation job. The payment service periodically queries the gateway for the status of all pending transactions. When it finds a transaction that the gateway shows as successful but the booking system has not confirmed, it triggers the booking confirmation flow retroactively.</p>
+
+<p>This is why sometimes your bank shows a deduction before you receive the booking confirmation email. The payment captured, but the confirmation flow was delayed.</p>
+
+<p>Idempotency is critical throughout. Every payment request is assigned a unique idempotency key — typically a combination of the reservation ID and an attempt number. If the same payment request is submitted twice (due to a retry), the payment service checks whether it has already processed a request with this idempotency key and returns the cached result instead of creating a duplicate charge.</p>
+
+<a name="PNR.Generation.System"></a>
+<h2>PNR Generation System</h2>
+
+<p>PNR stands for Passenger Name Record. It is the six-character alphanumeric code that uniquely identifies your booking. When you call the airline, this is the first thing they ask for.</p>
+
+<p>PNRs are not just user-facing identifiers. They are the primary key of the global booking record in airline systems. They are recognized by Global Distribution Systems (GDS) like Amadeus and Sabre, which airlines use to coordinate with travel agents and codeshare partners.</p>
+
+<p>Generating a PNR has specific requirements. It must be unique across all bookings, not just current bookings but all historical bookings. It must be short enough to be communicated verbally. It must not contain characters that look similar (0 and O, 1 and I are typically excluded). It must be generated in a distributed system where multiple instances need to produce non-colliding IDs simultaneously.</p>
+
+<p>The simplest approach is to generate a random 6-character alphanumeric string from a safe character set (A-Z, 2-9, excluding confusable characters) and check for collisions before committing. With roughly 34<sup>6</sup> possible combinations (about 1.5 billion), the collision probability is very low in practice.</p>
+
+<p>A more sophisticated approach uses a distributed ID generation service — similar to Twitter&rsquo;s Snowflake or Flickr&rsquo;s ticket server — that guarantees uniqueness without requiring a collision check. The service encodes a timestamp, a machine ID, and a sequence number into a compact representation that maps to the PNR character space.</p>
+
+<p>The PNR lookup system must be extremely fast. Airport agents, customer service representatives, and self-service kiosks all query PNRs constantly. The PNR record and its associated booking details are cached aggressively in a fast key-value store like Redis, with the relational database serving as the authoritative source.</p>
+
+<a name="Ticketing.System"></a>
+<h2>Ticketing System</h2>
+
+<p>The e-ticket is a legally valid travel document. It proves that you have a confirmed reservation on a specific flight. Its generation is not optional — without a ticket, the booking is not complete.</p>
+
+<p>E-ticket generation involves assembling a record that includes the passenger name exactly as it appears on their ID document, the flight details (number, date, departure, arrival, times), the seat assignment, the fare paid, applicable taxes, the ticket number (distinct from the PNR), the booking class, the ticket validity dates, and any ancillary services purchased.</p>
+
+<p>Ticket numbers follow the IATA standard format: a three-digit airline code followed by a ten-digit number. IndiGo&rsquo;s airline code is 6E, which corresponds to a specific numeric prefix in the IATA ticketing system. These numbers must be unique, sequentially issued, and globally unambiguous.</p>
+
+<p>After generation, the ticket is stored in the ticketing database and the PDF or structured data is made available for download and email delivery. The ticket data is also transmitted to the Departure Control System (DCS), which airport staff use to manage boarding.</p>
+
+<p>Ticket modification — a name correction, a date change — triggers a re-issuance workflow. The original ticket is voided and a new ticket is generated with a new ticket number. The fare difference, if any, is collected or refunded. This re-issuance must maintain the integrity of the audit trail.</p>
+
+<a name="Check-In.Architecture"></a>
+<h2>Check-In Architecture</h2>
+
+<p>Online check-in typically opens 48 hours before departure and closes a few hours before boarding. The check-in system is architecturally simpler than the reservation system, but it has strict operational constraints.</p>
+
+<p>When a passenger checks in online, the system validates that the reservation is in CONFIRMED state, that the check-in window is open, that the passenger&rsquo;s travel documents are valid (for international flights), and that no operational holds exist on the booking (such as an unpaid fee).</p>
+
+<p>If validation passes, the system upgrades the booking to CHECKED_IN state and generates a boarding pass. The boarding pass contains the passenger name, flight number, seat number, boarding time, gate number, and a barcode or QR code that encodes the BCBP (Bar Coded Boarding Pass) standard used globally.</p>
+
+<p>The boarding pass barcode must be scannable at airport security and at the gate. This requires the check-in system to be synchronized with the Departure Control System in real time. The DCS is the system of record during airport operations — it knows which passengers have checked in, which bags have been tagged, which passengers have boarded, and whether the flight is ready to close.</p>
+
+<p>In the event of a flight delay or gate change, the DCS triggers notifications that flow through the airline&rsquo;s notification infrastructure to reach passengers via SMS and app push notifications.</p>
+
+<a name="Notification.Infrastructure"></a>
+<h2>Notification Infrastructure</h2>
+
+<p>Notifications in an airline system are not a nice-to-have. A missed gate change notification can mean a passenger misses their flight. A delayed refund notification affects trust. A timely check-in reminder reduces no-shows.</p>
+
+<p>The notification system consumes events from the main booking and operations event stream. When a booking is confirmed, a BOOKING_CONFIRMED event is published. The notification service listens for this event and dispatches confirmations via email, SMS, and push notification.</p>
+
+<p>Different notification channels have different reliability characteristics. Email is reliable but slow. SMS is fast but can fail in poor network areas. Push notifications require the user to have the app installed with notifications enabled.</p>
+
+<p>For critical notifications like booking confirmations, the system sends via multiple channels simultaneously and tracks delivery receipts where possible. For reminders, the system schedules notifications in a job queue with retry logic — if an SMS fails to deliver, the job retries with exponential backoff.</p>
+
+<p>At scale, notification delivery is managed through dedicated providers: AWS SES or SendGrid for email, Twilio or Route Mobile for SMS, Firebase Cloud Messaging for push. The booking system itself does not directly call these providers — it publishes events, and the notification service handles the downstream dispatch. This decoupling means a transient SMS provider outage does not affect the booking flow.</p>
+
+<a name="Cancellation.and.Refund.Systems"></a>
+<h2>Cancellation and Refund Systems</h2>
+
+<p>Cancellation is the unhappy path, and it involves undoing a completed distributed transaction — which is hard.</p>
+
+<p>When a user cancels a booking, the system must: update the reservation state to CANCELLED, calculate the refund amount based on the fare rules and cancellation timing, release the inventory back to the flight, initiate the refund through the payment service, generate a cancellation ticket, and notify the passenger.</p>
+
+<p>Refund calculation is non-trivial. IndiGo (like most airlines) has tiered cancellation penalties based on how many hours before departure the cancellation occurs. The fare rules engine must apply these penalties correctly, accounting for non-refundable components like certain taxes and surcharges, seat selection fees, and baggage fees.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Cancellation Window</th>
+        <th>Refund Percentage</th>
+        <th>Processing Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>More than 7 days before departure</td><td>High (minus penalty)</td><td>5-7 business days</td></tr>
+      <tr><td>2-7 days before departure</td><td>Medium (minus penalty)</td><td>5-7 business days</td></tr>
+      <tr><td>Less than 48 hours</td><td>Low or nil depending on fare type</td><td>5-7 business days</td></tr>
+      <tr><td>Non-refundable fares</td><td>Taxes only</td><td>5-7 business days</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Payment reversal is initiated through the payment gateway&rsquo;s refund API. The refund takes days to reflect in the customer&rsquo;s account because it must travel through the payment network back to the customer&rsquo;s bank or card, which operates on T+2 or T+3 settlement cycles.</p>
+
+<p>Reconciliation is a significant operational challenge. The airline&rsquo;s internal accounting system must track every booking, payment, refund, and partial refund and ensure that the amounts match what the payment gateway and bank settlement reports show. Discrepancies must be investigated and resolved, which requires detailed audit logs at every step of the payment and refund flow.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Modern airline platforms are deeply event-driven. Almost every significant action in the booking lifecycle produces an event, and those events drive subsequent processing asynchronously.</p>
+
+<div class="mermaid">
+graph TD
+  A[Reservation Service] &#8211;>|BookingConfirmed| B[Event Bus]
+  C[Payment Service] &#8211;>|PaymentCaptured| B
+  D[Inventory Service] &#8211;>|InventoryUpdated| B
+  E[Ticketing Service] &#8211;>|TicketIssued| B
+  F[Check-in Service] &#8211;>|PassengerCheckedIn| B
+  B &#8211;> G[Notification Service]
+  B &#8211;> H[Analytics Platform]
+  B &#8211;> I[Loyalty Service]
+  B &#8211;> J[Search Index Updater]
+  B &#8211;> K[Audit Log Service]
+  B &#8211;> L[Reconciliation Service]
+
+  classDef producer fill:#1565c0,color:#fff,stroke:none
+  classDef bus fill:#0d47a1,color:#fff,stroke:none
+  classDef consumer fill:#0a3d62,color:#fff,stroke:none
+
+  class A,C,D,E,F producer
+  class B bus
+  class G,H,I,J,K,L consumer
+</div>
+
+
+<p>The event bus (typically Kafka in production systems of this scale) acts as the central nervous system. Services publish events without knowing who will consume them. New consumers — a new analytics pipeline, a new loyalty integration — can be added without modifying the producers.</p>
+
+<p>Kafka&rsquo;s durability guarantees mean that events are not lost even if a consumer is temporarily down. When the notification service restarts after an outage, it resumes consuming from where it left off and delivers any confirmations that were queued during downtime.</p>
+
+<p>Kafka partitioning ensures ordering. Events for the same booking are routed to the same partition, guaranteeing that a TicketIssued event for booking X is processed after the BookingConfirmed event for booking X by the same consumer.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The core entities in an airline booking system and their rough schemas:</p>
+
+<p>Flights table: flight_id, flight_number, origin, destination, departure_time, arrival_time, aircraft_type, status. Indexed on (origin, destination, departure_date) for search queries.</p>
+
+<p>Inventory table: flight_id, fare_class, total_seats, available_seats, held_seats, sold_seats, version. The version column enables optimistic locking. This table sees extremely high write contention and may benefit from row-level sharding or in-memory replication.</p>
+
+<p>Bookings table: booking_id, pnr, status, created_at, updated_at, user_id, total_fare, currency. Partitioned by created_at for query performance. Indexed on pnr for fast lookups.</p>
+
+<p>Passengers table: passenger_id, booking_id, first_name, last_name, dob, passport_number, nationality, seat_number, meal_preference. Linked to bookings via booking_id.</p>
+
+<p>Payments table: payment_id, booking_id, amount, currency, status, gateway_transaction_id, payment_method, created_at, updated_at. The gateway_transaction_id must have a unique index to prevent duplicate payment recording.</p>
+
+<p>Tickets table: ticket_id, ticket_number, booking_id, passenger_id, flight_id, issued_at, voided_at, status. Ticket numbers are globally unique and indexed for fast retrieval.</p>
+
+<p>Refunds table: refund_id, booking_id, payment_id, amount, reason, status, initiated_at, completed_at. Linked to both the booking and the original payment for reconciliation.</p>
+
+<p>Partitioning strategy: bookings and payments tables are partitioned by date range. Older partitions are moved to cold storage or archived. Active partitions for recent months remain on fast SSD-backed storage. This keeps query performance high as the dataset grows over years.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching is what allows an airline platform to serve millions of requests per day without melting its databases.</p>
+
+<p>Flight schedule data — routes, flight numbers, departure times — changes infrequently. This is aggressively cached at the CDN level and in application-level Redis caches with TTLs of several hours.</p>
+
+<p>Fare data changes frequently but not per-millisecond. Fare cache entries for a specific route-date-class combination have TTLs of one to five minutes. This means a user might see a price that is slightly stale, but the actual price is confirmed at checkout. If the price has changed, the user is informed and asked to confirm.</p>
+
+<p>Inventory data is the most volatile. The available seat count for a hot route can change tens of times per minute. The inventory service uses a write-through cache: every inventory update writes to both Redis and the database. The cache is the primary read path for the booking flow (checking if seats are available), while the database is the authoritative write path (actually decrementing counts with optimistic locking).</p>
+
+<p>Search results for popular routes like DEL-BOM or BOM-GOI are precomputed and cached at the CDN edge. When a user in Chennai searches for a popular domestic route, the response can be served from a CDN node in Chennai without any backend processing. This reduces both latency and backend load dramatically.</p>
+
+<p>Cache invalidation for inventory is event-driven. When an inventory update event is published to Kafka, a cache invalidation consumer reads the event and invalidates or updates the relevant cache entries. This keeps the cache reasonably fresh without requiring the write path to manage cache coherence synchronously.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>IndiGo sees enormous traffic spikes during flash sales, long weekends, holiday announcements, and flight schedule releases. The system must handle 10x or 20x normal traffic during these events.</p>
+
+<p>The search service is the easiest to scale horizontally. Since it is stateless and primarily read-oriented, adding more search service instances behind the load balancer immediately increases capacity. The search index (Elasticsearch) can be horizontally scaled by adding data nodes and increasing replica count.</p>
+
+<p>The inventory service is harder to scale because it is write-heavy and requires strong consistency. Horizontal scaling of the inventory service requires careful partitioning — all inventory operations for a given flight must go to the same database shard, to prevent cross-shard distributed transactions. Flights can be partitioned by flight_id modulo the number of shards.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Scaling Strategy</th>
+        <th>Bottleneck</th>
+        <th>Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Search Service</td><td>Horizontal, stateless</td><td>Index refresh lag</td><td>Increase replicas, tune refresh interval</td></tr>
+      <tr><td>Fare Engine</td><td>Horizontal, stateless</td><td>Fare rules DB reads</td><td>Cache fare rules aggressively</td></tr>
+      <tr><td>Inventory Service</td><td>Sharded by flight</td><td>Write contention on hot flights</td><td>Redis atomic ops, retry with backoff</td></tr>
+      <tr><td>Reservation Service</td><td>Horizontal with saga orchestration</td><td>Payment gateway latency</td><td>Async payment confirmation</td></tr>
+      <tr><td>Payment Service</td><td>Horizontal, idempotent</td><td>Gateway rate limits</td><td>Multiple gateway integrations, circuit breaker</td></tr>
+      <tr><td>Notification Service</td><td>Horizontal consumers from Kafka</td><td>Provider rate limits</td><td>Queue and batch, multiple providers</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>During flash sales, one additional technique is queue-based load leveling. Instead of allowing all users to hit the booking service simultaneously, the system places booking requests into a queue and processes them at a controlled rate. Users see a virtual waiting room UI while their request queues. This protects backend systems from being overwhelmed while ensuring all users are served in order.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>An airline booking platform must be extremely available. Downtime directly costs revenue and damages brand trust. The target availability for the core booking path is typically 99.95% or higher.</p>
+
+<p>Reliability is achieved through redundancy at every layer. Multiple availability zones for all services. Active-active database replication for reads. Automated failover for primary database failures. Circuit breakers on all external dependencies — if the payment gateway starts responding slowly, the circuit breaker opens and surfaces a friendly error instead of allowing requests to pile up and cause cascading failures.</p>
+
+<p>Health checks and automated instance replacement ensure that unhealthy service instances are removed from the load balancer pool and replaced by the container orchestration platform (Kubernetes) automatically.</p>
+
+<p>Chaos engineering — deliberately injecting failures into the system in controlled ways — is practiced by mature engineering teams to identify weaknesses before they manifest as production incidents.</p>
+
+<a name="Security.Considerations"></a>
+<h2>Security Considerations</h2>
+
+<p>Payment security is governed by PCI-DSS compliance requirements. IndiGo&rsquo;s payment infrastructure does not store raw card numbers — these are tokenized by the payment gateway and replaced with non-sensitive tokens that can be stored and used for refunds without exposing card data.</p>
+
+<p>All communication between services is encrypted in transit using TLS. Authentication between services uses mutual TLS or JWT tokens issued by a central identity service.</p>
+
+<p>Fraud detection runs asynchronously on booking data. Signals like unusual booking velocity from a single IP, multiple bookings for the same passenger on overlapping flights, and card BIN country mismatch with billing address trigger fraud scoring. High-score bookings may be flagged for manual review or automatically blocked.</p>
+
+<p>Bot attacks and fare scraping are countered with rate limiting at the API Gateway level, CAPTCHA challenges for suspicious traffic patterns, and behavioral analysis that distinguishes human users from automated scrapers by examining mouse movement patterns, request timing, and session behavior.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every architectural decision in a booking system involves tradeoffs. Understanding these tradeoffs is what separates a good system designer from a great one.</p>
+
+<p>Consistency vs availability in inventory: A strictly consistent inventory system ensures zero double bookings but may reject valid booking requests under high contention (for example, when optimistic locking retries are exhausted). A more available system might allow a tiny number of oversells and resolve them operationally. Most airlines choose strict consistency and accept the small percentage of failed booking attempts, because overselling a seat creates a far worse experience than a booking failure.</p>
+
+<p>Reservation hold duration vs user experience: A longer hold gives users more time to complete payment, reducing checkout abandonment. But longer holds mean inventory is locked for longer, which can make flights appear more full than they are, discouraging other potential buyers. Airlines tune hold durations carefully — 10 to 15 minutes is a common sweet spot.</p>
+
+<p>Fare caching vs freshness: Caching fares for five minutes means users occasionally see slightly stale prices. The alternative — computing fares in real time for every display — is far more expensive and slower. The solution is to cache the displayed fare but revalidate the price at checkout, which is the industry standard approach.</p>
+
+<p>Dynamic pricing vs predictability: Revenue management systems that reprice frequently maximize airline revenue but create an unpredictable experience for users. This is a deliberate business decision, not a technical limitation. Some airlines offer price-lock features (often for a small fee) that let users lock a fare while they decide, which is itself a product built on top of the reservation hold mechanism.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>Large-scale airline booking platforms typically use a combination of the following technologies, each chosen for specific characteristics:</p>
+
+<p>Java and Spring Boot form the backbone of most reservation and payment services. Java&rsquo;s maturity, strong concurrency support, and vast ecosystem make it a reliable choice for financial-grade transaction processing.</p>
+
+<p>Go is increasingly used for high-throughput, low-latency services like the search API and the notification dispatcher. Go&rsquo;s lightweight goroutines and fast startup time make it excellent for services that handle massive concurrent request volumes.</p>
+
+<p>Apache Kafka is the event streaming backbone. It provides durable, ordered, partitioned event streams with replay capability. For an airline platform, the ability to replay events is invaluable for debugging incidents and reprocessing failed operations.</p>
+
+<p>Redis serves multiple roles: distributed cache, session store, inventory counter with atomic operations, and rate limiter. Its single-threaded event loop and in-memory speed make it ideal for high-throughput, low-latency operations.</p>
+
+<p>PostgreSQL is the primary relational database for bookings, payments, and passengers. Its strong ACID guarantees, row-level locking, and mature replication features make it well-suited for financial transaction records.</p>
+
+<p>Elasticsearch powers the flight search index. Its full-text search and aggregation capabilities, combined with horizontal scalability, make it the right tool for search workloads.</p>
+
+<p>Kubernetes orchestrates all services. It provides automatic scaling, health management, rolling deployments, and resource isolation.</p>
+
+<p>CDN systems (Akamai, Cloudflare) cache static assets and popular search results at edge nodes globally, reducing latency for end users and offloading traffic from origin servers.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design an airline booking system like IndiGo, they are primarily testing your understanding of distributed systems, concurrency, and tradeoffs — not your knowledge of airlines specifically.</p>
+
+<p>The most common opening question is: &ldquo;Design a flight search and booking system.&rdquo; Strong candidates immediately clarify requirements: read vs write ratio, expected scale, consistency requirements, and failure tolerance.</p>
+
+<p>The areas that differentiate strong from weak answers are exactly the areas covered in this blog. Weak candidates design a simple CRUD application with a single database. They propose a direct SELECT from the inventory table for every search query and ignore concurrency issues in the booking flow.</p>
+
+<p>Strong candidates identify the read-write asymmetry immediately: search is orders of magnitude more frequent than booking, so they deserve separate optimization strategies. They introduce caching for search, a dedicated inventory service with optimistic locking for booking, and an event-driven architecture for post-booking processes.</p>
+
+<p>The inventory management section is the most important thing to get right in an interview. Explain fare buckets, soft holds, optimistic locking, and expiry TTLs. This shows you understand the real complexity of the problem.</p>
+
+<p>The payment section is where candidates demonstrate understanding of distributed failure scenarios. Discuss idempotency keys, the dual-write problem, and the reconciliation job. Interviewers at companies like Flipkart, Razorpay, MakeMyTrip, and OYO ask exactly these kinds of questions.</p>
+
+<p>On scalability, go beyond &ldquo;add more servers.&rdquo; Discuss partitioning strategies for the inventory service, CDN caching for search, and Kafka-based decoupling for async processing. Explain the tradeoffs of each decision.</p>
+
+<p>Common mistakes to avoid: not handling the inventory race condition, not discussing payment failure scenarios, ignoring the hold expiry mechanism, and not distinguishing between the search data model and the booking data model.</p>
+
+<p>The best answers treat the booking system as what it really is: a distributed systems problem with financial consequences, where correctness and reliability matter more than raw throughput.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Building a system like IndiGo&rsquo;s booking platform is one of the genuinely hard engineering challenges in the software industry. It combines real-time inventory management, financial transaction correctness, distributed system coordination, and high availability into a single product that millions of people depend on daily.</p>
+
+<p>The engineering principles that make this system work — event sourcing, idempotency, optimistic locking, saga-based distributed transactions, aggressive caching with event-driven invalidation, and graceful degradation — are the same principles that apply across any system that must be fast, reliable, and correct at scale.</p>
+
+<p>If you understand how a flight booking platform is built, you understand distributed systems. And that understanding translates directly into better system design across every domain you work in.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How YouTube Scaled to Billions of Users Using MySQL?]]></title>
@@ -3518,919 +4086,6 @@ presence_sessions (
 <p>Understanding these systems at this level of depth is useful not just for interviews. The patterns here - OT for concurrent state management, append-only logs for durability, event sourcing for derived state, optimistic updates with reconciliation - show up in many distributed systems. Understanding why they exist in Google Docs helps you recognize where to apply them elsewhere.</p>
 
 <p>The next time you type into a shared document and watch your colleague&rsquo;s cursor respond, you will have a better sense of what just happened.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Instagram Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-instagram-works/"/>
-        <updated>2026-05-22T08:59:03+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-instagram-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>Instagram serves over two billion active users every month. On any given day, people upload hundreds of millions of photos and videos, watch billions of reels, send hundreds of millions of messages, and scroll through feeds that feel magically personalized to each person. Behind that experience is one of the most complex distributed systems ever built.</em></p></blockquote>
-
-<p><img src="/images/system_design/instagram-banner.jpg" height="300" width="900" alt="Alt text" /></p>
-
-<p>This is not a shallow overview. We are going to walk through the internals — the media pipelines, the feed generation engines, the recommendation systems, the reels infrastructure, the CDN architecture, the messaging stack, the caching layers, and the engineering tradeoffs that make all of it work at a scale that is genuinely hard to comprehend.</p>
-
-<p>If you are a backend engineer, a system design interview candidate, or just someone who has ever wondered what actually happens when you tap &ldquo;Post&rdquo; on Instagram, this is for you.</p>
-
-<a name="What.Instagram.Really.Is"></a>
-<h2>What Instagram Really Is</h2>
-
-<p>Instagram launched in 2010 as a simple photo-sharing app. The original architecture could probably run on a single decent server. Fast forward to today, and Instagram is a full-scale media platform with feeds, stories, reels, live streaming, direct messaging, an explore page, shopping features, creator tools, and a recommendation engine that rivals anything in the industry.</p>
-
-<p>The engineering challenge is not just size. It is the combination of things that makes Instagram uniquely difficult to build:</p>
-
-<!--more-->
-
-
-<ul>
-<li><strong>Real-time personalization at scale.</strong> Every user sees a different feed, ranked differently, refreshed continuously.</li>
-<li><strong>Massive media throughput.</strong> Billions of photos and videos are processed, transcoded, compressed, and distributed globally every day.</li>
-<li><strong>Variable traffic patterns.</strong> When a celebrity posts, millions of followers need to see it within seconds. That is a thundering herd problem at a scale most systems never encounter.</li>
-<li><strong>Latency requirements.</strong> Reels need to start playing in under 200 milliseconds. Stories need to load instantly. The moment a user waits, they leave.</li>
-<li><strong>Ephemeral content.</strong> Stories disappear after 24 hours, which means the system needs to handle large-scale TTL-based deletions continuously.</li>
-<li><strong>Social graph complexity.</strong> The follow graph has billions of edges. Graph queries need to be fast even when traversing multiple hops.</li>
-</ul>
-
-
-<p>Let us start with the big picture and then drill down into each major subsystem.</p>
-
-<a name="Core.Features"></a>
-<h2>Core Features</h2>
-
-<p>Before going deep on architecture, it helps to understand what features Instagram actually supports, because each one has its own infrastructure demands.</p>
-
-<p><strong>Feed posts</strong> are the original Instagram feature — photos and videos that appear in your home feed, ranked by a machine learning model. <strong>Stories</strong> are 15-second ephemeral clips and photos that expire after 24 hours, shown in the circle bubbles at the top of the feed. <strong>Reels</strong> are short-form videos (up to 90 seconds) served in an infinite scroll format with TikTok-style algorithmic recommendations. <strong>Explore</strong> is the discovery page where Instagram surfaces content from accounts you do not follow, driven entirely by recommendation models.</p>
-
-<p>Beyond content, there is <strong>direct messaging</strong> — real-time chat, media sharing, disappearing messages, and group threads. There is <strong>live streaming</strong> where creators broadcast to followers in real time. There is <strong>search</strong> across users, hashtags, and content. And there is a <strong>notification system</strong> that fans out events like likes, comments, and follows to the right users across multiple channels.</p>
-
-<p>Each of these features deserves its own engineering discussion. Let us go through the architecture systematically.</p>
-
-<a name="High-Level.Architecture"></a>
-<h2>High-Level Architecture</h2>
-
-<div class="mermaid">
-flowchart TD;
-
-%% =========================
-%% Client Layer
-%% =========================
-A[Mobile and Web Client];
-
-%% =========================
-%% Gateway Layer
-%% =========================
-B[API Gateway];
-
-%% =========================
-%% Core Services
-%% =========================
-C[Feed Service];
-D[Media Upload Service];
-E[Reels Service];
-F[Story Service];
-G[Messaging Service];
-H[Notification Service];
-I[Search Service];
-J[Recommendation Engine];
-
-%% =========================
-%% Infrastructure
-%% =========================
-K[Object Storage];
-L[CDN Edge Network];
-M[Distributed Cache];
-N[Primary Databases];
-O[Event Streaming Platform];
-
-%% =========================
-%% Client Requests
-%% =========================
-A &#8211;>|HTTPS API Calls| B;
-
-%% =========================
-%% Gateway Routing
-%% =========================
-B &#8211;>|Feed APIs| C;
-B &#8211;>|Upload APIs| D;
-B &#8211;>|Reels APIs| E;
-B &#8211;>|Story APIs| F;
-B &#8211;>|Messaging APIs| G;
-B &#8211;>|Notification APIs| H;
-B &#8211;>|Search APIs| I;
-
-%% =========================
-%% Feed and Recommendation
-%% =========================
-C &#8211;>|Personalization Signals| J;
-C &#8211;>|Read Cached Feed| M;
-C &#8211;>|Persist Feed State| N;
-
-%% =========================
-%% Media Pipeline
-%% =========================
-D &#8211;>|Store Media| K;
-D &#8211;>|Publish Upload Event| O;
-
-K &#8211;>|Global Content Delivery| L;
-
-%% =========================
-%% Reels Pipeline
-%% =========================
-E &#8211;>|Recommendation Signals| J;
-E &#8211;>|Stream Media| L;
-
-%% =========================
-%% Event Streaming
-%% =========================
-H &#8211;>|Emit Notification Events| O;
-
-O &#8211;>|User Activity Events| J;
-O &#8211;>|Delivery Events| H;
-
-%% =========================
-%% Fancy Styles
-%% =========================
-
-%% Client
-style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
-
-%% Gateway
-style B fill:#0f172a,stroke:#334155,stroke-width:5px,color:#ffffff;
-
-%% Services
-style C fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
-style D fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
-style E fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
-style F fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
-style G fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
-style H fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
-style I fill:#16a34a,stroke:#166534,stroke-width:3px,color:#ffffff;
-
-%% Recommendation Engine
-style J fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff;
-
-%% Infra
-style K fill:#dc2626,stroke:#991b1b,stroke-width:4px,color:#ffffff;
-style N fill:#dc2626,stroke:#991b1b,stroke-width:4px,color:#ffffff;
-
-style L fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
-style M fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
-
-%% Event Streaming
-style O fill:#f59e0b,stroke:#b45309,stroke-width:5px,color:#ffffff;
-
-%% =========================
-%% Link Styling
-%% =========================
-
-%% Client and Gateway
-linkStyle 0 stroke:#2563eb,stroke-width:3px;
-
-%% Gateway to Services
-linkStyle 1 stroke:#16a34a,stroke-width:2px;
-linkStyle 2 stroke:#16a34a,stroke-width:2px;
-linkStyle 3 stroke:#16a34a,stroke-width:2px;
-linkStyle 4 stroke:#16a34a,stroke-width:2px;
-linkStyle 5 stroke:#16a34a,stroke-width:2px;
-linkStyle 6 stroke:#16a34a,stroke-width:2px;
-linkStyle 7 stroke:#16a34a,stroke-width:2px;
-
-%% Feed and Recommendations
-linkStyle 8 stroke:#ec4899,stroke-width:3px;
-linkStyle 9 stroke:#9333ea,stroke-width:3px;
-linkStyle 10 stroke:#dc2626,stroke-width:3px;
-
-%% Media Pipeline
-linkStyle 11 stroke:#dc2626,stroke-width:3px;
-linkStyle 12 stroke:#f59e0b,stroke-width:3px;
-
-%% CDN
-linkStyle 13 stroke:#9333ea,stroke-width:4px;
-
-%% Reels
-linkStyle 14 stroke:#ec4899,stroke-width:3px;
-linkStyle 15 stroke:#9333ea,stroke-width:4px;
-
-%% Notifications and Events
-linkStyle 16 stroke:#f59e0b,stroke-width:3px;
-linkStyle 17 stroke:#ec4899,stroke-width:3px;
-linkStyle 18 stroke:#16a34a,stroke-width:3px;
-
-</div>
-
-
-<p>When a user opens Instagram, the mobile app talks to an <strong>API Gateway</strong> — a single entry point that handles authentication, rate limiting, request routing, and SSL termination. Behind that gateway are dozens of specialized services, each owning a specific domain. The feed service handles feed generation. The media service handles uploads. The reels service handles short video recommendations and delivery. These services communicate with each other through a combination of direct RPC calls and asynchronous event streams.</p>
-
-<p>Everything that needs to be fast lives close to the user. That means an aggressive CDN for media delivery, distributed caches for hot data, and regional deployments that reduce the physical distance between the user and the servers responding to them.</p>
-
-<a name="Media.Upload.Pipeline"></a>
-<h2>Media Upload Pipeline</h2>
-
-<p>When you tap &ldquo;Post&rdquo; on Instagram, a lot happens before your photo or video actually appears in anyone&rsquo;s feed. The upload pipeline is one of the most critical paths in the entire system.</p>
-
-<div class="mermaid">
-flowchart TD;
-  Upload[Client Upload];
-  Chunk[Chunk Upload Handler];
-  Validate[Media Validator];
-  VirusScan[Virus Scanner];
-  Transcode[Transcoding Service];
-  Thumbnail[Thumbnail Generator];
-  Store[Object Storage];
-  CDNPush[CDN Distribution];
-  Queue[Event Queue];
-  FeedFanout[Feed Fanout Service];
-
-  Upload &#8211;> Chunk;
-  Chunk &#8211;> Validate;
-  Validate &#8211;> VirusScan;
-  VirusScan &#8211;> Transcode;
-  Transcode &#8211;> Thumbnail;
-  Thumbnail &#8211;> Store;
-  Store &#8211;> CDNPush;
-  Store &#8211;> Queue;
-  Queue &#8211;> FeedFanout;
-
-  classDef input fill:#2563eb,stroke:#1e40af,color:#ffffff;
-  classDef process fill:#16a34a,stroke:#166534,color:#ffffff;
-  classDef storage fill:#9333ea,stroke:#6b21a8,color:#ffffff;
-  classDef output fill:#f59e0b,stroke:#b45309,color:#ffffff;
-
-  class Upload input;
-  class Chunk,Validate,VirusScan,Transcode,Thumbnail process;
-  class Store storage;
-  class CDNPush,Queue,FeedFanout output;
-</div>
-
-
-<p><strong>Chunked uploads</strong> are the first thing worth understanding. If you try to upload a 60-second video as a single HTTP request, you will have intermittent failures constantly, especially on mobile networks. Instead, the client breaks the file into smaller chunks — say, 512KB to 2MB each — and uploads them independently. Each chunk gets a checksum. The server can receive them in any order, and if one fails, only that chunk needs to be retried. This makes large uploads resumable, which is critical for unreliable mobile connections.</p>
-
-<p><strong>Media validation</strong> happens immediately. The server checks that the file is actually the format it claims to be (not just checking file extension — it reads the actual bytes), verifies dimensions are within limits, and checks file size. Broken or malformed uploads are rejected early before any expensive processing begins.</p>
-
-<p><strong>Virus scanning</strong> runs on every uploaded file. Instagram does not want to become a malware distribution network. The scanning happens asynchronously but before the content becomes visible.</p>
-
-<p><strong>Transcoding</strong> is where the heavy lifting happens for video. Instagram does not store your video in the exact format you uploaded it. It transcodes every video into multiple formats and resolutions — typically H.264 and H.265, at multiple bitrates (say, 360p, 720p, 1080p) to support adaptive streaming. This process is CPU-intensive, so it runs on a fleet of dedicated transcoding workers, not the upload servers themselves. A transcoding job gets queued, workers pick it up, and the results are written back to object storage.</p>
-
-<p>For photos, compression and resizing happen similarly. Instagram generates multiple versions at different resolutions — thumbnails for grid views, medium-resolution for feed display, high resolution for full-screen views.</p>
-
-<p><strong>CDN distribution</strong> is the final step. Once the media files are stored in the origin object storage (something like Amazon S3 or a comparable system), they are pushed out to CDN edge nodes globally. This does not mean copying every file everywhere immediately — CDN nodes typically pull from origin on first request and cache locally. But for popular content (anything from a large account), Instagram proactively pushes media to edge nodes in advance.</p>
-
-<p><strong>Feed fanout</strong> is triggered asynchronously. Once the media is processed, an event goes into a queue (think Kafka), and the feed fanout service picks it up and distributes the post to the feeds of the poster&rsquo;s followers. We will dig into how that works shortly.</p>
-
-<p>One important failure scenario: what happens if transcoding fails? The post might appear broken or unavailable for a while. Instagram handles this with retries, exponential backoff, and a dead-letter queue for jobs that fail repeatedly. The user might see a &ldquo;processing&rdquo; state on their post for a few minutes if transcoding is slow or fails.</p>
-
-<a name="Feed.Generation.System"></a>
-<h2>Feed Generation System</h2>
-
-<p>Feed generation is where the complexity of Instagram&rsquo;s architecture really shows itself. The core question is: when you open Instagram, how does the system figure out which posts to show you, in what order?</p>
-
-<div class="mermaid">
-flowchart TD;
-
-%% =========================
-%% User Layer
-%% =========================
-A[User Feed Request];
-
-%% =========================
-%% Cache Layer
-%% =========================
-B[Feed Cache Check];
-C[Return Cached Feed];
-J[Write Feed to Cache];
-
-%% =========================
-%% Feed Generation Pipeline
-%% =========================
-D[Feed Builder];
-E[Candidate Retrieval Engine];
-F[ML Ranking Model];
-G[Deduplication Engine];
-H[Final Feed Assembly];
-
-%% =========================
-%% Data Sources
-%% =========================
-K[Social Graph Store];
-L[Post Storage];
-M[Recommendation Engine];
-
-%% =========================
-%% Request Flow
-%% =========================
-A &#8211;>|Open Home Feed| B;
-
-%% Cache Hit
-B &#8211;>|Cache Hit| C;
-
-%% Cache Miss
-B &#8211;>|Cache Miss| D;
-
-%% Feed Building
-D &#8211;>|Fetch Candidate Posts| E;
-
-%% Data Retrieval
-E &#8211;>|Follower Graph Lookup| K;
-E &#8211;>|Recent and Popular Posts| L;
-E &#8211;>|Personalization Signals| M;
-
-%% Ranking Pipeline
-E &#8211;>|Candidate Set| F;
-
-F &#8211;>|Ranked Feed Items| G;
-
-G &#8211;>|Remove Duplicates and Spam| H;
-
-%% Cache and Response
-H &#8211;>|Cache Fresh Feed| J;
-
-%% =========================
-%% Styles
-%% =========================
-
-%% User
-style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
-
-%% Cache Layer
-style B fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#ffffff;
-style C fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#ffffff;
-style J fill:#f59e0b,stroke:#b45309,stroke-width:4px,color:#ffffff;
-
-%% Feed Services
-style D fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
-style E fill:#22c55e,stroke:#15803d,stroke-width:4px,color:#ffffff;
-style F fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff;
-style G fill:#14b8a6,stroke:#0f766e,stroke-width:4px,color:#ffffff;
-style H fill:#06b6d4,stroke:#0e7490,stroke-width:5px,color:#ffffff;
-
-%% Storage and ML
-style K fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff;
-style L fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff;
-style M fill:#8b5cf6,stroke:#6d28d9,stroke-width:5px,color:#ffffff;
-
-%% =========================
-%% Link Styling
-%% =========================
-
-%% Request and Cache
-linkStyle 0 stroke:#2563eb,stroke-width:3px;
-linkStyle 1 stroke:#f59e0b,stroke-width:4px;
-linkStyle 2 stroke:#ef4444,stroke-width:4px;
-
-%% Feed Building
-linkStyle 3 stroke:#16a34a,stroke-width:4px;
-
-%% Candidate Retrieval
-linkStyle 4 stroke:#9333ea,stroke-width:3px;
-linkStyle 5 stroke:#7c3aed,stroke-width:3px;
-linkStyle 6 stroke:#8b5cf6,stroke-width:3px;
-
-%% Ranking Pipeline
-linkStyle 7 stroke:#ec4899,stroke-width:4px;
-linkStyle 8 stroke:#14b8a6,stroke-width:4px;
-
-%% Final Feed
-linkStyle 9 stroke:#06b6d4,stroke-width:5px;
-
-</div>
-
-
-<p>There are two fundamental approaches to building feeds: <strong>fanout on write</strong> and <strong>fanout on read</strong>. Understanding the tradeoffs between them is essential.</p>
-
-<p><strong>Fanout on write</strong> means: whenever someone posts, immediately push that post into the feed cache of every one of their followers. The advantage is that reading the feed is fast — the feed is pre-built and ready to serve. The disadvantage is that writing is expensive. If a user has ten million followers, posting a photo means writing that post ID into ten million feed caches. This is a huge amount of write amplification.</p>
-
-<p><strong>Fanout on read</strong> means: when a user requests their feed, the system looks up everyone they follow, fetches recent posts from each of them, and assembles the feed on the fly. Reading is expensive, but writing is cheap.</p>
-
-<p>Instagram uses a <strong>hybrid approach</strong> because neither pure strategy works at their scale. For normal users (say, under 100,000 followers), fanout on write makes sense. Their posts are pre-pushed into follower feeds. For celebrities and large accounts (millions of followers), fanout on write is too expensive — you cannot write to millions of caches on every post. Instead, Instagram uses fanout on read selectively, pulling in celebrity posts at read time and merging them with the pre-computed feed.</p>
-
-<p>This is the <strong>celebrity problem</strong> in feed systems. Every large-scale social network has to solve it. The solution is always some variant of treating high-follower accounts differently.</p>
-
-<p><strong>Feed ranking</strong> is what happens after candidate posts are gathered. Instagram does not show you posts in reverse-chronological order anymore (though you can opt into that in settings). Instead, a machine learning ranking model scores every candidate post and reorders them by predicted engagement probability. Factors that go into this scoring include your past interaction history with the poster, the recency of the post, the type of content, how many others have engaged with the post recently, and signals about your current context (time of day, what device you are using, etc.).</p>
-
-<p><strong>Deduplication</strong> runs before the feed is finalized to make sure the same post does not appear twice, which can happen when combining pre-computed fanout feeds with on-the-fly celebrity post fetches.</p>
-
-<p>The assembled feed is written to a feed cache (usually Redis or a similar in-memory store) so subsequent requests for the same user can be served without rebuilding from scratch.</p>
-
-<a name="Recommendation.and.Ranking.Systems"></a>
-<h2>Recommendation and Ranking Systems</h2>
-
-<p>The recommendation engine is the brain of Instagram. It powers the Explore page, Reels recommendations, and the ranking within your home feed. Getting this right is the difference between a product people use for ten minutes a day and one they use for two hours.</p>
-
-<p>At a high level, the recommendation system works in three stages: <strong>candidate generation</strong>, <strong>scoring and ranking</strong>, and <strong>post-filtering</strong>.</p>
-
-<p><strong>Candidate generation</strong> is about narrowing the universe of content down to a manageable set. There are billions of posts on Instagram. The ranking model cannot score all of them. So the first stage uses faster, simpler methods to pull a few thousand candidates. This might include collaborative filtering (users who like what you like also liked these posts), content-based similarity (posts similar to ones you engaged with), and social graph signals (posts liked by people you follow).</p>
-
-<p><strong>Scoring and ranking</strong> is where the deep learning models come in. Each candidate gets scored by a model that predicts engagement probability. Instagram likely uses a multi-task learning setup where a single model predicts multiple outcomes simultaneously: probability of like, probability of comment, probability of share, probability of the user spending more than a few seconds looking at the content. These predictions are weighted and combined into a final ranking score.</p>
-
-<p><strong>User embeddings</strong> and <strong>content embeddings</strong> are central to how this works. Every user has a vector representation (an embedding) that captures their interests. Every piece of content has a vector representation that captures what it is about. The closer a content embedding is to a user embedding in vector space, the more likely the user is to engage with that content. These embeddings are learned from historical engagement data and updated continuously.</p>
-
-<p><strong>Exploration vs. exploitation</strong> is one of the most important tradeoffs in recommendation systems. If you only show people content similar to what they have liked before, the feed becomes a filter bubble. Users stop discovering new things, and eventually engagement decreases because the feed feels stale and predictable. So recommendation systems deliberately inject some exploratory content — posts from accounts you do not follow, content in categories you have not engaged with recently. Getting the balance right is genuinely hard and requires constant experimentation.</p>
-
-<p>The Explore page is specifically designed for exploration. It is almost entirely driven by the recommendation engine and deliberately surfaces content from accounts you do not follow. The ranking here weights novelty and diversity more heavily than the home feed.</p>
-
-<p><strong>Watch-time prediction</strong> is particularly important for Reels and video content. A like on a video is less informative than whether the user watched the whole thing. The recommendation system trains models specifically to predict whether a user will watch a video to completion, because completion is a strong signal of genuine interest.</p>
-
-<a name="Reels.Infrastructure.Deep.Dive"></a>
-<h2>Reels Infrastructure Deep Dive</h2>
-
-<p>Reels is Instagram&rsquo;s answer to TikTok, and the infrastructure behind it reflects lessons learned from watching TikTok&rsquo;s extraordinary success. The core insight TikTok proved is that you can build an extremely engaging product if you can serve a perfectly personalized short video in under a second, continuously, for as long as the user scrolls.</p>
-
-<div class="mermaid">
-flowchart TD;
-  Scroll[User Scrolls];
-  Prefetch[Prefetch Engine];
-  RecPipeline[Recommendation Pipeline];
-  Candidates[Video Candidates];
-  Ranker[Ranking Model];
-  Queue[Prefetch Queue];
-  CDNEdge[CDN Edge Node];
-  Player[Video Player];
-  EngSignals[Engagement Signals];
-  ModelUpdate[Model Update Pipeline];
-
-  Scroll &#8211;> Prefetch;
-  Prefetch &#8211;> RecPipeline;
-  RecPipeline &#8211;> Candidates;
-  Candidates &#8211;> Ranker;
-  Ranker &#8211;> Queue;
-  Queue &#8211;> CDNEdge;
-  CDNEdge &#8211;> Player;
-  Player &#8211;> EngSignals;
-  EngSignals &#8211;> ModelUpdate;
-  ModelUpdate &#8211;> RecPipeline;
-
-  classDef user fill:#2563eb,stroke:#1e40af,color:#ffffff;
-  classDef service fill:#16a34a,stroke:#166534,color:#ffffff;
-  classDef infra fill:#9333ea,stroke:#6b21a8,color:#ffffff;
-  classDef feedback fill:#f59e0b,stroke:#b45309,color:#ffffff;
-
-  class Scroll user;
-  class Prefetch,RecPipeline,Candidates,Ranker,Queue service;
-  class CDNEdge,Player infra;
-  class EngSignals,ModelUpdate feedback;
-</div>
-
-
-<p>The key engineering challenge for Reels is <strong>latency</strong>. If there is any buffering or waiting between videos, users disengage. The goal is to have the next video loaded and ready to play before the current one finishes.</p>
-
-<p><strong>Prefetching</strong> is how this is achieved. As you watch a video, the app is already fetching the next two or three videos in the background. The recommendation engine is queried ahead of time to generate a ranked list of upcoming videos, and those videos start downloading before you ever ask to see them. This requires the CDN to handle requests efficiently and for the recommendation pipeline to run fast enough that the next video is ranked and ready before you finish the current one.</p>
-
-<p><strong>Adaptive streaming</strong> is critical for video quality. Instagram uses ABR (Adaptive Bitrate) streaming, where the video player switches between quality levels based on available bandwidth. If your connection is slow, you get 360p. If it is fast, you get 1080p. This is similar to how YouTube and Netflix work. The video is split into small segments (typically two to four seconds each), and each segment is available at multiple quality levels. The player requests segments one at a time and can switch quality between segments.</p>
-
-<p><strong>Recommendation freshness</strong> is a real challenge for Reels. If you watch 20 reels in one session, the system needs to keep generating fresh recommendations. It cannot just pre-compute a list of 20 videos and serve them — users scroll for much longer than that, and the system needs to adapt based on what you are engaging with in real time within the session. Instagram likely maintains a session-level context that updates as you watch, feeding back into the recommendation pipeline to continuously refine what comes next.</p>
-
-<a name="Story.System.Architecture"></a>
-<h2>Story System Architecture</h2>
-
-<p>Stories introduced a genuinely novel infrastructure challenge: <strong>ephemeral content at scale</strong>. The 24-hour expiration means the system constantly needs to delete content, invalidate caches, and update story rings to reflect which stories have expired.</p>
-
-<p>The story upload pipeline is similar to the photo upload pipeline — media is processed, compressed, and distributed to CDN. The key difference is how stories are stored and managed.</p>
-
-<p><strong>TTL-based expiration</strong> is the mechanism for deletion. When a story is created, its expiry timestamp is stored alongside its metadata. Background workers continuously scan for expired stories and remove them from storage, CDN caches, and the story tray metadata. This scan needs to be efficient — running a full table scan on billions of stories every hour would be prohibitive. Instead, stories are stored with TTL in systems like Redis (which has native TTL support) or in a database partitioned by expiry time.</p>
-
-<p><strong>Seen/unseen tracking</strong> is required so that story rings show the right visual state (full color for unseen, grayed out for seen). This is a write-heavy workload because every story view generates a write. At Instagram&rsquo;s scale, tracking views for every story for every user can generate enormous write volume. The system likely uses a combination of in-memory sets and periodic flushes to durable storage, accepting some lag in the seen state rather than persisting every view synchronously.</p>
-
-<p><strong>Story ordering</strong> at the top of the feed is not purely chronological. Instagram applies a ranking model to the story tray, promoting stories from accounts you interact with most. This is a simpler ranking than the main feed but still requires knowing who you engage with regularly.</p>
-
-<a name="Messaging.Infrastructure"></a>
-<h2>Messaging Infrastructure</h2>
-
-<p>Direct messaging on Instagram is a real-time communication system with all the associated complexity — presence indicators, read receipts, message delivery guarantees, media sharing, and synchronization across devices.</p>
-
-<p><strong>WebSockets</strong> are the foundation of real-time messaging. When you open Instagram and navigate to messages, your client establishes a persistent WebSocket connection to a messaging server. Messages flow over this connection in both directions. The challenge is managing millions of simultaneous WebSocket connections, each consuming memory and CPU on the server side. Instagram likely maintains a fleet of connection servers, with each server handling tens of thousands of connections. When a message needs to be delivered to a specific user, the system needs to know which connection server that user is connected to (or if they are connected at all).</p>
-
-<p><strong>Presence systems</strong> track whether a user is currently online and when they were last active. This is surprisingly difficult at scale. Presence information changes frequently (users open and close the app constantly), and you want updates to propagate quickly. The typical approach is to maintain presence in a distributed cache and use heartbeat signals from the client (small periodic pings) to update the presence state.</p>
-
-<p><strong>Offline message delivery</strong> is handled through push notifications. If a user is not connected when a message arrives, the message is persisted to a database and a push notification is sent through APNs (Apple Push Notification Service) or FCM (Firebase Cloud Messaging). When the user opens the app, their client syncs with the server to fetch any messages received while offline.</p>
-
-<p><strong>Message delivery guarantees</strong> in distributed messaging systems are inherently tricky. The standard model is at-least-once delivery with deduplication on the receiver side. Messages get sequence numbers, and the client tracks which sequence numbers it has seen, requesting retransmission for any gaps. This handles network failures and reconnections gracefully.</p>
-
-<a name="Social.Graph.Infrastructure"></a>
-<h2>Social Graph Infrastructure</h2>
-
-<p>The social graph — who follows whom — is the backbone of Instagram&rsquo;s content distribution. Almost every feed generation, notification, and recommendation decision involves traversing parts of this graph.</p>
-
-<p>At Instagram&rsquo;s scale, the follow graph has billions of nodes and hundreds of billions of edges. Storing this efficiently and querying it quickly is a significant engineering challenge.</p>
-
-<p><strong>Adjacency lists</strong> are the standard data structure. Each user has a list of follower IDs and a list of following IDs. These are stored in a database optimized for this access pattern. The challenge is that these lists can be enormous for large accounts — a user with 50 million followers has a follower list with 50 million entries.</p>
-
-<p><strong>Graph partitioning</strong> determines how the graph is distributed across database nodes. A naive approach — partitioning by user ID — might put all of a celebrity&rsquo;s followers on the same shard, creating a hot spot. Better approaches use consistent hashing with shard-level load balancing to distribute heavy nodes more evenly.</p>
-
-<p><strong>Distributed graph queries</strong> become necessary for features like &ldquo;mutual connections&rdquo; or &ldquo;people you might know.&rdquo; These queries require traversing multiple hops of the graph, potentially across multiple shards. This is expensive, and Instagram likely batches and caches these query results aggressively rather than computing them on the fly for every user.</p>
-
-<a name="CDN.and.Media.Delivery"></a>
-<h2>CDN and Media Delivery</h2>
-
-<p>The CDN is what makes Instagram feel fast anywhere in the world. Without it, every request for a photo or video would travel from a user&rsquo;s device all the way to Instagram&rsquo;s origin servers — which might be on the other side of the planet. That would make latency unbearable.</p>
-
-<div class="mermaid">
-flowchart TD;
-  User[User Device];
-  EdgeNode[CDN Edge Node];
-  RegionalCache[Regional Cache];
-  OriginShield[Origin Shield];
-  ObjectStorage[Object Storage];
-  TranscodeOut[Transcoded Media Files];
-
-  User &#8211;>|media request| EdgeNode;
-  EdgeNode &#8211;>|cache miss| RegionalCache;
-  RegionalCache &#8211;>|cache miss| OriginShield;
-  OriginShield &#8211;>|cache miss| ObjectStorage;
-  ObjectStorage &#8211;> TranscodeOut;
-  TranscodeOut &#8211;> ObjectStorage;
-  ObjectStorage &#8211;> OriginShield;
-  OriginShield &#8211;> RegionalCache;
-  RegionalCache &#8211;> EdgeNode;
-  EdgeNode &#8211;> User;
-
-  classDef user fill:#2563eb,stroke:#1e40af,color:#ffffff;
-  classDef cdn fill:#16a34a,stroke:#166534,color:#ffffff;
-  classDef origin fill:#9333ea,stroke:#6b21a8,color:#ffffff;
-  classDef storage fill:#dc2626,stroke:#991b1b,color:#ffffff;
-
-  class User user;
-  class EdgeNode,RegionalCache,OriginShield cdn;
-  class ObjectStorage,TranscodeOut storage;
-</div>
-
-
-<p>Instagram&rsquo;s CDN architecture works in layers. <strong>Edge nodes</strong> are the outermost layer — geographically distributed points of presence (PoPs) located in cities around the world. These edge nodes cache media files locally. When a user in Tokyo requests a photo, they get it from a CDN edge node in Tokyo, not from a server in California.</p>
-
-<p><strong>Regional caches</strong> sit behind edge nodes. If an edge node does not have a file cached, it checks the regional cache before going all the way to origin. This layered caching approach dramatically reduces origin load for popular content.</p>
-
-<p><strong>Origin shields</strong> are a protection mechanism. Without them, a sudden spike in requests for a specific piece of content (say, a viral post) would send millions of simultaneous requests to origin storage. An origin shield is a single node that all CDN requests for a given object route through, collapsing thousands of simultaneous cache misses into a single origin request.</p>
-
-<p><strong>Image optimization</strong> at the CDN level is another powerful technique. Edge nodes can resize images on the fly based on the requesting device&rsquo;s screen size, serve WebP format to browsers that support it, and apply quality adjustments based on network conditions. This reduces bandwidth and speeds up delivery without requiring Instagram&rsquo;s origin to store a version for every possible screen size.</p>
-
-<p><strong>Video delivery</strong> uses the adaptive streaming approach described in the Reels section. For regular video posts, the CDN serves the segments of the adaptive stream. For Reels, prefetching makes this even more aggressive — the CDN is serving segments before the user has explicitly requested them.</p>
-
-<a name="Search.and.Hashtag.Systems"></a>
-<h2>Search and Hashtag Systems</h2>
-
-<p>Instagram&rsquo;s search needs to handle users, hashtags, locations, and audio tracks. Each of these has different query characteristics and different freshness requirements.</p>
-
-<p>The foundation is a search index built on top of something like <strong>Elasticsearch</strong>. Every user, hashtag, and post is indexed with relevant text fields. When you type in the search box, your query goes to the search service, which executes a query against the index and returns ranked results.</p>
-
-<p><strong>Hashtag indexing</strong> is interesting because hashtags need real-time freshness. When a post with a new hashtag goes viral, that hashtag should start appearing in search suggestions within seconds, not hours. This requires a near-real-time indexing pipeline where new posts are ingested into the search index as soon as they are published.</p>
-
-<p><strong>Typo tolerance</strong> is essential for search UX. If you type &ldquo;sunst&rdquo; you probably mean &ldquo;sunset.&rdquo; Search systems handle this with techniques like fuzzy matching, n-gram indexing, and phonetic algorithms. Elasticsearch has built-in support for this, though tuning it for good results at scale takes significant work.</p>
-
-<p><strong>Trending hashtags</strong> require a different system — one that tracks the velocity of hashtag usage across the platform in real time. A hashtag that is suddenly being used at ten times its normal rate is probably trending. This is computed by stream processing systems that continuously aggregate hashtag usage counts with time-decay weighting, so recent usage counts more than older usage.</p>
-
-<a name="Real-Time.Notification.Infrastructure"></a>
-<h2>Real-Time Notification Infrastructure</h2>
-
-<p>Notifications are an event-driven fanout problem. When someone likes your photo, that event needs to trigger a push notification to you. When someone you follow posts a Story, that might trigger a notification to your phone. At Instagram&rsquo;s scale, this notification fanout is enormous.</p>
-
-<p>The notification pipeline starts with <strong>event streaming</strong>. Every significant action on Instagram — a like, a comment, a follow, a story post — generates an event that gets published to a Kafka-like stream. Notification workers consume these events, look up who should be notified, and send the notifications.</p>
-
-<p><strong>Prioritization</strong> is crucial because not all notifications are equal. A direct message needs to arrive in seconds. A &ldquo;someone liked your post from three days ago&rdquo; notification can wait a few minutes. The notification system segments notifications by priority and processes high-priority ones on dedicated, faster pipelines.</p>
-
-<p><strong>Notification fanout</strong> can get expensive for large accounts. If a celebrity posts a Story and 20 million followers should be notified, that is 20 million push notification jobs. The system batches these aggressively and uses dedicated fanout worker pools to handle spikes from large accounts without starving notifications for normal users.</p>
-
-<p><strong>Retry logic</strong> is essential because push notification delivery is not guaranteed. APNs and FCM can drop notifications if the device is offline, and delivery receipts are not always reliable. The notification system tracks which notifications have been acknowledged and retries ones that have not been confirmed after a timeout.</p>
-
-<a name="Database.and.Storage.Design"></a>
-<h2>Database and Storage Design</h2>
-
-<p>Instagram&rsquo;s data spans several different storage systems, each chosen to fit its particular access patterns.</p>
-
-<p><strong>Relational databases</strong> (PostgreSQL historically, at scale sharded with something like Vitess) handle structured data with complex query patterns: user profiles, post metadata, follow relationships for smaller graphs, and anything where joins are needed.</p>
-
-<p><strong>Cassandra</strong> is well-suited for the write-heavy, time-series-like data that Instagram generates at scale — engagement events, story view records, and notification state. It scales horizontally with excellent write throughput and handles the wide row pattern (one row per user with columns for each event) efficiently.</p>
-
-<p><strong>Redis</strong> is everywhere — feed caches, story metadata, session data, rate limiting counters, presence information, and anything that needs sub-millisecond access. Instagram&rsquo;s Redis deployment is massive and carefully partitioned to avoid hot spots.</p>
-
-<p>Here are the core schemas that any Instagram-like system needs:</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Table</th>
-        <th>Key Columns</th>
-        <th>Storage System</th>
-        <th>Access Pattern</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>users</td>
-        <td>user_id, username, email, bio, follower_count, created_at</td>
-        <td>PostgreSQL</td>
-        <td>Read-heavy, low write volume</td>
-      </tr>
-      <tr>
-        <td>posts</td>
-        <td>post_id, user_id, media_url, caption, created_at, like_count</td>
-        <td>PostgreSQL + Cassandra</td>
-        <td>Write once, read many</td>
-      </tr>
-      <tr>
-        <td>reels</td>
-        <td>reel_id, user_id, video_url, duration_ms, watch_count, created_at</td>
-        <td>Cassandra</td>
-        <td>High write volume (view counts)</td>
-      </tr>
-      <tr>
-        <td>stories</td>
-        <td>story_id, user_id, media_url, expires_at, created_at</td>
-        <td>Cassandra + Redis TTL</td>
-        <td>Write once, expire automatically</td>
-      </tr>
-      <tr>
-        <td>followers</td>
-        <td>follower_id, following_id, created_at</td>
-        <td>Sharded PostgreSQL</td>
-        <td>Graph traversal, high read volume</td>
-      </tr>
-      <tr>
-        <td>engagement_events</td>
-        <td>event_id, user_id, target_id, event_type, timestamp</td>
-        <td>Cassandra</td>
-        <td>Append-only, very high write volume</td>
-      </tr>
-      <tr>
-        <td>messages</td>
-        <td>message_id, thread_id, sender_id, content, created_at, read_at</td>
-        <td>Cassandra</td>
-        <td>Time-ordered, high write volume</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p><strong>Indexing strategy</strong> matters enormously. Posts need to be retrieved by user_id (all posts from a user) and by time (recent posts from users you follow). These two access patterns require different indices. The system also needs indices on hashtag associations for search.</p>
-
-<p><strong>Sharding</strong> distributes data across multiple database nodes. The typical approach is to shard by user_id, so all data associated with a user lives on the same shard. This makes per-user queries efficient. The downside is that very active users can create hot shards, requiring careful monitoring and occasional shard rebalancing.</p>
-
-<a name="Caching.System.Deep.Dive"></a>
-<h2>Caching System Deep Dive</h2>
-
-<p>If there is one thing that makes Instagram possible at its current scale, it is aggressive caching. The databases simply cannot handle the raw query volume that Instagram generates. Caching sits in front of almost every data access.</p>
-
-<p><strong>Feed caches</strong> are the most critical. A pre-computed list of post IDs for your feed lives in Redis, ready to be served instantly. The cache has a TTL, and it gets refreshed proactively by the feed building service rather than waiting for it to expire.</p>
-
-<p><strong>Celebrity traffic spikes</strong> create a particular challenge called <strong>cache hotspots</strong>. When Cristiano Ronaldo posts something, millions of people refresh their feeds simultaneously. If all those requests go to the same cache key, the cache node hosting that key gets overwhelmed. Solutions include replicating hot keys across multiple cache nodes (consistent hashing with virtual nodes), local in-process caching on the API servers to absorb burst traffic, and request coalescing where multiple simultaneous requests for the same key get collapsed into a single backend request.</p>
-
-<p><strong>Cache invalidation</strong> is the famously hard problem in computer science. When a post is deleted, its ID needs to be removed from every follower&rsquo;s feed cache. When a user updates their profile, their cached profile needs to be invalidated. These invalidation events flow through the same event stream that powers notifications, ensuring cache invalidations happen asynchronously without blocking the original write operation.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Cache Layer</th>
-        <th>Data Cached</th>
-        <th>TTL</th>
-        <th>Invalidation Strategy</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Feed Cache</td>
-        <td>Ordered list of post IDs per user</td>
-        <td>15-30 minutes</td>
-        <td>Event-driven rebuild</td>
-      </tr>
-      <tr>
-        <td>User Profile Cache</td>
-        <td>Username, bio, follower count</td>
-        <td>5 minutes</td>
-        <td>Write-through on profile update</td>
-      </tr>
-      <tr>
-        <td>Post Metadata Cache</td>
-        <td>Caption, like count, media URLs</td>
-        <td>10 minutes</td>
-        <td>Event-driven on post update/delete</td>
-      </tr>
-      <tr>
-        <td>Story Tray Cache</td>
-        <td>Active story IDs per user&#8217;s following</td>
-        <td>Until story expires</td>
-        <td>TTL-based + deletion events</td>
-      </tr>
-      <tr>
-        <td>Recommendation Cache</td>
-        <td>Ranked candidate lists per user</td>
-        <td>1-5 minutes</td>
-        <td>Periodic refresh by rec engine</td>
-      </tr>
-      <tr>
-        <td>Social Graph Cache</td>
-        <td>Follower/following lists</td>
-        <td>5 minutes</td>
-        <td>Invalidate on follow/unfollow</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Event-Driven.Architecture"></a>
-<h2>Event-Driven Architecture</h2>
-
-<p>Instagram&rsquo;s backend is extensively event-driven. Almost every significant action generates events that flow through a Kafka-like streaming system, decoupling producers from consumers and enabling asynchronous processing at scale.</p>
-
-<p>When you post a photo, the media upload service publishes a &ldquo;post_created&rdquo; event. Multiple consumers react to this event independently: the feed fanout service updates follower feeds, the notification service sends alerts to followers who have notifications enabled, the search indexing service adds the new post to the search index, the recommendation engine updates its models, and the analytics service records the post metrics. None of these services need to be synchronous with the upload — they all work off the event stream at their own pace.</p>
-
-<p><strong>Stream processing</strong> for real-time analytics uses frameworks similar to Apache Flink or Spark Streaming. These systems continuously aggregate engagement events (likes, comments, shares, watch-time) to update engagement counters, recalculate trending content, and feed signals back into ranking models.</p>
-
-<p><strong>Event durability</strong> is critical. If a consumer falls behind or fails, events need to be retained so processing can be resumed. Kafka-like systems retain events for a configurable period (typically days to weeks), allowing consumers to replay from any point.</p>
-
-<a name="Scalability.Deep.Dive"></a>
-<h2>Scalability Deep Dive</h2>
-
-<p>Let us talk about the specific bottlenecks that appear when scaling Instagram-like systems and how they are addressed.</p>
-
-<p><strong>Feed bottlenecks</strong> appear most obviously around large accounts. The fanout-on-write approach breaks down at celebrity scale. The hybrid model (write for normal users, read for celebrities) solves the immediate write amplification problem but introduces complexity in the feed assembly step.</p>
-
-<p><strong>Recommendation bottlenecks</strong> stem from the computational cost of running large neural network models in real time. Instagram likely serves recommendations from a combination of precomputed results (batch-processed recommendations stored and ready to serve) and real-time inference (for freshness and personalization). Batch processing runs on GPU clusters overnight to generate personalized candidate lists; real-time re-ranking applies at request time using lighter models.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Bottleneck</th>
-        <th>Root Cause</th>
-        <th>Solution</th>
-        <th>Tradeoff</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Feed fanout for celebrities</td>
-        <td>Write amplification to millions of followers</td>
-        <td>Hybrid fanout: read-time merge for large accounts</td>
-        <td>Higher read-time latency</td>
-      </tr>
-      <tr>
-        <td>Real-time recommendation inference</td>
-        <td>ML model computation cost</td>
-        <td>Precomputed candidates + lightweight real-time reranking</td>
-        <td>Reduced recommendation freshness</td>
-      </tr>
-      <tr>
-        <td>Media transcoding queue depth</td>
-        <td>CPU-intensive transcoding jobs</td>
-        <td>Elastic transcoding worker pool, priority queuing</td>
-        <td>Higher cost for burst capacity</td>
-      </tr>
-      <tr>
-        <td>Cache hot spots</td>
-        <td>Sudden viral traffic to single cache key</td>
-        <td>Key replication, local in-process cache, request coalescing</td>
-        <td>Stale data window increases</td>
-      </tr>
-      <tr>
-        <td>Social graph queries</td>
-        <td>Large adjacency lists for celebrity accounts</td>
-        <td>Precomputed graph summaries, graph caching</td>
-        <td>Stale follower counts</td>
-      </tr>
-      <tr>
-        <td>WebSocket connection scaling</td>
-        <td>Memory and CPU per persistent connection</td>
-        <td>Horizontally scaled connection server pool</td>
-        <td>Added complexity in message routing</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p><strong>Multi-region deployments</strong> are essential for global latency. Instagram runs across multiple geographic regions — US East, US West, Europe, Asia Pacific, and others. Each region has its own full stack, with data replicated across regions. Users are routed to the nearest region by DNS-based geo-routing. Cross-region replication introduces the classic distributed systems challenges around consistency — if you follow someone and they post immediately, will you see that post? The answer at this scale is &ldquo;eventually,&rdquo; and the system is designed to tolerate short inconsistency windows.</p>
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<p>Instagram targets very high availability. Any significant outage for a platform this large affects millions of users and generates enormous revenue loss and reputational damage.</p>
-
-<p><strong>Multi-region failover</strong> means that if one region goes down, traffic can be rerouted to healthy regions. This requires the data replication lag to be low enough that the failover does not result in significant data loss. For critical data like posts and messages, asynchronous replication with low lag is the goal.</p>
-
-<p><strong>Graceful degradation</strong> is important for partial failures. If the recommendation system is degraded, Instagram can fall back to showing a simpler chronological feed. If the CDN has issues in a specific region, the system can route to a different edge or serve lower-resolution media. The goal is to always show the user something reasonable even when parts of the system are struggling.</p>
-
-<p><strong>Observability</strong> — the combination of metrics, logs, and distributed traces — is how Instagram engineers know when things are going wrong before users report them. Every service emits metrics on request rates, latency percentiles (p50, p95, p99), error rates, and custom business metrics. Dashboards and automated alerting fire when these metrics deviate from normal patterns.</p>
-
-<a name="Security.and.Privacy.Systems"></a>
-<h2>Security and Privacy Systems</h2>
-
-<p>At Instagram&rsquo;s scale, abuse is constant and creative. Bot networks try to inflate engagement metrics. Spam accounts flood comments. Malware gets hidden in media files. Bad actors attempt account takeovers.</p>
-
-<p><strong>Bot detection</strong> uses a combination of behavioral signals (accounts that follow 1,000 people per hour are probably bots), device fingerprinting, IP reputation, and machine learning classifiers trained on known bot patterns. The challenge is that sophisticated bots deliberately mimic human behavior to avoid detection.</p>
-
-<p><strong>Content moderation</strong> at Instagram&rsquo;s scale cannot rely purely on human review — there is simply too much content posted every second. The first pass is automated classifiers that flag potentially violating content. Human reviewers then handle flagged content that the classifiers are uncertain about, and their decisions feed back into the training data for the classifiers.</p>
-
-<p><strong>Privacy controls</strong> allow users to set posts to private (only followers can see), control who can comment, and hide their story from specific users. These controls need to be enforced everywhere the content appears — in feeds, in search results, in recommendations, and in API responses. Enforcing them correctly across a distributed system is surprisingly difficult and requires careful access control logic that propagates through the recommendation and feed systems.</p>
-
-<a name="Engineering.Tradeoffs"></a>
-<h2>Engineering Tradeoffs</h2>
-
-<p>Real engineering is about making decisions under constraints, not finding the single right answer. Here are the real tradeoffs Instagram faces continuously.</p>
-
-<p><strong>Real-time ranking vs. latency.</strong> The more sophisticated your ranking model, the more computation it requires, and the higher your feed load latency. Instagram has to decide how much computation to spend at request time versus how much to precompute offline. A perfect real-time ranking might take 500ms — too slow. A good offline ranking from an hour ago might be served in 50ms — fast but potentially stale.</p>
-
-<p><strong>Recommendation quality vs. compute cost.</strong> Running large transformer-based recommendation models for every user at request time would be ideal for quality but would cost an extraordinary amount of compute. The practical solution involves lighter models at inference time, precomputed embeddings, and approximate nearest neighbor search rather than exact search.</p>
-
-<p><strong>Caching vs. consistency.</strong> Aggressive caching makes Instagram fast, but cached data goes stale. If your feed is cached, it might not reflect posts from the last few minutes. If a user deletes a post, it might still appear in cached feeds briefly. Instagram accepts these small consistency windows in exchange for the performance gains from caching.</p>
-
-<p><strong>Personalization vs. privacy.</strong> Better personalization requires more data about user behavior. Users and regulators increasingly care about what data is collected and how it is used. There is a genuine tension here that does not have a clean technical solution — it requires policy decisions as much as engineering decisions.</p>
-
-<p><strong>Media quality vs. bandwidth.</strong> Serving 4K video everywhere would look great but would consume enormous bandwidth, especially on mobile data connections. The adaptive streaming approach is a practical middle ground, but there is always a tension between quality and the cost of delivering that quality.</p>
-
-<a name="Technology.Stack"></a>
-<h2>Technology Stack</h2>
-
-<p>Understanding why Instagram (or a system designed like it) would choose specific technologies requires thinking about fit, not just familiarity.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Technology</th>
-        <th>Use Case at Instagram Scale</th>
-        <th>Why This Choice</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Python / Django</td>
-        <td>Core API services and web backend</td>
-        <td>Instagram was built on Django; rich ecosystem, fast iteration</td>
-      </tr>
-      <tr>
-        <td>Go</td>
-        <td>High-throughput services like notification fanout</td>
-        <td>Low latency, efficient concurrency model for network services</td>
-      </tr>
-      <tr>
-        <td>Redis</td>
-        <td>Feed caches, session storage, rate limiting</td>
-        <td>Sub-millisecond reads, native data structures (sorted sets, sets), TTL support</td>
-      </tr>
-      <tr>
-        <td>Cassandra</td>
-        <td>Engagement events, messages, story views</td>
-        <td>Linear horizontal scalability, excellent write throughput, tunable consistency</td>
-      </tr>
-      <tr>
-        <td>Apache Kafka</td>
-        <td>Event streaming backbone</td>
-        <td>Durable, ordered, high-throughput event delivery; consumer group model</td>
-      </tr>
-      <tr>
-        <td>Elasticsearch</td>
-        <td>User and hashtag search</td>
-        <td>Full-text search, fuzzy matching, near-real-time indexing</td>
-      </tr>
-      <tr>
-        <td>TensorFlow / PyTorch</td>
-        <td>Recommendation and ranking models</td>
-        <td>GPU-optimized training, scalable serving infrastructure</td>
-      </tr>
-      <tr>
-        <td>Kubernetes</td>
-        <td>Container orchestration for microservices</td>
-        <td>Elastic scaling, service isolation, rollout management</td>
-      </tr>
-      <tr>
-        <td>CDN (Fastly/Cloudflare-like)</td>
-        <td>Media delivery globally</td>
-        <td>Global edge network, reduces origin load, adaptive delivery</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>When interviewers ask you to design Instagram, they are testing your ability to reason about distributed systems at scale, not your ability to memorize Instagram&rsquo;s actual architecture.</p>
-
-<p><strong>What interviewers want to see</strong> is structured thinking. Start with requirements — clarify the scale (how many users, what features are in scope), the consistency requirements (is it okay if feeds are slightly stale?), and the latency requirements (how fast does a feed load need to be?). Then sketch a high-level architecture before diving into specifics.</p>
-
-<p><strong>Strong candidates</strong> talk about the celebrity problem in feed generation without being prompted. They recognize that fanout on write and fanout on read are both incomplete solutions, and they propose the hybrid approach. They discuss why media needs to be transcoded into multiple formats, not just stored as-is. They think about cache invalidation proactively, not just as an afterthought.</p>
-
-<p><strong>Common mistakes</strong> include designing a system that works but does not scale, jumping into database schemas before establishing the architecture, not discussing the tradeoffs of decisions (saying &ldquo;use Cassandra&rdquo; without explaining why over Postgres), and forgetting about failure scenarios entirely.</p>
-
-<p><strong>For the recommendation system component</strong>, strong candidates distinguish between candidate generation and ranking. They know that you cannot run a deep learning model over all two billion posts for every user request — there has to be a funnel. They talk about embeddings, collaborative filtering, and exploration vs exploitation.</p>
-
-<p><strong>For the media delivery component</strong>, strong candidates understand CDN architecture intuitively — that media should never be served from origin at scale, that multiple quality levels are necessary for adaptive streaming, and that prefetching is what makes Reels feel instant.</p>
-
-<p>The most important thing to remember in these interviews: justify your decisions. Every architectural choice should come with a &ldquo;because.&rdquo; Not &ldquo;I will use Kafka&rdquo; but &ldquo;I will use Kafka because we need durable, ordered event delivery with the ability for multiple consumer groups to process the same events independently — the feed service, notification service, and analytics service all need to react to the same post-created event.&rdquo;</p>
-
-<a name="Closing.Thoughts"></a>
-<h2>Closing Thoughts</h2>
-
-<p>Instagram&rsquo;s engineering is a masterclass in what distributed systems look like when they grow beyond the point where any single clever solution works. The photo-sharing app that Kevin Systrom and Mike Krieger launched in 2010 ran on a handful of servers. The platform that serves two billion users today is a collection of hundreds of specialized services, massive distributed caches, globally distributed CDN infrastructure, and machine learning systems that are constantly learning from billions of daily interactions.</p>
-
-<p>What makes Instagram particularly interesting as a system design case study is that it combines almost every major distributed systems challenge in one place: real-time data at scale, complex recommendation systems, media processing pipelines, ephemeral content, real-time communication, and global distribution. Understanding how each of these pieces works — and more importantly, why they work the way they do — gives you a mental toolkit that applies far beyond Instagram to virtually any large-scale digital product.</p>
-
-<p>The engineering tradeoffs discussed here are not Instagram-specific. The celebrity problem exists in any social network. The fanout problem exists in any notification system. The consistency vs. performance tradeoff exists in any caching strategy. The recommendation latency vs. quality tradeoff exists in any ML-powered personalization system. Instagram&rsquo;s solutions to these problems are worth understanding because they represent hard-won lessons from operating at a scale that very few systems in history have reached.</p>
 ]]></content>
     </entry>
     
