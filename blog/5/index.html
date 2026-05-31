@@ -86,6 +86,75 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-google-search-works/">How Google Search Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-16T12:14:14+05:30" pubdate><i class="fa fa-calendar"></i> May 16th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/google/'>google</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>Let me ask you something. You type three words into a text box. Half a second later, you are staring at ten blue links, a knowledge panel, an image carousel, and a featured snippet that almost perfectly answers your question. That page was assembled, ranked, and delivered to you from across the planet faster than you can blink.</em></p></blockquote>
+
+<p><img src="/images/system_design/google-search.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>Now consider what had to happen behind the scenes. Someone had to crawl hundreds of billions of web pages, extract their content, understand what each page was actually about, store all of that in a way that can be queried at low latency, figure out which of the billions of candidate results is most relevant to your specific query, personalize it a little, check it for spam, and ship it to you over the network before you notice any delay. At peak hours, Google handles tens of thousands of search queries per second, globally.</p>
+
+<p>This is not a solved problem. This is one of the hardest distributed systems problems that has ever been built and maintained in production. The reason it feels effortless is precisely because so much engineering is hidden beneath it.</p>
+
+<p>The interesting part is not just that it works. The interesting part is why it is designed the way it is. Every caching layer, every index shard, every ranking signal, every crawl scheduler exists because someone ran into a wall at scale and had to find a way through. That is what this article is about.</p>
+
+<p>We will walk through the entire system end to end. Crawling. Parsing. Indexing. Query processing. Ranking. Distributed serving. Caching. Machine learning. We will look at what happens when things go wrong, and we will talk honestly about the tradeoffs that make this architecture look the way it does.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-google-search-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-uber-computes-eta/">How Uber Computes ETA?</a>
         </h1>
     
@@ -338,83 +407,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-airbnb-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-reddit-works/">How Reddit Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-03T19:28:52+05:30" pubdate><i class="fa fa-calendar"></i> May 3rd, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>If you&rsquo;ve ever refreshed your Reddit feed at midnight, upvoted a post, or gone down a rabbit hole in a subreddit — you&rsquo;ve touched a system that serves hundreds of millions of users every day. But have you ever wondered what&rsquo;s actually happening under the hood? Let&rsquo;s find out.</em></p></blockquote>
-
-<p><img src="/images/system_design/reddit.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>Reddit calls itself &ldquo;the front page of the internet,&rdquo; and honestly, that&rsquo;s not far off. At its core, Reddit is a massive, community-driven link aggregator and discussion platform — think of it as a giant bulletin board broken into thousands of topic-specific rooms called <strong>subreddits</strong>.</p>
-
-<p>As of 2024, Reddit had:</p>
-
-<ul>
-<li><strong>~1.5 billion monthly active users</strong> visiting the site</li>
-<li><strong>~100,000 active subreddits</strong></li>
-<li>Over <strong>~500 million posts</strong> and billions of comments</li>
-<li>Multiple <strong>millions of concurrent users</strong> at peak times</li>
-</ul>
-
-
-<p>What makes Reddit an interesting system design problem is the <strong>combination of scale, real-time interaction, and community-specific complexity.</strong> You have users browsing feeds, posting content, voting, commenting in real-time, getting notifications, and all of this happening across extremely diverse communities with completely different moderation rules.</p>
-
-<p>It&rsquo;s not as real-time as Twitter (where every tweet needs instant fan-out). It&rsquo;s not as media-heavy as YouTube. But it&rsquo;s arguably more complex than both because it combines a <strong>social graph, content ranking, tree-structured comments, moderation tools, and real-time interactions</strong> all in one platform.</p>
-
-<p>Let&rsquo;s break it all down.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-reddit-works/">Read on &rarr;</a>
     </div>
 
         </article>

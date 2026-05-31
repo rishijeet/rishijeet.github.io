@@ -1,0 +1,971 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: bookmyshow | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/bookmyshow/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2026-05-31T13:53:30+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[How BookMyShow Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-bookmyshow-works/"/>
+        <updated>2026-05-31T13:40:29+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-bookmyshow-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>BookMyShow looks simple from the outside. You open the app, pick a movie, choose your seats, pay, and get a ticket. The whole thing takes about two minutes. But underneath that simple experience is one of the most technically demanding systems on the internet — a platform that needs to handle millions of concurrent users, prevent duplicate seat bookings, coordinate with thousands of theatres, process payments reliably, and generate tickets instantly, all without ever letting two people land on the same seat.</em></p></blockquote>
+
+<p><img src="/images/system_design/bookmyshow-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This is not a generic booking tutorial. This is an engineering walkthrough of how a production-scale ticketing platform actually works.</p>
+
+<a name="Why.Ticket.Booking.Is.Harder.Than.It.Looks"></a>
+<h2>Why Ticket Booking Is Harder Than It Looks</h2>
+
+<p>Most engineers underestimate ticket booking systems. At first glance it seems like a basic CRUD application — read seats, mark one as taken, take payment. But that mental model breaks down immediately under real-world conditions.</p>
+
+<p>Think about what happens when a blockbuster like a new Avengers film drops its tickets at midnight, or when IPL finals seats go live, or when a Taylor Swift concert in Mumbai opens for booking. In those moments, hundreds of thousands of users simultaneously hit the same endpoint, trying to grab the same finite set of seats. You are not dealing with a typical web workload anymore. You are dealing with a flash sale, and flash sales expose every weakness in your architecture.</p>
+
+<!--more-->
+
+
+<p>The core problem is that seats are a finite, non-fungible inventory. Unlike a product on an e-commerce site where you can restock, seats are fixed. Row C, Seat 12 in Screen 2 of PVR Juhu on Saturday night at 9 PM is a unique entity. If two users both manage to book it, you have a real-world problem that cannot be resolved with a refund alone — someone is physically going to show up and find someone else in their seat.</p>
+
+<p>This makes the system inherently constrained by strong consistency requirements in a distributed environment. And strong consistency in a distributed environment is expensive. That tension — between consistency, performance, and availability — is what makes this problem genuinely interesting from an engineering perspective.</p>
+
+<a name="Core.Features.of.the.Platform"></a>
+<h2>Core Features of the Platform</h2>
+
+<p>Before diving into implementation, it helps to understand the full feature surface. BookMyShow is not just a booking tool.</p>
+
+<p>It handles movie and event discovery — surfacing what is playing near you, with which shows, at which times. It manages a live inventory of seats across thousands of theatres. It coordinates real-time seat selection with a temporary locking mechanism to prevent conflicts during checkout. It orchestrates payments across UPI, cards, wallets, and net banking. It generates tickets with unique QR codes tied to a specific booking. It sends confirmation messages and reminders via SMS, email, and push. It handles cancellations and refunds. It runs offers and coupon validation. And it does all of this while also powering a fairly sophisticated recommendation and personalization layer.</p>
+
+<p>Each of these features is a separate engineering problem, and they all interact with each other in ways that make the system genuinely complex.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>The platform is built as a collection of services, each owning a distinct domain. This is not microservices for the sake of microservices — the domains are genuinely different in their scaling needs, data models, and consistency requirements.</p>
+
+<div class="mermaid">
+graph TD
+    subgraph ClientLayer[&#8220;Client Layer&#8221;]
+        MA[Mobile App]
+        WA[Web App]
+    end
+
+    subgraph Gateway[&#8220;API Layer&#8221;]
+        AG[API Gateway]
+        AL[Auth Layer]
+    end
+
+    subgraph CoreServices[&#8220;Core Services&#8221;]
+        CS[Movie Catalog Service]
+        ES[Event Catalog Service]
+        SS[Search Service]
+        IS[Inventory Service]
+        SL[Seat Lock Service]
+        BS[Booking Service]
+        PS[Payment Service]
+        TS[Ticket Service]
+        NS[Notification Service]
+    end
+
+    subgraph Storage[&#8220;Storage Layer&#8221;]
+        PG[(PostgreSQL)]
+        RD[(Redis)]
+        ES2[(Elasticsearch)]
+        S3[(Object Storage)]
+    end
+
+    subgraph Messaging[&#8220;Messaging Layer&#8221;]
+        KF[Kafka]
+    end
+
+    MA &#8211;> AG
+    WA &#8211;> AG
+    AG &#8211;> AL
+    AL &#8211;> CS
+    AL &#8211;> ES
+    AL &#8211;> SS
+    AL &#8211;> IS
+    AL &#8211;> SL
+    AL &#8211;> BS
+    AL &#8211;> PS
+    CS &#8211;> PG
+    ES &#8211;> PG
+    SS &#8211;> ES2
+    IS &#8211;> PG
+    IS &#8211;> RD
+    SL &#8211;> RD
+    BS &#8211;> PG
+    BS &#8211;> KF
+    PS &#8211;> KF
+    KF &#8211;> TS
+    KF &#8211;> NS
+    TS &#8211;> S3
+
+    classDef client fill:#4A90D9,stroke:#2C5F8A,color:#fff
+    classDef gateway fill:#7B68EE,stroke:#5A4DB8,color:#fff
+    classDef service fill:#2ECC71,stroke:#1A7A44,color:#fff
+    classDef storage fill:#E67E22,stroke:#A85C18,color:#fff
+    classDef messaging fill:#E74C3C,stroke:#922B21,color:#fff
+
+    class MA,WA client
+    class AG,AL gateway
+    class CS,ES,SS,IS,SL,BS,PS,TS,NS service
+    class PG,RD,ES2,S3 storage
+    class KF messaging
+</div>
+
+
+<p>The interesting thing about this architecture is how the services are split. Movie Catalog and Event Catalog are read-heavy and can tolerate some staleness. Seat Lock Service and Inventory Service need to be strongly consistent. Booking and Payment need transactional guarantees. Notification and Ticket Generation can be asynchronous. Those different consistency and availability needs drive nearly every architectural decision in the system.</p>
+
+<a name="Movie.and.Event.Discovery"></a>
+<h2>Movie and Event Discovery</h2>
+
+<p>Discovery is the entry point for every user. When someone opens BookMyShow in Mumbai and searches for movies playing this weekend, a lot has to happen very fast.</p>
+
+<p>The city-based discovery model works by maintaining a geographically-indexed catalog. When you land on the homepage, the app knows your city from your profile or device location. It queries a discovery API that returns movies currently showing in your city, filtered and ranked by show availability, ratings, and personalization signals.</p>
+
+<p>The movie catalog itself is maintained separately from the show schedule. A movie has metadata — title, description, cast, genre, language, certificate rating, poster images — that rarely changes. The show schedule, which theatres are running which film at which times, changes every day and sometimes multiple times a day. Keeping these two concerns separate allows the catalog to be heavily cached while show data stays fresher.</p>
+
+<p>Search is powered by a system like Elasticsearch. Users search not just by movie title but by theatre name, actor names, genre, and location. Elasticsearch handles the fuzzy matching, typo tolerance, and relevance ranking. The search index is updated asynchronously as the catalog changes — new movies are indexed within seconds of being added, and theatre schedule updates propagate within a few minutes.</p>
+
+<p>Personalization layers on top of this through a separate recommendation system. If you frequently book action films on Friday evenings, the platform learns that and surfaces relevant content higher. This runs on pre-computed models that score user-movie pairs and persist the scores in a fast-read store.</p>
+
+<p>Caching is critical here. The top 50 movies showing in a given city on a given day are queried millions of times. These results are cached aggressively at the CDN level and at the application cache level. The cache is invalidated when a new movie is added or when show availability changes significantly.</p>
+
+<a name="Theatre.Integration.Architecture"></a>
+<h2>Theatre Integration Architecture</h2>
+
+<p>This is one of the most overlooked parts of the system, and one of the most complex. BookMyShow does not own theatres. It partners with thousands of independent chains — PVR, INOX, Cinepolis, and hundreds of single-screen and regional chains — each of which runs its own internal ticketing and seat management systems.</p>
+
+<p>Integrating with those systems is a significant engineering challenge. The integration architecture looks something like this:</p>
+
+<div class="mermaid">
+graph TD
+    subgraph TheatrePartners[&#8220;Theatre Partners&#8221;]
+        PVR[PVR System]
+        INOX[INOX System]
+        IND[Independent Theatres]
+    end
+
+    subgraph Integration[&#8220;Integration Layer&#8221;]
+        TA[Theatre Adapter]
+        SC[Schedule Sync]
+        IV[Inventory Validator]
+    end
+
+    subgraph Platform[&#8220;BookMyShow Platform&#8221;]
+        IS[Inventory Service]
+        BS[Booking Service]
+        RD[(Redis Cache)]
+        PG[(PostgreSQL)]
+    end
+
+    PVR &#8211;>|API Push or Pull| TA
+    INOX &#8211;>|API Push or Pull| TA
+    IND &#8211;>|File or API| TA
+    TA &#8211;> SC
+    SC &#8211;> IV
+    IV &#8211;> IS
+    IS &#8211;> RD
+    IS &#8211;> PG
+    BS &#8211;> TA
+    TA &#8211;>|Confirm Booking| PVR
+    TA &#8211;>|Confirm Booking| INOX
+
+    classDef theatre fill:#8E44AD,stroke:#6C3483,color:#fff
+    classDef integration fill:#2980B9,stroke:#1F618D,color:#fff
+    classDef platform fill:#27AE60,stroke:#1D8348,color:#fff
+    classDef storage fill:#E67E22,stroke:#A85C18,color:#fff
+
+    class PVR,INOX,IND theatre
+    class TA,SC,IV integration
+    class IS,BS platform
+    class RD,PG storage
+</div>
+
+
+<p>Some theatres provide real-time APIs. Some push schedule updates via webhooks. Some older single-screen theatres still deliver CSV files of their show schedules. The Theatre Adapter layer normalizes all of this into a consistent internal representation.</p>
+
+<p>Inventory synchronization is tricky because theatre systems often maintain their own seat state. When a customer books through a theatre&rsquo;s own counter, BookMyShow needs to know that seat is gone. Synchronization happens through a combination of periodic polling, webhook updates, and event-driven callbacks. The polling interval varies by partner sophistication — every 30 seconds for modern API-driven partners, every few minutes for slower systems.</p>
+
+<p>The hard problem is what happens when synchronization fails. If the platform loses connectivity to a theatre&rsquo;s system mid-booking, you need a fallback. The typical approach is to hold a pessimistic view of inventory during outages — mark seats as unavailable if you cannot confirm their state. This hurts conversion but prevents double bookings, which is the right tradeoff.</p>
+
+<p>When BookMyShow itself confirms a booking, it calls back to the theatre&rsquo;s system to mark the seat as taken in their internal state. This confirmation call is critical. If it fails, the theatre might resell that seat through their own counter. The system handles this with retries, exponential backoff, and a reconciliation job that runs periodically to catch divergence between BookMyShow&rsquo;s booking records and the theatre&rsquo;s actual state.</p>
+
+<a name="Seat.Inventory.Management"></a>
+<h2>Seat Inventory Management</h2>
+
+<p>Inventory management is the heart of the platform, and it is where most of the interesting distributed systems problems live.</p>
+
+<p>Every seat in every screen in every theatre in every city has a lifecycle. At any given moment, a seat is in one of three states: available, locked, or booked.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>State</th>
+        <th>Meaning</th>
+        <th>Duration</th>
+        <th>Owner</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Available</td>
+        <td>No one has expressed interest; seat can be selected</td>
+        <td>Until selected or show starts</td>
+        <td>None</td>
+      </tr>
+      <tr>
+        <td>Locked</td>
+        <td>A user is in the process of booking; temporarily reserved</td>
+        <td>Typically 8–10 minutes</td>
+        <td>Specific user session</td>
+      </tr>
+      <tr>
+        <td>Booked</td>
+        <td>Payment confirmed; seat is permanently sold</td>
+        <td>Permanent until show</td>
+        <td>Specific booking ID</td>
+      </tr>
+      <tr>
+        <td>Expired Lock</td>
+        <td>User abandoned checkout; lock expired and seat released</td>
+        <td>Transitions back to Available</td>
+        <td>None</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The trickiest state is the Locked state. This is a temporary hold on a seat that gives a user time to complete checkout without another user stealing the seat. Getting this right requires careful engineering.</p>
+
+<p>The most natural implementation is to use a database column — a <code>locked_by</code> field and a <code>lock_expires_at</code> timestamp. When a user selects seats, you run an update that atomically sets these fields if the current state is <code>available</code>. If the update affects zero rows, the seat was already taken. If it affects one row, you have the lock.</p>
+
+<p>This works, but it has limitations at scale. Every seat selection generates database writes, and at peak load, thousands of these writes compete for the same rows. This creates lock contention in the database itself.</p>
+
+<p>A better approach is to move the locking layer out of the primary database and into Redis. Redis is single-threaded for its command execution, which makes it naturally suited for serializing concurrent lock requests. It also has native TTL support, which handles lock expiry automatically.</p>
+
+<a name="Seat.Locking.System.Deep.Dive"></a>
+<h2>Seat Locking System Deep Dive</h2>
+
+<p>The seat locking system deserves its own careful examination because it is where so many booking platforms fail.</p>
+
+<p>The locking flow looks like this:</p>
+
+<div class="mermaid">
+sequenceDiagram
+    participant U as User
+    participant BS as Booking Service
+    participant SL as Seat Lock Service
+    participant RD as Redis
+    participant IS as Inventory Service
+
+    U->>BS: Select seats A1 B2
+    BS->>IS: Check seat availability
+    IS->>RD: GET seat:show123:A1
+    RD&#8211;>>IS: null (available)
+    IS&#8211;>>BS: Seats available
+    BS->>SL: Acquire lock for A1 B2
+    SL->>RD: SET seat:show123:A1 userSession123 EX 600 NX
+    SL->>RD: SET seat:show123:B2 userSession123 EX 600 NX
+    RD&#8211;>>SL: OK
+    SL&#8211;>>BS: Lock acquired
+    BS&#8211;>>U: Seats locked for 10 min
+    U->>BS: Complete payment
+    BS->>IS: Mark seats as booked
+    IS->>RD: SET seat:show123:A1 BOOKED
+    IS->>RD: SET seat:show123:B2 BOOKED
+    IS&#8211;>>BS: Booking confirmed
+</div>
+
+
+<p>The <code>SET key value EX ttl NX</code> command in Redis is the workhorse here. <code>NX</code> means &ldquo;only set if not exists.&rdquo; This makes the operation atomic — if two users try to lock the same seat at the exact same millisecond, only one will succeed because Redis executes commands sequentially. The <code>EX 600</code> sets a 600-second expiry, which automatically releases the lock if the user abandons checkout.</p>
+
+<p>When a user selects multiple seats, all locks must be acquired as a unit. You cannot lock seat A1 successfully, fail to lock B2, and leave A1 locked — that creates phantom reservations. The lock service tries to acquire all requested seats atomically using a Redis transaction (MULTI/EXEC). If any lock fails, it rolls back all acquired locks and returns an error to the user.</p>
+
+<p>The TTL is a careful balance. Too short, and users run out of time mid-checkout. Too long, and abandoned sessions tie up inventory. Most ticketing platforms land somewhere between 8 and 15 minutes. BookMyShow shows a countdown timer to the user, which also creates a mild urgency nudge that improves checkout conversion.</p>
+
+<p>Lock failures happen in several scenarios. The most common is two users selecting the same seat simultaneously. The first one gets the lock; the second gets an error and is shown a message that the seat was just taken. The inventory display updates in near real-time to show the seat as unavailable.</p>
+
+<p>A subtler failure mode is the lock acquired but payment failing and the user retrying. In this case, the lock is still valid (the TTL has not expired), so the retry does not need to re-acquire. The booking service checks lock ownership before each payment attempt — if the lock is still held by the same session, it proceeds.</p>
+
+<p>What happens when the system crashes between locking and booking? Redis TTLs handle the cleanup — seats auto-expire. But if a payment was initiated before the crash, you need idempotency keys to ensure the payment is not charged twice on retry.</p>
+
+<a name="Booking.Workflow"></a>
+<h2>Booking Workflow</h2>
+
+<p>The complete booking journey is more complex than it appears. Here is the full flow:</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% =========================
+%% Movie Discovery
+%% =========================
+
+A[Open BookMyShow App];
+B[Detect City];
+C[Discover Movies];
+D[Select Movie];
+E[Browse Show Dates];
+F[Choose Theatre and Showtime];
+
+%% =========================
+%% Seat Selection
+%% =========================
+
+G[Load Interactive Seat Map];
+H[Select Seats];
+
+I{Seats Available?};
+
+J[Seats No Longer Available];
+
+K[Acquire Seat Lock];
+
+L{Lock Acquired?};
+
+%% =========================
+%% Checkout
+%% =========================
+
+M[Apply Offers and Coupons];
+N[Display Payment Screen];
+O[Choose Payment Method];
+P[Initiate Payment];
+
+Q{Payment Successful?};
+
+R[Retry Payment or Cancel];
+
+%% =========================
+%% Booking Completion
+%% =========================
+
+S[Confirm Booking];
+T[Mark Seats Booked<br/>and Release Lock];
+U[Generate Digital Ticket];
+V[Send Email and Push Notification];
+W[Display Booking Confirmation];
+
+X[Release Seat Lock];
+
+%% =========================
+%% User Journey
+%% =========================
+
+A &#8211;>|Launch App| B;
+B &#8211;>|Location Resolved| C;
+C &#8211;>|Movie Selected| D;
+D &#8211;>|View Showtimes| E;
+E &#8211;>|Choose Show| F;
+F &#8211;>|Load Seats| G;
+G &#8211;>|Seat Selection| H;
+
+H &#8211;> I;
+
+I &#8211;>|No| J;
+
+I &#8211;>|Yes| K;
+
+K &#8211;> L;
+
+L &#8211;>|No| J;
+
+L &#8211;>|Yes| M;
+
+M &#8211;> N;
+
+N &#8211;> O;
+
+O &#8211;> P;
+
+P &#8211;> Q;
+
+Q &#8211;>|No| R;
+
+Q &#8211;>|Yes| S;
+
+S &#8211;> T;
+
+T &#8211;> U;
+
+U &#8211;> V;
+
+V &#8211;> W;
+
+R &#8211;>|Retry| P;
+
+R &#8211;>|Cancel| X;
+
+%% =========================
+%% Node Styling
+%% =========================
+
+style A fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style B fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style C fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style D fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style E fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+style F fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff;
+
+style G fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style H fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+style K fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff;
+
+style I fill:#f59e0b,stroke:#b45309,stroke-width:5px,color:#ffffff;
+style L fill:#f59e0b,stroke:#b45309,stroke-width:5px,color:#ffffff;
+style Q fill:#f59e0b,stroke:#b45309,stroke-width:5px,color:#ffffff;
+
+style M fill:#06b6d4,stroke:#0e7490,stroke-width:4px,color:#ffffff;
+style N fill:#06b6d4,stroke:#0e7490,stroke-width:4px,color:#ffffff;
+style O fill:#06b6d4,stroke:#0e7490,stroke-width:4px,color:#ffffff;
+style P fill:#06b6d4,stroke:#0e7490,stroke-width:4px,color:#ffffff;
+
+style S fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff;
+style T fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff;
+style U fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff;
+style V fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff;
+style W fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff;
+
+style J fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff;
+style R fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff;
+style X fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff;
+
+%% =========================
+%% Link Styling
+%% =========================
+
+linkStyle 0,1,2,3,4,5,6 stroke:#2563eb,stroke-width:3px;
+linkStyle 7,9 stroke:#16a34a,stroke-width:4px;
+linkStyle 8,10,18 stroke:#ef4444,stroke-width:4px;
+linkStyle 11,12,13,14 stroke:#06b6d4,stroke-width:4px;
+linkStyle 15 stroke:#22c55e,stroke-width:5px;
+linkStyle 16,17,19,20 stroke:#22c55e,stroke-width:4px;
+
+</div>
+
+
+<p>Each step in this flow has its own failure modes and engineering considerations. Let us walk through the most important ones.</p>
+
+<p>When the user arrives at the seat map, they are seeing a snapshot of inventory. This snapshot is served from cache and can be a few seconds old. The real source of truth is checked only when they actually try to lock seats. This is intentional — serving the seat map from the live database for every viewer at peak load would be impossibly expensive.</p>
+
+<p>Offer and coupon validation happens after seat selection but before payment. This step queries the offers service to check eligibility. Common checks include minimum order value, applicable payment method, user eligibility (first booking, specific bank card offer), and offer inventory (some offers are limited to a certain number of uses).</p>
+
+<p>The payment initiation step is where the platform hands off to external payment processors. This handoff creates a window of uncertainty — the user&rsquo;s money might leave their account before BookMyShow can confirm the booking. Managing that window is the core of payment engineering.</p>
+
+<a name="Payment.Infrastructure"></a>
+<h2>Payment Infrastructure</h2>
+
+<p>Payment is the most failure-sensitive part of the system. Money is involved, so correctness is non-negotiable.</p>
+
+<div class="mermaid">
+flowchart TD
+    A[User selects payment] &#8211;> B[Payment Orchestrator]
+    B &#8211;> C{Select Gateway}
+    C &#8211;>|UPI| D[UPI Gateway]
+    C &#8211;>|Card| E[Card Processor]
+    C &#8211;>|Wallet| F[Wallet Service]
+    C &#8211;>|Net Banking| G[Net Banking Gateway]
+    D &#8211;> H{Payment Result}
+    E &#8211;> H
+    F &#8211;> H
+    G &#8211;> H
+    H &#8211;>|Success| I[Payment Capture]
+    H &#8211;>|Failure| J[Retry Logic]
+    H &#8211;>|Timeout| K[Async Status Check]
+    I &#8211;> L[Booking Confirmation]
+    J &#8211;>|Retry OK| I
+    J &#8211;>|Max Retries| M[Payment Failed]
+    K &#8211;>|Confirmed| I
+    K &#8211;>|Declined| M
+    M &#8211;> N[Release Seat Locks]
+    L &#8211;> O[Ticket Generation]
+
+    classDef orchestrator fill:#8E44AD,stroke:#6C3483,color:#fff
+    classDef gateway fill:#2980B9,stroke:#1F618D,color:#fff
+    classDef success fill:#27AE60,stroke:#1D8348,color:#fff
+    classDef error fill:#E74C3C,stroke:#922B21,color:#fff
+    classDef async fill:#F39C12,stroke:#B7770D,color:#fff
+
+    class B orchestrator
+    class D,E,F,G gateway
+    class I,L,O success
+    class M,N error
+    class K async
+</div>
+
+
+<p>The payment orchestrator sits between the booking service and multiple payment gateways. Its job is to select the right gateway, handle retries, manage idempotency, and reconcile the final state.</p>
+
+<p>Idempotency is critical. If a payment request is retried due to a network timeout, the gateway must recognize it as a duplicate and not charge the user twice. This is implemented using idempotency keys — a unique identifier generated per payment attempt that is passed to the gateway. Most modern gateways support this natively. The platform also maintains its own idempotency log to catch cases where the gateway does not.</p>
+
+<p>The hardest failure scenarios are the ones where the outcome is ambiguous.</p>
+
+<p>Payment timeout is the worst case. The user submits payment, the request goes to the gateway, and the response never comes back — either due to network failure or gateway timeout. At this point, the platform does not know if the payment went through. It starts an asynchronous status polling job that queries the gateway for the payment status. If the payment went through, it completes the booking. If it did not, it releases the seat locks. If the gateway never responds, the platform eventually sides with the user and releases the seats, then later reconciles if the payment did process.</p>
+
+<p>Payment success but booking failure is another dangerous scenario. The payment gateway confirms success, but the booking service crashes before writing to the database. The user has been charged but has no ticket. The reconciliation system catches this by comparing payment records against booking records and triggering a re-booking or refund automatically.</p>
+
+<p>Duplicate payment detection uses a combination of idempotency keys at the gateway level and deduplication logic in the payment service. Every payment event carries enough information to reconstruct the intent — user, booking ID, amount, method — and duplicate events are detected and discarded before they affect state.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Failure Scenario</th>
+        <th>Detection</th>
+        <th>Recovery</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Payment timeout (no response)</td>
+        <td>Client timeout + async polling</td>
+        <td>Poll gateway; confirm or release locks</td>
+      </tr>
+      <tr>
+        <td>Payment success, booking write fails</td>
+        <td>Reconciliation job</td>
+        <td>Re-attempt booking or auto-refund</td>
+      </tr>
+      <tr>
+        <td>Duplicate payment request</td>
+        <td>Idempotency key at gateway</td>
+        <td>Return original response, no double charge</td>
+      </tr>
+      <tr>
+        <td>Partial refund failure</td>
+        <td>Refund status monitoring</td>
+        <td>Retry refund with exponential backoff</td>
+      </tr>
+      <tr>
+        <td>Currency/amount mismatch</td>
+        <td>Pre-payment validation</td>
+        <td>Reject payment, show error to user</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Ticket.Generation.System"></a>
+<h2>Ticket Generation System</h2>
+
+<p>Once payment is confirmed and the booking is written to the database, ticket generation kicks off asynchronously. This is an event-driven process — the booking service publishes a <code>booking.confirmed</code> event, and the ticket service consumes it.</p>
+
+<p>The ticket service creates a unique ticket record that combines the booking ID, show details, seat details, and user details into a tamper-proof representation. A QR code is generated from a hash of this data — typically including the booking ID and a secret salt — so that a scanner at the theatre can verify authenticity without an internet connection.</p>
+
+<p>The QR code is embedded into a formatted PDF ticket, which is uploaded to object storage (something like S3). The ticket service then updates the booking record with the ticket URL, and the notification service delivers the ticket via email, SMS, and push notification.</p>
+
+<p>Ticket uniqueness is enforced at multiple levels. The booking ID is the primary identifier. The QR code is cryptographically derived from the booking ID plus a server secret, making it impossible to forge. At the theatre, scanners validate QR codes either online (checking against the booking database) or offline (verifying the cryptographic signature). Offline validation is important for venues with unreliable connectivity.</p>
+
+<a name="Notification.Infrastructure"></a>
+<h2>Notification Infrastructure</h2>
+
+<p>Notification is the last mile of the booking journey, and it has to be reliable even under high load. When ten thousand people book simultaneously during a flash sale, ten thousand confirmation messages need to go out.</p>
+
+<p>The notification system is entirely asynchronous and event-driven. It consumes events from Kafka and routes them to the appropriate channels based on user preferences and event type.</p>
+
+<div class="mermaid">
+flowchart LR
+    K[Kafka Events] &#8211;> NC[Notification Consumer]
+    NC &#8211;> R{Route by Channel}
+    R &#8211;> SMS[SMS Provider]
+    R &#8211;> EM[Email Provider]
+    R &#8211;> PN[Push Service]
+    SMS &#8211;> D1[Delivered]
+    EM &#8211;> D2[Delivered]
+    PN &#8211;> D3[Delivered]
+    D1 &#8211;> L[Delivery Log]
+    D2 &#8211;> L
+    D3 &#8211;> L
+
+    classDef kafka fill:#E74C3C,stroke:#922B21,color:#fff
+    classDef service fill:#2980B9,stroke:#1F618D,color:#fff
+    classDef delivery fill:#27AE60,stroke:#1D8348,color:#fff
+
+    class K kafka
+    class NC,R service
+    class SMS,EM,PN service
+    class D1,D2,D3,L delivery
+</div>
+
+
+<p>SMS is the highest priority channel because it is universally accessible — even users without smartphones receive it. The platform integrates with SMS aggregators that have direct connections to telecom operators. Delivery rates and latency are monitored closely.</p>
+
+<p>Email handles richer content — the full ticket PDF, event details, map links. Email is reliable but slower. For time-sensitive notifications (show cancellations, booking failures), email alone is not enough.</p>
+
+<p>Push notifications reach users who have the app installed and have granted notification permission. They are great for reminders — two hours before showtime, for example — but unreliable as the sole delivery mechanism because devices can be offline.</p>
+
+<p>The retry logic for notifications handles transient failures. If an SMS fails to deliver, the system retries with exponential backoff. After a configured number of retries, it falls back to an alternative channel. Delivery receipts are logged and surfaced in monitoring dashboards.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>The event-driven backbone is what holds the entire system together and makes it scalable. Nearly every major state transition in the platform generates an event, and those events drive downstream processing asynchronously.</p>
+
+<p>The key insight is that not everything needs to happen synchronously in the booking request path. What the user needs synchronously is the lock confirmation and the booking confirmation. Everything else — ticket generation, notification delivery, analytics recording, reward point crediting — can happen after the booking is confirmed.</p>
+
+<div class="mermaid">
+flowchart TD
+    BS[Booking Service] &#8211;>|booking.confirmed| K[Kafka]
+    PS[Payment Service] &#8211;>|payment.success| K
+    IS[Inventory Service] &#8211;>|inventory.updated| K
+    K &#8211;>|booking.confirmed| TS[Ticket Service]
+    K &#8211;>|booking.confirmed| NS[Notification Service]
+    K &#8211;>|booking.confirmed| RS[Rewards Service]
+    K &#8211;>|booking.confirmed| AN[Analytics]
+    K &#8211;>|payment.success| BS2[Booking Completion]
+    K &#8211;>|inventory.updated| SS[Search Index Updater]
+
+    classDef producer fill:#8E44AD,stroke:#6C3483,color:#fff
+    classDef kafka fill:#E74C3C,stroke:#922B21,color:#fff
+    classDef consumer fill:#27AE60,stroke:#1D8348,color:#fff
+
+    class BS,PS,IS producer
+    class K kafka
+    class TS,NS,RS,AN,BS2,SS consumer
+</div>
+
+
+<p>Kafka is the standard choice for this kind of event streaming because it provides durable, ordered, replayable event logs. If the notification service goes down, it does not lose events — it picks up from where it left off when it comes back. If a new downstream consumer needs to be added (say, a new loyalty program), it can replay historical events without any changes to the upstream services.</p>
+
+<p>The event schema design is important. Events should be self-contained — enough information to process without additional lookups wherever possible. A <code>booking.confirmed</code> event should carry the booking ID, user ID, show ID, seat list, payment amount, and timestamp. If the notification service has to make additional API calls to get this information, you have created hidden coupling and additional failure points.</p>
+
+<p>Dead letter queues handle poison pill events — events that consistently fail processing. Instead of blocking the entire consumer, failing events are routed to a separate queue for investigation and manual replay.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The data model reflects the domain hierarchy clearly. Here is a simplified version of the core schemas:</p>
+
+<pre><code class="sql">-- Core entities
+
+CREATE TABLE movies (
+  id           BIGSERIAL PRIMARY KEY,
+  title        VARCHAR(255) NOT NULL,
+  language     VARCHAR(50),
+  genre        VARCHAR(100),
+  duration_min INTEGER,
+  release_date DATE,
+  rating       VARCHAR(10),
+  created_at   TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE theatres (
+  id        BIGSERIAL PRIMARY KEY,
+  name      VARCHAR(255) NOT NULL,
+  city      VARCHAR(100) NOT NULL,
+  address   TEXT,
+  lat       DECIMAL(9,6),
+  lon       DECIMAL(9,6)
+);
+
+CREATE TABLE screens (
+  id          BIGSERIAL PRIMARY KEY,
+  theatre_id  BIGINT REFERENCES theatres(id),
+  name        VARCHAR(50),
+  total_seats INTEGER
+);
+
+CREATE TABLE shows (
+  id          BIGSERIAL PRIMARY KEY,
+  movie_id    BIGINT REFERENCES movies(id),
+  screen_id   BIGINT REFERENCES screens(id),
+  start_time  TIMESTAMPTZ NOT NULL,
+  language    VARCHAR(50),
+  format      VARCHAR(20) -- 2D, 3D, IMAX
+);
+
+CREATE TABLE seats (
+  id        BIGSERIAL PRIMARY KEY,
+  screen_id BIGINT REFERENCES screens(id),
+  row_label VARCHAR(5),
+  seat_num  INTEGER,
+  category  VARCHAR(20) -- REGULAR, PREMIUM, RECLINER
+);
+
+CREATE TABLE seat_inventory (
+  id         BIGSERIAL PRIMARY KEY,
+  show_id    BIGINT REFERENCES shows(id),
+  seat_id    BIGINT REFERENCES seats(id),
+  status     VARCHAR(20) DEFAULT 'AVAILABLE', -- AVAILABLE, LOCKED, BOOKED
+  locked_by  VARCHAR(100),
+  lock_exp   TIMESTAMPTZ,
+  booking_id BIGINT,
+  UNIQUE (show_id, seat_id)
+);
+
+CREATE TABLE bookings (
+  id           BIGSERIAL PRIMARY KEY,
+  user_id      BIGINT NOT NULL,
+  show_id      BIGINT REFERENCES shows(id),
+  total_amount DECIMAL(10,2),
+  status       VARCHAR(20), -- PENDING, CONFIRMED, CANCELLED
+  created_at   TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE payments (
+  id             BIGSERIAL PRIMARY KEY,
+  booking_id     BIGINT REFERENCES bookings(id),
+  amount         DECIMAL(10,2),
+  method         VARCHAR(50),
+  gateway        VARCHAR(50),
+  gateway_ref    VARCHAR(255),
+  status         VARCHAR(20), -- INITIATED, SUCCESS, FAILED, REFUNDED
+  idempotency_key VARCHAR(255) UNIQUE,
+  created_at     TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE tickets (
+  id         BIGSERIAL PRIMARY KEY,
+  booking_id BIGINT REFERENCES bookings(id),
+  qr_hash    VARCHAR(255) UNIQUE,
+  ticket_url TEXT,
+  issued_at  TIMESTAMPTZ DEFAULT now()
+);
+</code></pre>
+
+<p>Indexing is critical for performance. The most commonly queried paths are: find shows for a movie in a city, find available seats for a show, find bookings by user. Each of these needs appropriate composite indexes.</p>
+
+<pre><code class="sql">CREATE INDEX idx_shows_movie_city ON shows(movie_id) 
+  INCLUDE (screen_id, start_time);
+
+CREATE INDEX idx_seat_inventory_show ON seat_inventory(show_id, status)
+  WHERE status = 'AVAILABLE';
+
+CREATE INDEX idx_bookings_user ON bookings(user_id, created_at DESC);
+</code></pre>
+
+<p>The <code>seat_inventory</code> table is particularly hot during peak loads. It is read thousands of times per second and written frequently. Partitioning it by <code>show_id</code> or by date reduces the working set and improves cache hit rates.</p>
+
+<p>For very high-traffic shows, it is worth considering moving inventory management for that specific show to a dedicated shard — essentially giving a blockbuster show its own database slice for the booking period.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching is not an optimization in a system like this. It is a fundamental architectural requirement. Without aggressive caching, the platform would fall over on any moderately popular movie release.</p>
+
+<p>The caching hierarchy has multiple layers.</p>
+
+<p>The CDN layer handles static assets and semi-static content — movie posters, theatre logos, and even JSON API responses for movie listings that change infrequently. CDN caching dramatically reduces the load that reaches your origin servers.</p>
+
+<p>The application cache (Redis) handles more dynamic data. The movie catalog for a given city is cached for several minutes. Theatre schedules are cached for a few minutes. Show availability (the aggregate count of available seats for a show) is cached for 30–60 seconds.</p>
+
+<p>The most important caching insight is around seat map data. The seat map for a popular show is requested thousands of times per second when booking opens. If every request hits the database, you are in trouble. The solution is to cache the seat map aggressively and use event-driven invalidation — when a seat state changes, you publish an invalidation event, and the cache is refreshed from the database.</p>
+
+<p>But you do not want perfect freshness in the seat map cache. A few seconds of staleness is acceptable — the real enforcement happens at lock acquisition time. The seat map shows users an approximate view; the lock is what actually serializes access.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Data Type</th>
+        <th>Cache Layer</th>
+        <th>TTL</th>
+        <th>Invalidation Strategy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Movie metadata</td>
+        <td>CDN + Redis</td>
+        <td>1–24 hours</td>
+        <td>On catalog update</td>
+      </tr>
+      <tr>
+        <td>Theatre schedules</td>
+        <td>Redis</td>
+        <td>5–15 minutes</td>
+        <td>On schedule sync</td>
+      </tr>
+      <tr>
+        <td>Show availability count</td>
+        <td>Redis</td>
+        <td>30–60 seconds</td>
+        <td>On seat state change</td>
+      </tr>
+      <tr>
+        <td>Seat map snapshot</td>
+        <td>Redis</td>
+        <td>10–30 seconds</td>
+        <td>On any seat lock or booking</td>
+      </tr>
+      <tr>
+        <td>User session and lock</td>
+        <td>Redis</td>
+        <td>10 minutes (TTL)</td>
+        <td>Auto-expire</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Hotspot management is a specific problem during blockbuster releases. When a single show is being booked by a hundred thousand users simultaneously, even a cached seat map can become a thundering herd — every request refreshes the cache at the same time when it expires. The solution is staggered TTLs (each cache entry gets a random TTL jitter) and cache stampede prevention using techniques like probabilistic early expiration, where a single request is allowed to refresh the cache slightly before it expires.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>The platform must handle orders-of-magnitude traffic spikes with minimal preparation time. IPL finals tickets have gone on sale and been fully booked within 30 seconds. Major movie releases like RRR or Jawan created booking surges that stress-tested every component in the system.</p>
+
+<p>Horizontal scaling handles most of the compute-side problem. All the stateless services — movie catalog, search, booking — can be deployed on Kubernetes and scaled out by adding more pods. Kubernetes Horizontal Pod Autoscaler watches CPU and memory metrics and spins up pods within minutes.</p>
+
+<p>But scaling the stateful parts is harder. The database cannot be scaled out trivially. The seat lock service in Redis cannot easily be distributed without coordination overhead.</p>
+
+<p>For database scaling, the typical approach is read replicas for read-heavy queries (movie catalog, search) and connection pooling (PgBouncer) to prevent connection exhaustion. For write-heavy tables (seat_inventory, bookings during peak), you might use application-level sharding by show_id or partition by date.</p>
+
+<p>For the seat lock service, Redis Cluster provides horizontal scaling. Seat locks for different shows are naturally distributed across different Redis nodes, because the key space (show-specific seat keys) is not shared. This makes horizontal scaling of the lock service relatively straightforward.</p>
+
+<p>The real scaling challenge during IPL or blockbuster events is the booking service itself — the service that takes payment and writes the confirmed booking. This is a write-heavy, strongly-consistent workload. The approach is to pre-provision extra capacity ahead of known high-traffic events, use a queue-based buffer in front of the booking writer (so you can absorb bursts without dropping requests), and implement graceful degradation (if the booking service is near capacity, introduce a virtual queue UX so users wait their turn rather than seeing errors).</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Scaling Technique</th>
+        <th>Bottleneck Risk</th>
+        <th>Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Movie Catalog</td>
+        <td>CDN + horizontal pod scale</td>
+        <td>Low</td>
+        <td>Aggressive caching</td>
+      </tr>
+      <tr>
+        <td>Search</td>
+        <td>Elasticsearch cluster scale-out</td>
+        <td>Medium</td>
+        <td>Read replicas, result caching</td>
+      </tr>
+      <tr>
+        <td>Seat Lock (Redis)</td>
+        <td>Redis Cluster by key space</td>
+        <td>Medium at extreme peaks</td>
+        <td>Shard by show_id</td>
+      </tr>
+      <tr>
+        <td>Booking Writer</td>
+        <td>Queue buffering + pre-provisioning</td>
+        <td>High during flash sales</td>
+        <td>Virtual queue, DB sharding</td>
+      </tr>
+      <tr>
+        <td>Payment Orchestrator</td>
+        <td>Horizontal pod scale</td>
+        <td>Medium (gateway limits)</td>
+        <td>Multiple gateways, circuit breakers</td>
+      </tr>
+      <tr>
+        <td>Notification</td>
+        <td>Kafka consumer scale-out</td>
+        <td>Low</td>
+        <td>Partition parallelism</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Virtual queuing during peak events deserves more discussion because it is an important UX and engineering decision. Instead of letting all users simultaneously attempt booking (which overwhelms the system and leads to errors), you funnel them through a virtual queue — assign each user a position, let them through in batches, and give them a reliable estimate of their wait time. This converts a frustrating &ldquo;server error&rdquo; experience into a managed wait, and it lets the backend operate within its designed throughput.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>Reliability is about what happens when things break. And in a distributed system at this scale, things break regularly.</p>
+
+<p>The payment service is the most critical single point of failure. A payment service outage means no new bookings can complete. The mitigation is multiple payment gateway integrations — if one gateway is down, the orchestrator automatically routes to a fallback. Circuit breakers prevent hammering a failing gateway and give it time to recover.</p>
+
+<p>The database has primary-replica failover with automatic promotion. If the primary fails, a replica is promoted within seconds. This causes a brief write outage but preserves the integrity of all committed data.</p>
+
+<p>Redis failures are handled by Redis Sentinel or Cluster, which provides automatic failover. But a Redis failure during a booking creates a specific problem — all seat locks are gone. The recovery strategy here is to accept that the lock state is lost and let the locks expire naturally from the database side (you maintain a database-level lock record as a secondary source of truth, updated less frequently). During the recovery window, you run the system in a more conservative mode — tighter lock durations, no new lock acquisition until Redis is recovered.</p>
+
+<p>Monitoring and alerting are not afterthoughts. The platform runs dashboards for booking throughput, seat lock acquisition success rate, payment success rate, notification delivery rate, and database replication lag. Anomaly detection fires alerts when any of these metrics deviate significantly from baseline.</p>
+
+<a name="Security.Considerations"></a>
+<h2>Security Considerations</h2>
+
+<p>Ticket scalping through automated bots is a persistent problem. The platform uses several layers of defense. Rate limiting at the API Gateway level caps the number of booking requests per IP and per user account per minute. CAPTCHA challenges are triggered when behavioral signals suggest automation — unusually fast seat selection, repeated identical requests, IP address patterns matching known bot farms.</p>
+
+<p>Payment security follows PCI-DSS compliance requirements. Card data is tokenized — the platform never stores raw card numbers. All payment communication uses TLS. Fraud detection runs real-time checks on payment attempts, flagging unusual patterns like a new account with no history making a high-value booking, or the same card being used across many different accounts in a short window.</p>
+
+<p>Authentication uses short-lived JWTs with refresh token rotation. Sensitive operations like booking confirmation and refund initiation require re-authentication or OTP verification.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Every architectural decision in this system involves a tradeoff, and being explicit about those tradeoffs is what separates good engineers from great ones.</p>
+
+<p>Seat lock duration is a tradeoff between user experience and inventory efficiency. A longer lock gives users more time to complete checkout, reducing frustration. But it also ties up inventory longer, reducing availability for other users. The optimal value depends on your checkout conversion funnel — if 60% of users abandon after locking seats, shorter locks make sense. If most users who lock do complete, longer locks are fine.</p>
+
+<p>Caching versus freshness is a constant tension. A stale seat map might show a seat as available that is actually locked or booked. This leads to failed lock acquisitions — the user sees a seat, selects it, and then gets an error. Too aggressive caching creates a poor experience. Too little caching means the database cannot handle the load. The right answer is layers of caching with different TTLs and relying on the lock layer for correctness rather than the display layer.</p>
+
+<p>Consistency versus availability in the seat inventory is perhaps the most fundamental tradeoff in the whole system. During a network partition or a database failover, you have to choose: do you keep the system available for bookings (risking double-booking) or do you stop accepting bookings until consistency is restored (risking revenue loss)? Most production ticketing platforms choose consistency — they would rather lose bookings than create double-booking incidents, which require manual resolution and damage trust far more.</p>
+
+<a name="Technology.Stack"></a>
+<h2>Technology Stack</h2>
+
+<p>The technology choices for a platform like this are driven by specific performance and operational requirements.</p>
+
+<p>Java or Go for core services is a common choice. Java with Spring Boot offers a mature ecosystem for building distributed services, excellent database drivers, and strong observability tooling. Go offers lower memory overhead and faster startup times, which matters for services that scale in and out frequently.</p>
+
+<p>PostgreSQL is the primary relational store for bookings, inventory, and payments. It offers strong transactional guarantees, excellent JSON support for semi-structured data, and mature tooling for replication and failover.</p>
+
+<p>Redis serves as the seat locking layer and primary application cache. Its single-threaded execution model makes it safe for concurrent lock operations, and its native TTL support handles lock expiry cleanly.</p>
+
+<p>Kafka is the messaging backbone. Its durable log model means events are never lost, consumers can replay events, and multiple consumers can independently process the same event stream without coordination.</p>
+
+<p>Elasticsearch powers search and discovery. It handles fuzzy matching, geospatial queries (find theatres near me), and relevance ranking out of the box.</p>
+
+<p>Kubernetes provides the container orchestration layer — health checks, auto-scaling, rolling deployments, and resource isolation between services.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>BookMyShow is a classic system design interview question, and interviewers use it specifically because it surfaces knowledge of distributed systems, inventory management, and concurrency control.</p>
+
+<p>The most common mistake candidates make is jumping straight to a generic CRUD architecture without discussing the hard parts. Any entry-level engineer can describe a movies table and a bookings table. What separates a strong candidate is the discussion of seat locking, concurrent booking prevention, and payment consistency.</p>
+
+<p>Strong candidates ask clarifying questions first. What is the expected scale? Millions of daily users or thousands? What is the peak traffic scenario? Are we designing for a single city or the full platform? These questions signal that you understand the tradeoffs are scale-dependent.</p>
+
+<p>The seat locking discussion is where candidates reveal their depth. The progression from &ldquo;mark the seat as taken in the database&rdquo; to &ldquo;use SELECT FOR UPDATE with a transaction&rdquo; to &ldquo;move the lock to Redis for throughput&rdquo; to &ldquo;use Redis SET NX EX for atomic lock with auto-expiry&rdquo; demonstrates increasing sophistication at each step. Interviewers know this path and reward candidates who can articulate why each step improves on the last.</p>
+
+<p>Payment consistency is another differentiating topic. Explaining the payment-success-booking-failure scenario and proposing idempotency keys, event sourcing, and reconciliation jobs signals real production experience.</p>
+
+<p>Candidates should also be ready to discuss how they would handle a sudden 100x traffic spike. The answer should touch on auto-scaling compute, read replicas for the database, Redis Cluster for the lock layer, Kafka-based queue buffering for the booking writer, and CDN caching for static content. Mentioning virtual queuing as a UX mitigation for extreme spikes shows architectural thinking beyond pure backend concerns.</p>
+
+<p>Common weak answers include: &ldquo;We can cache everything,&rdquo; without explaining what happens to consistency. &ldquo;We can scale horizontally,&rdquo; without specifying which components and how. &ldquo;We use a distributed database,&rdquo; without discussing the consistency tradeoffs of that choice.</p>
+
+<p>The strongest answers treat the system as a collection of sub-problems, each with its own requirements, and demonstrate awareness that the solutions to those sub-problems interact — that your caching decisions affect your consistency guarantees, that your lock timeout affects your inventory turnover rate, that your payment retry logic must be idempotent or you risk charging users twice.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Building a production-grade ticketing platform is a masterclass in distributed systems engineering. Every component that looks simple on the surface hides significant complexity underneath.</p>
+
+<p>The seat locking problem is really a distributed mutual exclusion problem. The payment consistency problem is really a distributed transaction problem. The inventory synchronization problem with theatre partners is really a distributed state reconciliation problem. The flash-sale scaling problem is really a resource contention problem at extreme concurrency.</p>
+
+<p>What makes systems like BookMyShow interesting is not any single clever algorithm or architecture pattern. It is the way multiple hard problems interact with each other and must be solved coherently. A solution that handles seat locking correctly but breaks payment idempotency is not a solution. A system that scales brilliantly but allows double bookings has failed at its core purpose.</p>
+
+<p>The best engineers working on these systems develop a habit of asking &ldquo;what happens when this fails?&rdquo; at every step. They design for the failure mode, not just the happy path. And they understand that the right answer to almost every architectural question is &ldquo;it depends&rdquo; — on your scale, your consistency requirements, your user experience priorities, and the specific failure modes you are most afraid of.</p>
+
+<p>If you are preparing for a system design interview, do not memorize the architecture. Understand the problems it solves and why each design decision addresses a specific constraint. That understanding is what interviewers are probing for, and it is also what makes you a better engineer in practice.</p>
+]]></content>
+    </entry>
+    
+</feed>

@@ -102,6 +102,8 @@
             
                 <li><a class='category' href='/blog/categories/airline/'>airline</a></li>
             
+                <li><a class='category' href='/blog/categories/booking/'>booking</a></li>
+            
         
         </ul>
     </div>
@@ -315,7 +317,13 @@ graph TD
 
 <p>Airlines solve this with the Saga pattern. A saga is a sequence of local transactions, each with a compensating transaction that can undo it if a later step fails. The booking saga looks like this:</p>
 
-<p>Step 1: Lock inventory (compensating action: release lock). Step 2: Charge payment (compensating action: refund). Step 3: Generate ticket (compensating action: void ticket). Step 4: Issue PNR (compensating action: cancel PNR).</p>
+<ul>
+<li>Step 1: Lock inventory (compensating action: release lock).</li>
+<li>Step 2: Charge payment (compensating action: refund).</li>
+<li>Step 3: Generate ticket (compensating action: void ticket).</li>
+<li>Step 4: Issue PNR (compensating action: cancel PNR).</li>
+</ul>
+
 
 <p>If payment succeeds but ticket generation fails, the saga triggers the compensating actions in reverse order: the payment is refunded, the inventory lock is released. This ensures the system reaches a consistent state even when individual steps fail.</p>
 

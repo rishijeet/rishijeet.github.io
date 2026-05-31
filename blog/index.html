@@ -86,6 +86,80 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-bookmyshow-works/">How BookMyShow Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-31T13:40:29+05:30" pubdate><i class="fa fa-calendar"></i> May 31st, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/bookmyshow/'>bookmyshow</a></li>
+            
+                <li><a class='category' href='/blog/categories/movie/'>movie</a></li>
+            
+                <li><a class='category' href='/blog/categories/booking/'>booking</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>BookMyShow looks simple from the outside. You open the app, pick a movie, choose your seats, pay, and get a ticket. The whole thing takes about two minutes. But underneath that simple experience is one of the most technically demanding systems on the internet — a platform that needs to handle millions of concurrent users, prevent duplicate seat bookings, coordinate with thousands of theatres, process payments reliably, and generate tickets instantly, all without ever letting two people land on the same seat.</em></p></blockquote>
+
+<p><img src="/images/system_design/bookmyshow-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This is not a generic booking tutorial. This is an engineering walkthrough of how a production-scale ticketing platform actually works.</p>
+
+<a name="Why.Ticket.Booking.Is.Harder.Than.It.Looks"></a>
+<h2>Why Ticket Booking Is Harder Than It Looks</h2>
+
+<p>Most engineers underestimate ticket booking systems. At first glance it seems like a basic CRUD application — read seats, mark one as taken, take payment. But that mental model breaks down immediately under real-world conditions.</p>
+
+<p>Think about what happens when a blockbuster like a new Avengers film drops its tickets at midnight, or when IPL finals seats go live, or when a Taylor Swift concert in Mumbai opens for booking. In those moments, hundreds of thousands of users simultaneously hit the same endpoint, trying to grab the same finite set of seats. You are not dealing with a typical web workload anymore. You are dealing with a flash sale, and flash sales expose every weakness in your architecture.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-bookmyshow-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-indigo-booking-works/">How Indigo Booking Works?</a>
         </h1>
     
@@ -116,6 +190,8 @@
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
             
                 <li><a class='category' href='/blog/categories/airline/'>airline</a></li>
+            
+                <li><a class='category' href='/blog/categories/booking/'>booking</a></li>
             
             
         </ul>
@@ -355,78 +431,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-slack-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-apple-airtags-work/">How Apple Airtags Work?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-23T13:36:17+05:30" pubdate><i class="fa fa-calendar"></i> May 23rd, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/apple/'>apple</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a small white disc sitting on your key ring right now. It weighs eleven grams. It has no GPS chip, no cellular radio, and no Wi-Fi antenna. Its battery lasts over a year. And yet, if you drop your keys somewhere in downtown Tokyo, there is a very good chance you will get an accurate location update within minutes, without Apple ever knowing where your keys are.</em></p></blockquote>
-
-<p><img src="/images/system_design/airtags.webp" height="300" width="900" alt="Alt text" /></p>
-
-<p>That combination of properties is not magic. It is one of the most carefully engineered consumer-scale distributed systems in the world, and the design decisions behind it touch almost every interesting area of modern infrastructure: Bluetooth Low Energy networking, end-to-end encrypted relay systems, crowd-sourced location discovery, ultra-wideband spatial positioning, privacy-preserving cryptography, and a globally distributed event pipeline spanning hundreds of millions of devices.</p>
-
-<p>This blog walks through the full internal architecture of Apple AirTags, from the radio signals pulsing out of the hardware to the cloud infrastructure that receives, processes, and delivers location events back to owners. By the end, you should understand not just what AirTags do, but why each system is designed the way it is, what the tradeoffs are, and how this infrastructure scales to a network of over a billion Apple devices.</p>
-
-<a name="What.Apple.AirTags.Are.and.Why.They.Matter"></a>
-<h2>What Apple AirTags Are and Why They Matter</h2>
-
-<p>Before AirTags, tracking a lost item typically meant relying on GPS. GPS trackers work reasonably well outdoors but require cellular or Wi-Fi connectivity to upload their position, have batteries measured in days or weeks, and broadcast their presence loudly to anyone listening. They also cost more, require SIM cards in some cases, and fundamentally cannot work indoors where GPS signals are too weak.</p>
-
-<p>AirTags sidestep all of that. Instead of using their own GPS or cellular connection, they hitchhike on the massive installed base of Apple devices around them. An AirTag sitting inside a bag on a train broadcasts a short Bluetooth Low Energy advertisement packet. Every iPhone and iPad nearby receives that advertisement, silently looks up the AirTag&rsquo;s rotating public key, uses it to encrypt the current GPS position of the iPhone, and uploads that encrypted blob to Apple&rsquo;s servers. The AirTag&rsquo;s owner can then download that blob, decrypt it with the matching private key that only they hold, and recover the location.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-apple-airtags-work/">Read on &rarr;</a>
     </div>
 
         </article>
