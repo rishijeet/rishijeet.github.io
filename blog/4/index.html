@@ -86,6 +86,78 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-stock-exchange-works/">How Stock Exchange Works?</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-18T08:40:23+05:30" pubdate><i class="fa fa-calendar"></i> May 18th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/trading-system/'>trading_system</a></li>
+            
+                <li><a class='category' href='/blog/categories/ultra-low-latency/'>ultra_low_latency</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is a moment, roughly once every market quarter, where some piece of news hits the wire and millions of traders hit their buy or sell buttons simultaneously. The exchange absorbs that shock. Prices move. Trades match. Confirmations fly back in milliseconds. Nobody on the outside thinks twice about it.</em></p></blockquote>
+
+<p>But if you crack open what actually happened in those milliseconds, you find one of the most carefully engineered distributed systems ever built. Stock exchanges are not just websites that match buyers and sellers. They are real-time, deterministic, ultra-low-latency financial infrastructure where a microsecond of delay can represent thousands of dollars of opportunity lost, and where a single bug in the matching engine can destabilize an entire market.</p>
+
+<p><img src="/images/system_design/stock-exchange.webp" height="300" width="900" alt="Alt text" /></p>
+
+<p>This blog is for engineers who want to understand what is actually happening under the hood. We will start from first principles and work our way through every major subsystem, from order entry to trade settlement, touching on the hardware, software, data structures, and architectural tradeoffs that make modern exchanges tick.</p>
+
+<a name="Why.This.Problem.Is.Hard"></a>
+<h2>Why This Problem Is Hard</h2>
+
+<p>Before jumping into architecture, it helps to understand the constraints.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-stock-exchange-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-amazon-s3-works/">How Amazon S3 Works?</a>
         </h1>
     
@@ -118,6 +190,8 @@
                 <li><a class='category' href='/blog/categories/aws/'>aws</a></li>
             
                 <li><a class='category' href='/blog/categories/s3/'>s3</a></li>
+            
+                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
             
             
         </ul>
@@ -185,6 +259,8 @@
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
             
                 <li><a class='category' href='/blog/categories/kafka/'>kafka</a></li>
+            
+                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
             
             
         </ul>
@@ -254,6 +330,8 @@
                 <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
             
                 <li><a class='category' href='/blog/categories/pastebin/'>pastebin</a></li>
+            
+                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
             
             
         </ul>
@@ -333,6 +411,12 @@
             
                 <li><a class='category' href='/blog/categories/tinder/'>tinder</a></li>
             
+                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
+            
+                <li><a class='category' href='/blog/categories/chat/'>chat</a></li>
+            
+                <li><a class='category' href='/blog/categories/social-media/'>social_media</a></li>
+            
             
         </ul>
     </div>
@@ -364,74 +448,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-tinder-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-nginx-works/">How NGINX Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-16T14:13:47+05:30" pubdate><i class="fa fa-calendar"></i> May 16th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/nginx/'>nginx</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a good chance that every HTTP request you have made today passed through NGINX at some point. It might have been serving a static file, forwarding your request to a backend application, terminating TLS, or quietly balancing your traffic across a dozen servers. NGINX sits at the heart of a staggering amount of internet infrastructure, and yet most engineers interact with it only through config files without fully understanding what is happening underneath.</em></p></blockquote>
-
-<p>This blog is a deep dive into how NGINX actually works. Not just what it does, but why it was built the way it was, what engineering problems it solves, how it interacts with the Linux kernel, and what makes it so exceptionally fast even under enormous load. By the end, you should have the kind of intuition that lets you reason about NGINX the way a systems engineer would.</p>
-
-<p><img src="/images/system_design/nginx.jpeg" height="300" width="900" alt="Alt text" /></p>
-
-<a name="Why.NGINX.Exists.at.All"></a>
-<h2>Why NGINX Exists at All</h2>
-
-<p>To understand NGINX, you have to understand the world it was born into. In the early 2000s, Apache HTTP Server was the dominant web server. Apache worked on a model where every incoming connection spawned either a new process or a new thread. For a few thousand requests, this was fine. But as web traffic started growing, engineers ran into a hard wall known as the C10K problem — how do you handle 10,000 simultaneous connections on a single server?</p>
-
-
-        <a class="btn pull-right" href="/blog/how-nginx-works/">Read on &rarr;</a>
     </div>
 
         </article>

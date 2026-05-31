@@ -1,0 +1,1359 @@
+<!doctype html>
+    <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+    <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+    <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+    
+      
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>How MakeMyTrip Travel Planner Works? - Rishijeet Mishra | Technologist | Tech Trends & Development Blog</title>
+        <meta name="author" content="Rishijeet Mishra">
+        
+        <meta name="description" content="Bridging tech and education - Rishijeet Mishra's insights on digital learning">
+        
+        <meta name="viewport" content="width=device-width">
+        <meta name="google-site-verification" content="k3jIYcr9jzBS7xC3F_CC0Eqc-szFtcR-JBr1Wwqnk6w" />
+        <link rel="canonical" href="https://rishijeet.github.io/blog/how-makemytrip-travel-planner-works">
+
+        <link href='https://fonts.googleapis.com/css?family=Droid+Serif:400,400italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans" rel="stylesheet" type="text/css">
+
+        
+        <link href="/favicon.svg" rel="icon">
+        <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet">
+        <link href="/stylesheets/style.css" rel="stylesheet">
+         <!--adding the font awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+        <link href="" rel="alternate" title="Rishijeet Mishra | Technologist | Tech Trends & Development Blog" type="application/atom+xml">
+    </head>
+
+
+    <body >
+
+        <header id="header">
+    <div class="row">
+    <div class="col-xs-12 col-sm-8 col-md-4">
+        <a href="/" class="site-title">Rishijeet Mishra</a>
+    </div>
+    <div class="col-xs-12 col-sm-4 col-md-8">
+    <nav>
+    <input type="checkbox" id="toggle">
+    <label for="toggle" class="toggle" data-open="Main Menu" data-close="Close Menu"></label>
+    <ul class="menu">
+    <li><a href="/">Home</a></li>
+    <li><a href="/blog/">Blog</a></li>
+    <li><a href="/system-design/">System Design</a></li>
+    <li><a href="/blog/archives/">Archive</a></li>
+</ul>
+
+</nav>
+
+    </div>
+</div>
+
+</header>
+
+
+        <div id="main-content">
+
+            
+
+            
+
+            <div class="row top-xs center-sm center-md center-lg site-wrapper">
+                
+                <div class="col-xs-12 col-lg-10">
+                
+                    <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet" type='text/css'>
+<article class="article article--single">
+    <header class="article__header">
+    
+        <h1 class="article__title">How MakeMyTrip Travel Planner Works?</h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-31T18:53:45+05:30" pubdate><i class="fa fa-calendar"></i> May 31st, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/travel/'>travel</a></li>
+            
+                <li><a class='category' href='/blog/categories/booking/'>booking</a></li>
+            
+                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
+            
+        
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <blockquote><p><em>Most engineers, when they think about travel technology, imagine a flight search engine. You pick a source, a destination, a date, and the system returns a list of flights sorted by price. That is a solved problem. The hard part is what comes after.</em></p></blockquote>
+
+<p><img src="/images/system_design/makemytrip-banner.avif" height="300" width="900" alt="Alt text" /></p>
+
+<p>A vacation planning platform is an entirely different beast. When a user opens MakeMyTrip and says &ldquo;plan me a 7-day trip to Rajasthan,&rdquo; the system has to figure out which cities to include, which attractions to prioritize, how to sequence the days so a traveler is not criss-crossing the map inefficiently, when flights are cheapest, which hotels have availability near the right areas, what local tours are available on which days, how to get from the airport to the hotel, how to price all of this as a coherent bundle, and then orchestrate bookings across a dozen different vendors without any single failure unraveling the whole thing.</p>
+
+<p>That is not a search problem. That is a large-scale optimization problem sitting on top of a distributed marketplace, layered with personalization, real-time inventory, and multi-vendor payment reconciliation.</p>
+
+<p>The evolution from &ldquo;book a flight&rdquo; to &ldquo;plan my vacation&rdquo; happened because travelers stopped wanting to assemble trips themselves. Researching destinations takes hours. Cross-referencing hotel availability with flight times is tedious. Figuring out which Jaisalmer fort tours run on which days requires visiting five different websites. A modern travel planner absorbs all of that complexity and surfaces a coherent, personalized plan.</p>
+
+<!--more-->
+
+
+<p>This blog is a deep technical walkthrough of how that works, starting from how destinations get discovered and ranked, through how itineraries are algorithmically generated, all the way to how a payment across three different vendors gets reconciled without leaving a user in a half-booked state.</p>
+
+<a name="Core.Features.of.the.Platform"></a>
+<h2>Core Features of the Platform</h2>
+
+<p>Before diving into architecture, it helps to be precise about what the platform actually does. These are not abstract features; each one translates into a distinct engineering subsystem.</p>
+
+<p>Destination discovery is the entry point. A user might know they want a beach vacation or a hill station or a heritage city. The platform has to map vague intent to specific, rankable destinations and surface the right one for that traveler&rsquo;s history, budget, and time of year.</p>
+
+<p>Vacation package creation is bundling. Flight plus hotel plus transfers plus activities into a single priced unit. This sounds simple but involves solving a multi-dimensional optimization problem across live inventory.</p>
+
+<p>AI itinerary generation is the core differentiator. Given a destination, a duration, a budget, and a set of preferences, generate a day-by-day plan that is geographically sensible, temporally realistic, and personally relevant.</p>
+
+<p>Flight and hotel aggregation pull from dozens of suppliers and present unified search results. The hard part is latency, consistency, and handling the inevitable discrepancy between what an API says is available and what is actually bookable.</p>
+
+<p>Activities and local transportation are the long tail. Thousands of individual tour operators and cab vendors need to be connected to a single platform with unified inventory and real-time availability.</p>
+
+<p>Budget optimization threads pricing constraints through every layer of the system, from destination ranking to hotel tier selection to activity choices.</p>
+
+<p>Trip collaboration lets multiple travelers contribute to and agree on a shared itinerary, which introduces concurrency and conflict resolution challenges.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>The platform is built around a set of specialized services, each owning a discrete domain. These services communicate synchronously for user-facing flows and asynchronously via an event bus for downstream processing.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% ==================================================
+%% CLIENTS
+%% ==================================================
+
+subgraph Clients[&#8220;CLIENT APPLICATIONS&#8221;]
+    MOB[&#8220;Mobile App&#8221;]
+    WEB[&#8220;Web Application&#8221;]
+end
+
+%% ==================================================
+%% ACCESS LAYER
+%% ==================================================
+
+subgraph Access[&#8220;ACCESS & SECURITY&#8221;]
+    GW[&#8220;API Gateway&#8221;]
+    AUTH[&#8220;Authentication Service&#8221;]
+end
+
+%% ==================================================
+%% DISCOVERY & PLANNING
+%% ==================================================
+
+subgraph Planning[&#8220;DISCOVERY & TRIP PLANNING&#8221;]
+    DEST[&#8220;Destination Service&#8221;]
+    ITIN[&#8220;Itinerary Engine&#8221;]
+    REC[&#8220;Recommendation Engine&#8221;]
+    PKG[&#8220;Package Builder&#8221;]
+end
+
+%% ==================================================
+%% INVENTORY NETWORK
+%% ==================================================
+
+subgraph Inventory[&#8220;INVENTORY NETWORK&#8221;]
+    FLIGHT[&#8220;Flight Aggregator&#8221;]
+    HOTEL[&#8220;Hotel Aggregator&#8221;]
+    ACT[&#8220;Activity Service&#8221;]
+    TRANS[&#8220;Transportation Service&#8221;]
+end
+
+%% ==================================================
+%% BOOKING PLATFORM
+%% ==================================================
+
+subgraph Booking[&#8220;BOOKING PLATFORM&#8221;]
+    BOOK[&#8220;Booking Orchestrator&#8221;]
+    PRICE[&#8220;Dynamic Pricing&#8221;]
+    PAY[&#8220;Payment Service&#8221;]
+end
+
+%% ==================================================
+%% EVENT ECOSYSTEM
+%% ==================================================
+
+subgraph Events[&#8220;EVENT ECOSYSTEM&#8221;]
+    KAFKA[&#8220;Kafka Event Bus&#8221;]
+    NOTIF[&#8220;Notification Service&#8221;]
+    ANALYTICS[&#8220;Analytics Platform&#8221;]
+end
+
+%% ==================================================
+%% DATA PLATFORM
+%% ==================================================
+
+subgraph Data[&#8220;DATA PLATFORM&#8221;]
+    REDIS[&#8220;Redis Cache&#8221;]
+    ES[&#8220;Elasticsearch&#8221;]
+    PG[&#8220;PostgreSQL&#8221;]
+    S3[&#8220;Object Storage&#8221;]
+end
+
+%% ==================================================
+%% USER JOURNEY
+%% ==================================================
+
+MOB &#8211;> GW
+WEB &#8211;> GW
+
+GW &#8211;> AUTH
+GW &#8211;> DEST
+GW &#8211;> ITIN
+GW &#8211;> REC
+GW &#8211;> BOOK
+
+%% Planning Flow
+ITIN &#8211;> DEST
+ITIN &#8211;> REC
+
+DEST &#8211;> ES
+REC &#8211;> REDIS
+
+%% Package Assembly
+PKG &#8211;> FLIGHT
+PKG &#8211;> HOTEL
+PKG &#8211;> ACT
+PKG &#8211;> TRANS
+
+%% Booking Journey
+BOOK &#8211;> PRICE
+BOOK &#8211;> PAY
+BOOK &#8211;> PG
+
+%% Events
+BOOK &#8211;>|&#8221;Booking Events&#8221;| KAFKA
+
+KAFKA &#8211;> NOTIF
+KAFKA &#8211;> ANALYTICS
+
+%% ==================================================
+%% NODE STYLING
+%% ==================================================
+
+%% Clients
+style MOB fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style WEB fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Access Layer
+style GW fill:#0891b2,stroke:#0e7490,stroke-width:5px,color:#ffffff
+style AUTH fill:#0891b2,stroke:#0e7490,stroke-width:4px,color:#ffffff
+
+%% Planning Layer
+style DEST fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style ITIN fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff
+style REC fill:#84cc16,stroke:#4d7c0f,stroke-width:5px,color:#ffffff
+style PKG fill:#65a30d,stroke:#3f6212,stroke-width:4px,color:#ffffff
+
+%% Inventory
+style FLIGHT fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style HOTEL fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style ACT fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style TRANS fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+
+%% Booking
+style BOOK fill:#f97316,stroke:#c2410c,stroke-width:6px,color:#ffffff
+style PRICE fill:#fb923c,stroke:#c2410c,stroke-width:4px,color:#ffffff
+style PAY fill:#fb923c,stroke:#c2410c,stroke-width:4px,color:#ffffff
+
+%% Events
+style KAFKA fill:#dc2626,stroke:#991b1b,stroke-width:6px,color:#ffffff
+style NOTIF fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff
+style ANALYTICS fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff
+
+%% Data
+style REDIS fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff
+style ES fill:#8b5cf6,stroke:#6d28d9,stroke-width:4px,color:#ffffff
+style PG fill:#7c3aed,stroke:#5b21b6,stroke-width:5px,color:#ffffff
+style S3 fill:#a855f7,stroke:#7e22ce,stroke-width:4px,color:#ffffff
+
+%% ==================================================
+%% LINK STYLING
+%% ==================================================
+
+linkStyle 0 stroke:#2563eb,stroke-width:3px
+linkStyle 1 stroke:#2563eb,stroke-width:3px
+
+linkStyle 2 stroke:#0891b2,stroke-width:4px
+linkStyle 3 stroke:#16a34a,stroke-width:4px
+linkStyle 4 stroke:#16a34a,stroke-width:4px
+linkStyle 5 stroke:#16a34a,stroke-width:4px
+linkStyle 6 stroke:#f97316,stroke-width:5px
+
+linkStyle 7 stroke:#22c55e,stroke-width:4px
+linkStyle 8 stroke:#22c55e,stroke-width:4px
+
+linkStyle 9 stroke:#9333ea,stroke-width:3px
+linkStyle 10 stroke:#9333ea,stroke-width:3px
+
+linkStyle 11 stroke:#ec4899,stroke-width:3px
+linkStyle 12 stroke:#ec4899,stroke-width:3px
+linkStyle 13 stroke:#ec4899,stroke-width:3px
+linkStyle 14 stroke:#ec4899,stroke-width:3px
+
+linkStyle 15 stroke:#f97316,stroke-width:5px
+linkStyle 16 stroke:#f97316,stroke-width:5px
+linkStyle 17 stroke:#f97316,stroke-width:5px
+
+linkStyle 18 stroke:#dc2626,stroke-width:6px
+linkStyle 19 stroke:#ef4444,stroke-width:4px
+linkStyle 20 stroke:#ef4444,stroke-width:4px
+
+</div>
+
+
+<p>The API gateway handles authentication, rate limiting, and routing. Every inbound request is authenticated before reaching a downstream service. Rate limiting happens at the gateway level so no single user can saturate an expensive external API call.</p>
+
+<p>The planning layer is the intelligence of the system. These services do not own bookings; they produce recommendations, itineraries, and packages. The booking layer is where money changes hands, and it is intentionally separate to keep the transactional surface area isolated.</p>
+
+<p>The event bus connects everything that does not need to happen synchronously. When a booking is confirmed, an event propagates to the notification service, the analytics platform, the loyalty system, and the supplier confirmation handlers. None of these need to block the user-facing booking response.</p>
+
+<a name="Destination.Discovery.Engine"></a>
+<h2>Destination Discovery Engine</h2>
+
+<p>A destination catalog is deceptively complex. At the surface it looks like a database of cities with descriptions and photos. In practice it is a multi-dimensional index of places annotated with travel metadata, seasonality curves, activity categories, average price tiers, travel time from major origin cities, visa requirements, weather patterns, and popularity signals.</p>
+
+<p>The catalog is stored in Elasticsearch because destination search needs full-text matching combined with faceted filtering and geographic proximity queries. A user searching &ldquo;beach destination under 30,000 for 5 days from Mumbai in December&rdquo; is issuing a query that combines free text, budget constraints, duration constraints, geographic proximity, and seasonal availability simultaneously. A relational database cannot serve this efficiently at scale.</p>
+
+<p>Each destination has a popularity score that is computed offline and refreshed periodically. The score is a weighted composite of booking volume over the trailing 90 days, search volume, social signal proxies, and editorial curation. The weighting shifts by season. Goa&rsquo;s score in December is significantly higher than in July. Manali&rsquo;s score in January is high for winter travelers but low for beach seekers.</p>
+
+<p>Destination ranking for a specific query combines the base popularity score with a personalization layer. A user who has previously booked heritage city trips will see Jaipur ranked higher than someone whose history shows beach destinations. The personalization multiplier is computed by the recommendation engine and applied at query time against the Elasticsearch base ranking.</p>
+
+<p>The separation between base ranking and personalization multiplier is an intentional architectural choice. Base ranking is computed in batch and cached. Personalization multipliers are computed per-user but can also be cached based on user segment. This means a destination search can return results in under 200 milliseconds even with personalization applied.</p>
+
+<p>Seasonality modeling deserves its own discussion. Each destination has a seasonality curve modeled as a time series of demand indices across the calendar year. This curve is used in two places: to surface appropriate destinations in discovery (you do not want to recommend Spiti Valley in January to a casual traveler) and to adjust pricing in the dynamic pricing engine. The curve is learned from historical booking data and manually adjusted by destination managers for edge cases like major events.</p>
+
+<a name="AI-Powered.Recommendation.System"></a>
+<h2>AI-Powered Recommendation System</h2>
+
+<p>Recommendation is the system that makes the platform feel personalized. The challenge is that travel recommendations are harder than movie recommendations for a fundamental reason: frequency. A user might book travel twice a year. This means you have very few direct signals about their preferences, and those signals are separated by months.</p>
+
+<p>The recommendation engine layers multiple signal sources to compensate for sparse direct data.</p>
+
+<p>Collaborative filtering identifies users with similar travel profiles and recommends destinations those users enjoyed. If users who booked Rishikesh also frequently book Mcleod Ganj and Bir Billing, the system learns that this cluster of adventure and spiritual destinations belongs together. A new user who books Rishikesh gets recommendations for the others.</p>
+
+<p>Content-based filtering operates on destination attributes. If a user has shown interest in hill stations with trekking and local markets, the system scores unvisited destinations by how closely they match those attribute vectors.</p>
+
+<p>Behavioral signals are richer than explicit bookings. Search queries, destination page dwell time, itinerary views, saved trips, and price alert creation all carry signal. A user who spent 15 minutes reading about Ladakh but did not book is a strong signal of intent that the system should capture.</p>
+
+<p>The cold start problem is real and common. A new user has no history. The platform handles this through onboarding preference collection (asking about trip style, budget range, travel companions, interests) and by defaulting to demographically segmented recommendations based on origin city, age range, and device type. A new user from Bengaluru in their late twenties gets different defaults than one from Kolkata in their fifties.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% =========================
+%% USER SIGNALS
+%% =========================
+subgraph Signals[&#8220;USER SIGNALS&#8221;]
+    BS[&#8220;Booking History&#8221;]
+    SS[&#8220;Search History&#8221;]
+    BH[&#8220;Browse Behavior&#8221;]
+    OP[&#8220;Onboarding Preferences&#8221;]
+end
+
+%% =========================
+%% RECOMMENDATION MODELS
+%% =========================
+subgraph Models[&#8220;RECOMMENDATION MODELS&#8221;]
+    CF[&#8220;Collaborative Filtering&#8221;]
+    CB[&#8220;Content-Based Filtering&#8221;]
+    SEQ[&#8220;Sequential Behavior Model&#8221;]
+    POP[&#8220;Popularity Baseline&#8221;]
+end
+
+%% =========================
+%% RANKING PIPELINE
+%% =========================
+subgraph Ranking[&#8220;RANKING PIPELINE&#8221;]
+    MR[&#8220;Model Ranker&#8221;]
+    PR[&#8220;Personalization Re-Ranker&#8221;]
+    BR[&#8220;Business Rules Filter&#8221;]
+end
+
+%% =========================
+%% RESULTS
+%% =========================
+subgraph Results[&#8220;RECOMMENDATION OUTPUT&#8221;]
+    DR[&#8220;Destination Results&#8221;]
+    HR[&#8220;Hotel Results&#8221;]
+    AR[&#8220;Activity Results&#8221;]
+end
+
+%% =========================
+%% SIGNAL FLOW
+%% =========================
+BS &#8211;> CF
+SS &#8211;> SEQ
+BH &#8211;> CB
+OP &#8211;> POP
+
+%% =========================
+%% MODEL ENSEMBLE
+%% =========================
+CF &#8211;> MR
+CB &#8211;> MR
+SEQ &#8211;> MR
+POP &#8211;> MR
+
+%% =========================
+%% RANKING FLOW
+%% =========================
+MR &#8211;> PR
+PR &#8211;> BR
+
+%% =========================
+%% OUTPUTS
+%% =========================
+BR &#8211;> DR
+BR &#8211;> HR
+BR &#8211;> AR
+
+%% =========================
+%% STYLING
+%% =========================
+
+%% Signals
+style BS fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style SS fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style BH fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style OP fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Models
+style CF fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style CB fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style SEQ fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style POP fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+
+%% Ranking
+style MR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+style PR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+style BR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+
+%% Output
+style DR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style HR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style AR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+
+%% =========================
+%% LINK STYLING
+%% =========================
+
+linkStyle 0 stroke:#2563eb,stroke-width:3px
+linkStyle 1 stroke:#2563eb,stroke-width:3px
+linkStyle 2 stroke:#2563eb,stroke-width:3px
+linkStyle 3 stroke:#2563eb,stroke-width:3px
+
+linkStyle 4 stroke:#7c3aed,stroke-width:4px
+linkStyle 5 stroke:#7c3aed,stroke-width:4px
+linkStyle 6 stroke:#7c3aed,stroke-width:4px
+linkStyle 7 stroke:#7c3aed,stroke-width:4px
+
+linkStyle 8 stroke:#ec4899,stroke-width:5px
+linkStyle 9 stroke:#ec4899,stroke-width:5px
+
+linkStyle 10 stroke:#16a34a,stroke-width:4px
+linkStyle 11 stroke:#16a34a,stroke-width:4px
+linkStyle 12 stroke:#16a34a,stroke-width:4px
+
+</div>
+
+
+<p>The ranking layer sits above the model outputs. Raw model scores are combined using a learned ensemble weight and then passed through a re-ranker that applies business rules. Business rules include things like &ldquo;do not recommend a destination for which the user has already completed a trip in the last 12 months&rdquo; or &ldquo;boost destinations with promotional pricing active.&rdquo; These rules are kept separate from the model to allow rapid iteration without retraining.</p>
+
+<p>Recommendation quality is measured through a combination of offline metrics (precision, recall, NDCG on held-out booking data) and online A/B metrics (click-through rate on recommended destinations, conversion to booked trips, and post-trip satisfaction scores). The online metrics lag by weeks or months because the conversion cycle is slow. This makes recommendation system iteration in travel harder than in e-commerce.</p>
+
+<a name="Itinerary.Generation.Engine"></a>
+<h2>Itinerary Generation Engine</h2>
+
+<p>This is where the hardest engineering happens. Generating a coherent, realistic, enjoyable itinerary for an unfamiliar city is a planning problem, not just a retrieval problem.</p>
+
+<p>The input is a destination (or set of destinations), a duration, a set of traveler preferences, and a budget constraint. The output is a day-by-day schedule with specific attractions, meals, transit suggestions, and approximate timings.</p>
+
+<p>The first step is attraction selection. The platform maintains a catalog of points of interest for every supported destination, annotated with category (heritage, adventure, nature, food, shopping), average visit duration, opening hours, best time of day to visit, price, distance from common hotel zones, and quality scores derived from reviews.</p>
+
+<p>Given a 5-day Rajasthan trip covering Jaipur and Jodhpur, the system needs to select from hundreds of candidate attractions and decide which ones to include. This is a variant of the orienteering problem in combinatorial optimization. You have a set of locations with values and time costs, a time budget, and you want to maximize total value while respecting the budget. Solving this exactly for hundreds of candidates is computationally intractable. The platform uses a greedy construction heuristic followed by a local search refinement.</p>
+
+<p>The greedy phase clusters attractions by geographic proximity. Jaipur&rsquo;s Amber Fort, Jaigarh Fort, and Nahargarh Fort are in the same northern cluster. City Palace, Hawa Mahal, and Jantar Mantar are in the central cluster. The system assigns clusters to days to minimize travel time between attractions on the same day.</p>
+
+<p>The local search phase improves the initial solution by trying swaps: replace one attraction with an unselected one and keep the swap if it improves the overall score. The score function incorporates attraction quality, traveler preference match, variety (not three temples in a row), and schedule feasibility (accounting for opening hours and realistic transit times between attractions).</p>
+
+<p>Transit time calculation deserves explicit attention. Many itinerary systems use straight-line distance as a proxy for travel time, which produces wildly unrealistic schedules in dense cities. A production system calls a routing API at itinerary generation time to get real road travel estimates between consecutive attractions, incorporating typical traffic conditions for the time of day.</p>
+
+<div class="mermaid">
+graph TD
+    INPUT[User Inputs: Destination, Duration, Budget, Preferences]
+    AC[Attraction Catalog Query]
+    GC[Geographic Clustering]
+    GP[Greedy Plan Construction]
+    TT[Transit Time Calculation]
+    LS[Local Search Optimization]
+    OB[Opening Hours Validation]
+    PREF[Preference Score Adjustment]
+    OUT[Final Itinerary]
+
+    INPUT &#8211;> AC
+    AC &#8211;> GC
+    GC &#8211;> GP
+    GP &#8211;> TT
+    TT &#8211;> LS
+    LS &#8211;> OB
+    OB &#8211;> PREF
+    PREF &#8211;> OUT
+
+    classDef input fill:#e94560,stroke:#fff,color:#fff
+    classDef process fill:#0f3460,stroke:#e94560,color:#fff
+    classDef output fill:#533483,stroke:#e94560,color:#fff
+
+    class INPUT input
+    class AC,GC,GP,TT,LS,OB,PREF process
+    class OUT output
+</div>
+
+
+<p>A practical example helps. A user wants 5 days in Kerala. The system identifies candidate destinations: Kochi, Munnar, Alleppey, Thekkady. It calculates road distances between them and realizes that Munnar and Thekkady are a 3-hour drive apart, while Kochi to Alleppey is 90 minutes. It constructs a routing sequence: Kochi on arrival day, Alleppey for two nights (houseboat), Thekkady for a day, Munnar for two nights, departure from Kochi. Attractions within each stop are then clustered by area and assigned to half-days.</p>
+
+<p>The system does not just stack attractions. It models realistic tourist energy. A heritage walk in the morning can be followed by a lighter museum visit or a food tour in the afternoon. Physically demanding treks are not placed back-to-back unless the user profile indicates high activity preference. Rest time is built into the schedule.</p>
+
+<p>Itinerary generation runs in under two seconds for a five-day trip. The constraint solving is done in memory using pre-fetched attraction data cached in Redis. The routing API calls are the latency bottleneck; the system batches them and runs them in parallel.</p>
+
+<a name="Vacation.Package.Builder"></a>
+<h2>Vacation Package Builder</h2>
+
+<p>Dynamic packaging is the process of assembling flight plus hotel plus activities into a priced bundle at the time of a user&rsquo;s request, rather than pre-defining fixed packages. This gives users flexibility while still allowing the platform to offer bundled pricing that is cheaper than booking each component separately.</p>
+
+<p>The package builder takes the output of the itinerary engine (a list of nights at each destination, activities, and transit legs) and queries the flight aggregator, hotel aggregator, and activity service simultaneously to find available inventory for each component.</p>
+
+<p>The pricing challenge is that each component has its own pricing model. Flights are priced dynamically and change by the hour. Hotels have base rates that change by night with minimum stay rules. Activities have fixed prices but limited availability. The bundle price has to remain coherent while reflecting real inventory costs.</p>
+
+<p>The platform computes a bundle discount by negotiating preferred rates with suppliers for bundled bookings. An airline might offer a 3% reduction on fares when sold as part of a hotel plus flight package because it guarantees seat fill. This preferred rate is encoded as a pricing rule applied at bundle construction time.</p>
+
+<p>Bundle profitability is tracked per package type. Some combinations are consistently high-margin (flight plus hotel for popular routes where the platform has preferred hotel rates). Others are low-margin but high in conversion (budget packages to high-demand destinations). The pricing engine uses this data to set minimum bundle margins dynamically.</p>
+
+<a name="Flight.Aggregation.System"></a>
+<h2>Flight Aggregation System</h2>
+
+<p>Flight search is a high-latency, high-volume operation. A single user search might fan out to a dozen airline APIs and three or four GDS (Global Distribution System) connections simultaneously.</p>
+
+<p>The aggregation service sends parallel requests to each supplier with a timeout. The timeout is typically set at 4-5 seconds. Suppliers that respond within the timeout contribute their results to the merged set. Suppliers that time out are excluded from that search. The user sees a &ldquo;searching more results&rdquo; indicator while the parallel fetches complete.</p>
+
+<p>Fare caching is critical. Airline APIs are rate-limited and charge per search in some configurations. Caching search results for short periods (typically 10-15 minutes) dramatically reduces API call volume. The cache key is a combination of origin, destination, date, passenger count, and cabin class. Cache hits serve results instantly; misses trigger a live search.</p>
+
+<p>The staleness risk is real. A fare cached 12 minutes ago might no longer be bookable. The platform handles this through a pre-booking availability check. Before showing the user a &ldquo;confirm booking&rdquo; screen, the system re-checks availability for the selected fare in real time. If the fare has changed or disappeared, the user sees the updated options.</p>
+
+<p>Price watch is a downstream feature built on top of the aggregation layer. When a user sets a fare alert, the system schedules periodic re-queries for that route and date combination, caching results and diffing against the previous query to detect price changes. These scheduled queries are distributed across time to avoid thundering herd effects on supplier APIs.</p>
+
+<a name="Hotel.Aggregation.System"></a>
+<h2>Hotel Aggregation System</h2>
+
+<p>Hotel inventory is even more complex than flights because the supply side is fragmented across property management systems, channel managers, and OTA connections.</p>
+
+<p>The hotel aggregator pulls inventory from OTA partners (who aggregate properties themselves), direct hotel API connections, and wholesale supplier feeds. Each source has different data models, availability refresh rates, and pricing structures.</p>
+
+<p>Inventory synchronization is the chronic challenge. A hotel might sell the last available room directly through its front desk at 3pm. The channel manager updates the OTA within minutes, but the OTA feed to MakeMyTrip might only refresh every 15 minutes. During that window, the platform might show availability that no longer exists.</p>
+
+<p>The platform handles this through a two-stage commitment model. When a user selects a hotel, the system holds an inventory reservation with the supplier for a short period (typically 15-30 minutes). The hold does not confirm the booking; it reserves the room while the user completes payment. If payment succeeds, the hold converts to a confirmed booking. If the hold cannot be established because inventory is gone, the user is informed before reaching the payment screen.</p>
+
+<p>Rate parity is a contractual and technical challenge. Hotels contract with different OTAs and GDSs at different rates, often with rate parity clauses requiring the same price across channels. Enforcing this requires the aggregator to compare rates across sources and flag anomalies. The platform does this comparison periodically in a batch job and surfaces rate parity violations for supplier management review.</p>
+
+<a name="Activities.and.Experiences.Platform"></a>
+<h2>Activities and Experiences Platform</h2>
+
+<p>The activity marketplace is the most fragmented part of the inventory stack. Activities are provided by thousands of small tour operators, individual guides, and local experience providers. These operators have wildly different technical sophistication, from API-connected operators with real-time availability to operators who still take bookings by phone.</p>
+
+<p>The platform tiered its supplier integrations accordingly. Tier-one suppliers (large tour operators, museum ticketing systems, theme parks) have direct API integrations with real-time availability. Tier-two suppliers use a booking platform that MakeMyTrip integrates with. Tier-three suppliers are managed through a manual allocation model where MakeMyTrip pre-purchases blocks of capacity.</p>
+
+<p>The pre-purchase model for tier-three suppliers introduces inventory risk. The platform pays for a block of slots upfront and needs to sell them before the activity date. Dynamic pricing on these pre-purchased blocks allows the platform to increase margins when demand is strong and discount aggressively as the date approaches to clear remaining inventory.</p>
+
+<p>Activity availability is time-bound differently from hotels. A hotel room is available until midnight. A morning jeep safari has a specific departure time and a fixed group size. The data model for activities includes time slots, group size limits, language of delivery, physical requirements, and cancellation windows. All of this needs to be reflected accurately in the user-facing search and booking flow.</p>
+
+<a name="Local.Transportation.Planning"></a>
+<h2>Local Transportation Planning</h2>
+
+<p>Transportation planning connects the dots between bookings. A user lands at Cochin International Airport at 6pm. Their hotel is in Fort Kochi. The itinerary engine schedules a houseboat experience in Alleppey the next day. There are three legs here that need to be surfaced: airport to hotel, hotel to Alleppey jetty, and return to Kochi for the final day.</p>
+
+<p>The transportation service maintains a catalog of standard routes between airports, major hotels, and popular destinations, with associated transfer options (prepaid cabs, shared shuttles, app-based cabs, trains, buses). For each route, the service stores estimated duration, cost range, booking lead time requirements, and reliability score.</p>
+
+<p>Transfer booking is integrated into the itinerary at the time of package construction. The system pre-fills suggested transfers based on the hotel and activity locations. Users can accept the defaults or modify them. For routes where the platform has vendor relationships, the transfer is bookable directly. For others, the platform surfaces deep links to cab apps or train booking systems.</p>
+
+<p>Route optimization within a destination uses a simplified TSP (traveling salesman problem) approach. Given a set of attractions and a hotel, the system finds a visiting sequence that minimizes total travel time. For small sets (under 10 locations), exact solutions are feasible. For larger sets, a 2-opt heuristic produces near-optimal results quickly.</p>
+
+<a name="Dynamic.Pricing.Engine"></a>
+<h2>Dynamic Pricing Engine</h2>
+
+<p>Pricing in a travel platform is not just displaying supplier rates. The platform computes a final package price that covers component costs, adds a margin, applies any applicable discounts, and presents a coherent total.</p>
+
+<p>Component pricing starts with supplier rates. For flights, the fare class determines the base price. For hotels, the room rate is per night. For activities, it is per person. These are the floor costs.</p>
+
+<p>The platform&rsquo;s margin is applied as a percentage over the cost, calibrated to competitive rates in the market. The pricing engine checks real-time competitor pricing for similar packages and adjusts the margin to stay competitive. This requires the system to be continuously monitoring competitor prices, which is done through a combination of public scrapers and data partnerships.</p>
+
+<p>Demand forecasting drives seasonal pricing adjustments. The pricing engine trains a demand model on historical booking data, incorporating day of week, weeks before travel, origin-destination pair, and event calendar. A package for Goa in the week before Christmas will be priced significantly higher than the same package for late January because the demand model predicts higher conversion even at elevated prices.</p>
+
+<p>Promotional pricing introduces complexity. A discount applied to a bundle requires correctly computing the post-discount price while ensuring the platform still covers its costs. The pricing engine maintains a margin floor below which a promotion cannot push the price. If a user applies a coupon code that would push the package below the margin floor, the coupon is accepted but the applied discount is capped.</p>
+
+<p>Total trip price calculation is the final aggregation. The pricing engine sums flight costs for all passengers, hotel costs for all nights, activity costs per person, transfer costs, and platform service fees, then applies any bundling discounts and promotional codes. The output is a fully itemized price breakdown that the user sees before confirming.</p>
+
+<a name="Booking.Orchestration.Engine"></a>
+<h2>Booking Orchestration Engine</h2>
+
+<p>This is the most consequential engineering in the entire platform. A vacation package booking is a distributed transaction across multiple external systems, each of which can fail independently.</p>
+
+<div class="mermaid">
+graph TD
+    START[User Confirms Package]
+    IV[Inventory Validation]
+    PR[Price Recalculation]
+    LK[Inventory Lock]
+    PI[Payment Initiation]
+    PC[Payment Confirmation]
+    FB[Flight Booking API]
+    HB[Hotel Booking API]
+    AB[Activity Booking API]
+    BK[Booking Record Created]
+    CN[Confirmation Sent]
+    RL[Rollback if Failure]
+
+    START &#8211;> IV
+    IV &#8211;> PR
+    PR &#8211;> LK
+    LK &#8211;> PI
+    PI &#8211;> PC
+    PC &#8211;> FB
+    PC &#8211;> HB
+    PC &#8211;> AB
+    FB &#8211;> BK
+    HB &#8211;> BK
+    AB &#8211;> BK
+    BK &#8211;> CN
+    IV &#8211;>|Failed| RL
+    LK &#8211;>|Failed| RL
+    PC &#8211;>|Failed| RL
+    FB &#8211;>|Failed| RL
+    HB &#8211;>|Failed| RL
+
+    classDef start fill:#e94560,stroke:#fff,color:#fff
+    classDef process fill:#0f3460,stroke:#e94560,color:#fff
+    classDef booking fill:#533483,stroke:#e94560,color:#fff
+    classDef failure fill:#2b2d42,stroke:#ef233c,color:#fff
+
+    class START start
+    class IV,PR,LK,PI,PC process
+    class FB,HB,AB,BK,CN booking
+    class RL failure
+</div>
+
+
+<p>The orchestrator implements a saga pattern. Each booking step is recorded as an event. If a step fails, compensating actions are triggered to undo completed steps.</p>
+
+<p>Inventory validation runs first. The system re-checks availability for all selected components. If any component is no longer available, the user is redirected to select alternatives. This step is the last chance to catch stale inventory before money changes hands.</p>
+
+<p>Price recalculation runs immediately before payment. Flight fares can change in the time between initial search and booking. If the total price has changed, the user is shown the updated price and asked to confirm again.</p>
+
+<p>Inventory locking attempts to hold all components simultaneously. Holds with supplier systems reserve inventory but do not confirm. This is time-limited, typically 15-20 minutes, enough to complete payment.</p>
+
+<p>Payment processing is attempted next. If payment fails (card declined, bank timeout), the holds are released and the booking fails cleanly. The user sees the payment failure and can retry.</p>
+
+<p>If payment succeeds, the orchestrator fans out confirmation requests to each supplier: the flight booking API, the hotel booking API, and the activity booking API. These can be sent in parallel. Each confirmation generates a supplier booking reference (PNR for flights, booking ID for hotels).</p>
+
+<p>The partial confirmation failure case is the hardest. What if flight booking succeeds but hotel booking fails? The platform has collected payment for a complete package. The correct behavior is to attempt to book an alternative hotel first. If no alternative is available, the platform cancels the flight (triggering a refund request to the airline) and initiates a full refund to the user. All of this is handled by the orchestrator&rsquo;s rollback logic, and it must be idempotent: if the rollback itself crashes halfway through, re-running it must not double-cancel or double-refund.</p>
+
+<a name="Payment.Infrastructure"></a>
+<h2>Payment Infrastructure</h2>
+
+<p>Payment in a multi-vendor travel booking involves more complexity than a single-vendor e-commerce purchase.</p>
+
+<p>The user pays a single amount to MakeMyTrip. The platform then disburses payments to each supplier: the airline, the hotel, and the activity operator. Each disbursement happens on a different schedule. Airlines typically require payment at booking time. Hotels might allow payment at check-in. Activity operators might have a payment-at-service model.</p>
+
+<p>The platform maintains a virtual wallet or escrow account that holds the collected payment until disbursement timings are met. A reconciliation engine runs daily (and sometimes hourly for high-volume periods) to match collected payments against disbursed amounts and flag discrepancies.</p>
+
+<p>Payment failures are retried with exponential backoff. Idempotency keys are sent with every payment API call so that a retried call does not create a duplicate charge. These keys are generated from the booking ID and the component being paid, ensuring uniqueness even across retries.</p>
+
+<p>Multi-vendor refunds are the ugliest case. A cancelled trip requires refunding the user while also recovering disbursed payments from each vendor. Each vendor has its own refund API and cancellation policy. The orchestrator tracks the state of each refund request and retries failed refunds asynchronously. The user receives a single consolidated refund regardless of how many partial vendor refunds were required to fund it.</p>
+
+<a name="Travel.Notification.Infrastructure"></a>
+<h2>Travel Notification Infrastructure</h2>
+
+<p>Notifications are multi-channel (push, SMS, email, in-app) and time-sensitive in ways that most notification systems are not. A check-in reminder sent 30 minutes after check-in time is not just useless; it actively damages trust.</p>
+
+<p>The notification service maintains a schedule for each booking. At booking confirmation time, a series of scheduled notifications are created: a confirmation summary immediately, a trip preparation reminder 7 days before departure, a check-in reminder 24 hours before hotel check-in, a flight status check at T-3 hours, and a local tips notification at destination arrival.</p>
+
+<p>The scheduling system is built on a delayed job queue. Each notification is placed in the queue with a scheduled delivery time. Workers pick up jobs when their time arrives and dispatch them through the appropriate channel.</p>
+
+<p>Travel alerts are triggered reactively by external events rather than scheduled times. Flight delay data comes from airline status feeds. Weather alerts come from meteorological data feeds. These are consumed by the notification service as event streams. When a monitored flight shows a delay exceeding 30 minutes, the service generates and dispatches a delay notification to the affected users immediately.</p>
+
+<p>Personalization applies even to notifications. Users who have opted for WhatsApp delivery get messages formatted for that channel. Users who previously marked push notifications as unhelpful get email instead. The notification service maintains channel preferences per user and routes accordingly.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Every significant state change in the platform emits an event. Booking created, payment completed, hotel confirmed, activity cancelled, itinerary modified — all of these produce events that are published to a distributed event bus.</p>
+
+<p>The event bus (implemented using a system like Apache Kafka) decouples producers from consumers. When a booking is confirmed, the booking service publishes an event. It does not know or care who consumes that event. Multiple consumers can independently react: the notification service sends a confirmation, the loyalty service awards points, the analytics platform records the conversion, the supplier systems receive confirmation requests.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% ==================================================
+%% EVENT PRODUCERS
+%% ==================================================
+
+subgraph Producers[&#8220;EVENT PRODUCERS&#8221;]
+    BOOK[&#8220;Booking Service&#8221;]
+    PAY[&#8220;Payment Service&#8221;]
+    ITIN[&#8220;Itinerary Engine&#8221;]
+    SUPP[&#8220;Supplier APIs&#8221;]
+end
+
+%% ==================================================
+%% EVENT STREAMING PLATFORM
+%% ==================================================
+
+subgraph EventBus[&#8220;EVENT STREAMING PLATFORM&#8221;]
+    KB[&#8220;Kafka Event Bus&#8221;]
+end
+
+%% ==================================================
+%% EVENT CONSUMERS
+%% ==================================================
+
+subgraph Consumers[&#8220;EVENT CONSUMERS&#8221;]
+    NOTIF[&#8220;Notification Service&#8221;]
+    LOYAL[&#8220;Loyalty Service&#8221;]
+    ANAL[&#8220;Analytics Platform&#8221;]
+    AUDIT[&#8220;Audit Log&#8221;]
+    REC[&#8220;Recommendation Engine&#8221;]
+end
+
+%% ==================================================
+%% EVENT FLOW
+%% ==================================================
+
+BOOK &#8211;>|&#8221;booking.created&#8221;| KB
+
+PAY &#8211;>|&#8221;payment.completed&#8221;| KB
+
+ITIN &#8211;>|&#8221;trip.generated&#8221;| KB
+
+SUPP &#8211;>|&#8221;inventory.updated&#8221;| KB
+
+KB &#8211;>|&#8221;Notify Users&#8221;| NOTIF
+
+KB &#8211;>|&#8221;Reward Points&#8221;| LOYAL
+
+KB &#8211;>|&#8221;Business Metrics&#8221;| ANAL
+
+KB &#8211;>|&#8221;Compliance Records&#8221;| AUDIT
+
+KB &#8211;>|&#8221;Personalization Signals&#8221;| REC
+
+%% ==================================================
+%% STYLING
+%% ==================================================
+
+%% Producers
+style BOOK fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style PAY fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style ITIN fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style SUPP fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Kafka
+style KB fill:#dc2626,stroke:#991b1b,stroke-width:7px,color:#ffffff
+
+%% Consumers
+style NOTIF fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style LOYAL fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style ANAL fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style AUDIT fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style REC fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+
+%% ==================================================
+%% LINK STYLING
+%% ==================================================
+
+%% Producer -> Kafka
+linkStyle 0 stroke:#2563eb,stroke-width:4px
+linkStyle 1 stroke:#2563eb,stroke-width:4px
+linkStyle 2 stroke:#2563eb,stroke-width:4px
+linkStyle 3 stroke:#2563eb,stroke-width:4px
+
+%% Kafka -> Consumers
+linkStyle 4 stroke:#dc2626,stroke-width:5px
+linkStyle 5 stroke:#dc2626,stroke-width:5px
+linkStyle 6 stroke:#dc2626,stroke-width:5px
+linkStyle 7 stroke:#dc2626,stroke-width:5px
+linkStyle 8 stroke:#dc2626,stroke-width:5px
+
+</div>
+
+
+<p>Event durability is non-negotiable. If the Kafka broker is unavailable for a few minutes and a booking occurs during that window, the event must not be lost. Producers write to a local outbox table in the same database transaction as the booking record, using the transactional outbox pattern. A relay process reads the outbox and publishes to Kafka, retrying until successful. This ensures that every booking event eventually reaches all consumers, even if there are transient broker outages.</p>
+
+<p>Consumers maintain their own offset tracking. If the notification service crashes while processing a batch of events, it restarts from the last committed offset and reprocesses. Consumers must therefore be idempotent: processing the same event twice should not send the user two confirmation messages.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The core entity relationships are relatively straightforward. Complexity enters in the sheer volume of data and the read/write patterns.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Entity</th>
+        <th>Primary Storage</th>
+        <th>Key Columns</th>
+        <th>Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Users</td>
+        <td>PostgreSQL</td>
+        <td>user_id, email, preferences, tier</td>
+        <td>Point lookup by user_id or email</td>
+      </tr>
+      <tr>
+        <td>Destinations</td>
+        <td>PostgreSQL + Elasticsearch</td>
+        <td>destination_id, name, country, lat, lng, popularity_score, seasonality</td>
+        <td>Full-text + geo search via ES; detail by ID via PG</td>
+      </tr>
+      <tr>
+        <td>Trips</td>
+        <td>PostgreSQL</td>
+        <td>trip_id, user_id, status, start_date, end_date, budget</td>
+        <td>Lookup by user_id; status-based queries</td>
+      </tr>
+      <tr>
+        <td>Itineraries</td>
+        <td>PostgreSQL + S3 (JSON)</td>
+        <td>itinerary_id, trip_id, version, day_plans (JSONB)</td>
+        <td>Point lookup; versioned history in S3</td>
+      </tr>
+      <tr>
+        <td>Flights</td>
+        <td>Redis (cache) + PostgreSQL (confirmed)</td>
+        <td>search results cached; confirmed bookings in PG</td>
+        <td>High-read search from cache; write-once confirmed records</td>
+      </tr>
+      <tr>
+        <td>Hotels</td>
+        <td>Elasticsearch + PostgreSQL</td>
+        <td>hotel_id, location, amenities, price_tier, ratings</td>
+        <td>Geo + facet search; confirmation records in PG</td>
+      </tr>
+      <tr>
+        <td>Bookings</td>
+        <td>PostgreSQL</td>
+        <td>booking_id, trip_id, component_type, supplier_ref, status, amount</td>
+        <td>Lookup by booking_id, trip_id; status updates</td>
+      </tr>
+      <tr>
+        <td>Payments</td>
+        <td>PostgreSQL</td>
+        <td>payment_id, booking_id, amount, status, idempotency_key, provider_ref</td>
+        <td>Lookup by payment_id, idempotency_key; append-mostly</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Partitioning decisions matter at scale. The bookings table is partitioned by created_at month. This keeps hot partition sizes manageable and allows cold partitions to be archived to cheaper storage. The payments table uses the same monthly partitioning strategy.</p>
+
+<p>The itinerary day_plans are stored as JSONB in PostgreSQL. This allows schema flexibility as the itinerary data model evolves without requiring migrations. The full itinerary history is snapshotted to S3 for audit purposes.</p>
+
+<p>Indexes are added deliberately. The bookings table has indexes on user_id, trip_id, and status. The trips table has a compound index on (user_id, status) for the &ldquo;active trips&rdquo; query. Over-indexing slows writes; the platform audits index usage quarterly and drops unused indexes.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching in a travel platform is aggressive because the underlying data is expensive to fetch and changes on different schedules.</p>
+
+<p>Destination data is the most stable. A destination&rsquo;s name, description, photos, and attraction catalog change rarely. This data is cached in Redis with a TTL of several hours. The cache is warmed at startup by pre-loading all destination records. Cache invalidation happens on manual edits by content managers, which triggers a targeted cache key deletion.</p>
+
+<p>Hotel search results are cached with a shorter TTL (10-15 minutes) because availability and pricing change frequently. The cache key encodes all search parameters. Cache hits serve results instantly; misses trigger live supplier calls.</p>
+
+<p>Flight search results are cached even more aggressively because airline API calls are expensive in both latency and (sometimes) money. Results are cached for 10 minutes. The moment a user moves to booking, the cached results are discarded and a live check is made.</p>
+
+<p>Recommendation results are cached per user segment, not per user, to avoid combinatorial explosion. A user is assigned to a set of segments based on their travel history, origin, and preferences. The recommendations for that segment combination are cached and served to all users in that segment. Individual personalization multipliers are applied at serve time by the re-ranker.</p>
+
+<p>The hotspot problem is real during peak periods. When Goa packages are on sale, thousands of users simultaneously search Goa. Without caching, every search would hit the hotel and flight aggregators. With a shared cache keyed on destination plus dates, the first request fetches live data and all subsequent requests within the TTL serve from cache. This is a dramatic reduction in supplier API load.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Travel platforms face two scaling patterns that are different in character. The first is gradual growth: more users, more destinations, more suppliers over time. The second is extreme spikes: holiday announcements, flash sales, festival season, and school vacation peaks drive 10x or 20x normal traffic in hours.</p>
+
+<p>The platform is horizontally scaled at every layer. API gateway instances behind a load balancer. Stateless service instances that scale on CPU metrics. Database read replicas for high-read services like destination search and hotel catalog.</p>
+
+<p>The recommendation engine is the most compute-intensive service. Model inference for a single user recommendation takes significant CPU. At scale, inference is offloaded to dedicated GPU-backed inference servers. Model updates happen offline in batch training jobs; the resulting model artifacts are deployed to inference servers without taking down the recommendation service.</p>
+
+<p>The itinerary engine is CPU-intensive for the optimization computation. It scales horizontally with each instance maintaining in-memory attraction data cached from Redis. The attraction catalog is small enough to fit entirely in instance memory for fast access during optimization.</p>
+
+<p>Booking orchestration does not scale well with simple horizontal replication because each booking is a stateful saga. The platform assigns each booking saga to a dedicated orchestrator thread with state persisted in the database. If an orchestrator instance fails, another instance can pick up the saga from its last recorded state and continue. This gives horizontal scale without losing saga state.</p>
+
+<p>Holiday traffic spikes are handled through pre-scaling. The platform uses historical traffic data to predict when spikes will occur (e.g., Independence Day travel announcements, school closing dates) and pre-provisions additional capacity a day before. Auto-scaling handles unexpected spikes up to a cap; beyond the cap, graceful degradation kicks in.</p>
+
+<p>Graceful degradation under extreme load means accepting some features may become unavailable while core booking flows remain functional. The first things to degrade are: recommendation engine (fall back to popularity-based results), real-time availability checks on activities (show approximate availability), and personalization on destination search (fall back to globally ranked results). Flights and hotel booking remain fully functional because those are revenue-critical.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>The platform targets 99.99% availability for booking flows. This requires redundancy at every layer and well-tested failover procedures.</p>
+
+<p>Each service runs in multiple availability zones. Database primaries have synchronous replicas in a second zone. If the primary zone has an outage, failover to the replica happens within seconds with minimal data loss.</p>
+
+<p>Supplier API outages are the most common reliability challenge. If the Amadeus GDS is down, flight search from that source degrades but results from other connected airlines continue. The aggregator has a circuit breaker per supplier. When a supplier crosses an error rate threshold, its circuit opens and requests to that supplier are fast-failed rather than waiting for a timeout. The circuit closes again after a recovery period.</p>
+
+<p>Booking failures are tracked at every step of the saga. Operations teams have a dashboard showing in-flight saga states, failed steps, and pending rollbacks. An on-call engineer can see exactly which bookings are in a partial failure state and intervene if automated rollback has not resolved the issue.</p>
+
+<p>Disaster recovery means defining recovery time objectives (RTO) and recovery point objectives (RPO) per service tier. Core booking data has an RPO of near-zero (synchronous replication) and an RTO of under a minute (automatic failover). Recommendation model artifacts have an RPO of a few hours (last training run) and an RTO of minutes (model redeployment is fast).</p>
+
+<a name="Security.Considerations"></a>
+<h2>Security Considerations</h2>
+
+<p>Travel platforms are high-value targets. A breached account can be used to rebook flights under different names, drain stored travel credits, or access personal identification documents attached to booking records.</p>
+
+<p>Authentication uses OAuth 2.0 with JWT tokens. Tokens have short expiry windows (15-60 minutes). Refresh tokens are long-lived but rotated on use. Social login is offered but accounts linked to social providers are treated with the same security posture as email-password accounts.</p>
+
+<p>Payment card data never touches MakeMyTrip servers. All card processing is handled through PCI-compliant payment gateways. Tokenized card references are stored, not raw card numbers.</p>
+
+<p>Fraud detection runs on every booking attempt. Features include device fingerprint, velocity checks (how many bookings from this account in the last hour), IP reputation, card BIN checks, and booking pattern analysis. Suspicious bookings are flagged for manual review or step-up verification before confirmation.</p>
+
+<p>Bot detection on search APIs is critical because automated fare scrapers can easily saturate supplier API quotas and disrupt legitimate users. CAPTCHA is triggered when search velocity from a single session exceeds normal human behavior. Progressive throttling and IP-based rate limiting are the first defense layers.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>These are the real decisions that architects make, and the honest answer is almost always &ldquo;it depends.&rdquo;</p>
+
+<p>Recommendation quality versus latency is a genuine tension. A more complex model produces better recommendations but takes longer to compute. The platform resolves this by pre-computing segment-level recommendations offline and personalizing lightly at serve time. The tradeoff is that recommendations are somewhat generalized within segments rather than fully individualized, but latency stays under 100ms.</p>
+
+<p>Personalization versus privacy is increasingly consequential. Deep personalization requires storing detailed user behavior. The platform allows users to opt into or out of behavioral tracking. Users who opt out get segment-level recommendations rather than individual ones. This is architecturally cleaner than trying to personalize without data.</p>
+
+<p>Caching versus freshness is the most common tradeoff in travel systems. A hotel cache with a 15-minute TTL will occasionally show slightly stale pricing. The platform accepts this tradeoff because the alternative (live fetch on every search) would produce unacceptably high latency. The pre-booking availability check catches actual staleness before money changes hands.</p>
+
+<p>Package flexibility versus optimization creates a genuine product tension. A fully optimized itinerary might not match what a user actually wants. The platform generates an optimized base itinerary and then makes every element editable. Users can swap attractions, change hotel selections, and modify timing. The optimization gives a good starting point; editability respects user agency.</p>
+
+<p>Consistency versus availability in booking systems is where CAP theorem becomes concrete. During a supplier outage, the platform can choose to show stale availability (preferring availability) or show no results from that supplier (preferring consistency). The platform chooses to show stale data with a clear recency indicator, letting users know results may not be fully current.</p>
+
+<a name="AI.and.the.Future.of.Travel.Planning"></a>
+<h2>AI and the Future of Travel Planning</h2>
+
+<p>The current AI integration in travel planning is sophisticated but still fundamentally rule-based in its core planning logic. The next evolution is genuinely AI-native planning.</p>
+
+<p>Conversational trip planning means a user can describe what they want in natural language and the system assembles a plan through dialogue. &ldquo;I want a relaxed trip with good food and some nature, not too much walking, about 8 days, budget around 80,000&rdquo; is a hard query for a form-based UI but a tractable input for a language model that understands preferences and can map them to itinerary parameters.</p>
+
+<p>Autonomous travel agents take this further. An agent could proactively monitor flight prices after a user expresses interest in a destination, alert them when a good deal appears, and with one confirmation begin assembling a full package. This requires trust, and trust requires the agent to have a provable track record of judgment.</p>
+
+<p>Predictive recommendations flip the current model. Rather than responding to user intent, the system predicts when a user is likely to plan a trip and proactively surfaces destination ideas before they start searching. This relies on longitudinal behavioral modeling: detecting patterns in when a user typically travels, what triggers their trip planning, and what they tend to book.</p>
+
+<p>The architecture implications of an AI-native planning system are significant. Language model inference at scale is expensive. Prompt design becomes a core engineering discipline. Evaluation infrastructure for open-ended AI outputs is harder to build than metrics for ranked lists. The platform needs to maintain correctness over AI-generated itinerary content while allowing the flexibility that makes AI planning valuable.</p>
+
+<p>Multi-modal inputs will change how users interact with planning. A user uploading photos from a travel magazine and saying &ldquo;I want somewhere that looks like this&rdquo; is a legitimate and useful query. Processing that intent requires vision models combined with destination matching on visual similarity. This kind of interaction is not far away.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Used For</th>
+        <th>Why This Choice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Java + Spring Boot</td>
+        <td>Core booking and payment services</td>
+        <td>Strong ecosystem for transactional systems, mature connection pooling, excellent observability tooling</td>
+      </tr>
+      <tr>
+        <td>Go</td>
+        <td>Flight and hotel aggregation, high-throughput API services</td>
+        <td>Low memory footprint, excellent concurrency via goroutines, fast startup time for scaled-out instances</td>
+      </tr>
+      <tr>
+        <td>Python</td>
+        <td>Recommendation models, ML training, data pipelines</td>
+        <td>Dominant ML ecosystem (PyTorch, scikit-learn), fast prototyping, excellent data tooling</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Session cache, search cache, recommendation cache, rate limiting</td>
+        <td>Sub-millisecond reads, native data structures for sorted sets and pub-sub, wide operational familiarity</td>
+      </tr>
+      <tr>
+        <td>Apache Kafka</td>
+        <td>Event bus for booking events, payment events, notification triggers</td>
+        <td>Durable message log, consumer group model, high throughput, strong ecosystem</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL</td>
+        <td>User data, bookings, payments, itinerary records</td>
+        <td>ACID transactions for financial records, JSONB for flexible schema, mature partitioning</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Destination search, hotel search, activity discovery</td>
+        <td>Full-text + geo search in one system, horizontal scaling, rich aggregation API</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Service orchestration, auto-scaling, rolling deployments</td>
+        <td>Industry standard for microservice deployment, declarative scaling, strong observability integrations</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The polyglot stack is an intentional choice, not a mistake. Different services have fundamentally different performance profiles. An aggregation service making thousands of concurrent outbound HTTP calls is a different beast from a booking service managing ACID transactions. Forcing both into the same technology stack would mean accepting suboptimal performance in one of them. The operational cost of polyglot is real (different monitoring setups, different deployment configs, different debugging skills required) but the performance benefits justify it at scale.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Travel planner system design is a common senior-level interview question because it touches so many interesting engineering domains simultaneously.</p>
+
+<p>Interviewers expect candidates to identify the key complexities upfront. A weak answer treats travel planner as &ldquo;flight booking plus hotel booking.&rdquo; A strong answer immediately flags the multi-vendor inventory problem, the itinerary generation optimization problem, the distributed transaction challenge in booking, and the recommendation system cold start problem.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Discussion Area</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Recommendation System</td>
+        <td>&#8220;Use collaborative filtering based on user bookings&#8221;</td>
+        <td>Identify cold start problem, combine collaborative + content-based + behavioral signals, discuss segment-level caching, explain how to handle sparse travel booking frequency</td>
+      </tr>
+      <tr>
+        <td>Itinerary Generation</td>
+        <td>&#8220;Sort attractions by rating and add them to the schedule&#8221;</td>
+        <td>Frame as orienteering problem, explain geographic clustering, discuss transit time calculation, describe local search optimization, mention opening hours and energy modeling</td>
+      </tr>
+      <tr>
+        <td>Booking Orchestration</td>
+        <td>&#8220;Book flight, hotel, and activities in sequence&#8221;</td>
+        <td>Identify distributed transaction problem, propose saga pattern, explain compensating transactions, discuss idempotency, walk through partial failure scenarios</td>
+      </tr>
+      <tr>
+        <td>Scalability</td>
+        <td>&#8220;Use horizontal scaling and load balancers&#8221;</td>
+        <td>Distinguish gradual growth from spike patterns, explain pre-scaling for predictable spikes, describe graceful degradation, discuss caching strategy for flight and hotel search</td>
+      </tr>
+      <tr>
+        <td>Inventory Staleness</td>
+        <td>&#8220;Refresh data frequently&#8221;</td>
+        <td>Explain two-stage commitment model (hold then confirm), discuss TTL-based caching with pre-booking live checks, describe circuit breakers per supplier</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Common mistakes candidates make: spending too much time on authentication and API gateway (these are important but not the interesting parts for this problem), ignoring the recommendation system entirely, proposing a single synchronous booking flow without considering partial failures, and treating inventory as always accurate without discussing staleness.</p>
+
+<p>The questions that make strong candidates stand out are: &ldquo;How do you handle the case where flight booking succeeds but hotel booking fails after payment?&rdquo; and &ldquo;How do you keep hotel availability from becoming stale?&rdquo; These show the candidate is thinking about failure cases in a distributed system, not just the happy path.</p>
+
+<p>Interviewer follow-ups often probe into the itinerary generation engine because it is genuinely complex and candidates who claim to understand it often cannot explain the optimization approach coherently. Being able to say &ldquo;this is a variant of the orienteering problem, and we solve it with geographic clustering followed by a greedy construction heuristic and local search improvement&rdquo; is a strong differentiator.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>The meta-lesson in designing systems like this is that complexity lives at the boundaries. The boundaries between recommendation and booking, between inventory and pricing, between distributed transaction and consistency, between personalization and privacy. The best engineers can articulate what is hard at each boundary and why specific architectural choices were made to manage it.</p>
+
+<p>Travel planning is a product domain where getting the engineering right has direct user impact. A poorly generated itinerary leads to a bad vacation. A failed booking transaction leads to a user stuck at an airport without a hotel. The stakes of the system design are real, and that is what makes it a rich problem worth understanding deeply.</p>
+
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+</article>
+
+
+<section id="disqus">
+    <h1 class="disqus__title">Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+</section>
+
+
+                </div>
+
+                
+            </div>
+        </div>
+
+        
+
+    
+    
+
+
+
+
+<footer class="footer">
+    <div class="row middle-xs">
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <p class="footer__copyright">
+    Copyright &copy; 2014 - 2026 - Rishijeet Mishra
+</p>
+
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div>
+    
+
+
+
+    
+
+
+
+
+<div class="hire hire--unavailable">
+    
+        
+    
+</div>
+
+</div>
+        </div>
+        
+    </div>
+</footer>
+
+
+        <!-- Adding the TOC using JS -->
+ <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const content = document.querySelector("article") || document.body;
+  const toc = document.getElementById("toc");
+
+  if (!toc) return;
+
+//   const headings = content.querySelectorAll("h2, h3");
+  const headings = content.querySelectorAll("h2");
+
+  if (!headings.length) return;
+
+  const tocList = document.createElement("ul");
+
+  let currentH2Li = null;
+  let currentH3Ul = null;
+
+  headings.forEach((heading) => {
+
+    // Generate heading ID
+    if (!heading.id) {
+      heading.id = heading.innerText
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-");
+    }
+
+    const li = document.createElement("li");
+    li.classList.add(`toc-${heading.tagName.toLowerCase()}`);
+
+    const a = document.createElement("a");
+    a.href = `#${heading.id}`;
+    a.innerText = heading.innerText;
+
+    li.appendChild(a);
+
+    // H2
+    if (heading.tagName.toLowerCase() === "h2") {
+
+      tocList.appendChild(li);
+
+      currentH2Li = li;
+
+      currentH3Ul = document.createElement("ul");
+      currentH2Li.appendChild(currentH3Ul);
+    }
+
+    // H3 nested under latest H2
+    else if (heading.tagName.toLowerCase() === "h3") {
+
+      if (currentH3Ul) {
+        currentH3Ul.appendChild(li);
+      }
+    }
+
+  });
+
+  toc.appendChild(tocList);
+});
+</script>
+
+<!--Adding the Mathjax support -->
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<!--adding beautiful mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  mermaid.initialize({ startOnLoad: false });
+
+  document.querySelectorAll(".mermaid").forEach((el) => {
+    let code = el.textContent
+      .replace(/–/g, "-")   // fix en dash
+      .replace(/—/g, "-")   // fix em dash
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/->/g, "-->")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+
+    el.innerHTML = "";
+
+    mermaid.render("graphDiv" + Math.random().toString(36).substr(2, 5), code)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch(err => {
+        el.innerHTML = `<pre style="color:red">${code}\n\n${err.message}</pre>`;
+      });
+  });
+});
+</script>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script src="/javascripts/md5.js"></script>
+
+<!--Octopress JS added to the site -->
+<script defer src="/javascripts/octopress.js"></script>
+
+<!--Ad thingy added by Rishi -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6086670860734956"
+     crossorigin="anonymous"></script>
+
+
+<!--Some analytics -->
+
+<script>
+    var _gaq=[['_setAccount','G-1P58V2BBV4'],['_trackPageview']];
+    (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
+    s.parentNode.insertBefore(g,s)}(document,'script'));
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1P58V2BBV4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-1P58V2BBV4');
+</script>
+
+
+
+<!--DisQus thingy -->
+
+<script>
+    var disqus_shortname = 'rishijeet';
+    
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'https://rishijeet.github.io/blog/how-makemytrip-travel-planner-works/';
+        var disqus_url = 'https://rishijeet.github.io/blog/how-makemytrip-travel-planner-works/';
+        var disqus_script = 'embed.js';
+    
+    (function () {
+        // Only if disqus_thread id is defined load the embed script
+        if (document.getElementById('disqus_thread')) {
+        var your_sub_domain = ''; // Here goes your subdomain
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        }
+    })();
+</script>
+
+
+
+
+        <!--adding fancybox -->
+	<!-- 1. Add latest jQuery and fancyBox files -->
+<!--Migrated to Fancybox 3 - -->
+
+<script src="//code.jquery.com/jquery-3.2.1.min.js"></script>
+
+<link rel="stylesheet" href="/css/jquery.fancybox.min.css" />
+<script src="/javascripts/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript">
+	$("[data-fancybox]").fancybox({
+		// Options will go here
+		image : {
+		protect: true
+				}
+	});
+</script>
+<!--Adding some more restriction on photos-->
+  <script type="text/javascript">
+      document.addEventListener("contextmenu", (event) => {
+         event.preventDefault();
+      });
+  </script> 
+    </body>
+
+</html>

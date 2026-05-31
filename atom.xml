@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-31T13:53:30+05:30</updated>
+    <updated>2026-05-31T19:23:03+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,1008 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How MakeMyTrip Travel Planner Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-makemytrip-travel-planner-works/"/>
+        <updated>2026-05-31T18:53:45+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-makemytrip-travel-planner-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>Most engineers, when they think about travel technology, imagine a flight search engine. You pick a source, a destination, a date, and the system returns a list of flights sorted by price. That is a solved problem. The hard part is what comes after.</em></p></blockquote>
+
+<p><img src="https://rishijeet.github.io/images/system_design/makemytrip-banner.avif" height="300" width="900" alt="Alt text" /></p>
+
+<p>A vacation planning platform is an entirely different beast. When a user opens MakeMyTrip and says &ldquo;plan me a 7-day trip to Rajasthan,&rdquo; the system has to figure out which cities to include, which attractions to prioritize, how to sequence the days so a traveler is not criss-crossing the map inefficiently, when flights are cheapest, which hotels have availability near the right areas, what local tours are available on which days, how to get from the airport to the hotel, how to price all of this as a coherent bundle, and then orchestrate bookings across a dozen different vendors without any single failure unraveling the whole thing.</p>
+
+<p>That is not a search problem. That is a large-scale optimization problem sitting on top of a distributed marketplace, layered with personalization, real-time inventory, and multi-vendor payment reconciliation.</p>
+
+<p>The evolution from &ldquo;book a flight&rdquo; to &ldquo;plan my vacation&rdquo; happened because travelers stopped wanting to assemble trips themselves. Researching destinations takes hours. Cross-referencing hotel availability with flight times is tedious. Figuring out which Jaisalmer fort tours run on which days requires visiting five different websites. A modern travel planner absorbs all of that complexity and surfaces a coherent, personalized plan.</p>
+
+<!--more-->
+
+
+<p>This blog is a deep technical walkthrough of how that works, starting from how destinations get discovered and ranked, through how itineraries are algorithmically generated, all the way to how a payment across three different vendors gets reconciled without leaving a user in a half-booked state.</p>
+
+<a name="Core.Features.of.the.Platform"></a>
+<h2>Core Features of the Platform</h2>
+
+<p>Before diving into architecture, it helps to be precise about what the platform actually does. These are not abstract features; each one translates into a distinct engineering subsystem.</p>
+
+<p>Destination discovery is the entry point. A user might know they want a beach vacation or a hill station or a heritage city. The platform has to map vague intent to specific, rankable destinations and surface the right one for that traveler&rsquo;s history, budget, and time of year.</p>
+
+<p>Vacation package creation is bundling. Flight plus hotel plus transfers plus activities into a single priced unit. This sounds simple but involves solving a multi-dimensional optimization problem across live inventory.</p>
+
+<p>AI itinerary generation is the core differentiator. Given a destination, a duration, a budget, and a set of preferences, generate a day-by-day plan that is geographically sensible, temporally realistic, and personally relevant.</p>
+
+<p>Flight and hotel aggregation pull from dozens of suppliers and present unified search results. The hard part is latency, consistency, and handling the inevitable discrepancy between what an API says is available and what is actually bookable.</p>
+
+<p>Activities and local transportation are the long tail. Thousands of individual tour operators and cab vendors need to be connected to a single platform with unified inventory and real-time availability.</p>
+
+<p>Budget optimization threads pricing constraints through every layer of the system, from destination ranking to hotel tier selection to activity choices.</p>
+
+<p>Trip collaboration lets multiple travelers contribute to and agree on a shared itinerary, which introduces concurrency and conflict resolution challenges.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>The platform is built around a set of specialized services, each owning a discrete domain. These services communicate synchronously for user-facing flows and asynchronously via an event bus for downstream processing.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% ==================================================
+%% CLIENTS
+%% ==================================================
+
+subgraph Clients[&#8220;CLIENT APPLICATIONS&#8221;]
+    MOB[&#8220;Mobile App&#8221;]
+    WEB[&#8220;Web Application&#8221;]
+end
+
+%% ==================================================
+%% ACCESS LAYER
+%% ==================================================
+
+subgraph Access[&#8220;ACCESS & SECURITY&#8221;]
+    GW[&#8220;API Gateway&#8221;]
+    AUTH[&#8220;Authentication Service&#8221;]
+end
+
+%% ==================================================
+%% DISCOVERY & PLANNING
+%% ==================================================
+
+subgraph Planning[&#8220;DISCOVERY & TRIP PLANNING&#8221;]
+    DEST[&#8220;Destination Service&#8221;]
+    ITIN[&#8220;Itinerary Engine&#8221;]
+    REC[&#8220;Recommendation Engine&#8221;]
+    PKG[&#8220;Package Builder&#8221;]
+end
+
+%% ==================================================
+%% INVENTORY NETWORK
+%% ==================================================
+
+subgraph Inventory[&#8220;INVENTORY NETWORK&#8221;]
+    FLIGHT[&#8220;Flight Aggregator&#8221;]
+    HOTEL[&#8220;Hotel Aggregator&#8221;]
+    ACT[&#8220;Activity Service&#8221;]
+    TRANS[&#8220;Transportation Service&#8221;]
+end
+
+%% ==================================================
+%% BOOKING PLATFORM
+%% ==================================================
+
+subgraph Booking[&#8220;BOOKING PLATFORM&#8221;]
+    BOOK[&#8220;Booking Orchestrator&#8221;]
+    PRICE[&#8220;Dynamic Pricing&#8221;]
+    PAY[&#8220;Payment Service&#8221;]
+end
+
+%% ==================================================
+%% EVENT ECOSYSTEM
+%% ==================================================
+
+subgraph Events[&#8220;EVENT ECOSYSTEM&#8221;]
+    KAFKA[&#8220;Kafka Event Bus&#8221;]
+    NOTIF[&#8220;Notification Service&#8221;]
+    ANALYTICS[&#8220;Analytics Platform&#8221;]
+end
+
+%% ==================================================
+%% DATA PLATFORM
+%% ==================================================
+
+subgraph Data[&#8220;DATA PLATFORM&#8221;]
+    REDIS[&#8220;Redis Cache&#8221;]
+    ES[&#8220;Elasticsearch&#8221;]
+    PG[&#8220;PostgreSQL&#8221;]
+    S3[&#8220;Object Storage&#8221;]
+end
+
+%% ==================================================
+%% USER JOURNEY
+%% ==================================================
+
+MOB &#8211;> GW
+WEB &#8211;> GW
+
+GW &#8211;> AUTH
+GW &#8211;> DEST
+GW &#8211;> ITIN
+GW &#8211;> REC
+GW &#8211;> BOOK
+
+%% Planning Flow
+ITIN &#8211;> DEST
+ITIN &#8211;> REC
+
+DEST &#8211;> ES
+REC &#8211;> REDIS
+
+%% Package Assembly
+PKG &#8211;> FLIGHT
+PKG &#8211;> HOTEL
+PKG &#8211;> ACT
+PKG &#8211;> TRANS
+
+%% Booking Journey
+BOOK &#8211;> PRICE
+BOOK &#8211;> PAY
+BOOK &#8211;> PG
+
+%% Events
+BOOK &#8211;>|&#8221;Booking Events&#8221;| KAFKA
+
+KAFKA &#8211;> NOTIF
+KAFKA &#8211;> ANALYTICS
+
+%% ==================================================
+%% NODE STYLING
+%% ==================================================
+
+%% Clients
+style MOB fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style WEB fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Access Layer
+style GW fill:#0891b2,stroke:#0e7490,stroke-width:5px,color:#ffffff
+style AUTH fill:#0891b2,stroke:#0e7490,stroke-width:4px,color:#ffffff
+
+%% Planning Layer
+style DEST fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style ITIN fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff
+style REC fill:#84cc16,stroke:#4d7c0f,stroke-width:5px,color:#ffffff
+style PKG fill:#65a30d,stroke:#3f6212,stroke-width:4px,color:#ffffff
+
+%% Inventory
+style FLIGHT fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style HOTEL fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style ACT fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style TRANS fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+
+%% Booking
+style BOOK fill:#f97316,stroke:#c2410c,stroke-width:6px,color:#ffffff
+style PRICE fill:#fb923c,stroke:#c2410c,stroke-width:4px,color:#ffffff
+style PAY fill:#fb923c,stroke:#c2410c,stroke-width:4px,color:#ffffff
+
+%% Events
+style KAFKA fill:#dc2626,stroke:#991b1b,stroke-width:6px,color:#ffffff
+style NOTIF fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff
+style ANALYTICS fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff
+
+%% Data
+style REDIS fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff
+style ES fill:#8b5cf6,stroke:#6d28d9,stroke-width:4px,color:#ffffff
+style PG fill:#7c3aed,stroke:#5b21b6,stroke-width:5px,color:#ffffff
+style S3 fill:#a855f7,stroke:#7e22ce,stroke-width:4px,color:#ffffff
+
+%% ==================================================
+%% LINK STYLING
+%% ==================================================
+
+linkStyle 0 stroke:#2563eb,stroke-width:3px
+linkStyle 1 stroke:#2563eb,stroke-width:3px
+
+linkStyle 2 stroke:#0891b2,stroke-width:4px
+linkStyle 3 stroke:#16a34a,stroke-width:4px
+linkStyle 4 stroke:#16a34a,stroke-width:4px
+linkStyle 5 stroke:#16a34a,stroke-width:4px
+linkStyle 6 stroke:#f97316,stroke-width:5px
+
+linkStyle 7 stroke:#22c55e,stroke-width:4px
+linkStyle 8 stroke:#22c55e,stroke-width:4px
+
+linkStyle 9 stroke:#9333ea,stroke-width:3px
+linkStyle 10 stroke:#9333ea,stroke-width:3px
+
+linkStyle 11 stroke:#ec4899,stroke-width:3px
+linkStyle 12 stroke:#ec4899,stroke-width:3px
+linkStyle 13 stroke:#ec4899,stroke-width:3px
+linkStyle 14 stroke:#ec4899,stroke-width:3px
+
+linkStyle 15 stroke:#f97316,stroke-width:5px
+linkStyle 16 stroke:#f97316,stroke-width:5px
+linkStyle 17 stroke:#f97316,stroke-width:5px
+
+linkStyle 18 stroke:#dc2626,stroke-width:6px
+linkStyle 19 stroke:#ef4444,stroke-width:4px
+linkStyle 20 stroke:#ef4444,stroke-width:4px
+
+</div>
+
+
+<p>The API gateway handles authentication, rate limiting, and routing. Every inbound request is authenticated before reaching a downstream service. Rate limiting happens at the gateway level so no single user can saturate an expensive external API call.</p>
+
+<p>The planning layer is the intelligence of the system. These services do not own bookings; they produce recommendations, itineraries, and packages. The booking layer is where money changes hands, and it is intentionally separate to keep the transactional surface area isolated.</p>
+
+<p>The event bus connects everything that does not need to happen synchronously. When a booking is confirmed, an event propagates to the notification service, the analytics platform, the loyalty system, and the supplier confirmation handlers. None of these need to block the user-facing booking response.</p>
+
+<a name="Destination.Discovery.Engine"></a>
+<h2>Destination Discovery Engine</h2>
+
+<p>A destination catalog is deceptively complex. At the surface it looks like a database of cities with descriptions and photos. In practice it is a multi-dimensional index of places annotated with travel metadata, seasonality curves, activity categories, average price tiers, travel time from major origin cities, visa requirements, weather patterns, and popularity signals.</p>
+
+<p>The catalog is stored in Elasticsearch because destination search needs full-text matching combined with faceted filtering and geographic proximity queries. A user searching &ldquo;beach destination under 30,000 for 5 days from Mumbai in December&rdquo; is issuing a query that combines free text, budget constraints, duration constraints, geographic proximity, and seasonal availability simultaneously. A relational database cannot serve this efficiently at scale.</p>
+
+<p>Each destination has a popularity score that is computed offline and refreshed periodically. The score is a weighted composite of booking volume over the trailing 90 days, search volume, social signal proxies, and editorial curation. The weighting shifts by season. Goa&rsquo;s score in December is significantly higher than in July. Manali&rsquo;s score in January is high for winter travelers but low for beach seekers.</p>
+
+<p>Destination ranking for a specific query combines the base popularity score with a personalization layer. A user who has previously booked heritage city trips will see Jaipur ranked higher than someone whose history shows beach destinations. The personalization multiplier is computed by the recommendation engine and applied at query time against the Elasticsearch base ranking.</p>
+
+<p>The separation between base ranking and personalization multiplier is an intentional architectural choice. Base ranking is computed in batch and cached. Personalization multipliers are computed per-user but can also be cached based on user segment. This means a destination search can return results in under 200 milliseconds even with personalization applied.</p>
+
+<p>Seasonality modeling deserves its own discussion. Each destination has a seasonality curve modeled as a time series of demand indices across the calendar year. This curve is used in two places: to surface appropriate destinations in discovery (you do not want to recommend Spiti Valley in January to a casual traveler) and to adjust pricing in the dynamic pricing engine. The curve is learned from historical booking data and manually adjusted by destination managers for edge cases like major events.</p>
+
+<a name="AI-Powered.Recommendation.System"></a>
+<h2>AI-Powered Recommendation System</h2>
+
+<p>Recommendation is the system that makes the platform feel personalized. The challenge is that travel recommendations are harder than movie recommendations for a fundamental reason: frequency. A user might book travel twice a year. This means you have very few direct signals about their preferences, and those signals are separated by months.</p>
+
+<p>The recommendation engine layers multiple signal sources to compensate for sparse direct data.</p>
+
+<p>Collaborative filtering identifies users with similar travel profiles and recommends destinations those users enjoyed. If users who booked Rishikesh also frequently book Mcleod Ganj and Bir Billing, the system learns that this cluster of adventure and spiritual destinations belongs together. A new user who books Rishikesh gets recommendations for the others.</p>
+
+<p>Content-based filtering operates on destination attributes. If a user has shown interest in hill stations with trekking and local markets, the system scores unvisited destinations by how closely they match those attribute vectors.</p>
+
+<p>Behavioral signals are richer than explicit bookings. Search queries, destination page dwell time, itinerary views, saved trips, and price alert creation all carry signal. A user who spent 15 minutes reading about Ladakh but did not book is a strong signal of intent that the system should capture.</p>
+
+<p>The cold start problem is real and common. A new user has no history. The platform handles this through onboarding preference collection (asking about trip style, budget range, travel companions, interests) and by defaulting to demographically segmented recommendations based on origin city, age range, and device type. A new user from Bengaluru in their late twenties gets different defaults than one from Kolkata in their fifties.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% =========================
+%% USER SIGNALS
+%% =========================
+subgraph Signals[&#8220;USER SIGNALS&#8221;]
+    BS[&#8220;Booking History&#8221;]
+    SS[&#8220;Search History&#8221;]
+    BH[&#8220;Browse Behavior&#8221;]
+    OP[&#8220;Onboarding Preferences&#8221;]
+end
+
+%% =========================
+%% RECOMMENDATION MODELS
+%% =========================
+subgraph Models[&#8220;RECOMMENDATION MODELS&#8221;]
+    CF[&#8220;Collaborative Filtering&#8221;]
+    CB[&#8220;Content-Based Filtering&#8221;]
+    SEQ[&#8220;Sequential Behavior Model&#8221;]
+    POP[&#8220;Popularity Baseline&#8221;]
+end
+
+%% =========================
+%% RANKING PIPELINE
+%% =========================
+subgraph Ranking[&#8220;RANKING PIPELINE&#8221;]
+    MR[&#8220;Model Ranker&#8221;]
+    PR[&#8220;Personalization Re-Ranker&#8221;]
+    BR[&#8220;Business Rules Filter&#8221;]
+end
+
+%% =========================
+%% RESULTS
+%% =========================
+subgraph Results[&#8220;RECOMMENDATION OUTPUT&#8221;]
+    DR[&#8220;Destination Results&#8221;]
+    HR[&#8220;Hotel Results&#8221;]
+    AR[&#8220;Activity Results&#8221;]
+end
+
+%% =========================
+%% SIGNAL FLOW
+%% =========================
+BS &#8211;> CF
+SS &#8211;> SEQ
+BH &#8211;> CB
+OP &#8211;> POP
+
+%% =========================
+%% MODEL ENSEMBLE
+%% =========================
+CF &#8211;> MR
+CB &#8211;> MR
+SEQ &#8211;> MR
+POP &#8211;> MR
+
+%% =========================
+%% RANKING FLOW
+%% =========================
+MR &#8211;> PR
+PR &#8211;> BR
+
+%% =========================
+%% OUTPUTS
+%% =========================
+BR &#8211;> DR
+BR &#8211;> HR
+BR &#8211;> AR
+
+%% =========================
+%% STYLING
+%% =========================
+
+%% Signals
+style BS fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style SS fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style BH fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style OP fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Models
+style CF fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style CB fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style SEQ fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style POP fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+
+%% Ranking
+style MR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+style PR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+style BR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+
+%% Output
+style DR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style HR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style AR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+
+%% =========================
+%% LINK STYLING
+%% =========================
+
+linkStyle 0 stroke:#2563eb,stroke-width:3px
+linkStyle 1 stroke:#2563eb,stroke-width:3px
+linkStyle 2 stroke:#2563eb,stroke-width:3px
+linkStyle 3 stroke:#2563eb,stroke-width:3px
+
+linkStyle 4 stroke:#7c3aed,stroke-width:4px
+linkStyle 5 stroke:#7c3aed,stroke-width:4px
+linkStyle 6 stroke:#7c3aed,stroke-width:4px
+linkStyle 7 stroke:#7c3aed,stroke-width:4px
+
+linkStyle 8 stroke:#ec4899,stroke-width:5px
+linkStyle 9 stroke:#ec4899,stroke-width:5px
+
+linkStyle 10 stroke:#16a34a,stroke-width:4px
+linkStyle 11 stroke:#16a34a,stroke-width:4px
+linkStyle 12 stroke:#16a34a,stroke-width:4px
+
+</div>
+
+
+<p>The ranking layer sits above the model outputs. Raw model scores are combined using a learned ensemble weight and then passed through a re-ranker that applies business rules. Business rules include things like &ldquo;do not recommend a destination for which the user has already completed a trip in the last 12 months&rdquo; or &ldquo;boost destinations with promotional pricing active.&rdquo; These rules are kept separate from the model to allow rapid iteration without retraining.</p>
+
+<p>Recommendation quality is measured through a combination of offline metrics (precision, recall, NDCG on held-out booking data) and online A/B metrics (click-through rate on recommended destinations, conversion to booked trips, and post-trip satisfaction scores). The online metrics lag by weeks or months because the conversion cycle is slow. This makes recommendation system iteration in travel harder than in e-commerce.</p>
+
+<a name="Itinerary.Generation.Engine"></a>
+<h2>Itinerary Generation Engine</h2>
+
+<p>This is where the hardest engineering happens. Generating a coherent, realistic, enjoyable itinerary for an unfamiliar city is a planning problem, not just a retrieval problem.</p>
+
+<p>The input is a destination (or set of destinations), a duration, a set of traveler preferences, and a budget constraint. The output is a day-by-day schedule with specific attractions, meals, transit suggestions, and approximate timings.</p>
+
+<p>The first step is attraction selection. The platform maintains a catalog of points of interest for every supported destination, annotated with category (heritage, adventure, nature, food, shopping), average visit duration, opening hours, best time of day to visit, price, distance from common hotel zones, and quality scores derived from reviews.</p>
+
+<p>Given a 5-day Rajasthan trip covering Jaipur and Jodhpur, the system needs to select from hundreds of candidate attractions and decide which ones to include. This is a variant of the orienteering problem in combinatorial optimization. You have a set of locations with values and time costs, a time budget, and you want to maximize total value while respecting the budget. Solving this exactly for hundreds of candidates is computationally intractable. The platform uses a greedy construction heuristic followed by a local search refinement.</p>
+
+<p>The greedy phase clusters attractions by geographic proximity. Jaipur&rsquo;s Amber Fort, Jaigarh Fort, and Nahargarh Fort are in the same northern cluster. City Palace, Hawa Mahal, and Jantar Mantar are in the central cluster. The system assigns clusters to days to minimize travel time between attractions on the same day.</p>
+
+<p>The local search phase improves the initial solution by trying swaps: replace one attraction with an unselected one and keep the swap if it improves the overall score. The score function incorporates attraction quality, traveler preference match, variety (not three temples in a row), and schedule feasibility (accounting for opening hours and realistic transit times between attractions).</p>
+
+<p>Transit time calculation deserves explicit attention. Many itinerary systems use straight-line distance as a proxy for travel time, which produces wildly unrealistic schedules in dense cities. A production system calls a routing API at itinerary generation time to get real road travel estimates between consecutive attractions, incorporating typical traffic conditions for the time of day.</p>
+
+<div class="mermaid">
+graph TD
+    INPUT[User Inputs: Destination, Duration, Budget, Preferences]
+    AC[Attraction Catalog Query]
+    GC[Geographic Clustering]
+    GP[Greedy Plan Construction]
+    TT[Transit Time Calculation]
+    LS[Local Search Optimization]
+    OB[Opening Hours Validation]
+    PREF[Preference Score Adjustment]
+    OUT[Final Itinerary]
+
+    INPUT &#8211;> AC
+    AC &#8211;> GC
+    GC &#8211;> GP
+    GP &#8211;> TT
+    TT &#8211;> LS
+    LS &#8211;> OB
+    OB &#8211;> PREF
+    PREF &#8211;> OUT
+
+    classDef input fill:#e94560,stroke:#fff,color:#fff
+    classDef process fill:#0f3460,stroke:#e94560,color:#fff
+    classDef output fill:#533483,stroke:#e94560,color:#fff
+
+    class INPUT input
+    class AC,GC,GP,TT,LS,OB,PREF process
+    class OUT output
+</div>
+
+
+<p>A practical example helps. A user wants 5 days in Kerala. The system identifies candidate destinations: Kochi, Munnar, Alleppey, Thekkady. It calculates road distances between them and realizes that Munnar and Thekkady are a 3-hour drive apart, while Kochi to Alleppey is 90 minutes. It constructs a routing sequence: Kochi on arrival day, Alleppey for two nights (houseboat), Thekkady for a day, Munnar for two nights, departure from Kochi. Attractions within each stop are then clustered by area and assigned to half-days.</p>
+
+<p>The system does not just stack attractions. It models realistic tourist energy. A heritage walk in the morning can be followed by a lighter museum visit or a food tour in the afternoon. Physically demanding treks are not placed back-to-back unless the user profile indicates high activity preference. Rest time is built into the schedule.</p>
+
+<p>Itinerary generation runs in under two seconds for a five-day trip. The constraint solving is done in memory using pre-fetched attraction data cached in Redis. The routing API calls are the latency bottleneck; the system batches them and runs them in parallel.</p>
+
+<a name="Vacation.Package.Builder"></a>
+<h2>Vacation Package Builder</h2>
+
+<p>Dynamic packaging is the process of assembling flight plus hotel plus activities into a priced bundle at the time of a user&rsquo;s request, rather than pre-defining fixed packages. This gives users flexibility while still allowing the platform to offer bundled pricing that is cheaper than booking each component separately.</p>
+
+<p>The package builder takes the output of the itinerary engine (a list of nights at each destination, activities, and transit legs) and queries the flight aggregator, hotel aggregator, and activity service simultaneously to find available inventory for each component.</p>
+
+<p>The pricing challenge is that each component has its own pricing model. Flights are priced dynamically and change by the hour. Hotels have base rates that change by night with minimum stay rules. Activities have fixed prices but limited availability. The bundle price has to remain coherent while reflecting real inventory costs.</p>
+
+<p>The platform computes a bundle discount by negotiating preferred rates with suppliers for bundled bookings. An airline might offer a 3% reduction on fares when sold as part of a hotel plus flight package because it guarantees seat fill. This preferred rate is encoded as a pricing rule applied at bundle construction time.</p>
+
+<p>Bundle profitability is tracked per package type. Some combinations are consistently high-margin (flight plus hotel for popular routes where the platform has preferred hotel rates). Others are low-margin but high in conversion (budget packages to high-demand destinations). The pricing engine uses this data to set minimum bundle margins dynamically.</p>
+
+<a name="Flight.Aggregation.System"></a>
+<h2>Flight Aggregation System</h2>
+
+<p>Flight search is a high-latency, high-volume operation. A single user search might fan out to a dozen airline APIs and three or four GDS (Global Distribution System) connections simultaneously.</p>
+
+<p>The aggregation service sends parallel requests to each supplier with a timeout. The timeout is typically set at 4-5 seconds. Suppliers that respond within the timeout contribute their results to the merged set. Suppliers that time out are excluded from that search. The user sees a &ldquo;searching more results&rdquo; indicator while the parallel fetches complete.</p>
+
+<p>Fare caching is critical. Airline APIs are rate-limited and charge per search in some configurations. Caching search results for short periods (typically 10-15 minutes) dramatically reduces API call volume. The cache key is a combination of origin, destination, date, passenger count, and cabin class. Cache hits serve results instantly; misses trigger a live search.</p>
+
+<p>The staleness risk is real. A fare cached 12 minutes ago might no longer be bookable. The platform handles this through a pre-booking availability check. Before showing the user a &ldquo;confirm booking&rdquo; screen, the system re-checks availability for the selected fare in real time. If the fare has changed or disappeared, the user sees the updated options.</p>
+
+<p>Price watch is a downstream feature built on top of the aggregation layer. When a user sets a fare alert, the system schedules periodic re-queries for that route and date combination, caching results and diffing against the previous query to detect price changes. These scheduled queries are distributed across time to avoid thundering herd effects on supplier APIs.</p>
+
+<a name="Hotel.Aggregation.System"></a>
+<h2>Hotel Aggregation System</h2>
+
+<p>Hotel inventory is even more complex than flights because the supply side is fragmented across property management systems, channel managers, and OTA connections.</p>
+
+<p>The hotel aggregator pulls inventory from OTA partners (who aggregate properties themselves), direct hotel API connections, and wholesale supplier feeds. Each source has different data models, availability refresh rates, and pricing structures.</p>
+
+<p>Inventory synchronization is the chronic challenge. A hotel might sell the last available room directly through its front desk at 3pm. The channel manager updates the OTA within minutes, but the OTA feed to MakeMyTrip might only refresh every 15 minutes. During that window, the platform might show availability that no longer exists.</p>
+
+<p>The platform handles this through a two-stage commitment model. When a user selects a hotel, the system holds an inventory reservation with the supplier for a short period (typically 15-30 minutes). The hold does not confirm the booking; it reserves the room while the user completes payment. If payment succeeds, the hold converts to a confirmed booking. If the hold cannot be established because inventory is gone, the user is informed before reaching the payment screen.</p>
+
+<p>Rate parity is a contractual and technical challenge. Hotels contract with different OTAs and GDSs at different rates, often with rate parity clauses requiring the same price across channels. Enforcing this requires the aggregator to compare rates across sources and flag anomalies. The platform does this comparison periodically in a batch job and surfaces rate parity violations for supplier management review.</p>
+
+<a name="Activities.and.Experiences.Platform"></a>
+<h2>Activities and Experiences Platform</h2>
+
+<p>The activity marketplace is the most fragmented part of the inventory stack. Activities are provided by thousands of small tour operators, individual guides, and local experience providers. These operators have wildly different technical sophistication, from API-connected operators with real-time availability to operators who still take bookings by phone.</p>
+
+<p>The platform tiered its supplier integrations accordingly. Tier-one suppliers (large tour operators, museum ticketing systems, theme parks) have direct API integrations with real-time availability. Tier-two suppliers use a booking platform that MakeMyTrip integrates with. Tier-three suppliers are managed through a manual allocation model where MakeMyTrip pre-purchases blocks of capacity.</p>
+
+<p>The pre-purchase model for tier-three suppliers introduces inventory risk. The platform pays for a block of slots upfront and needs to sell them before the activity date. Dynamic pricing on these pre-purchased blocks allows the platform to increase margins when demand is strong and discount aggressively as the date approaches to clear remaining inventory.</p>
+
+<p>Activity availability is time-bound differently from hotels. A hotel room is available until midnight. A morning jeep safari has a specific departure time and a fixed group size. The data model for activities includes time slots, group size limits, language of delivery, physical requirements, and cancellation windows. All of this needs to be reflected accurately in the user-facing search and booking flow.</p>
+
+<a name="Local.Transportation.Planning"></a>
+<h2>Local Transportation Planning</h2>
+
+<p>Transportation planning connects the dots between bookings. A user lands at Cochin International Airport at 6pm. Their hotel is in Fort Kochi. The itinerary engine schedules a houseboat experience in Alleppey the next day. There are three legs here that need to be surfaced: airport to hotel, hotel to Alleppey jetty, and return to Kochi for the final day.</p>
+
+<p>The transportation service maintains a catalog of standard routes between airports, major hotels, and popular destinations, with associated transfer options (prepaid cabs, shared shuttles, app-based cabs, trains, buses). For each route, the service stores estimated duration, cost range, booking lead time requirements, and reliability score.</p>
+
+<p>Transfer booking is integrated into the itinerary at the time of package construction. The system pre-fills suggested transfers based on the hotel and activity locations. Users can accept the defaults or modify them. For routes where the platform has vendor relationships, the transfer is bookable directly. For others, the platform surfaces deep links to cab apps or train booking systems.</p>
+
+<p>Route optimization within a destination uses a simplified TSP (traveling salesman problem) approach. Given a set of attractions and a hotel, the system finds a visiting sequence that minimizes total travel time. For small sets (under 10 locations), exact solutions are feasible. For larger sets, a 2-opt heuristic produces near-optimal results quickly.</p>
+
+<a name="Dynamic.Pricing.Engine"></a>
+<h2>Dynamic Pricing Engine</h2>
+
+<p>Pricing in a travel platform is not just displaying supplier rates. The platform computes a final package price that covers component costs, adds a margin, applies any applicable discounts, and presents a coherent total.</p>
+
+<p>Component pricing starts with supplier rates. For flights, the fare class determines the base price. For hotels, the room rate is per night. For activities, it is per person. These are the floor costs.</p>
+
+<p>The platform&rsquo;s margin is applied as a percentage over the cost, calibrated to competitive rates in the market. The pricing engine checks real-time competitor pricing for similar packages and adjusts the margin to stay competitive. This requires the system to be continuously monitoring competitor prices, which is done through a combination of public scrapers and data partnerships.</p>
+
+<p>Demand forecasting drives seasonal pricing adjustments. The pricing engine trains a demand model on historical booking data, incorporating day of week, weeks before travel, origin-destination pair, and event calendar. A package for Goa in the week before Christmas will be priced significantly higher than the same package for late January because the demand model predicts higher conversion even at elevated prices.</p>
+
+<p>Promotional pricing introduces complexity. A discount applied to a bundle requires correctly computing the post-discount price while ensuring the platform still covers its costs. The pricing engine maintains a margin floor below which a promotion cannot push the price. If a user applies a coupon code that would push the package below the margin floor, the coupon is accepted but the applied discount is capped.</p>
+
+<p>Total trip price calculation is the final aggregation. The pricing engine sums flight costs for all passengers, hotel costs for all nights, activity costs per person, transfer costs, and platform service fees, then applies any bundling discounts and promotional codes. The output is a fully itemized price breakdown that the user sees before confirming.</p>
+
+<a name="Booking.Orchestration.Engine"></a>
+<h2>Booking Orchestration Engine</h2>
+
+<p>This is the most consequential engineering in the entire platform. A vacation package booking is a distributed transaction across multiple external systems, each of which can fail independently.</p>
+
+<div class="mermaid">
+graph TD
+    START[User Confirms Package]
+    IV[Inventory Validation]
+    PR[Price Recalculation]
+    LK[Inventory Lock]
+    PI[Payment Initiation]
+    PC[Payment Confirmation]
+    FB[Flight Booking API]
+    HB[Hotel Booking API]
+    AB[Activity Booking API]
+    BK[Booking Record Created]
+    CN[Confirmation Sent]
+    RL[Rollback if Failure]
+
+    START &#8211;> IV
+    IV &#8211;> PR
+    PR &#8211;> LK
+    LK &#8211;> PI
+    PI &#8211;> PC
+    PC &#8211;> FB
+    PC &#8211;> HB
+    PC &#8211;> AB
+    FB &#8211;> BK
+    HB &#8211;> BK
+    AB &#8211;> BK
+    BK &#8211;> CN
+    IV &#8211;>|Failed| RL
+    LK &#8211;>|Failed| RL
+    PC &#8211;>|Failed| RL
+    FB &#8211;>|Failed| RL
+    HB &#8211;>|Failed| RL
+
+    classDef start fill:#e94560,stroke:#fff,color:#fff
+    classDef process fill:#0f3460,stroke:#e94560,color:#fff
+    classDef booking fill:#533483,stroke:#e94560,color:#fff
+    classDef failure fill:#2b2d42,stroke:#ef233c,color:#fff
+
+    class START start
+    class IV,PR,LK,PI,PC process
+    class FB,HB,AB,BK,CN booking
+    class RL failure
+</div>
+
+
+<p>The orchestrator implements a saga pattern. Each booking step is recorded as an event. If a step fails, compensating actions are triggered to undo completed steps.</p>
+
+<p>Inventory validation runs first. The system re-checks availability for all selected components. If any component is no longer available, the user is redirected to select alternatives. This step is the last chance to catch stale inventory before money changes hands.</p>
+
+<p>Price recalculation runs immediately before payment. Flight fares can change in the time between initial search and booking. If the total price has changed, the user is shown the updated price and asked to confirm again.</p>
+
+<p>Inventory locking attempts to hold all components simultaneously. Holds with supplier systems reserve inventory but do not confirm. This is time-limited, typically 15-20 minutes, enough to complete payment.</p>
+
+<p>Payment processing is attempted next. If payment fails (card declined, bank timeout), the holds are released and the booking fails cleanly. The user sees the payment failure and can retry.</p>
+
+<p>If payment succeeds, the orchestrator fans out confirmation requests to each supplier: the flight booking API, the hotel booking API, and the activity booking API. These can be sent in parallel. Each confirmation generates a supplier booking reference (PNR for flights, booking ID for hotels).</p>
+
+<p>The partial confirmation failure case is the hardest. What if flight booking succeeds but hotel booking fails? The platform has collected payment for a complete package. The correct behavior is to attempt to book an alternative hotel first. If no alternative is available, the platform cancels the flight (triggering a refund request to the airline) and initiates a full refund to the user. All of this is handled by the orchestrator&rsquo;s rollback logic, and it must be idempotent: if the rollback itself crashes halfway through, re-running it must not double-cancel or double-refund.</p>
+
+<a name="Payment.Infrastructure"></a>
+<h2>Payment Infrastructure</h2>
+
+<p>Payment in a multi-vendor travel booking involves more complexity than a single-vendor e-commerce purchase.</p>
+
+<p>The user pays a single amount to MakeMyTrip. The platform then disburses payments to each supplier: the airline, the hotel, and the activity operator. Each disbursement happens on a different schedule. Airlines typically require payment at booking time. Hotels might allow payment at check-in. Activity operators might have a payment-at-service model.</p>
+
+<p>The platform maintains a virtual wallet or escrow account that holds the collected payment until disbursement timings are met. A reconciliation engine runs daily (and sometimes hourly for high-volume periods) to match collected payments against disbursed amounts and flag discrepancies.</p>
+
+<p>Payment failures are retried with exponential backoff. Idempotency keys are sent with every payment API call so that a retried call does not create a duplicate charge. These keys are generated from the booking ID and the component being paid, ensuring uniqueness even across retries.</p>
+
+<p>Multi-vendor refunds are the ugliest case. A cancelled trip requires refunding the user while also recovering disbursed payments from each vendor. Each vendor has its own refund API and cancellation policy. The orchestrator tracks the state of each refund request and retries failed refunds asynchronously. The user receives a single consolidated refund regardless of how many partial vendor refunds were required to fund it.</p>
+
+<a name="Travel.Notification.Infrastructure"></a>
+<h2>Travel Notification Infrastructure</h2>
+
+<p>Notifications are multi-channel (push, SMS, email, in-app) and time-sensitive in ways that most notification systems are not. A check-in reminder sent 30 minutes after check-in time is not just useless; it actively damages trust.</p>
+
+<p>The notification service maintains a schedule for each booking. At booking confirmation time, a series of scheduled notifications are created: a confirmation summary immediately, a trip preparation reminder 7 days before departure, a check-in reminder 24 hours before hotel check-in, a flight status check at T-3 hours, and a local tips notification at destination arrival.</p>
+
+<p>The scheduling system is built on a delayed job queue. Each notification is placed in the queue with a scheduled delivery time. Workers pick up jobs when their time arrives and dispatch them through the appropriate channel.</p>
+
+<p>Travel alerts are triggered reactively by external events rather than scheduled times. Flight delay data comes from airline status feeds. Weather alerts come from meteorological data feeds. These are consumed by the notification service as event streams. When a monitored flight shows a delay exceeding 30 minutes, the service generates and dispatches a delay notification to the affected users immediately.</p>
+
+<p>Personalization applies even to notifications. Users who have opted for WhatsApp delivery get messages formatted for that channel. Users who previously marked push notifications as unhelpful get email instead. The notification service maintains channel preferences per user and routes accordingly.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Every significant state change in the platform emits an event. Booking created, payment completed, hotel confirmed, activity cancelled, itinerary modified — all of these produce events that are published to a distributed event bus.</p>
+
+<p>The event bus (implemented using a system like Apache Kafka) decouples producers from consumers. When a booking is confirmed, the booking service publishes an event. It does not know or care who consumes that event. Multiple consumers can independently react: the notification service sends a confirmation, the loyalty service awards points, the analytics platform records the conversion, the supplier systems receive confirmation requests.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% ==================================================
+%% EVENT PRODUCERS
+%% ==================================================
+
+subgraph Producers[&#8220;EVENT PRODUCERS&#8221;]
+    BOOK[&#8220;Booking Service&#8221;]
+    PAY[&#8220;Payment Service&#8221;]
+    ITIN[&#8220;Itinerary Engine&#8221;]
+    SUPP[&#8220;Supplier APIs&#8221;]
+end
+
+%% ==================================================
+%% EVENT STREAMING PLATFORM
+%% ==================================================
+
+subgraph EventBus[&#8220;EVENT STREAMING PLATFORM&#8221;]
+    KB[&#8220;Kafka Event Bus&#8221;]
+end
+
+%% ==================================================
+%% EVENT CONSUMERS
+%% ==================================================
+
+subgraph Consumers[&#8220;EVENT CONSUMERS&#8221;]
+    NOTIF[&#8220;Notification Service&#8221;]
+    LOYAL[&#8220;Loyalty Service&#8221;]
+    ANAL[&#8220;Analytics Platform&#8221;]
+    AUDIT[&#8220;Audit Log&#8221;]
+    REC[&#8220;Recommendation Engine&#8221;]
+end
+
+%% ==================================================
+%% EVENT FLOW
+%% ==================================================
+
+BOOK &#8211;>|&#8221;booking.created&#8221;| KB
+
+PAY &#8211;>|&#8221;payment.completed&#8221;| KB
+
+ITIN &#8211;>|&#8221;trip.generated&#8221;| KB
+
+SUPP &#8211;>|&#8221;inventory.updated&#8221;| KB
+
+KB &#8211;>|&#8221;Notify Users&#8221;| NOTIF
+
+KB &#8211;>|&#8221;Reward Points&#8221;| LOYAL
+
+KB &#8211;>|&#8221;Business Metrics&#8221;| ANAL
+
+KB &#8211;>|&#8221;Compliance Records&#8221;| AUDIT
+
+KB &#8211;>|&#8221;Personalization Signals&#8221;| REC
+
+%% ==================================================
+%% STYLING
+%% ==================================================
+
+%% Producers
+style BOOK fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style PAY fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style ITIN fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style SUPP fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Kafka
+style KB fill:#dc2626,stroke:#991b1b,stroke-width:7px,color:#ffffff
+
+%% Consumers
+style NOTIF fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style LOYAL fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style ANAL fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style AUDIT fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style REC fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+
+%% ==================================================
+%% LINK STYLING
+%% ==================================================
+
+%% Producer -> Kafka
+linkStyle 0 stroke:#2563eb,stroke-width:4px
+linkStyle 1 stroke:#2563eb,stroke-width:4px
+linkStyle 2 stroke:#2563eb,stroke-width:4px
+linkStyle 3 stroke:#2563eb,stroke-width:4px
+
+%% Kafka -> Consumers
+linkStyle 4 stroke:#dc2626,stroke-width:5px
+linkStyle 5 stroke:#dc2626,stroke-width:5px
+linkStyle 6 stroke:#dc2626,stroke-width:5px
+linkStyle 7 stroke:#dc2626,stroke-width:5px
+linkStyle 8 stroke:#dc2626,stroke-width:5px
+
+</div>
+
+
+<p>Event durability is non-negotiable. If the Kafka broker is unavailable for a few minutes and a booking occurs during that window, the event must not be lost. Producers write to a local outbox table in the same database transaction as the booking record, using the transactional outbox pattern. A relay process reads the outbox and publishes to Kafka, retrying until successful. This ensures that every booking event eventually reaches all consumers, even if there are transient broker outages.</p>
+
+<p>Consumers maintain their own offset tracking. If the notification service crashes while processing a batch of events, it restarts from the last committed offset and reprocesses. Consumers must therefore be idempotent: processing the same event twice should not send the user two confirmation messages.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The core entity relationships are relatively straightforward. Complexity enters in the sheer volume of data and the read/write patterns.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Entity</th>
+        <th>Primary Storage</th>
+        <th>Key Columns</th>
+        <th>Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Users</td>
+        <td>PostgreSQL</td>
+        <td>user_id, email, preferences, tier</td>
+        <td>Point lookup by user_id or email</td>
+      </tr>
+      <tr>
+        <td>Destinations</td>
+        <td>PostgreSQL + Elasticsearch</td>
+        <td>destination_id, name, country, lat, lng, popularity_score, seasonality</td>
+        <td>Full-text + geo search via ES; detail by ID via PG</td>
+      </tr>
+      <tr>
+        <td>Trips</td>
+        <td>PostgreSQL</td>
+        <td>trip_id, user_id, status, start_date, end_date, budget</td>
+        <td>Lookup by user_id; status-based queries</td>
+      </tr>
+      <tr>
+        <td>Itineraries</td>
+        <td>PostgreSQL + S3 (JSON)</td>
+        <td>itinerary_id, trip_id, version, day_plans (JSONB)</td>
+        <td>Point lookup; versioned history in S3</td>
+      </tr>
+      <tr>
+        <td>Flights</td>
+        <td>Redis (cache) + PostgreSQL (confirmed)</td>
+        <td>search results cached; confirmed bookings in PG</td>
+        <td>High-read search from cache; write-once confirmed records</td>
+      </tr>
+      <tr>
+        <td>Hotels</td>
+        <td>Elasticsearch + PostgreSQL</td>
+        <td>hotel_id, location, amenities, price_tier, ratings</td>
+        <td>Geo + facet search; confirmation records in PG</td>
+      </tr>
+      <tr>
+        <td>Bookings</td>
+        <td>PostgreSQL</td>
+        <td>booking_id, trip_id, component_type, supplier_ref, status, amount</td>
+        <td>Lookup by booking_id, trip_id; status updates</td>
+      </tr>
+      <tr>
+        <td>Payments</td>
+        <td>PostgreSQL</td>
+        <td>payment_id, booking_id, amount, status, idempotency_key, provider_ref</td>
+        <td>Lookup by payment_id, idempotency_key; append-mostly</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Partitioning decisions matter at scale. The bookings table is partitioned by created_at month. This keeps hot partition sizes manageable and allows cold partitions to be archived to cheaper storage. The payments table uses the same monthly partitioning strategy.</p>
+
+<p>The itinerary day_plans are stored as JSONB in PostgreSQL. This allows schema flexibility as the itinerary data model evolves without requiring migrations. The full itinerary history is snapshotted to S3 for audit purposes.</p>
+
+<p>Indexes are added deliberately. The bookings table has indexes on user_id, trip_id, and status. The trips table has a compound index on (user_id, status) for the &ldquo;active trips&rdquo; query. Over-indexing slows writes; the platform audits index usage quarterly and drops unused indexes.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching in a travel platform is aggressive because the underlying data is expensive to fetch and changes on different schedules.</p>
+
+<p>Destination data is the most stable. A destination&rsquo;s name, description, photos, and attraction catalog change rarely. This data is cached in Redis with a TTL of several hours. The cache is warmed at startup by pre-loading all destination records. Cache invalidation happens on manual edits by content managers, which triggers a targeted cache key deletion.</p>
+
+<p>Hotel search results are cached with a shorter TTL (10-15 minutes) because availability and pricing change frequently. The cache key encodes all search parameters. Cache hits serve results instantly; misses trigger live supplier calls.</p>
+
+<p>Flight search results are cached even more aggressively because airline API calls are expensive in both latency and (sometimes) money. Results are cached for 10 minutes. The moment a user moves to booking, the cached results are discarded and a live check is made.</p>
+
+<p>Recommendation results are cached per user segment, not per user, to avoid combinatorial explosion. A user is assigned to a set of segments based on their travel history, origin, and preferences. The recommendations for that segment combination are cached and served to all users in that segment. Individual personalization multipliers are applied at serve time by the re-ranker.</p>
+
+<p>The hotspot problem is real during peak periods. When Goa packages are on sale, thousands of users simultaneously search Goa. Without caching, every search would hit the hotel and flight aggregators. With a shared cache keyed on destination plus dates, the first request fetches live data and all subsequent requests within the TTL serve from cache. This is a dramatic reduction in supplier API load.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Travel platforms face two scaling patterns that are different in character. The first is gradual growth: more users, more destinations, more suppliers over time. The second is extreme spikes: holiday announcements, flash sales, festival season, and school vacation peaks drive 10x or 20x normal traffic in hours.</p>
+
+<p>The platform is horizontally scaled at every layer. API gateway instances behind a load balancer. Stateless service instances that scale on CPU metrics. Database read replicas for high-read services like destination search and hotel catalog.</p>
+
+<p>The recommendation engine is the most compute-intensive service. Model inference for a single user recommendation takes significant CPU. At scale, inference is offloaded to dedicated GPU-backed inference servers. Model updates happen offline in batch training jobs; the resulting model artifacts are deployed to inference servers without taking down the recommendation service.</p>
+
+<p>The itinerary engine is CPU-intensive for the optimization computation. It scales horizontally with each instance maintaining in-memory attraction data cached from Redis. The attraction catalog is small enough to fit entirely in instance memory for fast access during optimization.</p>
+
+<p>Booking orchestration does not scale well with simple horizontal replication because each booking is a stateful saga. The platform assigns each booking saga to a dedicated orchestrator thread with state persisted in the database. If an orchestrator instance fails, another instance can pick up the saga from its last recorded state and continue. This gives horizontal scale without losing saga state.</p>
+
+<p>Holiday traffic spikes are handled through pre-scaling. The platform uses historical traffic data to predict when spikes will occur (e.g., Independence Day travel announcements, school closing dates) and pre-provisions additional capacity a day before. Auto-scaling handles unexpected spikes up to a cap; beyond the cap, graceful degradation kicks in.</p>
+
+<p>Graceful degradation under extreme load means accepting some features may become unavailable while core booking flows remain functional. The first things to degrade are: recommendation engine (fall back to popularity-based results), real-time availability checks on activities (show approximate availability), and personalization on destination search (fall back to globally ranked results). Flights and hotel booking remain fully functional because those are revenue-critical.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>The platform targets 99.99% availability for booking flows. This requires redundancy at every layer and well-tested failover procedures.</p>
+
+<p>Each service runs in multiple availability zones. Database primaries have synchronous replicas in a second zone. If the primary zone has an outage, failover to the replica happens within seconds with minimal data loss.</p>
+
+<p>Supplier API outages are the most common reliability challenge. If the Amadeus GDS is down, flight search from that source degrades but results from other connected airlines continue. The aggregator has a circuit breaker per supplier. When a supplier crosses an error rate threshold, its circuit opens and requests to that supplier are fast-failed rather than waiting for a timeout. The circuit closes again after a recovery period.</p>
+
+<p>Booking failures are tracked at every step of the saga. Operations teams have a dashboard showing in-flight saga states, failed steps, and pending rollbacks. An on-call engineer can see exactly which bookings are in a partial failure state and intervene if automated rollback has not resolved the issue.</p>
+
+<p>Disaster recovery means defining recovery time objectives (RTO) and recovery point objectives (RPO) per service tier. Core booking data has an RPO of near-zero (synchronous replication) and an RTO of under a minute (automatic failover). Recommendation model artifacts have an RPO of a few hours (last training run) and an RTO of minutes (model redeployment is fast).</p>
+
+<a name="Security.Considerations"></a>
+<h2>Security Considerations</h2>
+
+<p>Travel platforms are high-value targets. A breached account can be used to rebook flights under different names, drain stored travel credits, or access personal identification documents attached to booking records.</p>
+
+<p>Authentication uses OAuth 2.0 with JWT tokens. Tokens have short expiry windows (15-60 minutes). Refresh tokens are long-lived but rotated on use. Social login is offered but accounts linked to social providers are treated with the same security posture as email-password accounts.</p>
+
+<p>Payment card data never touches MakeMyTrip servers. All card processing is handled through PCI-compliant payment gateways. Tokenized card references are stored, not raw card numbers.</p>
+
+<p>Fraud detection runs on every booking attempt. Features include device fingerprint, velocity checks (how many bookings from this account in the last hour), IP reputation, card BIN checks, and booking pattern analysis. Suspicious bookings are flagged for manual review or step-up verification before confirmation.</p>
+
+<p>Bot detection on search APIs is critical because automated fare scrapers can easily saturate supplier API quotas and disrupt legitimate users. CAPTCHA is triggered when search velocity from a single session exceeds normal human behavior. Progressive throttling and IP-based rate limiting are the first defense layers.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>These are the real decisions that architects make, and the honest answer is almost always &ldquo;it depends.&rdquo;</p>
+
+<p>Recommendation quality versus latency is a genuine tension. A more complex model produces better recommendations but takes longer to compute. The platform resolves this by pre-computing segment-level recommendations offline and personalizing lightly at serve time. The tradeoff is that recommendations are somewhat generalized within segments rather than fully individualized, but latency stays under 100ms.</p>
+
+<p>Personalization versus privacy is increasingly consequential. Deep personalization requires storing detailed user behavior. The platform allows users to opt into or out of behavioral tracking. Users who opt out get segment-level recommendations rather than individual ones. This is architecturally cleaner than trying to personalize without data.</p>
+
+<p>Caching versus freshness is the most common tradeoff in travel systems. A hotel cache with a 15-minute TTL will occasionally show slightly stale pricing. The platform accepts this tradeoff because the alternative (live fetch on every search) would produce unacceptably high latency. The pre-booking availability check catches actual staleness before money changes hands.</p>
+
+<p>Package flexibility versus optimization creates a genuine product tension. A fully optimized itinerary might not match what a user actually wants. The platform generates an optimized base itinerary and then makes every element editable. Users can swap attractions, change hotel selections, and modify timing. The optimization gives a good starting point; editability respects user agency.</p>
+
+<p>Consistency versus availability in booking systems is where CAP theorem becomes concrete. During a supplier outage, the platform can choose to show stale availability (preferring availability) or show no results from that supplier (preferring consistency). The platform chooses to show stale data with a clear recency indicator, letting users know results may not be fully current.</p>
+
+<a name="AI.and.the.Future.of.Travel.Planning"></a>
+<h2>AI and the Future of Travel Planning</h2>
+
+<p>The current AI integration in travel planning is sophisticated but still fundamentally rule-based in its core planning logic. The next evolution is genuinely AI-native planning.</p>
+
+<p>Conversational trip planning means a user can describe what they want in natural language and the system assembles a plan through dialogue. &ldquo;I want a relaxed trip with good food and some nature, not too much walking, about 8 days, budget around 80,000&rdquo; is a hard query for a form-based UI but a tractable input for a language model that understands preferences and can map them to itinerary parameters.</p>
+
+<p>Autonomous travel agents take this further. An agent could proactively monitor flight prices after a user expresses interest in a destination, alert them when a good deal appears, and with one confirmation begin assembling a full package. This requires trust, and trust requires the agent to have a provable track record of judgment.</p>
+
+<p>Predictive recommendations flip the current model. Rather than responding to user intent, the system predicts when a user is likely to plan a trip and proactively surfaces destination ideas before they start searching. This relies on longitudinal behavioral modeling: detecting patterns in when a user typically travels, what triggers their trip planning, and what they tend to book.</p>
+
+<p>The architecture implications of an AI-native planning system are significant. Language model inference at scale is expensive. Prompt design becomes a core engineering discipline. Evaluation infrastructure for open-ended AI outputs is harder to build than metrics for ranked lists. The platform needs to maintain correctness over AI-generated itinerary content while allowing the flexibility that makes AI planning valuable.</p>
+
+<p>Multi-modal inputs will change how users interact with planning. A user uploading photos from a travel magazine and saying &ldquo;I want somewhere that looks like this&rdquo; is a legitimate and useful query. Processing that intent requires vision models combined with destination matching on visual similarity. This kind of interaction is not far away.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Used For</th>
+        <th>Why This Choice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Java + Spring Boot</td>
+        <td>Core booking and payment services</td>
+        <td>Strong ecosystem for transactional systems, mature connection pooling, excellent observability tooling</td>
+      </tr>
+      <tr>
+        <td>Go</td>
+        <td>Flight and hotel aggregation, high-throughput API services</td>
+        <td>Low memory footprint, excellent concurrency via goroutines, fast startup time for scaled-out instances</td>
+      </tr>
+      <tr>
+        <td>Python</td>
+        <td>Recommendation models, ML training, data pipelines</td>
+        <td>Dominant ML ecosystem (PyTorch, scikit-learn), fast prototyping, excellent data tooling</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Session cache, search cache, recommendation cache, rate limiting</td>
+        <td>Sub-millisecond reads, native data structures for sorted sets and pub-sub, wide operational familiarity</td>
+      </tr>
+      <tr>
+        <td>Apache Kafka</td>
+        <td>Event bus for booking events, payment events, notification triggers</td>
+        <td>Durable message log, consumer group model, high throughput, strong ecosystem</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL</td>
+        <td>User data, bookings, payments, itinerary records</td>
+        <td>ACID transactions for financial records, JSONB for flexible schema, mature partitioning</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Destination search, hotel search, activity discovery</td>
+        <td>Full-text + geo search in one system, horizontal scaling, rich aggregation API</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Service orchestration, auto-scaling, rolling deployments</td>
+        <td>Industry standard for microservice deployment, declarative scaling, strong observability integrations</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The polyglot stack is an intentional choice, not a mistake. Different services have fundamentally different performance profiles. An aggregation service making thousands of concurrent outbound HTTP calls is a different beast from a booking service managing ACID transactions. Forcing both into the same technology stack would mean accepting suboptimal performance in one of them. The operational cost of polyglot is real (different monitoring setups, different deployment configs, different debugging skills required) but the performance benefits justify it at scale.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Travel planner system design is a common senior-level interview question because it touches so many interesting engineering domains simultaneously.</p>
+
+<p>Interviewers expect candidates to identify the key complexities upfront. A weak answer treats travel planner as &ldquo;flight booking plus hotel booking.&rdquo; A strong answer immediately flags the multi-vendor inventory problem, the itinerary generation optimization problem, the distributed transaction challenge in booking, and the recommendation system cold start problem.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Discussion Area</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Recommendation System</td>
+        <td>&#8220;Use collaborative filtering based on user bookings&#8221;</td>
+        <td>Identify cold start problem, combine collaborative + content-based + behavioral signals, discuss segment-level caching, explain how to handle sparse travel booking frequency</td>
+      </tr>
+      <tr>
+        <td>Itinerary Generation</td>
+        <td>&#8220;Sort attractions by rating and add them to the schedule&#8221;</td>
+        <td>Frame as orienteering problem, explain geographic clustering, discuss transit time calculation, describe local search optimization, mention opening hours and energy modeling</td>
+      </tr>
+      <tr>
+        <td>Booking Orchestration</td>
+        <td>&#8220;Book flight, hotel, and activities in sequence&#8221;</td>
+        <td>Identify distributed transaction problem, propose saga pattern, explain compensating transactions, discuss idempotency, walk through partial failure scenarios</td>
+      </tr>
+      <tr>
+        <td>Scalability</td>
+        <td>&#8220;Use horizontal scaling and load balancers&#8221;</td>
+        <td>Distinguish gradual growth from spike patterns, explain pre-scaling for predictable spikes, describe graceful degradation, discuss caching strategy for flight and hotel search</td>
+      </tr>
+      <tr>
+        <td>Inventory Staleness</td>
+        <td>&#8220;Refresh data frequently&#8221;</td>
+        <td>Explain two-stage commitment model (hold then confirm), discuss TTL-based caching with pre-booking live checks, describe circuit breakers per supplier</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Common mistakes candidates make: spending too much time on authentication and API gateway (these are important but not the interesting parts for this problem), ignoring the recommendation system entirely, proposing a single synchronous booking flow without considering partial failures, and treating inventory as always accurate without discussing staleness.</p>
+
+<p>The questions that make strong candidates stand out are: &ldquo;How do you handle the case where flight booking succeeds but hotel booking fails after payment?&rdquo; and &ldquo;How do you keep hotel availability from becoming stale?&rdquo; These show the candidate is thinking about failure cases in a distributed system, not just the happy path.</p>
+
+<p>Interviewer follow-ups often probe into the itinerary generation engine because it is genuinely complex and candidates who claim to understand it often cannot explain the optimization approach coherently. Being able to say &ldquo;this is a variant of the orienteering problem, and we solve it with geographic clustering followed by a greedy construction heuristic and local search improvement&rdquo; is a strong differentiator.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>The meta-lesson in designing systems like this is that complexity lives at the boundaries. The boundaries between recommendation and booking, between inventory and pricing, between distributed transaction and consistency, between personalization and privacy. The best engineers can articulate what is hard at each boundary and why specific architectural choices were made to manage it.</p>
+
+<p>Travel planning is a product domain where getting the engineering right has direct user impact. A poorly generated itinerary leads to a bad vacation. A failed booking transaction leads to a user stuck at an airport without a hotel. The stakes of the system design are real, and that is what makes it a rich problem worth understanding deeply.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How BookMyShow Works?]]></title>
@@ -14392,647 +15394,6 @@ H &#8211;> I;
 <p>What makes Tinder interesting as a system design subject is that the core tension — give users highly personalized, low-latency, geo-aware recommendations while processing millions of writes per second and maintaining real-time communication channels — forces almost every major distributed systems technique into play simultaneously. Understanding how Tinder solves these problems gives you a mental model that applies directly to recommendation systems, real-time communication platforms, geo-aware applications, and write-heavy distributed systems of all kinds.</p>
 
 <p>The next time you swipe right and a match appears in under a second, you will know exactly what just happened behind the scenes.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How NGINX Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-nginx-works/"/>
-        <updated>2026-05-16T14:13:47+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-nginx-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>There is a good chance that every HTTP request you have made today passed through NGINX at some point. It might have been serving a static file, forwarding your request to a backend application, terminating TLS, or quietly balancing your traffic across a dozen servers. NGINX sits at the heart of a staggering amount of internet infrastructure, and yet most engineers interact with it only through config files without fully understanding what is happening underneath.</em></p></blockquote>
-
-<p>This blog is a deep dive into how NGINX actually works. Not just what it does, but why it was built the way it was, what engineering problems it solves, how it interacts with the Linux kernel, and what makes it so exceptionally fast even under enormous load. By the end, you should have the kind of intuition that lets you reason about NGINX the way a systems engineer would.</p>
-
-<p><img src="https://rishijeet.github.io/images/system_design/nginx.jpeg" height="300" width="900" alt="Alt text" /></p>
-
-<a name="Why.NGINX.Exists.at.All"></a>
-<h2>Why NGINX Exists at All</h2>
-
-<p>To understand NGINX, you have to understand the world it was born into. In the early 2000s, Apache HTTP Server was the dominant web server. Apache worked on a model where every incoming connection spawned either a new process or a new thread. For a few thousand requests, this was fine. But as web traffic started growing, engineers ran into a hard wall known as the C10K problem — how do you handle 10,000 simultaneous connections on a single server?</p>
-
-<!--more-->
-
-
-<p>The thread-per-connection model has a fundamental problem. Each thread or process consumes memory, typically somewhere between 1MB and 8MB per thread depending on the stack size. Scheduling 10,000 threads means the operating system is constantly doing context switches, which burn CPU cycles on bookkeeping rather than actual work. The kernel&rsquo;s scheduler is not designed to efficiently juggle tens of thousands of threads all doing mostly waiting.</p>
-
-<p>Igor Sysoev was a Russian engineer who experienced this problem firsthand while working on the infrastructure for Rambler, one of Russia&rsquo;s largest internet portals. In 2002 he started writing NGINX specifically to solve the C10K problem. The core insight was simple but radical: instead of giving each connection its own thread, use a small number of worker processes and handle all connections inside an event loop. This is the architecture that makes NGINX fundamentally different from Apache.</p>
-
-<p>The practical implication is dramatic. An NGINX worker process can handle tens of thousands of simultaneous connections using only a few megabytes of memory. You could run 4 worker processes on a modern server and comfortably handle hundreds of thousands of concurrent connections. That same workload would bring Apache to its knees.</p>
-
-<a name="Core.Features.of.NGINX"></a>
-<h2>Core Features of NGINX</h2>
-
-<p>Before going deep on architecture, it helps to understand the full surface area of what NGINX actually does in production.</p>
-
-<p>NGINX is first and foremost a web server. It can serve static HTML, CSS, JavaScript, images, and video files directly from disk with extraordinary efficiency. It uses kernel-level optimizations like sendfile() to move data from disk to network without copying it through userspace at all.</p>
-
-<p>As a reverse proxy, NGINX sits in front of your backend application servers and forwards requests to them. This is one of its most common production uses. Your Node.js or Python or Java application never talks directly to the internet. NGINX handles the connection, buffers the request, forwards it upstream, and sends the response back to the client.</p>
-
-<p>As a load balancer, NGINX distributes incoming requests across a pool of backend servers. It supports multiple algorithms and actively monitors backend health. If a backend dies, NGINX stops sending traffic to it automatically.</p>
-
-<p>NGINX also serves as an API gateway, providing rate limiting, request filtering, authentication headers, and routing logic. It handles TLS termination, taking the expensive work of SSL handshakes and encryption off your application servers. It manages WebSocket connections, HTTP streaming, response caching, and Gzip compression.</p>
-
-<p>The important thing to notice is that NGINX does all of these things within the same event-driven architecture. Whether it is serving a static file, proxying to a backend, or terminating TLS, the same non-blocking I/O model handles everything.</p>
-
-<a name="High-Level.Architecture"></a>
-<h2>High-Level Architecture</h2>
-
-<p>Let&rsquo;s look at the overall structure of how NGINX processes work and communicate.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Client Request];
-B[Master Process];
-C[Worker Process 1];
-D[Worker Process 2];
-E[Worker Process 3];
-F[Cache Manager];
-G[Cache Loader];
-H[Upstream Backend 1];
-I[Upstream Backend 2];
-J[Upstream Backend 3];
-K[File System];
-
-A &#8211;>|TCP Connection| B;
-B &#8211;>|Accept| C;
-B &#8211;>|Accept| D;
-B &#8211;>|Accept| E;
-C &#8211;>|Proxy| H;
-D &#8211;>|Proxy| I;
-E &#8211;>|Proxy| J;
-C &#8211;>|Static Files| K;
-B &#8211;>|Manage| F;
-B &#8211;>|Manage| G;
-</div>
-
-
-<p>The master process is the parent of everything. It reads and validates the configuration file, binds to ports, and then forks worker processes. After that, the master process mostly stays out of the way. It listens for signals from the operating system administrator and manages the lifecycle of workers.</p>
-
-<p>Worker processes are where all the real work happens. Each worker runs a tight event loop that handles thousands of connections simultaneously. Workers do not communicate with each other during normal operation. There are no shared mutexes on the hot path. Each worker is an independent unit processing its own set of connections.</p>
-
-<p>The cache manager and cache loader are separate helper processes. The cache loader walks the disk cache on startup and populates the in-memory cache metadata. The cache manager handles eviction and expiry of cached responses during normal operation. Separating these out keeps the worker processes focused purely on serving requests.</p>
-
-<a name="Event-Driven.Architecture.Deep.Dive"></a>
-<h2>Event-Driven Architecture Deep Dive</h2>
-
-<p>This is the section where NGINX starts to look like a fundamentally different kind of system. Most developers are used to thinking about concurrent programs in terms of threads. You have work to do, so you give it a thread. More work means more threads. NGINX rejects this model entirely.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Event Loop];
-B[epoll wait];
-C[Event Queue];
-D[Read Event Handler];
-E[Write Event Handler];
-F[Timer Event Handler];
-G[Connection Accept];
-H[Request Parse];
-I[Upstream Connect];
-J[Response Send];
-
-A &#8211;> B;
-B &#8211;>|Events Ready| C;
-C &#8211;> D;
-C &#8211;> E;
-C &#8211;> F;
-D &#8211;> H;
-G &#8211;> H;
-H &#8211;> I;
-I &#8211;> J;
-E &#8211;> J;
-F &#8211;>|Timeout Check| A;
-J &#8211;> A;
-</div>
-
-
-<p>The fundamental primitive NGINX relies on is called epoll on Linux (kqueue on BSD and macOS). Epoll is a kernel mechanism for monitoring large numbers of file descriptors efficiently. A file descriptor is just an integer that refers to an open resource — a socket, a file, a pipe. When you have 50,000 connections open, each connection is a file descriptor.</p>
-
-<p>With the old select() and poll() syscalls, your program would hand the kernel a list of all file descriptors to watch, and the kernel would scan through them all to see which ones were ready. This is O(n) work for every single poll, meaning it got slower as you had more connections. Epoll fixes this by maintaining the watch list inside the kernel and only returning the file descriptors that are actually ready. If you have 50,000 connections but only 200 have data available, epoll returns only those 200. The cost is proportional to activity, not to total connection count.</p>
-
-<p>Here is the mental model for a single NGINX worker. It calls epoll_wait() and goes to sleep. The kernel watches all the sockets. When data arrives on any socket, or when a socket becomes writable, the kernel wakes up the worker and hands it a list of ready events. The worker processes each ready event by calling a non-blocking read or write. If a read would block because no data is available yet, the worker does not wait. It registers interest in that file descriptor with epoll and moves on to handle the next event.</p>
-
-<p>This is the key insight: the worker process never blocks. It is always either doing useful work or sleeping in epoll_wait waiting for the kernel to tell it something is ready. There is no wasted time spinning on a connection that has not received data yet.</p>
-
-<p>Compare this to the thread-per-connection model. With threads, when a connection has no data, the thread blocks on a read() syscall. The OS scheduler has to context switch it out and bring in another thread. That context switch costs somewhere between 1 and 10 microseconds. At thousands of connections, context switching overhead starts dominating your CPU usage. You end up spending more time managing threads than doing actual work.</p>
-
-<p>NGINX avoids all of that. The worker&rsquo;s event loop is essentially a tightly controlled state machine. Every connection is represented as a lightweight struct with a current state. When an event fires, the worker looks up the connection struct, calls the appropriate handler function, updates the state, and moves on. The entire operation stays in the same thread and the same CPU core. CPU cache locality is excellent.</p>
-
-<a name="Master.and.Worker.Process.Model"></a>
-<h2>Master and Worker Process Model</h2>
-
-<p>The master process is responsible for things that happen infrequently but matter a great deal: starting up, reloading configuration, upgrading the binary, and shutting down gracefully.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Admin sends SIGHUP];
-B[Master Process receives signal];
-C[Master reads new config];
-D[Config valid?];
-E[Master forks new workers];
-F[New workers start accepting];
-G[Old workers drain connections];
-H[Old workers exit];
-I[Log error];
-
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;>|Yes| E;
-D &#8211;>|No| I;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-</div>
-
-
-<p>When you send NGINX a SIGHUP signal, it performs a zero-downtime reload. The master process reads the new configuration file and validates it. If valid, it forks new worker processes that use the new configuration. The old workers are told to stop accepting new connections. They finish processing whatever connections are already open, then exit. During this entire process, no client experiences a dropped connection. From the client&rsquo;s perspective, the reload is invisible.</p>
-
-<p>This is one of the engineering properties that makes NGINX production-friendly. You can push a configuration change to a live server with zero downtime, no service interruption, and no dropped connections.</p>
-
-<p>Worker processes are pinned to CPU cores in production deployments using worker_cpu_affinity. This is important for cache efficiency. When a process always runs on the same core, its data stays hot in the L1 and L2 caches. Context switching across cores would constantly invalidate those caches. For a latency-sensitive system like a web proxy, these cache misses add up.</p>
-
-<p>The number of worker processes is typically set to the number of CPU cores. One worker per core is the right starting point because the workers spend most of their time either in epoll_wait or doing I/O. They are not CPU-bound. Adding more workers than cores usually just creates contention without improving throughput.</p>
-
-<a name="Request.Processing.Lifecycle"></a>
-<h2>Request Processing Lifecycle</h2>
-
-<p>Let&rsquo;s trace a single HTTP request through NGINX from the moment the TCP connection arrives to the moment the response is sent back.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Client TCP SYN];
-B[Kernel accept queue];
-C[NGINX epoll event];
-D[Worker accepts connection];
-E[TLS handshake if HTTPS];
-F[HTTP request parsing];
-G[Location matching];
-H[Upstream selection];
-I[Backend connection pool check];
-J[New TCP to backend or reuse];
-K[Forward request headers];
-L[Backend processes request];
-M[Read backend response];
-N[Buffer response];
-O[Send response to client];
-P[Keep-alive or close];
-
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-H &#8211;> I;
-I &#8211;> J;
-J &#8211;> K;
-K &#8211;> L;
-L &#8211;> M;
-M &#8211;> N;
-N &#8211;> O;
-O &#8211;> P;
-</div>
-
-
-<p>When a client initiates a TCP connection, the kernel completes the three-way handshake and places the connection in the kernel&rsquo;s accept queue. The socket bound by the NGINX master process becomes readable. Epoll fires an event. The worker calls accept() to pull the connection out of the queue and gets a file descriptor for the new socket.</p>
-
-<p>If this is an HTTPS connection, the TLS handshake happens next. NGINX handles this using OpenSSL or a compatible library. The handshake involves certificate validation, cipher negotiation, and key exchange. This is computationally expensive, which is why NGINX supports TLS session resumption — clients that have recently connected can present a session ticket and skip most of the handshake.</p>
-
-<p>Once the connection is established, NGINX reads the HTTP request. HTTP/1.1 is a text protocol, so NGINX parses the headers byte by byte, looking for the method, URI, and headers. This parsing is fast and allocation-light. NGINX avoids copying data whenever possible.</p>
-
-<p>With the request parsed, NGINX evaluates the location blocks in the configuration to determine how to handle the request. Location matching is done using a combination of prefix matching and regex matching. The most specific prefix match wins, unless a regex match applies. NGINX compiles regex patterns at startup so matching is fast.</p>
-
-<p>Once the location is determined, NGINX knows what to do: serve a static file, proxy to an upstream, return a redirect, or apply some other directive. If proxying, it selects a backend using the configured load balancing algorithm, checks whether there is a keepalive connection to that backend already in the pool, and either reuses it or opens a new TCP connection.</p>
-
-<p>The request is forwarded to the backend with appropriate headers added: X-Real-IP, X-Forwarded-For, Host, and any custom headers configured. NGINX then reads the backend response. If proxy_buffering is on, NGINX reads the full response into a buffer before sending it to the client. This decouples the backend from slow clients. If buffering is off, NGINX pipes the response directly, which reduces latency but means the backend stays connected until the client finishes reading.</p>
-
-<p>Finally, NGINX sends the response back to the client. If keep-alive is enabled, the connection stays open and the state machine resets to wait for the next request. If not, the connection is closed and the file descriptor is returned to the kernel.</p>
-
-<a name="Reverse.Proxy.Internals"></a>
-<h2>Reverse Proxy Internals</h2>
-
-<p>The reverse proxy is where NGINX adds enormous value in real production systems. Without a reverse proxy, your application server is directly exposed to the internet. It has to deal with slow clients, malformed requests, connection floods, and TLS negotiation all by itself.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Slow Client];
-B[Fast Client];
-C[NGINX Reverse Proxy];
-D[Backend App Server];
-E[Backend App Server];
-
-A &#8211;>|Slow upload| C;
-B &#8211;>|Fast request| C;
-C &#8211;>|Buffered full request| D;
-C &#8211;>|Buffered full request| E;
-D &#8211;>|Response| C;
-E &#8211;>|Response| C;
-C &#8211;>|Slow delivery| A;
-C &#8211;>|Fast delivery| B;
-</div>
-
-
-<p>One of the most important things a reverse proxy does is protect backends from slow clients. Imagine a client on a mobile connection uploading a 10MB file at 100KB/s. Without a proxy, your application server has to hold a thread or connection open for 100 seconds waiting for the upload to complete. With NGINX, the proxy buffers the entire upload first, then sends it to the backend in a burst over the fast internal network. The backend sees a fast request and finishes quickly. It never has to deal with the slow client.</p>
-
-<p>NGINX maintains connection pools to backends. Opening a new TCP connection takes time — the three-way handshake, potential TLS handshake, and kernel allocations. With connection pooling using the keepalive directive in an upstream block, NGINX keeps a set of idle connections to each backend. When a request arrives, it reuses an existing connection rather than opening a new one. This dramatically reduces latency, especially for HTTPS backends.</p>
-
-<p>Timeout handling is critical. NGINX has separate timeout values for proxy_connect_timeout, proxy_read_timeout, and proxy_send_timeout. If a backend takes too long to respond, NGINX can close the connection, optionally retry on a different backend, and return an error to the client. This prevents a slow or hung backend from holding connections indefinitely and consuming resources.</p>
-
-<a name="Load.Balancing.System"></a>
-<h2>Load Balancing System</h2>
-
-<p>NGINX&rsquo;s load balancer is deliberately simple, and that simplicity is a feature. Complex load balancing algorithms are hard to reason about under failure conditions.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Incoming Request];
-B[NGINX Load Balancer];
-C[Round Robin Selector];
-D[Backend 1 healthy];
-E[Backend 2 unhealthy];
-F[Backend 3 healthy];
-G[Health Check Process];
-
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;>|Request 1| D;
-C &#8211;>|Skip| E;
-C &#8211;>|Request 2| F;
-G &#8211;>|Check| E;
-G &#8211;>|Mark healthy or unhealthy| E;
-</div>
-
-
-<p>Round robin is the default. Each request goes to the next backend in the list. It is simple, predictable, and fair. It works well when backends are homogeneous and requests are roughly equal in cost.</p>
-
-<p>Least connections sends each request to the backend with the fewest active connections. This works better when requests have variable processing time. A backend that is slow on one request does not get buried with more requests while other backends are idle.</p>
-
-<p>IP hash routes each client IP to the same backend consistently. This is used for sticky sessions when your application stores session state on the backend server rather than in a shared store like Redis. It has a significant failure mode: if that backend dies, all those clients have their sessions invalidated. For this reason, most modern architectures avoid relying on sticky sessions.</p>
-
-<p>Weighted round robin lets you send more traffic to backends with more capacity. If one backend has twice the CPU as the others, you give it double the weight and it receives double the requests.</p>
-
-<p>Health checks are either passive or active. Passive health checks work by observing failures. If a backend returns 5xx errors or times out, NGINX marks it as failed and stops sending traffic for a configurable period. Active health checks (available in NGINX Plus) send synthetic requests to backends on a schedule and remove them from rotation proactively.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Algorithm</th>
-        <th>Best Use Case</th>
-        <th>Weakness</th>
-        <th>Session Affinity</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Round Robin</td>
-        <td>Homogeneous backends, uniform request cost</td>
-        <td>Ignores backend load</td>
-        <td>No</td>
-      </tr>
-      <tr>
-        <td>Least Connections</td>
-        <td>Variable request processing time</td>
-        <td>More state to track</td>
-        <td>No</td>
-      </tr>
-      <tr>
-        <td>IP Hash</td>
-        <td>Session state on backend</td>
-        <td>Uneven load, hard failover</td>
-        <td>Yes</td>
-      </tr>
-      <tr>
-        <td>Weighted Round Robin</td>
-        <td>Heterogeneous backend capacity</td>
-        <td>Requires manual weight tuning</td>
-        <td>No</td>
-      </tr>
-      <tr>
-        <td>Random with two choices</td>
-        <td>Large backend pools</td>
-        <td>Less predictable</td>
-        <td>No</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Static.File.Serving.Optimization"></a>
-<h2>Static File Serving Optimization</h2>
-
-<p>NGINX is extremely fast at serving static files, and the reason comes down to a Linux syscall called sendfile(). Normally, serving a file requires two copies: one from the kernel&rsquo;s page cache into userspace memory, and another from userspace memory into the socket buffer. With sendfile(), the kernel copies data directly from the page cache to the socket buffer without ever bringing it into userspace. This is called zero-copy.</p>
-
-<p>The benefit is twofold. First, you eliminate the memory copy, which saves CPU cycles and memory bandwidth. Second, the data stays inside the kernel, which means one fewer context switch between kernel mode and user mode.</p>
-
-<p>The kernel&rsquo;s page cache is also critical here. The first time NGINX reads a file, the kernel reads it from disk and caches the pages in RAM. Every subsequent read returns from the cache without touching the disk at all. For a server serving the same popular static assets repeatedly, the hot files stay permanently in cache and disk I/O is essentially zero.</p>
-
-<p>NGINX also supports TCP_NOPUSH and TCP_NODELAY socket options to optimize how the kernel sends data. TCP_NOPUSH tells the kernel to batch data into larger TCP segments rather than sending many small packets. This reduces network overhead significantly when sending large responses.</p>
-
-<a name="Caching.System"></a>
-<h2>Caching System</h2>
-
-<p>NGINX implements a full reverse proxy cache that can dramatically reduce load on backend systems.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Incoming Request];
-B[Cache key generation];
-C[Cache lookup];
-D[Cache hit];
-E[Cache miss];
-F[Backend request];
-G[Response received];
-H[Cache store];
-I[Send cached response];
-J[Send fresh response];
-
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-C &#8211;> E;
-D &#8211;> I;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-H &#8211;> J;
-</div>
-
-
-<p>The cache key is typically derived from the request URI and optionally other headers like the Host header. When a request arrives, NGINX hashes the key and looks it up in a shared memory zone that contains cache metadata. If there is a hit and the cached entry has not expired, NGINX serves the response directly from disk without touching the backend at all.</p>
-
-<p>Microcaching is an interesting technique where you cache responses for very short periods, sometimes as little as 1 second. For high-traffic endpoints, even 1 second of caching means a thousand requests per second hit the backend only once. The response might be slightly stale, but for most use cases that is completely acceptable.</p>
-
-<p>Cache invalidation is the hard part. NGINX does not support active cache invalidation by default in the open source version. You can work around this by using cache keys that include version numbers or content hashes, so a new version naturally gets a new cache key. Stale responses are handled by proxy_cache_use_stale, which lets NGINX serve a stale cached response if the backend is slow or returning errors. This dramatically improves resilience.</p>
-
-<a name="TLS.and.HTTPS.Internals"></a>
-<h2>TLS and HTTPS Internals</h2>
-
-<p>TLS termination is one of the most computationally expensive things NGINX does. A TLS handshake requires asymmetric cryptography — RSA or ECDSA operations — that are orders of magnitude slower than symmetric operations like AES.</p>
-
-<p>NGINX uses OpenSSL (or BoringSSL in some deployments) for TLS operations. Modern servers use hardware acceleration for AES-NI instructions, which brings the cost of symmetric encryption to almost nothing. But the handshake is still expensive.</p>
-
-<p>Session resumption is critical for TLS performance. NGINX supports both session tickets and session IDs. With session tickets, the server encrypts its session state and gives it to the client. On the next connection, the client presents the ticket, and the server decrypts it to restore the session without going through the full handshake. This reduces handshake latency from several round trips to one.</p>
-
-<p>HTTP/2 multiplexes multiple requests over a single TLS connection. Instead of one request per connection, a client can have dozens of in-flight requests over a single TCP stream. NGINX supports HTTP/2 natively. For backend connections, NGINX can also proxy to backends over HTTP/2, though in practice many backend connections still use HTTP/1.1 with keepalive because backends often live on a trusted internal network where TLS overhead matters less.</p>
-
-<a name="WebSocket.and.Streaming.Support"></a>
-<h2>WebSocket and Streaming Support</h2>
-
-<p>WebSocket is a protocol that starts as HTTP and then upgrades to a full-duplex persistent connection. NGINX supports WebSocket proxying by detecting the Upgrade and Connection headers in the HTTP handshake and then switching the connection into a transparent tunnel mode.</p>
-
-<p>Once in tunnel mode, NGINX does not interpret the data flowing through the connection. It simply reads from one side and writes to the other. The connection stays open indefinitely until either side closes it. This means NGINX has to track long-lived connections differently from normal HTTP connections. Timeouts need to be adjusted because a WebSocket connection that is idle is not necessarily broken — it might just be waiting for an event.</p>
-
-<p>Streaming HTTP responses, like server-sent events or chunked transfer encoding, work similarly. NGINX buffers responses to protect backends from slow clients. For streaming, you typically want to disable buffering with proxy_buffering off so that chunks are sent to the client as soon as they arrive from the backend, rather than accumulating in a buffer first.</p>
-
-<a name="Rate.Limiting.and.Security"></a>
-<h2>Rate Limiting and Security</h2>
-
-<p>NGINX implements rate limiting using the leaky bucket algorithm. You define a zone in shared memory that tracks request rates per key (usually IP address). Requests that arrive faster than the configured rate are either delayed or rejected with a 429 status.</p>
-
-<p>The two main directives are limit_req and limit_conn. limit_req controls the rate of requests over time. limit_conn controls the number of simultaneous connections from a single client. Together, they are your first line of defense against abusive clients and simple DDoS attacks.</p>
-
-<p>Rate limiting in NGINX works at the worker level, using shared memory zones that all workers can read and write. The shared memory is protected by a lightweight mutex. This is one of the few places where NGINX workers communicate during the hot path, and it is engineered to be fast.</p>
-
-<p>For DDoS mitigation at scale, NGINX rate limiting is useful but limited. It sees traffic after it has reached your server. Real DDoS protection happens further upstream at the CDN or anycast edge. But for protecting a backend against accidental traffic spikes or specific abusive clients, NGINX rate limiting is very effective.</p>
-
-<a name="NGINX.Kernel.Interaction"></a>
-<h2>NGINX Kernel Interaction</h2>
-
-<p>Understanding how NGINX interacts with the Linux kernel is what separates a deep understanding of NGINX from a surface-level one.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[NGINX Worker Process];
-B[epoll instance];
-C[Linux Kernel];
-D[TCP Socket Buffers];
-E[Network Interface];
-F[Page Cache];
-G[File System];
-
-A &#8211;>|epoll_wait| B;
-B &#8211;>|Kernel monitors fds| C;
-C &#8211;>|Packet arrives| E;
-E &#8211;>|DMA to| D;
-D &#8211;>|Readable event| B;
-B &#8211;>|Wakeup worker| A;
-A &#8211;>|read syscall| D;
-A &#8211;>|sendfile syscall| F;
-F &#8211;>|Read from disk| G;
-F &#8211;>|Write to socket| D;
-</div>
-
-
-<p>When a network packet arrives, the network interface card uses DMA (Direct Memory Access) to copy the packet into the kernel&rsquo;s socket receive buffer without CPU involvement. The kernel then fires an interrupt, processes the packet, reassembles TCP segments, and marks the associated socket as readable. Epoll, which was watching that socket, adds it to the ready list. The next time the worker calls epoll_wait(), it receives the event and calls read() to pull the data out of the buffer.</p>
-
-<p>The socket buffers are a critical resource. The kernel&rsquo;s TCP receive buffer holds incoming data until the application reads it. The send buffer holds outgoing data until it can be transmitted. If your application is slow to read, the receive buffer fills up, which causes TCP flow control to kick in — the kernel tells the sender to slow down. NGINX avoids this by always reading data promptly in its event loop.</p>
-
-<p>The kernel&rsquo;s TCP stack also handles accept queues. When connections arrive faster than NGINX can call accept(), the kernel queues them. The backlog parameter controls how many connections can wait in this queue. If the queue fills up, the kernel starts dropping SYN packets, which causes clients to see connection timeouts. In high-traffic deployments, tuning net.core.somaxconn and net.ipv4.tcp_max_syn_backlog is essential.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Kernel Parameter</th>
-        <th>What It Controls</th>
-        <th>Production Consideration</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>net.core.somaxconn</td>
-        <td>Maximum accept queue depth per socket</td>
-        <td>Increase to 65535 under heavy load</td>
-      </tr>
-      <tr>
-        <td>net.ipv4.tcp_max_syn_backlog</td>
-        <td>Maximum incomplete connections</td>
-        <td>Increase to handle connection bursts</td>
-      </tr>
-      <tr>
-        <td>net.ipv4.tcp_tw_reuse</td>
-        <td>Reuse TIME_WAIT sockets faster</td>
-        <td>Enable to reduce ephemeral port exhaustion</td>
-      </tr>
-      <tr>
-        <td>net.core.rmem_max</td>
-        <td>Maximum TCP receive buffer size</td>
-        <td>Increase for high-bandwidth connections</td>
-      </tr>
-      <tr>
-        <td>fs.file-max</td>
-        <td>Maximum open file descriptors system-wide</td>
-        <td>Must exceed total expected connections</td>
-      </tr>
-      <tr>
-        <td>worker_rlimit_nofile</td>
-        <td>Per-process file descriptor limit for NGINX</td>
-        <td>Set to match expected connections per worker</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>The file descriptor limit deserves special attention. On Linux, every socket is a file descriptor. If NGINX handles 100,000 connections, it needs at least 100,000 open file descriptors. Plus more for open files, logs, and upstream connections. The default per-process limit on many systems is 1024, which is hopelessly inadequate. Production NGINX deployments set worker_rlimit_nofile to something like 100000.</p>
-
-<a name="Scaling.NGINX"></a>
-<h2>Scaling NGINX</h2>
-
-<p>A single NGINX instance can handle an enormous amount of traffic, but there are limits. At some point, you need to scale horizontally.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Anycast IP or DNS load balanced];
-B[NGINX Edge Node Region 1];
-C[NGINX Edge Node Region 2];
-D[NGINX Edge Node Region 3];
-E[Origin NGINX Cluster];
-F[Backend Application Cluster];
-G[Database Layer];
-
-A &#8211;> B;
-A &#8211;> C;
-A &#8211;> D;
-B &#8211;> E;
-C &#8211;> E;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-</div>
-
-
-<p>The first scaling lever is multi-core optimization. NGINX worker processes are independent, so adding CPU cores and matching workers scales linearly up to the point where the network interface card becomes the bottleneck. For a 10Gbps NIC, that bottleneck happens somewhere around 1 million requests per second for small responses.</p>
-
-<p>Beyond a single machine, you add more NGINX instances behind a hardware load balancer or DNS round robin. For geographic distribution, you deploy NGINX at edge locations in different regions and use anycast or geographic DNS routing to send clients to the nearest edge.</p>
-
-<p>Kernel-level features like SO_REUSEPORT allow multiple NGINX worker processes to each have their own accept queue for the same port. Without SO_REUSEPORT, all workers compete to call accept() on a single listening socket, which creates contention. With SO_REUSEPORT, the kernel distributes incoming connections evenly across the workers&#8217; separate accept queues, eliminating that lock contention entirely.</p>
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<p>Zero-downtime operation is a core NGINX design goal. The hot-reload mechanism we discussed earlier handles configuration changes. Binary upgrades work similarly — you can replace the NGINX binary on disk and perform a live upgrade without dropping connections.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Backend returns 5xx];
-B[NGINX passive health check];
-C[Failure threshold reached];
-D[Backend marked unavailable];
-E[Traffic redirected to healthy backends];
-F[Retry timer expires];
-G[Test request sent];
-H[Backend healthy];
-I[Backend returns to rotation];
-
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-D &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-H &#8211;> I;
-</div>
-
-
-<p>When a backend fails, NGINX&rsquo;s passive health checking detects the failures and temporarily stops routing to that backend. The proxy_next_upstream directive controls what counts as a failure worth retrying. You can configure NGINX to retry on connection errors, timeouts, and specific HTTP status codes. It will try the next backend in the pool automatically.</p>
-
-<p>For observability, NGINX logs every request with configurable detail in the access log. The error log captures anything unexpected. NGINX Plus adds a real-time metrics API. In open-source NGINX, you typically use tools like Prometheus with an nginx-prometheus-exporter to scrape metrics, or parse logs with a tool like Filebeat sending to Elasticsearch.</p>
-
-<a name="Engineering.Tradeoffs"></a>
-<h2>Engineering Tradeoffs</h2>
-
-<p>The event-driven architecture that makes NGINX so efficient also imposes constraints. NGINX worker processes cannot do blocking operations. If you need to run a slow computation, talk to a database, or call a blocking API, you cannot do it in the worker&rsquo;s event loop without blocking the entire worker. This is why Lua scripting in NGINX (via OpenResty) is written to be non-blocking, using coroutines that yield when waiting for I/O.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Decision</th>
-        <th>NGINX Choice</th>
-        <th>Tradeoff</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Concurrency Model</td>
-        <td>Event loop with epoll</td>
-        <td>Scales to millions of connections, but blocking code kills performance</td>
-      </tr>
-      <tr>
-        <td>Process vs Thread</td>
-        <td>Worker processes</td>
-        <td>Isolation and stability, but no shared state between workers</td>
-      </tr>
-      <tr>
-        <td>Response Buffering</td>
-        <td>Buffer by default</td>
-        <td>Protects backends, increases latency for streaming</td>
-      </tr>
-      <tr>
-        <td>Caching</td>
-        <td>Disk-based cache</td>
-        <td>Survives restarts, slower than in-memory</td>
-      </tr>
-      <tr>
-        <td>Load Balancing</td>
-        <td>Simple algorithms</td>
-        <td>Predictable and debuggable, not adaptive</td>
-      </tr>
-      <tr>
-        <td>Configuration</td>
-        <td>Static config files</td>
-        <td>Simple to audit, requires reload for changes</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>Buffering versus streaming is a real tension. Buffering the full response from the backend before sending to the client protects the backend from slow clients and reduces backend connection hold time. But for streaming APIs, chatbots, or live video, buffering defeats the purpose. You want bytes flowing to the client as fast as they arrive. The right choice depends entirely on your use case.</p>
-
-<p>The static configuration file model is both a strength and a weakness. It is auditable, version-controllable, and simple to reason about. But dynamic routing changes require a reload. For Kubernetes environments where backends change constantly, this creates friction. This is why tools like NGINX Kubernetes Ingress Controller exist — they watch the Kubernetes API and dynamically generate NGINX configurations and trigger reloads.</p>
-
-<a name="Real-World.Technology.Stack"></a>
-<h2>Real-World Technology Stack</h2>
-
-<p>NGINX is written in C, which gives it direct access to Linux system calls without the overhead of a managed runtime. There is no garbage collector pausing at inconvenient moments, no JIT compilation latency, and no abstraction layers between the code and the kernel.</p>
-
-<p>OpenSSL handles all the cryptography. It is battle-tested, hardware-accelerated, and continuously audited. Some high-security deployments use BoringSSL, Google&rsquo;s fork, which has a smaller and more conservative API surface.</p>
-
-<p>Lua, through the ngx_http_lua_module (part of OpenResty), provides a scripting layer that runs inside the NGINX event loop. You can write non-blocking Lua code that talks to Redis, makes HTTP subrequests, modifies headers, and implements custom authentication logic. OpenResty effectively turns NGINX into a programmable platform.</p>
-
-<p>In Kubernetes, NGINX is widely used as the ingress controller. It watches Kubernetes Service and Ingress resources through the API server and dynamically generates and reloads its upstream configuration. This closes the gap between NGINX&rsquo;s static configuration model and Kubernetes&rsquo;s dynamic service discovery.</p>
-
-<p>HTTP/2 and HTTP/3 (QUIC) are increasingly important. HTTP/2 multiplexing reduces the overhead of many small requests. HTTP/3 moves from TCP to QUIC, which handles packet loss more gracefully and eliminates head-of-line blocking at the transport layer. NGINX has experimental HTTP/3 support, and the ecosystem is moving in that direction.</p>
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>When an interviewer asks you to design an API gateway, a CDN edge node, or a high-throughput proxy, they are essentially asking you to design something NGINX-like. Here is how to think about it.</p>
-
-<p>Start by clarifying the problem. How many requests per second? What is the acceptable latency? Do we need TLS termination? Is the backend pool static or dynamic? Do we need caching? Rate limiting? The answers to these questions drive the architecture.</p>
-
-<p>When explaining concurrency, mention the event-driven model explicitly. Say that thread-per-connection does not scale to hundreds of thousands of connections because of memory and context-switching overhead. Explain that an event loop with non-blocking I/O handles this by never blocking — the process is always either handling a ready event or sleeping in epoll waiting for one.</p>
-
-<p>Strong candidates discuss the full lifecycle: TCP acceptance, request buffering, location matching, upstream selection, connection pooling, response buffering, and keep-alive. They also discuss what happens when things go wrong — backend timeouts, health check failures, buffer exhaustion, file descriptor limits.</p>
-
-<p>Weak answers focus only on the happy path. They describe NGINX as &ldquo;it forwards requests to backends&rdquo; without discussing the engineering underneath. They do not mention the event loop, epoll, connection pooling, zero-copy file serving, or how configuration reloads work without downtime.</p>
-
-<p>A question specifically about load balancing should cover at minimum: algorithm choices and their tradeoffs, health check mechanisms, what happens during backend failure, how you handle draining connections during a deploy, and the limits of session affinity.</p>
-
-<p>When discussing scaling, strong candidates layer the answer. Single server first: worker processes matching CPU cores, SO_REUSEPORT, kernel tuning. Then horizontal scaling with multiple NGINX instances. Then geographic distribution with anycast and edge caching. Then integration with a CDN. Each layer has a cost and a reason.</p>
-
-<p>The most impressive thing you can do in a system design interview is explain the tradeoffs honestly. If you choose buffering over streaming, explain what you gain and what you give up. If you choose round-robin over least-connections, explain when that choice breaks down. Real engineers make principled tradeoffs, not perfect decisions.</p>
-
-<p>NGINX is a masterclass in doing one set of things extremely well. It does not try to be a database, a message queue, or an application runtime. It sits on the network edge, handles connections efficiently, routes requests intelligently, and gets out of the way. That clarity of purpose, executed with deep engineering discipline, is what makes it the foundation of so much of the internet&rsquo;s infrastructure.</p>
-
-<p>The more you understand the systems underneath — epoll, socket buffers, the page cache, process isolation, zero-copy — the more natural NGINX&rsquo;s design choices feel. They are not arbitrary. Every decision traces back to a real constraint in the underlying system. That is what good systems engineering looks like.</p>
 ]]></content>
     </entry>
     

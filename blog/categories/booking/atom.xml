@@ -4,7 +4,7 @@
     <title><![CDATA[Category: booking | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/booking/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-05-31T13:53:30+05:30</updated>
+    <updated>2026-05-31T19:23:03+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,1008 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[How MakeMyTrip Travel Planner Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-makemytrip-travel-planner-works/"/>
+        <updated>2026-05-31T18:53:45+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-makemytrip-travel-planner-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>Most engineers, when they think about travel technology, imagine a flight search engine. You pick a source, a destination, a date, and the system returns a list of flights sorted by price. That is a solved problem. The hard part is what comes after.</em></p></blockquote>
+
+<p><img src="/images/system_design/makemytrip-banner.avif" height="300" width="900" alt="Alt text" /></p>
+
+<p>A vacation planning platform is an entirely different beast. When a user opens MakeMyTrip and says &ldquo;plan me a 7-day trip to Rajasthan,&rdquo; the system has to figure out which cities to include, which attractions to prioritize, how to sequence the days so a traveler is not criss-crossing the map inefficiently, when flights are cheapest, which hotels have availability near the right areas, what local tours are available on which days, how to get from the airport to the hotel, how to price all of this as a coherent bundle, and then orchestrate bookings across a dozen different vendors without any single failure unraveling the whole thing.</p>
+
+<p>That is not a search problem. That is a large-scale optimization problem sitting on top of a distributed marketplace, layered with personalization, real-time inventory, and multi-vendor payment reconciliation.</p>
+
+<p>The evolution from &ldquo;book a flight&rdquo; to &ldquo;plan my vacation&rdquo; happened because travelers stopped wanting to assemble trips themselves. Researching destinations takes hours. Cross-referencing hotel availability with flight times is tedious. Figuring out which Jaisalmer fort tours run on which days requires visiting five different websites. A modern travel planner absorbs all of that complexity and surfaces a coherent, personalized plan.</p>
+
+<!--more-->
+
+
+<p>This blog is a deep technical walkthrough of how that works, starting from how destinations get discovered and ranked, through how itineraries are algorithmically generated, all the way to how a payment across three different vendors gets reconciled without leaving a user in a half-booked state.</p>
+
+<a name="Core.Features.of.the.Platform"></a>
+<h2>Core Features of the Platform</h2>
+
+<p>Before diving into architecture, it helps to be precise about what the platform actually does. These are not abstract features; each one translates into a distinct engineering subsystem.</p>
+
+<p>Destination discovery is the entry point. A user might know they want a beach vacation or a hill station or a heritage city. The platform has to map vague intent to specific, rankable destinations and surface the right one for that traveler&rsquo;s history, budget, and time of year.</p>
+
+<p>Vacation package creation is bundling. Flight plus hotel plus transfers plus activities into a single priced unit. This sounds simple but involves solving a multi-dimensional optimization problem across live inventory.</p>
+
+<p>AI itinerary generation is the core differentiator. Given a destination, a duration, a budget, and a set of preferences, generate a day-by-day plan that is geographically sensible, temporally realistic, and personally relevant.</p>
+
+<p>Flight and hotel aggregation pull from dozens of suppliers and present unified search results. The hard part is latency, consistency, and handling the inevitable discrepancy between what an API says is available and what is actually bookable.</p>
+
+<p>Activities and local transportation are the long tail. Thousands of individual tour operators and cab vendors need to be connected to a single platform with unified inventory and real-time availability.</p>
+
+<p>Budget optimization threads pricing constraints through every layer of the system, from destination ranking to hotel tier selection to activity choices.</p>
+
+<p>Trip collaboration lets multiple travelers contribute to and agree on a shared itinerary, which introduces concurrency and conflict resolution challenges.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>The platform is built around a set of specialized services, each owning a discrete domain. These services communicate synchronously for user-facing flows and asynchronously via an event bus for downstream processing.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% ==================================================
+%% CLIENTS
+%% ==================================================
+
+subgraph Clients[&#8220;CLIENT APPLICATIONS&#8221;]
+    MOB[&#8220;Mobile App&#8221;]
+    WEB[&#8220;Web Application&#8221;]
+end
+
+%% ==================================================
+%% ACCESS LAYER
+%% ==================================================
+
+subgraph Access[&#8220;ACCESS & SECURITY&#8221;]
+    GW[&#8220;API Gateway&#8221;]
+    AUTH[&#8220;Authentication Service&#8221;]
+end
+
+%% ==================================================
+%% DISCOVERY & PLANNING
+%% ==================================================
+
+subgraph Planning[&#8220;DISCOVERY & TRIP PLANNING&#8221;]
+    DEST[&#8220;Destination Service&#8221;]
+    ITIN[&#8220;Itinerary Engine&#8221;]
+    REC[&#8220;Recommendation Engine&#8221;]
+    PKG[&#8220;Package Builder&#8221;]
+end
+
+%% ==================================================
+%% INVENTORY NETWORK
+%% ==================================================
+
+subgraph Inventory[&#8220;INVENTORY NETWORK&#8221;]
+    FLIGHT[&#8220;Flight Aggregator&#8221;]
+    HOTEL[&#8220;Hotel Aggregator&#8221;]
+    ACT[&#8220;Activity Service&#8221;]
+    TRANS[&#8220;Transportation Service&#8221;]
+end
+
+%% ==================================================
+%% BOOKING PLATFORM
+%% ==================================================
+
+subgraph Booking[&#8220;BOOKING PLATFORM&#8221;]
+    BOOK[&#8220;Booking Orchestrator&#8221;]
+    PRICE[&#8220;Dynamic Pricing&#8221;]
+    PAY[&#8220;Payment Service&#8221;]
+end
+
+%% ==================================================
+%% EVENT ECOSYSTEM
+%% ==================================================
+
+subgraph Events[&#8220;EVENT ECOSYSTEM&#8221;]
+    KAFKA[&#8220;Kafka Event Bus&#8221;]
+    NOTIF[&#8220;Notification Service&#8221;]
+    ANALYTICS[&#8220;Analytics Platform&#8221;]
+end
+
+%% ==================================================
+%% DATA PLATFORM
+%% ==================================================
+
+subgraph Data[&#8220;DATA PLATFORM&#8221;]
+    REDIS[&#8220;Redis Cache&#8221;]
+    ES[&#8220;Elasticsearch&#8221;]
+    PG[&#8220;PostgreSQL&#8221;]
+    S3[&#8220;Object Storage&#8221;]
+end
+
+%% ==================================================
+%% USER JOURNEY
+%% ==================================================
+
+MOB &#8211;> GW
+WEB &#8211;> GW
+
+GW &#8211;> AUTH
+GW &#8211;> DEST
+GW &#8211;> ITIN
+GW &#8211;> REC
+GW &#8211;> BOOK
+
+%% Planning Flow
+ITIN &#8211;> DEST
+ITIN &#8211;> REC
+
+DEST &#8211;> ES
+REC &#8211;> REDIS
+
+%% Package Assembly
+PKG &#8211;> FLIGHT
+PKG &#8211;> HOTEL
+PKG &#8211;> ACT
+PKG &#8211;> TRANS
+
+%% Booking Journey
+BOOK &#8211;> PRICE
+BOOK &#8211;> PAY
+BOOK &#8211;> PG
+
+%% Events
+BOOK &#8211;>|&#8221;Booking Events&#8221;| KAFKA
+
+KAFKA &#8211;> NOTIF
+KAFKA &#8211;> ANALYTICS
+
+%% ==================================================
+%% NODE STYLING
+%% ==================================================
+
+%% Clients
+style MOB fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style WEB fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Access Layer
+style GW fill:#0891b2,stroke:#0e7490,stroke-width:5px,color:#ffffff
+style AUTH fill:#0891b2,stroke:#0e7490,stroke-width:4px,color:#ffffff
+
+%% Planning Layer
+style DEST fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style ITIN fill:#22c55e,stroke:#15803d,stroke-width:5px,color:#ffffff
+style REC fill:#84cc16,stroke:#4d7c0f,stroke-width:5px,color:#ffffff
+style PKG fill:#65a30d,stroke:#3f6212,stroke-width:4px,color:#ffffff
+
+%% Inventory
+style FLIGHT fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style HOTEL fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style ACT fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+style TRANS fill:#ec4899,stroke:#be185d,stroke-width:4px,color:#ffffff
+
+%% Booking
+style BOOK fill:#f97316,stroke:#c2410c,stroke-width:6px,color:#ffffff
+style PRICE fill:#fb923c,stroke:#c2410c,stroke-width:4px,color:#ffffff
+style PAY fill:#fb923c,stroke:#c2410c,stroke-width:4px,color:#ffffff
+
+%% Events
+style KAFKA fill:#dc2626,stroke:#991b1b,stroke-width:6px,color:#ffffff
+style NOTIF fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff
+style ANALYTICS fill:#ef4444,stroke:#b91c1c,stroke-width:4px,color:#ffffff
+
+%% Data
+style REDIS fill:#9333ea,stroke:#6b21a8,stroke-width:4px,color:#ffffff
+style ES fill:#8b5cf6,stroke:#6d28d9,stroke-width:4px,color:#ffffff
+style PG fill:#7c3aed,stroke:#5b21b6,stroke-width:5px,color:#ffffff
+style S3 fill:#a855f7,stroke:#7e22ce,stroke-width:4px,color:#ffffff
+
+%% ==================================================
+%% LINK STYLING
+%% ==================================================
+
+linkStyle 0 stroke:#2563eb,stroke-width:3px
+linkStyle 1 stroke:#2563eb,stroke-width:3px
+
+linkStyle 2 stroke:#0891b2,stroke-width:4px
+linkStyle 3 stroke:#16a34a,stroke-width:4px
+linkStyle 4 stroke:#16a34a,stroke-width:4px
+linkStyle 5 stroke:#16a34a,stroke-width:4px
+linkStyle 6 stroke:#f97316,stroke-width:5px
+
+linkStyle 7 stroke:#22c55e,stroke-width:4px
+linkStyle 8 stroke:#22c55e,stroke-width:4px
+
+linkStyle 9 stroke:#9333ea,stroke-width:3px
+linkStyle 10 stroke:#9333ea,stroke-width:3px
+
+linkStyle 11 stroke:#ec4899,stroke-width:3px
+linkStyle 12 stroke:#ec4899,stroke-width:3px
+linkStyle 13 stroke:#ec4899,stroke-width:3px
+linkStyle 14 stroke:#ec4899,stroke-width:3px
+
+linkStyle 15 stroke:#f97316,stroke-width:5px
+linkStyle 16 stroke:#f97316,stroke-width:5px
+linkStyle 17 stroke:#f97316,stroke-width:5px
+
+linkStyle 18 stroke:#dc2626,stroke-width:6px
+linkStyle 19 stroke:#ef4444,stroke-width:4px
+linkStyle 20 stroke:#ef4444,stroke-width:4px
+
+</div>
+
+
+<p>The API gateway handles authentication, rate limiting, and routing. Every inbound request is authenticated before reaching a downstream service. Rate limiting happens at the gateway level so no single user can saturate an expensive external API call.</p>
+
+<p>The planning layer is the intelligence of the system. These services do not own bookings; they produce recommendations, itineraries, and packages. The booking layer is where money changes hands, and it is intentionally separate to keep the transactional surface area isolated.</p>
+
+<p>The event bus connects everything that does not need to happen synchronously. When a booking is confirmed, an event propagates to the notification service, the analytics platform, the loyalty system, and the supplier confirmation handlers. None of these need to block the user-facing booking response.</p>
+
+<a name="Destination.Discovery.Engine"></a>
+<h2>Destination Discovery Engine</h2>
+
+<p>A destination catalog is deceptively complex. At the surface it looks like a database of cities with descriptions and photos. In practice it is a multi-dimensional index of places annotated with travel metadata, seasonality curves, activity categories, average price tiers, travel time from major origin cities, visa requirements, weather patterns, and popularity signals.</p>
+
+<p>The catalog is stored in Elasticsearch because destination search needs full-text matching combined with faceted filtering and geographic proximity queries. A user searching &ldquo;beach destination under 30,000 for 5 days from Mumbai in December&rdquo; is issuing a query that combines free text, budget constraints, duration constraints, geographic proximity, and seasonal availability simultaneously. A relational database cannot serve this efficiently at scale.</p>
+
+<p>Each destination has a popularity score that is computed offline and refreshed periodically. The score is a weighted composite of booking volume over the trailing 90 days, search volume, social signal proxies, and editorial curation. The weighting shifts by season. Goa&rsquo;s score in December is significantly higher than in July. Manali&rsquo;s score in January is high for winter travelers but low for beach seekers.</p>
+
+<p>Destination ranking for a specific query combines the base popularity score with a personalization layer. A user who has previously booked heritage city trips will see Jaipur ranked higher than someone whose history shows beach destinations. The personalization multiplier is computed by the recommendation engine and applied at query time against the Elasticsearch base ranking.</p>
+
+<p>The separation between base ranking and personalization multiplier is an intentional architectural choice. Base ranking is computed in batch and cached. Personalization multipliers are computed per-user but can also be cached based on user segment. This means a destination search can return results in under 200 milliseconds even with personalization applied.</p>
+
+<p>Seasonality modeling deserves its own discussion. Each destination has a seasonality curve modeled as a time series of demand indices across the calendar year. This curve is used in two places: to surface appropriate destinations in discovery (you do not want to recommend Spiti Valley in January to a casual traveler) and to adjust pricing in the dynamic pricing engine. The curve is learned from historical booking data and manually adjusted by destination managers for edge cases like major events.</p>
+
+<a name="AI-Powered.Recommendation.System"></a>
+<h2>AI-Powered Recommendation System</h2>
+
+<p>Recommendation is the system that makes the platform feel personalized. The challenge is that travel recommendations are harder than movie recommendations for a fundamental reason: frequency. A user might book travel twice a year. This means you have very few direct signals about their preferences, and those signals are separated by months.</p>
+
+<p>The recommendation engine layers multiple signal sources to compensate for sparse direct data.</p>
+
+<p>Collaborative filtering identifies users with similar travel profiles and recommends destinations those users enjoyed. If users who booked Rishikesh also frequently book Mcleod Ganj and Bir Billing, the system learns that this cluster of adventure and spiritual destinations belongs together. A new user who books Rishikesh gets recommendations for the others.</p>
+
+<p>Content-based filtering operates on destination attributes. If a user has shown interest in hill stations with trekking and local markets, the system scores unvisited destinations by how closely they match those attribute vectors.</p>
+
+<p>Behavioral signals are richer than explicit bookings. Search queries, destination page dwell time, itinerary views, saved trips, and price alert creation all carry signal. A user who spent 15 minutes reading about Ladakh but did not book is a strong signal of intent that the system should capture.</p>
+
+<p>The cold start problem is real and common. A new user has no history. The platform handles this through onboarding preference collection (asking about trip style, budget range, travel companions, interests) and by defaulting to demographically segmented recommendations based on origin city, age range, and device type. A new user from Bengaluru in their late twenties gets different defaults than one from Kolkata in their fifties.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% =========================
+%% USER SIGNALS
+%% =========================
+subgraph Signals[&#8220;USER SIGNALS&#8221;]
+    BS[&#8220;Booking History&#8221;]
+    SS[&#8220;Search History&#8221;]
+    BH[&#8220;Browse Behavior&#8221;]
+    OP[&#8220;Onboarding Preferences&#8221;]
+end
+
+%% =========================
+%% RECOMMENDATION MODELS
+%% =========================
+subgraph Models[&#8220;RECOMMENDATION MODELS&#8221;]
+    CF[&#8220;Collaborative Filtering&#8221;]
+    CB[&#8220;Content-Based Filtering&#8221;]
+    SEQ[&#8220;Sequential Behavior Model&#8221;]
+    POP[&#8220;Popularity Baseline&#8221;]
+end
+
+%% =========================
+%% RANKING PIPELINE
+%% =========================
+subgraph Ranking[&#8220;RANKING PIPELINE&#8221;]
+    MR[&#8220;Model Ranker&#8221;]
+    PR[&#8220;Personalization Re-Ranker&#8221;]
+    BR[&#8220;Business Rules Filter&#8221;]
+end
+
+%% =========================
+%% RESULTS
+%% =========================
+subgraph Results[&#8220;RECOMMENDATION OUTPUT&#8221;]
+    DR[&#8220;Destination Results&#8221;]
+    HR[&#8220;Hotel Results&#8221;]
+    AR[&#8220;Activity Results&#8221;]
+end
+
+%% =========================
+%% SIGNAL FLOW
+%% =========================
+BS &#8211;> CF
+SS &#8211;> SEQ
+BH &#8211;> CB
+OP &#8211;> POP
+
+%% =========================
+%% MODEL ENSEMBLE
+%% =========================
+CF &#8211;> MR
+CB &#8211;> MR
+SEQ &#8211;> MR
+POP &#8211;> MR
+
+%% =========================
+%% RANKING FLOW
+%% =========================
+MR &#8211;> PR
+PR &#8211;> BR
+
+%% =========================
+%% OUTPUTS
+%% =========================
+BR &#8211;> DR
+BR &#8211;> HR
+BR &#8211;> AR
+
+%% =========================
+%% STYLING
+%% =========================
+
+%% Signals
+style BS fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style SS fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style BH fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style OP fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Models
+style CF fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style CB fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style SEQ fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style POP fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+
+%% Ranking
+style MR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+style PR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+style BR fill:#ec4899,stroke:#be185d,stroke-width:5px,color:#ffffff
+
+%% Output
+style DR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style HR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+style AR fill:#16a34a,stroke:#166534,stroke-width:4px,color:#ffffff
+
+%% =========================
+%% LINK STYLING
+%% =========================
+
+linkStyle 0 stroke:#2563eb,stroke-width:3px
+linkStyle 1 stroke:#2563eb,stroke-width:3px
+linkStyle 2 stroke:#2563eb,stroke-width:3px
+linkStyle 3 stroke:#2563eb,stroke-width:3px
+
+linkStyle 4 stroke:#7c3aed,stroke-width:4px
+linkStyle 5 stroke:#7c3aed,stroke-width:4px
+linkStyle 6 stroke:#7c3aed,stroke-width:4px
+linkStyle 7 stroke:#7c3aed,stroke-width:4px
+
+linkStyle 8 stroke:#ec4899,stroke-width:5px
+linkStyle 9 stroke:#ec4899,stroke-width:5px
+
+linkStyle 10 stroke:#16a34a,stroke-width:4px
+linkStyle 11 stroke:#16a34a,stroke-width:4px
+linkStyle 12 stroke:#16a34a,stroke-width:4px
+
+</div>
+
+
+<p>The ranking layer sits above the model outputs. Raw model scores are combined using a learned ensemble weight and then passed through a re-ranker that applies business rules. Business rules include things like &ldquo;do not recommend a destination for which the user has already completed a trip in the last 12 months&rdquo; or &ldquo;boost destinations with promotional pricing active.&rdquo; These rules are kept separate from the model to allow rapid iteration without retraining.</p>
+
+<p>Recommendation quality is measured through a combination of offline metrics (precision, recall, NDCG on held-out booking data) and online A/B metrics (click-through rate on recommended destinations, conversion to booked trips, and post-trip satisfaction scores). The online metrics lag by weeks or months because the conversion cycle is slow. This makes recommendation system iteration in travel harder than in e-commerce.</p>
+
+<a name="Itinerary.Generation.Engine"></a>
+<h2>Itinerary Generation Engine</h2>
+
+<p>This is where the hardest engineering happens. Generating a coherent, realistic, enjoyable itinerary for an unfamiliar city is a planning problem, not just a retrieval problem.</p>
+
+<p>The input is a destination (or set of destinations), a duration, a set of traveler preferences, and a budget constraint. The output is a day-by-day schedule with specific attractions, meals, transit suggestions, and approximate timings.</p>
+
+<p>The first step is attraction selection. The platform maintains a catalog of points of interest for every supported destination, annotated with category (heritage, adventure, nature, food, shopping), average visit duration, opening hours, best time of day to visit, price, distance from common hotel zones, and quality scores derived from reviews.</p>
+
+<p>Given a 5-day Rajasthan trip covering Jaipur and Jodhpur, the system needs to select from hundreds of candidate attractions and decide which ones to include. This is a variant of the orienteering problem in combinatorial optimization. You have a set of locations with values and time costs, a time budget, and you want to maximize total value while respecting the budget. Solving this exactly for hundreds of candidates is computationally intractable. The platform uses a greedy construction heuristic followed by a local search refinement.</p>
+
+<p>The greedy phase clusters attractions by geographic proximity. Jaipur&rsquo;s Amber Fort, Jaigarh Fort, and Nahargarh Fort are in the same northern cluster. City Palace, Hawa Mahal, and Jantar Mantar are in the central cluster. The system assigns clusters to days to minimize travel time between attractions on the same day.</p>
+
+<p>The local search phase improves the initial solution by trying swaps: replace one attraction with an unselected one and keep the swap if it improves the overall score. The score function incorporates attraction quality, traveler preference match, variety (not three temples in a row), and schedule feasibility (accounting for opening hours and realistic transit times between attractions).</p>
+
+<p>Transit time calculation deserves explicit attention. Many itinerary systems use straight-line distance as a proxy for travel time, which produces wildly unrealistic schedules in dense cities. A production system calls a routing API at itinerary generation time to get real road travel estimates between consecutive attractions, incorporating typical traffic conditions for the time of day.</p>
+
+<div class="mermaid">
+graph TD
+    INPUT[User Inputs: Destination, Duration, Budget, Preferences]
+    AC[Attraction Catalog Query]
+    GC[Geographic Clustering]
+    GP[Greedy Plan Construction]
+    TT[Transit Time Calculation]
+    LS[Local Search Optimization]
+    OB[Opening Hours Validation]
+    PREF[Preference Score Adjustment]
+    OUT[Final Itinerary]
+
+    INPUT &#8211;> AC
+    AC &#8211;> GC
+    GC &#8211;> GP
+    GP &#8211;> TT
+    TT &#8211;> LS
+    LS &#8211;> OB
+    OB &#8211;> PREF
+    PREF &#8211;> OUT
+
+    classDef input fill:#e94560,stroke:#fff,color:#fff
+    classDef process fill:#0f3460,stroke:#e94560,color:#fff
+    classDef output fill:#533483,stroke:#e94560,color:#fff
+
+    class INPUT input
+    class AC,GC,GP,TT,LS,OB,PREF process
+    class OUT output
+</div>
+
+
+<p>A practical example helps. A user wants 5 days in Kerala. The system identifies candidate destinations: Kochi, Munnar, Alleppey, Thekkady. It calculates road distances between them and realizes that Munnar and Thekkady are a 3-hour drive apart, while Kochi to Alleppey is 90 minutes. It constructs a routing sequence: Kochi on arrival day, Alleppey for two nights (houseboat), Thekkady for a day, Munnar for two nights, departure from Kochi. Attractions within each stop are then clustered by area and assigned to half-days.</p>
+
+<p>The system does not just stack attractions. It models realistic tourist energy. A heritage walk in the morning can be followed by a lighter museum visit or a food tour in the afternoon. Physically demanding treks are not placed back-to-back unless the user profile indicates high activity preference. Rest time is built into the schedule.</p>
+
+<p>Itinerary generation runs in under two seconds for a five-day trip. The constraint solving is done in memory using pre-fetched attraction data cached in Redis. The routing API calls are the latency bottleneck; the system batches them and runs them in parallel.</p>
+
+<a name="Vacation.Package.Builder"></a>
+<h2>Vacation Package Builder</h2>
+
+<p>Dynamic packaging is the process of assembling flight plus hotel plus activities into a priced bundle at the time of a user&rsquo;s request, rather than pre-defining fixed packages. This gives users flexibility while still allowing the platform to offer bundled pricing that is cheaper than booking each component separately.</p>
+
+<p>The package builder takes the output of the itinerary engine (a list of nights at each destination, activities, and transit legs) and queries the flight aggregator, hotel aggregator, and activity service simultaneously to find available inventory for each component.</p>
+
+<p>The pricing challenge is that each component has its own pricing model. Flights are priced dynamically and change by the hour. Hotels have base rates that change by night with minimum stay rules. Activities have fixed prices but limited availability. The bundle price has to remain coherent while reflecting real inventory costs.</p>
+
+<p>The platform computes a bundle discount by negotiating preferred rates with suppliers for bundled bookings. An airline might offer a 3% reduction on fares when sold as part of a hotel plus flight package because it guarantees seat fill. This preferred rate is encoded as a pricing rule applied at bundle construction time.</p>
+
+<p>Bundle profitability is tracked per package type. Some combinations are consistently high-margin (flight plus hotel for popular routes where the platform has preferred hotel rates). Others are low-margin but high in conversion (budget packages to high-demand destinations). The pricing engine uses this data to set minimum bundle margins dynamically.</p>
+
+<a name="Flight.Aggregation.System"></a>
+<h2>Flight Aggregation System</h2>
+
+<p>Flight search is a high-latency, high-volume operation. A single user search might fan out to a dozen airline APIs and three or four GDS (Global Distribution System) connections simultaneously.</p>
+
+<p>The aggregation service sends parallel requests to each supplier with a timeout. The timeout is typically set at 4-5 seconds. Suppliers that respond within the timeout contribute their results to the merged set. Suppliers that time out are excluded from that search. The user sees a &ldquo;searching more results&rdquo; indicator while the parallel fetches complete.</p>
+
+<p>Fare caching is critical. Airline APIs are rate-limited and charge per search in some configurations. Caching search results for short periods (typically 10-15 minutes) dramatically reduces API call volume. The cache key is a combination of origin, destination, date, passenger count, and cabin class. Cache hits serve results instantly; misses trigger a live search.</p>
+
+<p>The staleness risk is real. A fare cached 12 minutes ago might no longer be bookable. The platform handles this through a pre-booking availability check. Before showing the user a &ldquo;confirm booking&rdquo; screen, the system re-checks availability for the selected fare in real time. If the fare has changed or disappeared, the user sees the updated options.</p>
+
+<p>Price watch is a downstream feature built on top of the aggregation layer. When a user sets a fare alert, the system schedules periodic re-queries for that route and date combination, caching results and diffing against the previous query to detect price changes. These scheduled queries are distributed across time to avoid thundering herd effects on supplier APIs.</p>
+
+<a name="Hotel.Aggregation.System"></a>
+<h2>Hotel Aggregation System</h2>
+
+<p>Hotel inventory is even more complex than flights because the supply side is fragmented across property management systems, channel managers, and OTA connections.</p>
+
+<p>The hotel aggregator pulls inventory from OTA partners (who aggregate properties themselves), direct hotel API connections, and wholesale supplier feeds. Each source has different data models, availability refresh rates, and pricing structures.</p>
+
+<p>Inventory synchronization is the chronic challenge. A hotel might sell the last available room directly through its front desk at 3pm. The channel manager updates the OTA within minutes, but the OTA feed to MakeMyTrip might only refresh every 15 minutes. During that window, the platform might show availability that no longer exists.</p>
+
+<p>The platform handles this through a two-stage commitment model. When a user selects a hotel, the system holds an inventory reservation with the supplier for a short period (typically 15-30 minutes). The hold does not confirm the booking; it reserves the room while the user completes payment. If payment succeeds, the hold converts to a confirmed booking. If the hold cannot be established because inventory is gone, the user is informed before reaching the payment screen.</p>
+
+<p>Rate parity is a contractual and technical challenge. Hotels contract with different OTAs and GDSs at different rates, often with rate parity clauses requiring the same price across channels. Enforcing this requires the aggregator to compare rates across sources and flag anomalies. The platform does this comparison periodically in a batch job and surfaces rate parity violations for supplier management review.</p>
+
+<a name="Activities.and.Experiences.Platform"></a>
+<h2>Activities and Experiences Platform</h2>
+
+<p>The activity marketplace is the most fragmented part of the inventory stack. Activities are provided by thousands of small tour operators, individual guides, and local experience providers. These operators have wildly different technical sophistication, from API-connected operators with real-time availability to operators who still take bookings by phone.</p>
+
+<p>The platform tiered its supplier integrations accordingly. Tier-one suppliers (large tour operators, museum ticketing systems, theme parks) have direct API integrations with real-time availability. Tier-two suppliers use a booking platform that MakeMyTrip integrates with. Tier-three suppliers are managed through a manual allocation model where MakeMyTrip pre-purchases blocks of capacity.</p>
+
+<p>The pre-purchase model for tier-three suppliers introduces inventory risk. The platform pays for a block of slots upfront and needs to sell them before the activity date. Dynamic pricing on these pre-purchased blocks allows the platform to increase margins when demand is strong and discount aggressively as the date approaches to clear remaining inventory.</p>
+
+<p>Activity availability is time-bound differently from hotels. A hotel room is available until midnight. A morning jeep safari has a specific departure time and a fixed group size. The data model for activities includes time slots, group size limits, language of delivery, physical requirements, and cancellation windows. All of this needs to be reflected accurately in the user-facing search and booking flow.</p>
+
+<a name="Local.Transportation.Planning"></a>
+<h2>Local Transportation Planning</h2>
+
+<p>Transportation planning connects the dots between bookings. A user lands at Cochin International Airport at 6pm. Their hotel is in Fort Kochi. The itinerary engine schedules a houseboat experience in Alleppey the next day. There are three legs here that need to be surfaced: airport to hotel, hotel to Alleppey jetty, and return to Kochi for the final day.</p>
+
+<p>The transportation service maintains a catalog of standard routes between airports, major hotels, and popular destinations, with associated transfer options (prepaid cabs, shared shuttles, app-based cabs, trains, buses). For each route, the service stores estimated duration, cost range, booking lead time requirements, and reliability score.</p>
+
+<p>Transfer booking is integrated into the itinerary at the time of package construction. The system pre-fills suggested transfers based on the hotel and activity locations. Users can accept the defaults or modify them. For routes where the platform has vendor relationships, the transfer is bookable directly. For others, the platform surfaces deep links to cab apps or train booking systems.</p>
+
+<p>Route optimization within a destination uses a simplified TSP (traveling salesman problem) approach. Given a set of attractions and a hotel, the system finds a visiting sequence that minimizes total travel time. For small sets (under 10 locations), exact solutions are feasible. For larger sets, a 2-opt heuristic produces near-optimal results quickly.</p>
+
+<a name="Dynamic.Pricing.Engine"></a>
+<h2>Dynamic Pricing Engine</h2>
+
+<p>Pricing in a travel platform is not just displaying supplier rates. The platform computes a final package price that covers component costs, adds a margin, applies any applicable discounts, and presents a coherent total.</p>
+
+<p>Component pricing starts with supplier rates. For flights, the fare class determines the base price. For hotels, the room rate is per night. For activities, it is per person. These are the floor costs.</p>
+
+<p>The platform&rsquo;s margin is applied as a percentage over the cost, calibrated to competitive rates in the market. The pricing engine checks real-time competitor pricing for similar packages and adjusts the margin to stay competitive. This requires the system to be continuously monitoring competitor prices, which is done through a combination of public scrapers and data partnerships.</p>
+
+<p>Demand forecasting drives seasonal pricing adjustments. The pricing engine trains a demand model on historical booking data, incorporating day of week, weeks before travel, origin-destination pair, and event calendar. A package for Goa in the week before Christmas will be priced significantly higher than the same package for late January because the demand model predicts higher conversion even at elevated prices.</p>
+
+<p>Promotional pricing introduces complexity. A discount applied to a bundle requires correctly computing the post-discount price while ensuring the platform still covers its costs. The pricing engine maintains a margin floor below which a promotion cannot push the price. If a user applies a coupon code that would push the package below the margin floor, the coupon is accepted but the applied discount is capped.</p>
+
+<p>Total trip price calculation is the final aggregation. The pricing engine sums flight costs for all passengers, hotel costs for all nights, activity costs per person, transfer costs, and platform service fees, then applies any bundling discounts and promotional codes. The output is a fully itemized price breakdown that the user sees before confirming.</p>
+
+<a name="Booking.Orchestration.Engine"></a>
+<h2>Booking Orchestration Engine</h2>
+
+<p>This is the most consequential engineering in the entire platform. A vacation package booking is a distributed transaction across multiple external systems, each of which can fail independently.</p>
+
+<div class="mermaid">
+graph TD
+    START[User Confirms Package]
+    IV[Inventory Validation]
+    PR[Price Recalculation]
+    LK[Inventory Lock]
+    PI[Payment Initiation]
+    PC[Payment Confirmation]
+    FB[Flight Booking API]
+    HB[Hotel Booking API]
+    AB[Activity Booking API]
+    BK[Booking Record Created]
+    CN[Confirmation Sent]
+    RL[Rollback if Failure]
+
+    START &#8211;> IV
+    IV &#8211;> PR
+    PR &#8211;> LK
+    LK &#8211;> PI
+    PI &#8211;> PC
+    PC &#8211;> FB
+    PC &#8211;> HB
+    PC &#8211;> AB
+    FB &#8211;> BK
+    HB &#8211;> BK
+    AB &#8211;> BK
+    BK &#8211;> CN
+    IV &#8211;>|Failed| RL
+    LK &#8211;>|Failed| RL
+    PC &#8211;>|Failed| RL
+    FB &#8211;>|Failed| RL
+    HB &#8211;>|Failed| RL
+
+    classDef start fill:#e94560,stroke:#fff,color:#fff
+    classDef process fill:#0f3460,stroke:#e94560,color:#fff
+    classDef booking fill:#533483,stroke:#e94560,color:#fff
+    classDef failure fill:#2b2d42,stroke:#ef233c,color:#fff
+
+    class START start
+    class IV,PR,LK,PI,PC process
+    class FB,HB,AB,BK,CN booking
+    class RL failure
+</div>
+
+
+<p>The orchestrator implements a saga pattern. Each booking step is recorded as an event. If a step fails, compensating actions are triggered to undo completed steps.</p>
+
+<p>Inventory validation runs first. The system re-checks availability for all selected components. If any component is no longer available, the user is redirected to select alternatives. This step is the last chance to catch stale inventory before money changes hands.</p>
+
+<p>Price recalculation runs immediately before payment. Flight fares can change in the time between initial search and booking. If the total price has changed, the user is shown the updated price and asked to confirm again.</p>
+
+<p>Inventory locking attempts to hold all components simultaneously. Holds with supplier systems reserve inventory but do not confirm. This is time-limited, typically 15-20 minutes, enough to complete payment.</p>
+
+<p>Payment processing is attempted next. If payment fails (card declined, bank timeout), the holds are released and the booking fails cleanly. The user sees the payment failure and can retry.</p>
+
+<p>If payment succeeds, the orchestrator fans out confirmation requests to each supplier: the flight booking API, the hotel booking API, and the activity booking API. These can be sent in parallel. Each confirmation generates a supplier booking reference (PNR for flights, booking ID for hotels).</p>
+
+<p>The partial confirmation failure case is the hardest. What if flight booking succeeds but hotel booking fails? The platform has collected payment for a complete package. The correct behavior is to attempt to book an alternative hotel first. If no alternative is available, the platform cancels the flight (triggering a refund request to the airline) and initiates a full refund to the user. All of this is handled by the orchestrator&rsquo;s rollback logic, and it must be idempotent: if the rollback itself crashes halfway through, re-running it must not double-cancel or double-refund.</p>
+
+<a name="Payment.Infrastructure"></a>
+<h2>Payment Infrastructure</h2>
+
+<p>Payment in a multi-vendor travel booking involves more complexity than a single-vendor e-commerce purchase.</p>
+
+<p>The user pays a single amount to MakeMyTrip. The platform then disburses payments to each supplier: the airline, the hotel, and the activity operator. Each disbursement happens on a different schedule. Airlines typically require payment at booking time. Hotels might allow payment at check-in. Activity operators might have a payment-at-service model.</p>
+
+<p>The platform maintains a virtual wallet or escrow account that holds the collected payment until disbursement timings are met. A reconciliation engine runs daily (and sometimes hourly for high-volume periods) to match collected payments against disbursed amounts and flag discrepancies.</p>
+
+<p>Payment failures are retried with exponential backoff. Idempotency keys are sent with every payment API call so that a retried call does not create a duplicate charge. These keys are generated from the booking ID and the component being paid, ensuring uniqueness even across retries.</p>
+
+<p>Multi-vendor refunds are the ugliest case. A cancelled trip requires refunding the user while also recovering disbursed payments from each vendor. Each vendor has its own refund API and cancellation policy. The orchestrator tracks the state of each refund request and retries failed refunds asynchronously. The user receives a single consolidated refund regardless of how many partial vendor refunds were required to fund it.</p>
+
+<a name="Travel.Notification.Infrastructure"></a>
+<h2>Travel Notification Infrastructure</h2>
+
+<p>Notifications are multi-channel (push, SMS, email, in-app) and time-sensitive in ways that most notification systems are not. A check-in reminder sent 30 minutes after check-in time is not just useless; it actively damages trust.</p>
+
+<p>The notification service maintains a schedule for each booking. At booking confirmation time, a series of scheduled notifications are created: a confirmation summary immediately, a trip preparation reminder 7 days before departure, a check-in reminder 24 hours before hotel check-in, a flight status check at T-3 hours, and a local tips notification at destination arrival.</p>
+
+<p>The scheduling system is built on a delayed job queue. Each notification is placed in the queue with a scheduled delivery time. Workers pick up jobs when their time arrives and dispatch them through the appropriate channel.</p>
+
+<p>Travel alerts are triggered reactively by external events rather than scheduled times. Flight delay data comes from airline status feeds. Weather alerts come from meteorological data feeds. These are consumed by the notification service as event streams. When a monitored flight shows a delay exceeding 30 minutes, the service generates and dispatches a delay notification to the affected users immediately.</p>
+
+<p>Personalization applies even to notifications. Users who have opted for WhatsApp delivery get messages formatted for that channel. Users who previously marked push notifications as unhelpful get email instead. The notification service maintains channel preferences per user and routes accordingly.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h2>Event-Driven Architecture</h2>
+
+<p>Every significant state change in the platform emits an event. Booking created, payment completed, hotel confirmed, activity cancelled, itinerary modified — all of these produce events that are published to a distributed event bus.</p>
+
+<p>The event bus (implemented using a system like Apache Kafka) decouples producers from consumers. When a booking is confirmed, the booking service publishes an event. It does not know or care who consumes that event. Multiple consumers can independently react: the notification service sends a confirmation, the loyalty service awards points, the analytics platform records the conversion, the supplier systems receive confirmation requests.</p>
+
+<div class="mermaid">
+flowchart LR
+
+%% ==================================================
+%% EVENT PRODUCERS
+%% ==================================================
+
+subgraph Producers[&#8220;EVENT PRODUCERS&#8221;]
+    BOOK[&#8220;Booking Service&#8221;]
+    PAY[&#8220;Payment Service&#8221;]
+    ITIN[&#8220;Itinerary Engine&#8221;]
+    SUPP[&#8220;Supplier APIs&#8221;]
+end
+
+%% ==================================================
+%% EVENT STREAMING PLATFORM
+%% ==================================================
+
+subgraph EventBus[&#8220;EVENT STREAMING PLATFORM&#8221;]
+    KB[&#8220;Kafka Event Bus&#8221;]
+end
+
+%% ==================================================
+%% EVENT CONSUMERS
+%% ==================================================
+
+subgraph Consumers[&#8220;EVENT CONSUMERS&#8221;]
+    NOTIF[&#8220;Notification Service&#8221;]
+    LOYAL[&#8220;Loyalty Service&#8221;]
+    ANAL[&#8220;Analytics Platform&#8221;]
+    AUDIT[&#8220;Audit Log&#8221;]
+    REC[&#8220;Recommendation Engine&#8221;]
+end
+
+%% ==================================================
+%% EVENT FLOW
+%% ==================================================
+
+BOOK &#8211;>|&#8221;booking.created&#8221;| KB
+
+PAY &#8211;>|&#8221;payment.completed&#8221;| KB
+
+ITIN &#8211;>|&#8221;trip.generated&#8221;| KB
+
+SUPP &#8211;>|&#8221;inventory.updated&#8221;| KB
+
+KB &#8211;>|&#8221;Notify Users&#8221;| NOTIF
+
+KB &#8211;>|&#8221;Reward Points&#8221;| LOYAL
+
+KB &#8211;>|&#8221;Business Metrics&#8221;| ANAL
+
+KB &#8211;>|&#8221;Compliance Records&#8221;| AUDIT
+
+KB &#8211;>|&#8221;Personalization Signals&#8221;| REC
+
+%% ==================================================
+%% STYLING
+%% ==================================================
+
+%% Producers
+style BOOK fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style PAY fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style ITIN fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+style SUPP fill:#2563eb,stroke:#1e40af,stroke-width:4px,color:#ffffff
+
+%% Kafka
+style KB fill:#dc2626,stroke:#991b1b,stroke-width:7px,color:#ffffff
+
+%% Consumers
+style NOTIF fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style LOYAL fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style ANAL fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style AUDIT fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+style REC fill:#7c3aed,stroke:#5b21b6,stroke-width:4px,color:#ffffff
+
+%% ==================================================
+%% LINK STYLING
+%% ==================================================
+
+%% Producer -> Kafka
+linkStyle 0 stroke:#2563eb,stroke-width:4px
+linkStyle 1 stroke:#2563eb,stroke-width:4px
+linkStyle 2 stroke:#2563eb,stroke-width:4px
+linkStyle 3 stroke:#2563eb,stroke-width:4px
+
+%% Kafka -> Consumers
+linkStyle 4 stroke:#dc2626,stroke-width:5px
+linkStyle 5 stroke:#dc2626,stroke-width:5px
+linkStyle 6 stroke:#dc2626,stroke-width:5px
+linkStyle 7 stroke:#dc2626,stroke-width:5px
+linkStyle 8 stroke:#dc2626,stroke-width:5px
+
+</div>
+
+
+<p>Event durability is non-negotiable. If the Kafka broker is unavailable for a few minutes and a booking occurs during that window, the event must not be lost. Producers write to a local outbox table in the same database transaction as the booking record, using the transactional outbox pattern. A relay process reads the outbox and publishes to Kafka, retrying until successful. This ensures that every booking event eventually reaches all consumers, even if there are transient broker outages.</p>
+
+<p>Consumers maintain their own offset tracking. If the notification service crashes while processing a batch of events, it restarts from the last committed offset and reprocesses. Consumers must therefore be idempotent: processing the same event twice should not send the user two confirmation messages.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The core entity relationships are relatively straightforward. Complexity enters in the sheer volume of data and the read/write patterns.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Entity</th>
+        <th>Primary Storage</th>
+        <th>Key Columns</th>
+        <th>Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Users</td>
+        <td>PostgreSQL</td>
+        <td>user_id, email, preferences, tier</td>
+        <td>Point lookup by user_id or email</td>
+      </tr>
+      <tr>
+        <td>Destinations</td>
+        <td>PostgreSQL + Elasticsearch</td>
+        <td>destination_id, name, country, lat, lng, popularity_score, seasonality</td>
+        <td>Full-text + geo search via ES; detail by ID via PG</td>
+      </tr>
+      <tr>
+        <td>Trips</td>
+        <td>PostgreSQL</td>
+        <td>trip_id, user_id, status, start_date, end_date, budget</td>
+        <td>Lookup by user_id; status-based queries</td>
+      </tr>
+      <tr>
+        <td>Itineraries</td>
+        <td>PostgreSQL + S3 (JSON)</td>
+        <td>itinerary_id, trip_id, version, day_plans (JSONB)</td>
+        <td>Point lookup; versioned history in S3</td>
+      </tr>
+      <tr>
+        <td>Flights</td>
+        <td>Redis (cache) + PostgreSQL (confirmed)</td>
+        <td>search results cached; confirmed bookings in PG</td>
+        <td>High-read search from cache; write-once confirmed records</td>
+      </tr>
+      <tr>
+        <td>Hotels</td>
+        <td>Elasticsearch + PostgreSQL</td>
+        <td>hotel_id, location, amenities, price_tier, ratings</td>
+        <td>Geo + facet search; confirmation records in PG</td>
+      </tr>
+      <tr>
+        <td>Bookings</td>
+        <td>PostgreSQL</td>
+        <td>booking_id, trip_id, component_type, supplier_ref, status, amount</td>
+        <td>Lookup by booking_id, trip_id; status updates</td>
+      </tr>
+      <tr>
+        <td>Payments</td>
+        <td>PostgreSQL</td>
+        <td>payment_id, booking_id, amount, status, idempotency_key, provider_ref</td>
+        <td>Lookup by payment_id, idempotency_key; append-mostly</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Partitioning decisions matter at scale. The bookings table is partitioned by created_at month. This keeps hot partition sizes manageable and allows cold partitions to be archived to cheaper storage. The payments table uses the same monthly partitioning strategy.</p>
+
+<p>The itinerary day_plans are stored as JSONB in PostgreSQL. This allows schema flexibility as the itinerary data model evolves without requiring migrations. The full itinerary history is snapshotted to S3 for audit purposes.</p>
+
+<p>Indexes are added deliberately. The bookings table has indexes on user_id, trip_id, and status. The trips table has a compound index on (user_id, status) for the &ldquo;active trips&rdquo; query. Over-indexing slows writes; the platform audits index usage quarterly and drops unused indexes.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching in a travel platform is aggressive because the underlying data is expensive to fetch and changes on different schedules.</p>
+
+<p>Destination data is the most stable. A destination&rsquo;s name, description, photos, and attraction catalog change rarely. This data is cached in Redis with a TTL of several hours. The cache is warmed at startup by pre-loading all destination records. Cache invalidation happens on manual edits by content managers, which triggers a targeted cache key deletion.</p>
+
+<p>Hotel search results are cached with a shorter TTL (10-15 minutes) because availability and pricing change frequently. The cache key encodes all search parameters. Cache hits serve results instantly; misses trigger live supplier calls.</p>
+
+<p>Flight search results are cached even more aggressively because airline API calls are expensive in both latency and (sometimes) money. Results are cached for 10 minutes. The moment a user moves to booking, the cached results are discarded and a live check is made.</p>
+
+<p>Recommendation results are cached per user segment, not per user, to avoid combinatorial explosion. A user is assigned to a set of segments based on their travel history, origin, and preferences. The recommendations for that segment combination are cached and served to all users in that segment. Individual personalization multipliers are applied at serve time by the re-ranker.</p>
+
+<p>The hotspot problem is real during peak periods. When Goa packages are on sale, thousands of users simultaneously search Goa. Without caching, every search would hit the hotel and flight aggregators. With a shared cache keyed on destination plus dates, the first request fetches live data and all subsequent requests within the TTL serve from cache. This is a dramatic reduction in supplier API load.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Travel platforms face two scaling patterns that are different in character. The first is gradual growth: more users, more destinations, more suppliers over time. The second is extreme spikes: holiday announcements, flash sales, festival season, and school vacation peaks drive 10x or 20x normal traffic in hours.</p>
+
+<p>The platform is horizontally scaled at every layer. API gateway instances behind a load balancer. Stateless service instances that scale on CPU metrics. Database read replicas for high-read services like destination search and hotel catalog.</p>
+
+<p>The recommendation engine is the most compute-intensive service. Model inference for a single user recommendation takes significant CPU. At scale, inference is offloaded to dedicated GPU-backed inference servers. Model updates happen offline in batch training jobs; the resulting model artifacts are deployed to inference servers without taking down the recommendation service.</p>
+
+<p>The itinerary engine is CPU-intensive for the optimization computation. It scales horizontally with each instance maintaining in-memory attraction data cached from Redis. The attraction catalog is small enough to fit entirely in instance memory for fast access during optimization.</p>
+
+<p>Booking orchestration does not scale well with simple horizontal replication because each booking is a stateful saga. The platform assigns each booking saga to a dedicated orchestrator thread with state persisted in the database. If an orchestrator instance fails, another instance can pick up the saga from its last recorded state and continue. This gives horizontal scale without losing saga state.</p>
+
+<p>Holiday traffic spikes are handled through pre-scaling. The platform uses historical traffic data to predict when spikes will occur (e.g., Independence Day travel announcements, school closing dates) and pre-provisions additional capacity a day before. Auto-scaling handles unexpected spikes up to a cap; beyond the cap, graceful degradation kicks in.</p>
+
+<p>Graceful degradation under extreme load means accepting some features may become unavailable while core booking flows remain functional. The first things to degrade are: recommendation engine (fall back to popularity-based results), real-time availability checks on activities (show approximate availability), and personalization on destination search (fall back to globally ranked results). Flights and hotel booking remain fully functional because those are revenue-critical.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>The platform targets 99.99% availability for booking flows. This requires redundancy at every layer and well-tested failover procedures.</p>
+
+<p>Each service runs in multiple availability zones. Database primaries have synchronous replicas in a second zone. If the primary zone has an outage, failover to the replica happens within seconds with minimal data loss.</p>
+
+<p>Supplier API outages are the most common reliability challenge. If the Amadeus GDS is down, flight search from that source degrades but results from other connected airlines continue. The aggregator has a circuit breaker per supplier. When a supplier crosses an error rate threshold, its circuit opens and requests to that supplier are fast-failed rather than waiting for a timeout. The circuit closes again after a recovery period.</p>
+
+<p>Booking failures are tracked at every step of the saga. Operations teams have a dashboard showing in-flight saga states, failed steps, and pending rollbacks. An on-call engineer can see exactly which bookings are in a partial failure state and intervene if automated rollback has not resolved the issue.</p>
+
+<p>Disaster recovery means defining recovery time objectives (RTO) and recovery point objectives (RPO) per service tier. Core booking data has an RPO of near-zero (synchronous replication) and an RTO of under a minute (automatic failover). Recommendation model artifacts have an RPO of a few hours (last training run) and an RTO of minutes (model redeployment is fast).</p>
+
+<a name="Security.Considerations"></a>
+<h2>Security Considerations</h2>
+
+<p>Travel platforms are high-value targets. A breached account can be used to rebook flights under different names, drain stored travel credits, or access personal identification documents attached to booking records.</p>
+
+<p>Authentication uses OAuth 2.0 with JWT tokens. Tokens have short expiry windows (15-60 minutes). Refresh tokens are long-lived but rotated on use. Social login is offered but accounts linked to social providers are treated with the same security posture as email-password accounts.</p>
+
+<p>Payment card data never touches MakeMyTrip servers. All card processing is handled through PCI-compliant payment gateways. Tokenized card references are stored, not raw card numbers.</p>
+
+<p>Fraud detection runs on every booking attempt. Features include device fingerprint, velocity checks (how many bookings from this account in the last hour), IP reputation, card BIN checks, and booking pattern analysis. Suspicious bookings are flagged for manual review or step-up verification before confirmation.</p>
+
+<p>Bot detection on search APIs is critical because automated fare scrapers can easily saturate supplier API quotas and disrupt legitimate users. CAPTCHA is triggered when search velocity from a single session exceeds normal human behavior. Progressive throttling and IP-based rate limiting are the first defense layers.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>These are the real decisions that architects make, and the honest answer is almost always &ldquo;it depends.&rdquo;</p>
+
+<p>Recommendation quality versus latency is a genuine tension. A more complex model produces better recommendations but takes longer to compute. The platform resolves this by pre-computing segment-level recommendations offline and personalizing lightly at serve time. The tradeoff is that recommendations are somewhat generalized within segments rather than fully individualized, but latency stays under 100ms.</p>
+
+<p>Personalization versus privacy is increasingly consequential. Deep personalization requires storing detailed user behavior. The platform allows users to opt into or out of behavioral tracking. Users who opt out get segment-level recommendations rather than individual ones. This is architecturally cleaner than trying to personalize without data.</p>
+
+<p>Caching versus freshness is the most common tradeoff in travel systems. A hotel cache with a 15-minute TTL will occasionally show slightly stale pricing. The platform accepts this tradeoff because the alternative (live fetch on every search) would produce unacceptably high latency. The pre-booking availability check catches actual staleness before money changes hands.</p>
+
+<p>Package flexibility versus optimization creates a genuine product tension. A fully optimized itinerary might not match what a user actually wants. The platform generates an optimized base itinerary and then makes every element editable. Users can swap attractions, change hotel selections, and modify timing. The optimization gives a good starting point; editability respects user agency.</p>
+
+<p>Consistency versus availability in booking systems is where CAP theorem becomes concrete. During a supplier outage, the platform can choose to show stale availability (preferring availability) or show no results from that supplier (preferring consistency). The platform chooses to show stale data with a clear recency indicator, letting users know results may not be fully current.</p>
+
+<a name="AI.and.the.Future.of.Travel.Planning"></a>
+<h2>AI and the Future of Travel Planning</h2>
+
+<p>The current AI integration in travel planning is sophisticated but still fundamentally rule-based in its core planning logic. The next evolution is genuinely AI-native planning.</p>
+
+<p>Conversational trip planning means a user can describe what they want in natural language and the system assembles a plan through dialogue. &ldquo;I want a relaxed trip with good food and some nature, not too much walking, about 8 days, budget around 80,000&rdquo; is a hard query for a form-based UI but a tractable input for a language model that understands preferences and can map them to itinerary parameters.</p>
+
+<p>Autonomous travel agents take this further. An agent could proactively monitor flight prices after a user expresses interest in a destination, alert them when a good deal appears, and with one confirmation begin assembling a full package. This requires trust, and trust requires the agent to have a provable track record of judgment.</p>
+
+<p>Predictive recommendations flip the current model. Rather than responding to user intent, the system predicts when a user is likely to plan a trip and proactively surfaces destination ideas before they start searching. This relies on longitudinal behavioral modeling: detecting patterns in when a user typically travels, what triggers their trip planning, and what they tend to book.</p>
+
+<p>The architecture implications of an AI-native planning system are significant. Language model inference at scale is expensive. Prompt design becomes a core engineering discipline. Evaluation infrastructure for open-ended AI outputs is harder to build than metrics for ranked lists. The platform needs to maintain correctness over AI-generated itinerary content while allowing the flexibility that makes AI planning valuable.</p>
+
+<p>Multi-modal inputs will change how users interact with planning. A user uploading photos from a travel magazine and saying &ldquo;I want somewhere that looks like this&rdquo; is a legitimate and useful query. Processing that intent requires vision models combined with destination matching on visual similarity. This kind of interaction is not far away.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Used For</th>
+        <th>Why This Choice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Java + Spring Boot</td>
+        <td>Core booking and payment services</td>
+        <td>Strong ecosystem for transactional systems, mature connection pooling, excellent observability tooling</td>
+      </tr>
+      <tr>
+        <td>Go</td>
+        <td>Flight and hotel aggregation, high-throughput API services</td>
+        <td>Low memory footprint, excellent concurrency via goroutines, fast startup time for scaled-out instances</td>
+      </tr>
+      <tr>
+        <td>Python</td>
+        <td>Recommendation models, ML training, data pipelines</td>
+        <td>Dominant ML ecosystem (PyTorch, scikit-learn), fast prototyping, excellent data tooling</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Session cache, search cache, recommendation cache, rate limiting</td>
+        <td>Sub-millisecond reads, native data structures for sorted sets and pub-sub, wide operational familiarity</td>
+      </tr>
+      <tr>
+        <td>Apache Kafka</td>
+        <td>Event bus for booking events, payment events, notification triggers</td>
+        <td>Durable message log, consumer group model, high throughput, strong ecosystem</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL</td>
+        <td>User data, bookings, payments, itinerary records</td>
+        <td>ACID transactions for financial records, JSONB for flexible schema, mature partitioning</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Destination search, hotel search, activity discovery</td>
+        <td>Full-text + geo search in one system, horizontal scaling, rich aggregation API</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Service orchestration, auto-scaling, rolling deployments</td>
+        <td>Industry standard for microservice deployment, declarative scaling, strong observability integrations</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The polyglot stack is an intentional choice, not a mistake. Different services have fundamentally different performance profiles. An aggregation service making thousands of concurrent outbound HTTP calls is a different beast from a booking service managing ACID transactions. Forcing both into the same technology stack would mean accepting suboptimal performance in one of them. The operational cost of polyglot is real (different monitoring setups, different deployment configs, different debugging skills required) but the performance benefits justify it at scale.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>Travel planner system design is a common senior-level interview question because it touches so many interesting engineering domains simultaneously.</p>
+
+<p>Interviewers expect candidates to identify the key complexities upfront. A weak answer treats travel planner as &ldquo;flight booking plus hotel booking.&rdquo; A strong answer immediately flags the multi-vendor inventory problem, the itinerary generation optimization problem, the distributed transaction challenge in booking, and the recommendation system cold start problem.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Discussion Area</th>
+        <th>Weak Answer</th>
+        <th>Strong Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Recommendation System</td>
+        <td>&#8220;Use collaborative filtering based on user bookings&#8221;</td>
+        <td>Identify cold start problem, combine collaborative + content-based + behavioral signals, discuss segment-level caching, explain how to handle sparse travel booking frequency</td>
+      </tr>
+      <tr>
+        <td>Itinerary Generation</td>
+        <td>&#8220;Sort attractions by rating and add them to the schedule&#8221;</td>
+        <td>Frame as orienteering problem, explain geographic clustering, discuss transit time calculation, describe local search optimization, mention opening hours and energy modeling</td>
+      </tr>
+      <tr>
+        <td>Booking Orchestration</td>
+        <td>&#8220;Book flight, hotel, and activities in sequence&#8221;</td>
+        <td>Identify distributed transaction problem, propose saga pattern, explain compensating transactions, discuss idempotency, walk through partial failure scenarios</td>
+      </tr>
+      <tr>
+        <td>Scalability</td>
+        <td>&#8220;Use horizontal scaling and load balancers&#8221;</td>
+        <td>Distinguish gradual growth from spike patterns, explain pre-scaling for predictable spikes, describe graceful degradation, discuss caching strategy for flight and hotel search</td>
+      </tr>
+      <tr>
+        <td>Inventory Staleness</td>
+        <td>&#8220;Refresh data frequently&#8221;</td>
+        <td>Explain two-stage commitment model (hold then confirm), discuss TTL-based caching with pre-booking live checks, describe circuit breakers per supplier</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Common mistakes candidates make: spending too much time on authentication and API gateway (these are important but not the interesting parts for this problem), ignoring the recommendation system entirely, proposing a single synchronous booking flow without considering partial failures, and treating inventory as always accurate without discussing staleness.</p>
+
+<p>The questions that make strong candidates stand out are: &ldquo;How do you handle the case where flight booking succeeds but hotel booking fails after payment?&rdquo; and &ldquo;How do you keep hotel availability from becoming stale?&rdquo; These show the candidate is thinking about failure cases in a distributed system, not just the happy path.</p>
+
+<p>Interviewer follow-ups often probe into the itinerary generation engine because it is genuinely complex and candidates who claim to understand it often cannot explain the optimization approach coherently. Being able to say &ldquo;this is a variant of the orienteering problem, and we solve it with geographic clustering followed by a greedy construction heuristic and local search improvement&rdquo; is a strong differentiator.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>The meta-lesson in designing systems like this is that complexity lives at the boundaries. The boundaries between recommendation and booking, between inventory and pricing, between distributed transaction and consistency, between personalization and privacy. The best engineers can articulate what is hard at each boundary and why specific architectural choices were made to manage it.</p>
+
+<p>Travel planning is a product domain where getting the engineering right has direct user impact. A poorly generated itinerary leads to a bad vacation. A failed booking transaction leads to a user stuck at an airport without a hotel. The stakes of the system design are real, and that is what makes it a rich problem worth understanding deeply.</p>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[How BookMyShow Works?]]></title>
@@ -1539,6 +2541,1554 @@ graph TD
 <p>The engineering principles that make this system work — event sourcing, idempotency, optimistic locking, saga-based distributed transactions, aggressive caching with event-driven invalidation, and graceful degradation — are the same principles that apply across any system that must be fast, reliable, and correct at scale.</p>
 
 <p>If you understand how a flight booking platform is built, you understand distributed systems. And that understanding translates directly into better system design across every domain you work in.</p>
+]]></content>
+    </entry>
+    
+    <entry>
+        <title type="html"><![CDATA[How Uber Computes ETA?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-uber-computes-eta/"/>
+        <updated>2026-05-16T08:57:52+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-uber-computes-eta</id>
+        <content type="html"><![CDATA[<blockquote><p><em>The magic of Uber doesn’t begin when the car arrives. It begins the instant the app tells you &ldquo;how long&rdquo; the wait will be. A tiny estimate — “2 minutes away” or “6 minutes away” — flashes onto your screen so casually that most people never think twice about it. Yet producing that single number requires a planet-scale system constantly processing live GPS streams, road traffic, driver movement, rider demand, map intelligence, and prediction models in real time. What looks like a simple countdown is actually the visible tip of one of the most advanced distributed systems ever engineered for everyday consumers.</em></p></blockquote>
+
+<p>That number is the Estimated Time of Arrival, and computing it correctly — at global scale, in real time, across millions of concurrent users — is genuinely one of the hardest problems in applied engineering.</p>
+
+<p><img src="/images/system_design/uber.svg" height="300" width="900" alt="Alt text" /></p>
+
+<p>This post is a deep walkthrough of how a system like Uber&rsquo;s ETA engine works. We will go through the GPS infrastructure, the map matching algorithms, the routing engines, the machine learning prediction pipelines, the streaming systems, the geo-spatial indexing, and the tradeoffs that engineers make every day to keep that number accurate and fast.</p>
+
+<!--more-->
+
+
+<a name="Introduction"></a>
+<h2>Introduction</h2>
+
+<p>Before we talk about systems, let us talk about why this problem is hard.</p>
+
+<p>ETA is not just &ldquo;distance divided by speed.&rdquo; That formula might work on an empty highway at 3am. It does not work in Manhattan at 5pm on a Tuesday when there is a Yankees game and a water main just broke on 8th Avenue.</p>
+
+<p>Real ETA computation has to account for live traffic conditions, driver behavior, road geometry, traffic signals, historical patterns for that specific road segment at that specific hour, weather, road closures, construction zones, the accuracy of GPS signals bouncing off buildings, the time it takes a driver to find parking near a pickup, and the probability that the driver will take a slightly longer route because the GPS told them to avoid a slow road that just cleared up thirty seconds ago.</p>
+
+<p>At Uber&rsquo;s scale, millions of trips are happening simultaneously across hundreds of cities. Each active driver sends GPS pings every few seconds. Each trip involves continuous ETA recalculations. The system has to handle all of this in under 200 milliseconds, because if the ETA on your screen is stale by more than a few seconds, the experience falls apart.</p>
+
+<p>And here is the thing that most people miss: a wrong ETA does not just frustrate users. It creates a cascade of downstream problems. Riders show up at the wrong time. Drivers sit waiting. Pool pickups get miscoordinated. Pricing algorithms based on ETA drift become inaccurate. The entire marketplace depends on ETA being right.</p>
+
+<a name="Core.Features.Behind.ETA.Calculation"></a>
+<h2>Core Features Behind ETA Calculation</h2>
+
+<p>Let us ground ourselves in what the system actually has to compute before we get into the architecture.</p>
+
+<p>Driver location tracking is the most fundamental input. You need to know where every active driver is, right now, with as little latency as possible. This is a continuous stream problem, not a query problem.</p>
+
+<p>Rider pickup estimation is the first ETA users see. How long until the driver reaches the pickup location? This depends on the driver&rsquo;s current position, the route to the pickup, live traffic, and how long the driver takes to pull over and start moving.</p>
+
+<p>Trip duration estimation is the second ETA users care about. Once the trip starts, how long until they arrive? This needs to account for the entire route ahead, not just current conditions.</p>
+
+<p>Real-time rerouting is what happens when conditions change mid-trip. A road closes. Traffic suddenly backs up. The system has to detect this, compute a new route, and update the ETA without the user even noticing the recalculation.</p>
+
+<p>Traffic prediction fills in the gaps between what the system knows right now and what it expects will happen in the next ten, twenty, thirty minutes as the trip progresses through different parts of the city.</p>
+
+<a name="High-Level.ETA.System.Architecture"></a>
+<h2>High-Level ETA System Architecture</h2>
+
+<p>Here is how the major systems talk to each other:</p>
+
+<div class="mermaid">
+flowchart TD;
+
+%% Nodes
+A[Driver Mobile App];
+B[GPS Ingestion Service];
+C[Map Matching Service];
+D[Traffic Aggregation Service];
+E[Routing Engine];
+F[ETA Prediction Service];
+G[ML Inference Service];
+H[Rider Mobile App];
+I[Trip Orchestration Service];
+J[Kafka Event Bus];
+K[Redis Cache];
+L[Cassandra DB];
+
+%% Flows
+A &#8211;>|GPS ping every 4s| B;
+
+B &#8211;>|Raw location event| J;
+
+J &#8211;> C;
+J &#8211;> D;
+
+C &#8211;>|Matched road position| E;
+D &#8211;>|Traffic snapshot| E;
+
+E &#8211;>|Candidate routes| F;
+
+F &#8211;> G;
+G &#8211;>|Adjusted ETA| F;
+
+F &#8211;>|ETA result| K;
+
+I &#8211;>|Trip state| F;
+
+H &#8211;>|ETA request| I;
+
+F &#8211;>|Cached ETA| H;
+
+F &#8211;> L;
+
+%% Styles
+style A fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+style H fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#7c2d12;
+
+style B fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+style I fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a;
+
+style C fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style D fill:#cffafe,stroke:#0891b2,stroke-width:2px,color:#164e63;
+style E fill:#cffafe,stroke:#0891b2,stroke-width:3px,color:#164e63;
+
+style F fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#7f1d1d;
+style G fill:#fecaca,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+
+style J fill:#ede9fe,stroke:#7c3aed,stroke-width:3px,color:#4c1d95;
+
+style K fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f;
+
+style L fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+
+</div>
+
+
+<p>The key insight in this architecture is that the ETA pipeline is event-driven, not request-driven. The system does not wait for someone to ask &ldquo;what is the ETA?&rdquo; before computing it. It continuously processes GPS events, traffic updates, and route recalculations in the background. When a rider&rsquo;s app asks for an ETA, the answer is already sitting in cache, ready to be served in single-digit milliseconds.</p>
+
+<p>This distinction matters enormously at scale. If every ETA request triggered a fresh route computation, you would need orders of magnitude more compute just to serve the read traffic.</p>
+
+<a name="GPS.Tracking.Pipeline"></a>
+<h2>GPS Tracking Pipeline</h2>
+
+<p>The GPS pipeline is the nervous system of the entire ETA operation. Without accurate, low-latency location data, everything else breaks.</p>
+
+<p>Every driver&rsquo;s phone runs an SDK that collects GPS readings. On a typical ride, the SDK sends a location update every four seconds. That might not sound like much, but multiply four-second pings across two million active drivers globally and you are processing roughly 500,000 GPS events per second at peak.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Driver Phone GPS];
+B[Location SDK];
+C[Mobile Network];
+D[GPS Ingestion Gateway];
+E[Kafka Topic: raw-gps];
+F[GPS Validator];
+G[Outlier Filter];
+H[Kafka Topic: clean-gps];
+A &#8211;>|raw coordinates| B;
+B &#8211;>|batched pings| C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+G &#8211;> H;
+</div>
+
+
+<p>Raw GPS data is messy. Urban environments create what engineers call the &ldquo;urban canyon&rdquo; problem: tall buildings reflect and scatter GPS signals, causing the reported position to jump around by tens of meters even when a driver is sitting still. A driver traveling on an elevated highway might briefly appear to be on the surface street directly below. A driver going through a tunnel disappears entirely.</p>
+
+<p>The GPS validator handles basic sanity checks: speed limits (if the reported position implies the car is moving at 300 kilometers per hour, something is wrong), coordinate bounds, timestamp ordering, and signal quality scores.</p>
+
+<p>The outlier filter uses a Kalman filter or similar smoothing algorithm to maintain a best-guess position estimate and flag readings that deviate too far from the expected path. A Kalman filter essentially says: &ldquo;given where this driver was and how fast they were going, where should they be now?&rdquo; If the new reading is wildly different, it is weighted down or discarded.</p>
+
+<p>Battery optimization is a real constraint here. Aggressive GPS polling drains the driver&rsquo;s battery faster, which creates a bad driver experience and can cause drivers to turn off the app. The SDK uses adaptive polling — more frequent updates when the driver is actively navigating, less frequent when they are parked. It also leans on the phone&rsquo;s motion sensors to detect when the driver has stopped moving and back off the GPS frequency accordingly.</p>
+
+<a name="Map.Matching.System"></a>
+<h2>Map Matching System</h2>
+
+<p>Raw GPS coordinates tell you where a device thinks it is. Map matching tells you where the driver actually is on the road network.</p>
+
+<p>The difference is significant. If a driver is on a highway overpass, raw GPS might put them somewhere on the surface street below. If they are at an intersection, the GPS might float between three possible roads. Map matching takes the noisy GPS stream and snaps it to the most plausible road in the road graph.</p>
+
+<p>The standard approach is the Hidden Markov Model. The idea is elegant: you have a sequence of GPS observations, and a set of candidate road positions for each observation. The HMM asks: what sequence of road positions is most likely, given both how close each candidate is to the observed GPS point and how plausible the transitions between consecutive candidates are?</p>
+
+<p>The transition probability accounts for things like: is it physically possible to go from road segment A at time T to road segment B at time T+1 given the driver&rsquo;s speed? Are these segments connected in the road graph? Would this transition require making an illegal turn?</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Raw GPS Sequence];
+B[Candidate Road Segments];
+C[HMM Emission Probability];
+D[HMM Transition Probability];
+E[Viterbi Algorithm];
+F[Matched Road Position];
+A &#8211;> B;
+B &#8211;> C;
+B &#8211;> D;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+</div>
+
+
+<p>Tunnels are the hardest case. The driver disappears from GPS for 30-60 seconds and reappears somewhere else. The map matcher needs to look at the entry point, the exit point, and the road graph to figure out the most likely path through the tunnel. In most cases this works well because tunnel paths are fixed. The failure mode is when a driver exits early or the tunnel has multiple exit points.</p>
+
+<p>Dense urban intersections are also tricky. A driver stopped at a light on a street with four lanes in each direction might be matching to any of eight possible road segments. Getting this wrong does not just affect position accuracy — it feeds incorrect traffic speed data back into the system, which then corrupts future ETA calculations for everyone on that road.</p>
+
+<a name="Routing.Engine.Deep.Dive"></a>
+<h2>Routing Engine Deep Dive</h2>
+
+<p>The routing engine is where ETA computation actually starts to take shape. Given a driver&rsquo;s current matched position and a destination, the engine needs to find the fastest route in real time.</p>
+
+<p>Road networks are modeled as directed weighted graphs. Every intersection is a node. Every road segment between intersections is a directed edge. The weight of each edge is not just its physical length — it is a composite cost function that includes estimated travel time based on current traffic speeds, turn penalties (left turns across traffic cost more time than right turns), road type (highway vs arterial vs residential), and historical speed data for this time of day.</p>
+
+<p>Classic Dijkstra&rsquo;s algorithm finds the shortest path in a graph with non-negative edge weights. It is correct, but it explores too many nodes to be practical on a road graph covering an entire city. Starting from a source and expanding outward in all directions, it wastes computation on nodes that are clearly not on the path toward the destination.</p>
+
+<p>A* improves on Dijkstra by using a heuristic — usually straight-line distance to the destination — to guide the search toward the goal. This dramatically reduces the number of nodes explored and makes routing fast enough for real-time use in moderately dense road graphs.</p>
+
+<p>For continental-scale routing or fast query performance over very large graphs, Uber and similar systems use Contraction Hierarchies. The idea is to preprocess the graph by &ldquo;contracting&rdquo; less important nodes and adding shortcut edges that represent multi-hop paths. At query time, the search runs on a much smaller graph and reconstructs the full path afterward.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Driver Position];
+B[Destination];
+C[Road Graph];
+D[Traffic Weights];
+E[Turn Penalties];
+F[A-Star Search];
+G[Candidate Route];
+H[Route Scorer];
+I[Optimal Route];
+A &#8211;> F;
+B &#8211;> F;
+C &#8211;> F;
+D &#8211;> H;
+E &#8211;> H;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p>The routing engine also handles rerouting during active trips. When the system detects that a driver has deviated from the planned route or that traffic conditions have changed significantly, it triggers a re-route. The challenge here is avoiding flip-flopping: if two routes have nearly identical costs, you do not want the driver being bounced between them every 30 seconds as minor traffic fluctuations tip the balance. Engineers add hysteresis to the rerouting logic — only reroute if the new path is significantly faster than the current one, not just marginally.</p>
+
+<a name="Real-Time.Traffic.System"></a>
+<h2>Real-Time Traffic System</h2>
+
+<p>Traffic state is the most important input to ETA after the route itself. Getting it right is a continuous data engineering problem.</p>
+
+<p>The primary source of traffic data is the drivers themselves. Every GPS update from every active driver carries implicit speed information: if a driver on a known road segment was at position A four seconds ago and is now at position B, you can compute their speed on that segment. Aggregate this across all drivers on the same segment and you have a real-time speed estimate.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Driver GPS Stream];
+B[Speed Inference Service];
+C[Road Segment Speed Store];
+D[Historical Speed Patterns];
+E[Traffic Aggregator];
+F[Traffic Snapshot];
+G[Routing Engine];
+H[ETA Service];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> E;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+F &#8211;> H;
+</div>
+
+
+<p>This is a beautiful example of turning a byproduct (location data collected for dispatch purposes) into a product feature (real-time traffic). But it has a cold start problem: in areas with few active Uber drivers, the traffic signal is sparse or absent. In those cases, the system falls back to historical patterns and whatever external traffic data sources it can access.</p>
+
+<p>Historical traffic patterns are stored as speed profiles for each road segment, indexed by day of week and hour of day. Monday morning rush hour on the 101 in San Francisco has a very predictable signature. The system builds these profiles from months of accumulated trip data and uses them to fill in gaps in real-time coverage.</p>
+
+<p>Event detection is another layer. The traffic system watches for sudden changes in speed patterns that might indicate an accident or road closure. If a segment that normally flows at 60 km/h suddenly drops to 10 km/h, that is a signal worth propagating to the routing engine immediately, not waiting for the next scheduled update.</p>
+
+<a name="Machine.Learning.ETA.Prediction"></a>
+<h2>Machine Learning ETA Prediction</h2>
+
+<p>Here is the uncomfortable truth about rule-based ETA systems: they are wrong in predictable ways, and machine learning can fix most of those systematic errors.</p>
+
+<p>A pure routing-based ETA takes the planned route, applies current and historical traffic speeds, and computes an expected travel time. This ignores dozens of factors that a trained model can learn: the tendency for pickups near certain venues to take longer because of loading zone situations; the pattern where certain highway on-ramps add 3-4 minutes during specific hours that the speed data does not fully capture; the fact that certain drivers consistently arrive 90 seconds faster than the route prediction suggests.</p>
+
+<p>The ETA prediction model sits on top of the routing output and corrects it.</p>
+
+<p>Feature engineering for this model is where most of the work happens. The features include the raw route-based ETA from the routing engine, real-time speeds on key segments along the route, historical speed variance for those segments at this time and day, weather conditions, the number of other Uber trips currently on the same route segments, the driver&rsquo;s historical ETA accuracy (some drivers are systematically faster or slower than average), pickup zone type, and more.</p>
+
+<div class="mermaid">
+flowchart TD;
+A[Route ETA from Routing Engine];
+B[Real-Time Traffic Features];
+C[Historical Pattern Features];
+D[Driver Behavior Features];
+E[Weather Features];
+F[City Context Features];
+G[Feature Vector Assembly];
+H[ML Model Inference];
+I[Corrected ETA];
+A &#8211;> G;
+B &#8211;> G;
+C &#8211;> G;
+D &#8211;> G;
+E &#8211;> G;
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+</div>
+
+
+<p>The model architecture that tends to work best for this kind of structured prediction problem is gradient boosted trees (XGBoost, LightGBM). These models handle tabular features well, are fast to inference, can be updated incrementally as new trip data arrives, and produce well-calibrated predictions. Deep learning approaches (LSTMs for capturing temporal sequence patterns, graph neural networks for road topology) are used for specific subproblems but add latency and complexity.</p>
+
+<p>One of the most important things the ML system does is quantify uncertainty. Rather than just predicting &ldquo;14 minutes,&rdquo; the system can predict &ldquo;14 minutes with a 90% confidence interval of 12-18 minutes.&rdquo; This is used downstream for things like showing ranges in the app and for the ride matching algorithm to account for uncertainty in supply-demand balancing.</p>
+
+<p>Online learning is the practice of updating the model continuously as new labeled examples arrive. Each completed trip generates a ground truth: the predicted ETA at trip start versus the actual duration. These examples can be used to retrain the model or update its parameters in near-real-time. The challenge is avoiding training on biased samples — if drivers who take longer routes are less likely to complete trips, the training data skews toward fast completions.</p>
+
+<a name="Geo-Spatial.Infrastructure"></a>
+<h2>Geo-Spatial Infrastructure</h2>
+
+<p>Finding drivers near a pickup location, or finding which road segments are relevant to a query, requires efficient geo-spatial indexing. Doing this at scale means you cannot afford expensive distance calculations on every record.</p>
+
+<p>GeoHash divides the Earth&rsquo;s surface into a hierarchical grid of cells. Each cell is identified by a short string, and cells with similar prefixes are geographically close to each other. This turns 2D proximity queries into 1D prefix searches, which traditional databases can handle with index scans.</p>
+
+<p>QuadTrees are an alternative spatial index that recursively divides a 2D region into four quadrants. They work well when data is unevenly distributed (like drivers, who cluster in city centers) because the tree adapts its density to match the data density.</p>
+
+<p>For road graph queries, Uber partitions the global road graph into geographic tiles. Each tile contains the full topology of its region plus information about how to join the edges that cross tile boundaries. This lets the routing engine load only the tiles relevant to a given trip, rather than the entire global graph.</p>
+
+<p>The nearby driver search is a classic problem in geo-spatial systems. Given a pickup location, find all drivers within X kilometers. With GeoHash, you convert the pickup location to a GeoHash cell and query all drivers in that cell and its neighbors. The neighbor lookup is the tricky part — with GeoHash, you have to handle cell boundaries carefully to avoid missing drivers just on the other side of a cell edge.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[Pickup Location];
+B[GeoHash Encoder];
+C[Cell and Neighbors];
+D[Driver Location Store];
+E[Candidate Drivers];
+F[Distance Filter];
+G[Available Drivers];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<a name="Streaming.Systems.and.Real-Time.Pipelines"></a>
+<h2>Streaming Systems and Real-Time Pipelines</h2>
+
+<p>Everything we have described so far — GPS processing, traffic aggregation, ETA updates — happens continuously, not in batch. The backbone is a streaming data platform.</p>
+
+<p>Kafka is the message bus that connects these systems. GPS events flow from drivers into Kafka topics. Stream processors consume from these topics, do their work (map matching, speed aggregation, ETA recalculation), and produce into other Kafka topics. The result is a series of processing stages, each consuming and producing events, with the final ETA sitting in a cache ready to serve.</p>
+
+<div class="mermaid">
+flowchart LR;
+A[GPS Events Topic];
+B[Map Matcher Consumer];
+C[Matched Location Topic];
+D[Speed Aggregator];
+E[Traffic Topic];
+F[ETA Recompute Service];
+G[ETA Cache];
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+C &#8211;> F;
+E &#8211;> F;
+F &#8211;> G;
+</div>
+
+
+<p>Windowed aggregations are how the traffic system computes road segment speeds. A sliding window over the last 5 minutes of GPS events for a given road segment gives you the current average speed. Flink and similar stream processing frameworks handle this natively.</p>
+
+<p>Late-arriving events are a real operational problem. GPS pings sometimes get buffered on the device because of network connectivity and arrive out of order. A naive system that processes events in arrival order will compute incorrect speeds. The proper handling is to use event time (the timestamp from the device) rather than processing time (when the system received it), and to hold a short watermark window to allow late events to be incorporated before finalizing computations.</p>
+
+<p>Exactly-once processing matters when events drive state changes. If a GPS event is processed twice (due to a consumer restart), you do not want it counted twice in the traffic average. Kafka and Flink together support exactly-once semantics through transactional commits.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The ETA system touches several different data stores, each chosen for specific access patterns.</p>
+
+<p>Cassandra stores driver location history and GPS event archives. It is designed for high write throughput, which matches the GPS ingestion workload. Reads are by driver ID and time range, which fits Cassandra&rsquo;s partition key model well. Cassandra&rsquo;s eventual consistency is acceptable here because we do not need perfect accuracy for historical location data.</p>
+
+<p>Redis is the primary cache for current driver positions and recent ETA computations. Sub-millisecond read latency is essential when the app is refreshing the driver&rsquo;s position on the map every few seconds. Redis Sorted Sets are particularly useful for geo-spatial queries — you can store driver IDs scored by GeoHash and do range queries to find nearby drivers.</p>
+
+<p>A time-series database like InfluxDB or TimescaleDB stores traffic speed snapshots per road segment over time. The access pattern is: give me the average speed on segment X for the last 30 days at 5pm on Tuesdays. Time-series databases have native support for these kinds of downsampled historical queries.</p>
+
+<p>PostgreSQL with PostGIS handles the road graph and map data. Road segments, intersection topology, turn restrictions, and speed limits are relational data with complex relationships. PostGIS adds the geo-spatial query capability needed to find all road segments within a bounding box or compute the length of a geometry.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Data Store</th>
+        <th>What It Stores</th>
+        <th>Why This Choice</th>
+        <th>Key Access Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Cassandra</td>
+        <td>GPS events, driver history</td>
+        <td>High write throughput, time-series partitioning</td>
+        <td>Write-heavy, read by driver + time range</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Current driver positions, ETA cache</td>
+        <td>Sub-millisecond reads, geo-sorted sets</td>
+        <td>Point reads, nearby driver lookup</td>
+      </tr>
+      <tr>
+        <td>InfluxDB / TimescaleDB</td>
+        <td>Road segment speed history</td>
+        <td>Native time-series aggregations</td>
+        <td>Historical speed profiles by segment + time</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL + PostGIS</td>
+        <td>Road graph, map topology</td>
+        <td>Relational integrity, spatial queries</td>
+        <td>Road graph traversal, spatial bounding box queries</td>
+      </tr>
+      <tr>
+        <td>Elasticsearch</td>
+        <td>Address search, place names</td>
+        <td>Full-text search, geo-distance queries</td>
+        <td>Destination autocomplete, address resolution</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>GPS event schema in Cassandra might look like this:</p>
+
+<pre><code class="sql">CREATE TABLE gps_events (
+  driver_id    UUID,
+  event_time   TIMESTAMP,
+  latitude     DOUBLE,
+  longitude    DOUBLE,
+  speed_kmh    FLOAT,
+  heading      FLOAT,
+  accuracy_m   FLOAT,
+  PRIMARY KEY (driver_id, event_time)
+) WITH CLUSTERING ORDER BY (event_time DESC);
+</code></pre>
+
+<p>The partition key is driver_id so all events for a driver land on the same partition. The clustering key is event_time descending so the most recent events come back first on any range scan.</p>
+
+<a name="Caching.and.Performance.Optimization"></a>
+<h2>Caching and Performance Optimization</h2>
+
+<p>The ETA system has to serve sub-200ms responses to millions of concurrent users. Caching is not an optimization — it is a core architectural requirement.</p>
+
+<p>Route caching stores the computed route between two fixed points. If a driver is picking up a rider at a major landmark, there might be thousands of pickups from that location per day. The optimal route from a given origin-destination pair does not change dramatically minute-to-minute. The routing engine can serve cached routes for common pairs and only run the full graph traversal for novel queries.</p>
+
+<p>ETA results are cached at the trip level and invalidated when conditions change meaningfully. The definition of &ldquo;meaningfully&rdquo; matters here. A 10-second change in ETA does not warrant a cache invalidation. A 2-minute change does, especially if the trip has just started. Engineers tune these thresholds based on user research about when ETA changes are noticeable and frustrating.</p>
+
+<p>Traffic tile caching stores pre-computed traffic overlays for geographic tiles. Instead of assembling the traffic picture from raw speed data on every routing request, the system periodically bakes traffic speeds into the road graph weights and serves those cached weights. This shifts computation from query time to background processing.</p>
+
+<p>Hotspot mitigation handles the &ldquo;stadium effect&rdquo;: when a venue lets out and thousands of riders all request Uber simultaneously from the same location, the nearby driver search and ETA computation for that area gets hammered. One approach is to pre-compute and warm the cache for known high-demand zones before events end, using venue calendars and historical demand patterns.</p>
+
+<a name="Scaling.Uber.ETA.Systems"></a>
+<h2>Scaling Uber ETA Systems</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>System Component</th>
+        <th>Primary Bottleneck</th>
+        <th>Scaling Strategy</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPS Ingestion</td>
+        <td>Write throughput at peak</td>
+        <td>Kafka partition scaling, stateless consumers</td>
+        <td>More partitions increase consumer coordination overhead</td>
+      </tr>
+      <tr>
+        <td>Map Matching</td>
+        <td>HMM computation per driver</td>
+        <td>Stateful stream processors sharded by driver ID</td>
+        <td>Rebalancing shards is expensive when consumers restart</td>
+      </tr>
+      <tr>
+        <td>Routing Engine</td>
+        <td>Graph traversal CPU</td>
+        <td>Geo-sharded routing nodes, precomputed hierarchies</td>
+        <td>Cross-shard queries needed for long trips</td>
+      </tr>
+      <tr>
+        <td>ML Inference</td>
+        <td>Model load and feature assembly</td>
+        <td>Model server clusters, feature store caching</td>
+        <td>Model freshness vs inference latency tradeoff</td>
+      </tr>
+      <tr>
+        <td>Geo Queries</td>
+        <td>Nearby driver lookup frequency</td>
+        <td>Redis geo-sorted sets, read replicas</td>
+        <td>Eventual consistency on driver position reads</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The GPS ingestion service is horizontally scaled: add more Kafka partitions and more consumer instances. Because GPS events from a given driver need to be processed in order, events for the same driver are routed to the same partition using driver ID as the partition key. This ensures ordering within a driver&rsquo;s event stream without requiring global ordering across all drivers.</p>
+
+<p>The routing engine is geo-sharded. Each routing node is responsible for a geographic region and holds the road graph for that region in memory. Routing queries within a single region are served locally. Long trips that cross shard boundaries require coordination between routing nodes, which is handled by a routing federation layer.</p>
+
+<p>Multi-region deployment is critical for latency. A rider in Mumbai should not have their ETA computed in a data center in Virginia. Routing and ETA services run in regional clusters close to the users they serve. Global state (like model weights) is replicated to all regions. Regional state (like driver positions) lives in the regional cluster and is not globally replicated.</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>The ETA system has multiple failure modes that need graceful degradation rather than hard failures.</p>
+
+<p>GPS outages happen when drivers lose network connectivity. The map matcher maintains a dead reckoning estimate: given the last known position, heading, and speed, project forward in time to estimate the current position. This estimate degrades quickly (30-60 seconds before it becomes unreliable) but it is better than showing no position at all.</p>
+
+<p>Stale traffic data is handled by aging: if a road segment&rsquo;s speed data has not been refreshed in the last five minutes, the system starts blending it with historical averages, weighting toward historical as the data gets older. After a configurable threshold, the segment is treated as having only historical data.</p>
+
+<p>The fallback ETA system is a simplified rule-based model that can run without ML inference or live traffic data. It uses road type, distance, and time of day to produce a rough ETA. This fallback is less accurate but far more reliable — it has almost no external dependencies. When the full pipeline degrades, the fallback keeps the product functional.</p>
+
+<p>Monitoring the ETA system requires multiple layers:</p>
+
+<ul>
+<li>Infrastructure metrics: Kafka consumer lag, routing engine latency percentiles, ML model inference latency, cache hit rates</li>
+<li>Data quality metrics: GPS event rate per region (a sudden drop suggests ingestion issues), map matching confidence scores, ETA prediction confidence</li>
+<li>Business metrics: prediction accuracy measured against completed trips, the percentage of trips where actual duration exceeded predicted ETA by more than 20%, and driver arrival time accuracy</li>
+</ul>
+
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Real-time traffic versus historical traffic is the most fundamental tradeoff. Real-time data is more accurate for current conditions but noisy and sparse. Historical data is reliable but may be wrong when conditions deviate from norms. The right answer is a weighted blend, and the optimal weights change by scenario: for short trips in well-covered areas, real-time dominates; for long trips in sparse areas, historical patterns carry more weight.</p>
+
+<p>Latency versus accuracy is the tension every ML inference pipeline faces. A more complex model might produce 5% more accurate ETAs, but if it adds 50ms to the response time, the user experience degrades. Uber&rsquo;s serving infrastructure runs ML models behind latency SLAs — if a model cannot respond within its budget, the system falls back to a simpler model rather than waiting.</p>
+
+<p>Route freshness versus compute cost is a cache management problem. Recomputing routes continuously would give the most up-to-date routing decisions but would require enormous compute capacity. Caching routes for 2-3 minutes is cheap but might miss a road that closed 90 seconds ago. The engineering decision is to cache most routes but subscribe to real-time road closure events and invalidate affected cached routes immediately.</p>
+
+<p>The ML model update cadence involves a tradeoff between recency and stability. A model retrained daily incorporates recent driving patterns but might overfit to anomalies. A model retrained weekly is more stable but slower to adapt to new construction patterns or changed traffic conditions. Production systems typically run a shadow evaluation: the new model runs alongside the old one for a period before being promoted, with accuracy metrics compared before any traffic is switched.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Technology</th>
+        <th>Role in ETA System</th>
+        <th>Why It Fits</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Go</td>
+        <td>GPS ingestion, routing service</td>
+        <td>Low latency, high concurrency, small memory footprint per goroutine</td>
+      </tr>
+      <tr>
+        <td>Java / Kotlin</td>
+        <td>Core platform services, stream processing</td>
+        <td>JVM ecosystem, mature Kafka client libraries, Flink runs on JVM</td>
+      </tr>
+      <tr>
+        <td>Python</td>
+        <td>ML model training, feature engineering</td>
+        <td>Rich ML ecosystem (XGBoost, TensorFlow, Pandas), fast prototyping</td>
+      </tr>
+      <tr>
+        <td>Kafka</td>
+        <td>Event streaming backbone</td>
+        <td>High throughput, durable, consumer group scaling, replay capability</td>
+      </tr>
+      <tr>
+        <td>Flink</td>
+        <td>Stateful stream processing</td>
+        <td>Exactly-once semantics, event-time windowing, managed state</td>
+      </tr>
+      <tr>
+        <td>Redis</td>
+        <td>Driver position cache, ETA cache</td>
+        <td>Sub-millisecond reads, geo-sorted sets, atomic operations</td>
+      </tr>
+      <tr>
+        <td>Cassandra</td>
+        <td>GPS event store, driver history</td>
+        <td>Linear write scalability, tunable consistency, time-series friendly</td>
+      </tr>
+      <tr>
+        <td>PostgreSQL + PostGIS</td>
+        <td>Road graph, map data</td>
+        <td>Spatial indexing, complex relational queries, battle-tested</td>
+      </tr>
+      <tr>
+        <td>Kubernetes</td>
+        <td>Service orchestration</td>
+        <td>Pod autoscaling for traffic bursts, rolling deployments, health checks</td>
+      </tr>
+      <tr>
+        <td>XGBoost / LightGBM</td>
+        <td>ETA correction model</td>
+        <td>Fast inference, handles tabular features, well-calibrated predictions</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Go is particularly well-suited for the high-concurrency ingestion services because its goroutine model handles tens of thousands of concurrent connections cheaply. A single Go service can ingest GPS events from hundreds of thousands of drivers without the thread-per-connection overhead that would bottleneck a Java service.</p>
+
+<p>Flink over raw Kafka consumers for stream processing is worth the operational overhead because Flink manages state consistency through checkpointing. If a stream processor crashes, Flink restores its state from the last checkpoint and resumes processing from exactly where it left off. Without this, a crash would either reprocess events (causing double-counting in traffic aggregations) or miss events entirely.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design Uber&rsquo;s ETA system, they are testing several things simultaneously: your ability to decompose a complex problem, your knowledge of distributed systems primitives, your understanding of data pipelines, and your sense for what actually matters versus what is premature optimization.</p>
+
+<p>Start with the problem definition. Many candidates jump straight into drawing services and databases. Better candidates start by asking: what does the system need to do? What are the latency requirements? How accurate does the ETA need to be? How many concurrent users? This framing shows you understand that architecture follows requirements.</p>
+
+<p>Then establish the data flows before the system components. Where does the input data come from? (GPS events from drivers.) Where does it need to go? (ETA on the rider&rsquo;s screen.) What transformations happen in between? (Map matching, routing, ML adjustment, caching.) This mental model of data flow makes the architectural diagram feel inevitable rather than arbitrary.</p>
+
+<p>When you draw the architecture, focus on the critical path first. The critical path for ETA is: GPS event from driver arrives, gets map-matched, goes into routing, gets ML-adjusted, gets cached, gets served to the rider&rsquo;s app. Everything else is supporting infrastructure. Candidates who get lost designing the admin dashboard or the reporting pipeline before the critical path has been addressed are not demonstrating good engineering judgment.</p>
+
+<p>Interviewers will probe your bottlenecks. &ldquo;What breaks first when your system gets 10x more drivers?&rdquo; Be ready to walk through: GPS ingestion throughput, Kafka partition limits, stream processing consumer lag, routing engine CPU, ML inference latency, and cache memory. For each one, know the mitigation: horizontal scaling, sharding strategy, caching, async processing, or model simplification.</p>
+
+<p>Common mistakes to avoid: designing a request-response system where ETA is computed on-demand rather than pre-computed; forgetting the map matching step and assuming raw GPS is usable directly; treating ML as a magic box without discussing features and training data; ignoring the failure modes and assuming happy path throughout; focusing on exact consistency when eventual consistency is perfectly acceptable for ETA data.</p>
+
+<p>Strong candidates discuss the ML model&rsquo;s role with nuance. They explain why static routing is not enough, what features the model would use, how the model is trained and updated, and what the fallback is when ML inference is unavailable. They also acknowledge the feedback loop: ETA predictions affect driver and rider behavior, which affects the actual trip duration, which feeds back into training data.</p>
+
+<p>The best answers in these interviews feel like the candidate has actually thought about building this system rather than having memorized a template. That means discussing real tradeoffs, acknowledging uncertainty, and being willing to say &ldquo;here I would run an experiment to determine the right threshold&rdquo; rather than inventing a precise number with false confidence.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>That number on your screen — &ldquo;3 minutes&rdquo; — is the output of a genuinely impressive engineering system. GPS streams flowing from hundreds of thousands of devices every few seconds. Map matching algorithms keeping every driver pinned to the correct road. A routing engine traversing a weighted graph of continental scale in milliseconds. Traffic aggregation systems turning driver speed data into real-time congestion maps. ML models layered on top to correct for all the systematic biases that physics-based models cannot capture. Caches keeping the whole thing fast enough to feel instantaneous.</p>
+
+<p>What makes this system interesting to study is that almost every design decision has a clear reason rooted in real engineering constraints. The pre-computation model exists because ETA read traffic dwarfs write traffic. The Kafka event bus exists because the system is fundamentally event-driven. The hybrid traffic model exists because real-time data is noisy and historical data is stale. The geo-sharded routing engine exists because road graph traversal is CPU-intensive and network round trips add latency.</p>
+
+<p>If you are preparing for a system design interview or trying to build something similar, the key takeaway is this: understand the data flows first, understand the access patterns second, and let the component choices follow naturally from those constraints. The technology stack matters far less than the clarity of thought about what problem each part of the system is actually solving.</p>
+]]></content>
+    </entry>
+    
+    <entry>
+        <title type="html"><![CDATA[How Airbnb Works?]]></title>
+        <link href="https://rishijeet.github.io/blog/how-airbnb-works/"/>
+        <updated>2026-05-11T09:21:17+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-airbnb-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>Every time you search for a place to stay in Tokyo, lock in a booking for next weekend in Lisbon, or message a host about parking — you&rsquo;re touching a system that handles millions of concurrent users, real-time availability across 7 million listings, payment transactions in dozens of currencies, and geo-spatial searches across the entire planet. Let&rsquo;s pull back the curtain.</em></p></blockquote>
+
+<p><img src="/images/system_design/airbnb.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Airbnb is one of the most fascinating systems to think about from an engineering standpoint. Not because any single piece is extraordinarily novel on its own, but because the combination of problems they have to solve simultaneously is genuinely hard.</p>
+
+<p>You have geo-spatial search that needs to return results in under 200ms. You have a booking system that must never double-book a property, even when two guests are clicking &ldquo;Reserve&rdquo; at the exact same millisecond. You have dynamic pricing that shifts based on local events, season, and demand signals. You have payments flowing across 220+ countries with fraud detection running on every transaction. And you have to do all of this reliably for a platform where a single outage during peak travel season means real money lost for real hosts around the world.</p>
+
+<p>As of recent years, Airbnb has over 7 million active listings in 220+ countries, serves hundreds of millions of guest arrivals per year, and sees traffic spikes that correlate with holiday seasons, major events, and even viral social media moments. That&rsquo;s the scale we&rsquo;re designing for.</p>
+
+<!--more-->
+
+
+<p>Let&rsquo;s get into it.</p>
+
+<a name="Core.Features.and.Why.They.re.Harder.Than.They.Look"></a>
+<h2>Core Features and Why They&rsquo;re Harder Than They Look</h2>
+
+<p>Before diving into architecture, it&rsquo;s worth understanding what Airbnb actually does — and specifically what makes each feature technically interesting.</p>
+
+<p><strong>Property Listings:</strong> Hosts create listings with photos, descriptions, amenities, house rules, and availability calendars. Simple to describe, but storing and serving millions of rich media listings at low latency requires careful thinking about storage, CDN strategy, and search indexing.</p>
+
+<p><strong>Search:</strong> Guests search by location, dates, guest count, price range, and amenities. The geo-spatial nature of this — &ldquo;show me listings within a 5km radius of these coordinates&rdquo; — combined with real-time availability filtering makes this one of the hardest search problems at scale.</p>
+
+<p><strong>Booking:</strong> A guest selects dates and clicks Reserve. The system must verify availability in real-time, hold the inventory, process payment, and confirm the booking — all without any other guest booking the same property for the same dates in that window. Race conditions here are not hypothetical; they happen constantly at scale.</p>
+
+<p><strong>Availability Calendar:</strong> Each listing has a calendar showing which dates are blocked (already booked, or blocked by the host) and which are open. This calendar must stay consistent across the host&rsquo;s interface, the guest-facing search, and the booking system simultaneously.</p>
+
+<p><strong>Dynamic Pricing:</strong> Hosts can set base prices, but Airbnb&rsquo;s smart pricing system suggests (and with Smart Pricing enabled, automatically adjusts) nightly rates based on local demand, comparable listings, seasonal patterns, and upcoming events. Computing this in real-time for millions of listings is a significant data pipeline challenge.</p>
+
+<p><strong>Reviews and Messaging:</strong> Both reviews and the host-guest messaging system sound straightforward. But reviews have integrity concerns (preventing fake reviews, handling disputes), and messaging needs to work reliably even when either party is offline, with proper notification delivery across email, SMS, and push.</p>
+
+<p>Each of these features alone would be a substantial engineering problem. Airbnb runs all of them simultaneously at global scale.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>Let&rsquo;s start with the 30,000-foot view and then drill down.</p>
+
+<div class="mermaid">
+flowchart TB;
+
+subgraph Clients
+A1[Web Browser];
+A2[iOS App];
+A3[Android App];
+end;
+
+subgraph CDN
+B[Static Assets Images Map Tiles];
+end;
+
+subgraph Gateway
+C[Rate Limiting Auth Routing];
+end;
+
+subgraph Core
+D1[Listing Service];
+D2[Search Service];
+D3[Booking Service];
+D4[Payment Service];
+D5[User Service];
+D6[Messaging Service];
+D7[Notification Service];
+D8[Pricing Service];
+D9[Review Service];
+end;
+
+subgraph Streaming
+E[Async Event Streaming];
+end;
+
+subgraph Data
+F1[PostgreSQL];
+F2[Elasticsearch];
+F3[Redis];
+F4[Amazon S3];
+F5[Cassandra];
+end;
+
+A1 &#8211;> B;
+A2 &#8211;> B;
+A3 &#8211;> B;
+B &#8211;> C;
+C &#8211;> D1;
+D1 &#8211;> E;
+E &#8211;> D7;
+D1 &#8211;> F1;
+
+</div>
+
+
+<p>This diagram gives you the skeleton. Now let me explain each layer and why it&rsquo;s designed this way.</p>
+
+<p><strong>CDN Layer:</strong> The first interceptor for all traffic. Airbnb serves listing photos, static JavaScript bundles, CSS, and map tiles from edge nodes distributed globally. The goal is to serve as much as possible without ever hitting the origin servers. A guest in Singapore loading a listing page should get images from a CDN node in Singapore, not from a data center in Virginia.</p>
+
+<p><strong>API Gateway:</strong> Every API request from mobile or web flows through a centralized gateway. This is where authentication tokens are validated, rate limiting is enforced (so no single client can hammer your APIs), and requests are routed to the correct downstream service. The gateway is also where you implement cross-cutting concerns like request logging and circuit breaking.</p>
+
+<p><strong>Microservices:</strong> Airbnb started as a Rails monolith (as many startups do) and gradually decomposed into services as different domains scaled at different rates. The search team needed to iterate on ranking independently of the booking team. The payment system needed stricter deployment controls than the review system. Microservices solve the organizational and scaling problem simultaneously — each service can be scaled, deployed, and maintained independently.</p>
+
+<p><strong>Kafka Event Bus:</strong> The connective tissue between services. When a booking is confirmed, the Booking Service publishes a <code>booking.confirmed</code> event to Kafka. The Notification Service picks it up and sends emails. The Pricing Service picks it up and recalculates availability-based demand scores. The Calendar Service picks it up and updates the listing&rsquo;s availability. Nobody is directly coupled to anybody else.</p>
+
+<a name="Search.System.Deep.Dive"></a>
+<h2>Search System Deep Dive</h2>
+
+<p>Search is where Airbnb earns its reputation for engineering sophistication. It is not a simple keyword search. It is a geo-spatial, date-filtered, availability-aware, personalized ranking problem that must return results in under 200 milliseconds.</p>
+
+<a name="The.Query.Anatomy"></a>
+<h3>The Query Anatomy</h3>
+
+<p>When a guest searches &ldquo;Paris, France — July 4–10, 2 guests, max $200/night,&rdquo; the search system needs to:</p>
+
+<ol>
+<li>Find all listings within a reasonable radius of Paris</li>
+<li>Filter to those that are available for all nights from July 4 to July 10</li>
+<li>Filter to those that accommodate at least 2 guests</li>
+<li>Filter to those priced at $200 or under</li>
+<li>Rank the results by a combination of relevance, quality, and personalization signals</li>
+<li>Return paginated results with photos, price, and ratings</li>
+</ol>
+
+
+<p>Each of these steps has scaling implications.</p>
+
+<a name="Geo-Spatial.Indexing"></a>
+<h3>Geo-Spatial Indexing</h3>
+
+<p>The core challenge is step 1: &ldquo;find listings near Paris.&rdquo; You cannot do this with a simple SQL query scanning millions of rows. You need a spatial index.</p>
+
+<p><strong>GeoHash</strong> is one of the most common approaches. GeoHash divides the world into a grid of cells, each represented by a short string. The key property is that strings that share a prefix are geographically close to each other. A listing with GeoHash <code>u09tvw</code> is near any other listing starting with <code>u09tv</code>. This lets you turn a radius query into a prefix query — orders of magnitude faster.</p>
+
+<pre><code>GeoHash precision levels:
+- Length 1  → ~5000 km cell
+- Length 4  → ~40 km cell
+- Length 6  → ~1.2 km cell
+- Length 8  → ~38 m cell
+</code></pre>
+
+<p>For a city-level search, you might use precision 5 or 6 to find candidate cells, then compute exact distances only for candidates. This two-phase approach — coarse candidate retrieval followed by fine-grained filtering — is the backbone of geo search at scale.</p>
+
+<p><strong>QuadTree</strong> is an alternative. Instead of a fixed grid, a QuadTree recursively subdivides space into quadrants based on listing density. Areas with many listings (Manhattan) get finer subdivisions. Areas with few listings (rural Montana) stay coarse. This adapts better to uneven distribution but is more complex to implement and maintain.</p>
+
+<p>Airbnb uses Elasticsearch (now OpenSearch-compatible) as its primary search index. Elasticsearch has native support for geo-point fields and geo queries, which abstracts a lot of the spatial indexing complexity while still leveraging inverted indexes for filtering.</p>
+
+<a name="The.Search.Flow"></a>
+<h3>The Search Flow</h3>
+
+<div class="mermaid">
+flowchart LR;
+
+%% Nodes
+A[Guest Search Request];
+B[Search Service];
+C[Parse and Validate Query];
+D{Check Redis Cache same query seen recently};
+E[Return Cached Results];
+F[Build Elasticsearch Query];
+G[Geo Filter Date Filter Price Filter Amenity Filter];
+H[Retrieve Candidate Listings];
+I[Fetch Availability from Booking Service];
+J[Apply Ranking Model quality and personalization];
+K[Store in Cache TTL 60s];
+L[Return Paginated Results];
+
+%% Flow
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+
+D &#8211;>|Cache Hit| E;
+D &#8211;>|Cache Miss| F;
+
+F &#8211;> G;
+G &#8211;> H;
+H &#8211;> I;
+I &#8211;> J;
+J &#8211;> K;
+K &#8211;> L;
+
+</div>
+
+
+<p>One subtle challenge here is the availability check in step I. Elasticsearch holds listing metadata, but real-time availability (which dates are blocked) lives in the booking system. Doing a live availability check for every candidate listing on every search query would be prohibitively expensive. The solution is a periodic sync: the booking system publishes availability updates to Kafka, and a consumer updates the availability data in Elasticsearch. There&rsquo;s a small lag — usually under a minute — but for search results this is acceptable. The final availability confirmation happens at booking time, not at search time.</p>
+
+<a name="Ranking"></a>
+<h3>Ranking</h3>
+
+<p>Once you have a set of available, filtered candidates, you need to rank them. The ranking model at Airbnb is a machine learning model (reportedly a gradient boosted tree followed by neural re-ranking) that scores each listing based on:</p>
+
+<ul>
+<li><strong>Listing quality signals:</strong> number and recency of reviews, average rating, response rate, acceptance rate</li>
+<li><strong>Price competitiveness:</strong> how this listing&rsquo;s price compares to similar listings in the area</li>
+<li><strong>Guest preferences:</strong> if the guest has searched before, what types of properties did they click? What did they book?</li>
+<li><strong>Host reliability:</strong> how often does this host cancel bookings? (A host with frequent cancellations gets penalized heavily in ranking)</li>
+<li><strong>Photo quality:</strong> Airbnb has trained models to assess photo quality and penalize listings with dark, blurry, or poorly composed photos</li>
+</ul>
+
+
+<p>This ranking is computed offline and stored as a score per listing. At query time, you retrieve candidates and sort by the precomputed score adjusted for query-specific context (distance from the searched location, for instance).</p>
+
+<a name="Pagination.Challenges"></a>
+<h3>Pagination Challenges</h3>
+
+<p>Geo-spatial pagination is awkward. When you page through results sorted by distance, a new listing being added (or an existing one becoming unavailable) can shift positions, causing duplicates or gaps between pages. Airbnb handles this with cursor-based pagination tied to a session token — the search state is snapshotted at query time and paginated results are pulled from that snapshot, not live data.</p>
+
+<a name="Booking.System.Deep.Dive"></a>
+<h2>Booking System Deep Dive</h2>
+
+<p>The booking system is where correctness trumps everything else. A search result being slightly stale is annoying. A double booking — two guests showing up at the same property on the same night — is a catastrophic failure that harms real people and destroys trust.</p>
+
+<a name="The.Booking.Workflow"></a>
+<h3>The Booking Workflow</h3>
+
+<div class="mermaid">
+sequenceDiagram;
+
+participant G as Guest;
+participant BS as Booking Service;
+participant PS as Payment Service;
+participant LS as Listing Service;
+participant NS as Notification Service;
+participant K as Kafka;
+
+G->>BS: Reserve listing_id dates guests;
+BS->>BS: Validate dates not in past;
+BS->>LS: Check availability;
+LS&#8211;>>BS: Available;
+
+BS->>BS: Acquire distributed lock;
+BS->>BS: Recheck availability;
+
+BS->>PS: Authorize payment hold;
+PS&#8211;>>BS: Authorization successful;
+
+BS->>BS: Create booking record pending;
+BS->>LS: Block dates on calendar;
+
+BS->>BS: Update booking confirmed;
+BS->>K: Publish booking confirmed;
+
+K->>NS: Send confirmation emails;
+
+BS&#8211;>>G: Booking confirmed;
+
+</div>
+
+
+<p>The critical section here is the distributed lock around step 4. Without it, two guests could both check availability (both see &ldquo;available&rdquo;), both proceed to payment, and both get a confirmed booking for the same dates. This is the classic time-of-check-to-time-of-use (TOCTOU) race condition.</p>
+
+<a name="Preventing.Double.Bookings"></a>
+<h3>Preventing Double Bookings</h3>
+
+<p>Airbnb uses a combination of strategies here:</p>
+
+<p><strong>Database-level constraints:</strong> The calendar table has a unique constraint on <code>(listing_id, date, status=BOOKED)</code>. Any second booking attempt for the same listing and date will fail with a unique violation at the database level. This is the last-resort guard.</p>
+
+<p><strong>Distributed locking with Redis:</strong> Before writing, the booking service acquires a Redis lock on the key <code>lock:listing:{listing_id}:dates:{date_range_hash}</code> using the <code>SET NX PX</code> command (set if not exists, with expiry). This provides mutual exclusion at the application layer, well before the database constraint fires. The lock has a TTL (say, 10 seconds) so that if the booking service crashes while holding the lock, it automatically releases.</p>
+
+<p><strong>Optimistic locking on the listing record:</strong> The listing record has a version number. When a booking is committed, it checks that the version hasn&rsquo;t changed since it was read. If another booking sneaked in between the read and the write, the version won&rsquo;t match, and the transaction is rolled back and retried.</p>
+
+<pre><code class="sql">-- Calendar table with uniqueness enforced at DB level
+CREATE TABLE listing_calendar (
+    listing_id    UUID NOT NULL REFERENCES listings(id),
+    date          DATE NOT NULL,
+    status        VARCHAR(20) NOT NULL, -- 'AVAILABLE', 'BOOKED', 'BLOCKED'
+    booking_id    UUID REFERENCES bookings(id),
+    PRIMARY KEY (listing_id, date)
+);
+
+-- A UNIQUE partial index to prevent two BOOKED entries for same listing+date
+CREATE UNIQUE INDEX idx_listing_calendar_booked
+    ON listing_calendar (listing_id, date)
+    WHERE status = 'BOOKED';
+</code></pre>
+
+<a name="Handling.Payment.Failures"></a>
+<h3>Handling Payment Failures</h3>
+
+<p>Payment processing adds another layer of complexity. The sequence is:</p>
+
+<ol>
+<li>Authorize the payment (card is valid, funds reserved but not captured)</li>
+<li>Create the booking</li>
+<li>Capture the payment (money actually moves)</li>
+</ol>
+
+
+<p>If step 2 fails after step 1, you must release the payment authorization. If step 3 fails after step 2, you need to cancel the booking and release the hold. This two-phase approach (authorize then capture) is industry standard for exactly this reason — it gives you a window to back out before money actually moves.</p>
+
+<p>For handling partial failures, Airbnb uses a saga pattern — each step in the booking workflow publishes compensating events that can undo the step if a later step fails. The booking saga coordinator (often implemented as a state machine) tracks which steps have completed and orchestrates rollback when needed.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<a name="Schema.Overview"></a>
+<h3>Schema Overview</h3>
+
+<pre><code class="sql">-- Users
+CREATE TABLE users (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email           VARCHAR(255) UNIQUE NOT NULL,
+    password_hash   TEXT NOT NULL,
+    first_name      VARCHAR(100),
+    last_name       VARCHAR(100),
+    phone           VARCHAR(20),
+    profile_photo   TEXT,
+    verified        BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Listings
+CREATE TABLE listings (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    host_id         UUID NOT NULL REFERENCES users(id),
+    title           VARCHAR(255) NOT NULL,
+    description     TEXT,
+    property_type   VARCHAR(50),   -- 'apartment', 'house', 'villa', etc.
+    room_type       VARCHAR(50),   -- 'entire_place', 'private_room', 'shared_room'
+    max_guests      INT NOT NULL,
+    bedrooms        INT,
+    bathrooms       DECIMAL(3,1),
+    latitude        DECIMAL(9,6) NOT NULL,
+    longitude       DECIMAL(9,6) NOT NULL,
+    geohash         VARCHAR(12),
+    city            VARCHAR(100),
+    country         VARCHAR(100),
+    base_price      DECIMAL(10,2) NOT NULL,
+    currency        VARCHAR(3) DEFAULT 'USD',
+    is_active       BOOLEAN DEFAULT TRUE,
+    version         INT DEFAULT 1,  -- for optimistic locking
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Bookings
+CREATE TABLE bookings (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id      UUID NOT NULL REFERENCES listings(id),
+    guest_id        UUID NOT NULL REFERENCES users(id),
+    check_in        DATE NOT NULL,
+    check_out       DATE NOT NULL,
+    total_nights    INT NOT NULL,
+    total_price     DECIMAL(10,2) NOT NULL,
+    status          VARCHAR(20) NOT NULL,  -- 'PENDING','CONFIRMED','CANCELLED','COMPLETED'
+    payment_id      UUID,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Reviews
+CREATE TABLE reviews (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id      UUID UNIQUE NOT NULL REFERENCES bookings(id),
+    reviewer_id     UUID NOT NULL REFERENCES users(id),
+    listing_id      UUID NOT NULL REFERENCES listings(id),
+    overall_rating  INT CHECK (overall_rating BETWEEN 1 AND 5),
+    cleanliness     INT CHECK (cleanliness BETWEEN 1 AND 5),
+    communication   INT CHECK (communication BETWEEN 1 AND 5),
+    body            TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+</code></pre>
+
+<a name="SQL.vs.NoSQL.Decisions"></a>
+<h3>SQL vs NoSQL Decisions</h3>
+
+<p>The bookings, payments, and user accounts all live in PostgreSQL. This is deliberate. These are domains where transactional consistency is non-negotiable. A payment that debits a guest but doesn&rsquo;t credit the host (due to an eventual consistency lag) is a real financial incident. PostgreSQL&rsquo;s ACID guarantees and row-level locking make it the right tool here.</p>
+
+<p>The messaging system, on the other hand, is a better fit for Cassandra. Messages are append-only, read by conversation ID, and need to scale horizontally without complex joins. Cassandra&rsquo;s partition key model — <code>partition key: (conversation_id), clustering key: (timestamp)</code> — retrieves all messages in a conversation in time order with a single partition scan. That&rsquo;s exactly the access pattern you need.</p>
+
+<p>Search metadata lives in Elasticsearch. You can&rsquo;t do geo-queries, full-text search, and multi-faceted filtering efficiently in PostgreSQL at millions of listing scale. Elasticsearch is purpose-built for exactly this read pattern. The tradeoff is that data is duplicated — the authoritative record is in PostgreSQL, but a denormalized copy lives in Elasticsearch. Changes must be propagated via Kafka consumers to keep them in sync.</p>
+
+<p>Redis serves as the caching layer and the distributed locking mechanism. Session tokens, search result caches, rate limit counters, and booking locks all live in Redis. The data here is ephemeral by design — if Redis loses its data, you fall through to PostgreSQL. Redis never holds the authoritative record.</p>
+
+<a name="Indexing.and.Partitioning"></a>
+<h3>Indexing and Partitioning</h3>
+
+<pre><code class="sql">-- Geospatial index for fast radius queries
+CREATE INDEX idx_listings_geohash ON listings (geohash);
+CREATE INDEX idx_listings_lat_lng ON listings (latitude, longitude);
+
+-- Booking lookups by listing (for availability checks)
+CREATE INDEX idx_bookings_listing_dates ON bookings (listing_id, check_in, check_out)
+    WHERE status IN ('PENDING', 'CONFIRMED');
+
+-- Review aggregations by listing
+CREATE INDEX idx_reviews_listing ON reviews (listing_id);
+
+-- Calendar range queries
+CREATE INDEX idx_calendar_listing_date ON listing_calendar (listing_id, date);
+</code></pre>
+
+<p>As the bookings table grows into hundreds of millions of rows, you partition it by <code>created_at</code> (range partitioning by month or quarter). Older partitions can be archived to cheaper storage. Most booking queries are for recent or upcoming bookings, so the hot partition is small and fast.</p>
+
+<a name="Pricing.and.Availability.System"></a>
+<h2>Pricing and Availability System</h2>
+
+<a name="Dynamic.Pricing"></a>
+<h3>Dynamic Pricing</h3>
+
+<p>Airbnb&rsquo;s Smart Pricing system is effectively a demand forecasting model. For each listing on each date, it estimates how much demand there will be and suggests a price that maximizes the host&rsquo;s expected revenue (not just occupancy — a fully-booked listing at too-low prices isn&rsquo;t optimal).</p>
+
+<p>Inputs to the pricing model:
+- Base price set by the host
+- Historical booking patterns for this listing and comparable listings
+- Seasonal demand curves for this market
+- Local events (concerts, conferences, sports events) detected from external data sources
+- Day-of-week effects (weekends vs weekdays)
+- Lead time (bookings made 6 months out vs 3 days out have different price sensitivity)
+- Current occupancy rate and remaining availability</p>
+
+<p>The pricing service runs as a batch job overnight for all listings, generating per-listing, per-date price recommendations. These are stored in a pricing table and served through a cache. When a guest views a listing, the price shown is the cached recommendation, not a live computation.</p>
+
+<div class="mermaid">
+flowchart LR;
+
+%% Nodes
+A[External Event Data Concerts Conferences];
+B[Historical Booking Data];
+C[Comparable Listings Data];
+D[Pricing ML Model batch nightly];
+E[Pricing Table PostgreSQL];
+F[Redis Cache TTL 1hr];
+G[Listing Service serves price to guests];
+
+%% Flow
+A &#8211;> D;
+B &#8211;> D;
+C &#8211;> D;
+
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+
+</div>
+
+
+<a name="Calendar.Synchronization"></a>
+<h3>Calendar Synchronization</h3>
+
+<p>Many hosts list their property on multiple platforms — Airbnb, VRBO, Booking.com. To prevent double bookings across platforms, Airbnb supports iCal synchronization. External platforms export their bookings as iCal feeds, and Airbnb periodically polls these feeds (typically every few hours) to import blocked dates.</p>
+
+<p>This is a best-effort system — there&rsquo;s a polling lag. If a guest books via VRBO at 2pm and the next Airbnb iCal sync is at 4pm, there&rsquo;s a 2-hour window where Airbnb might still show those dates as available. The final guard is still the booking flow itself — but the likelihood of a collision is low.</p>
+
+<a name="Maps.and.Geo.Services"></a>
+<h2>Maps and Geo Services</h2>
+
+<a name="How.Map.Search.Works"></a>
+<h3>How Map Search Works</h3>
+
+<p>Airbnb&rsquo;s map search is one of its most distinctive UX features. As you drag and zoom the map, listings appear and disappear dynamically. Under the hood, this is a bounding-box geo query: &ldquo;give me all listings with latitude between X1 and X2 and longitude between Y1 and Y2, filtered by the current search criteria.&rdquo;</p>
+
+<div class="mermaid">
+flowchart LR;
+
+%% Nodes
+A[User Drags Map<br/>New Bounding Box];
+B[Debounced API Call<br/>Wait 200ms];
+C[Search Service];
+D[Elasticsearch<br/>Geo Bounding Box Query];
+E[Apply Filters<br/>Price Amenities Availability];
+F[Return Listing Pins<br/>lat lng price id];
+G[Render Pins on Map];
+
+%% Flow
+A &#8211;> B;
+B &#8211;> C;
+C &#8211;> D;
+D &#8211;> E;
+E &#8211;> F;
+F &#8211;> G;
+
+</div>
+
+
+<p>The debouncing step (waiting 200ms) is important. Without it, every pixel of map drag would fire an API call, destroying performance for the client and the server.</p>
+
+<p>For rendering, Airbnb sends back only the minimum data needed to display map pins — listing ID, coordinates, and price. The full listing details are loaded lazily when the user hovers or clicks a pin. This reduces payload size for map responses dramatically.</p>
+
+<a name="Clustering"></a>
+<h3>Clustering</h3>
+
+<p>When a guest zooms out to see an entire country, you can&rsquo;t render thousands of individual pins — the map becomes unreadable and the client rendering performance collapses. The solution is clustering: at lower zoom levels, nearby listings are grouped into clusters showing the count. As you zoom in, clusters split into individual listings.</p>
+
+<p>Clustering can be done client-side (computationally on the frontend using libraries like Supercluster) or server-side (pre-aggregated in Elasticsearch using geo-tile aggregations). Airbnb uses a hybrid — server-side aggregations for initial load, client-side refinement for interactive zooming.</p>
+
+<a name="GeoHash.and.Distance.Calculations"></a>
+<h3>GeoHash and Distance Calculations</h3>
+
+<p>For &ldquo;nearby listings&rdquo; recommendations (shown on a listing page: &ldquo;More places near this area&rdquo;), GeoHash prefix matching is used. A listing with GeoHash <code>u09tvw</code> is shown neighbors sharing the <code>u09t</code> prefix, which covers roughly a 40km area.</p>
+
+<p>For exact distance display (&ldquo;2.3 km from city center&rdquo;), the Haversine formula is used:</p>
+
+<p>$$
+d = 2R \times \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta lat}{2}\right) + \cos(lat_1) \times \cos(lat_2) \times \sin^2\left(\frac{\Delta lon}{2}\right)}\right)
+$$</p>
+
+<p>This is computed at query time for candidate listings after the spatial index narrows down the candidates. Computing Haversine for 20 candidates is cheap; computing it for millions of listings would not be.</p>
+
+<a name="Messaging.System"></a>
+<h2>Messaging System</h2>
+
+<a name="Architecture"></a>
+<h3>Architecture</h3>
+
+<p>Host-guest messaging needs to feel instant. When a host sends a message at 11pm about check-in instructions, the guest should see it immediately — not after polling a REST endpoint every 30 seconds.</p>
+
+<p>This requires WebSocket connections for real-time delivery.</p>
+
+<div class="mermaid">
+sequenceDiagram;
+
+participant H as Host Browser;
+participant WS as WebSocket Server;
+participant MS as Message Service;
+participant K as Kafka;
+participant G as Guest Mobile;
+
+H->>WS: Connect WebSocket;
+G->>WS: Connect WebSocket;
+
+H->>MS: Send message REST;
+MS->>MS: Persist to Cassandra;
+MS->>K: Publish message created;
+
+K->>WS: Consume event;
+WS->>G: Push message;
+WS->>H: Delivery ACK;
+
+</div>
+
+
+<p>The message service persists messages to Cassandra (append-only, partition by conversation ID, cluster by timestamp). The WebSocket server is a stateful layer — each connection maps to a user, and incoming message events are fanned out to the correct socket.</p>
+
+<p>Because WebSocket servers are stateful, horizontal scaling requires a routing layer. When a guest connects to WebSocket server A, and the host is connected to WebSocket server B, a message from the host needs to reach server A to deliver to the guest. A Redis pub/sub channel (one per conversation) bridges the two servers.</p>
+
+<a name="Offline.Delivery"></a>
+<h3>Offline Delivery</h3>
+
+<p>When a user is offline (no WebSocket connection), messages are queued. When the user reconnects, the WebSocket server checks for undelivered messages and pushes them. For mobile users who might stay offline for hours, push notifications (APNs for iOS, FCM for Android) are used as the delivery channel. The notification is a nudge to open the app, which then fetches messages via REST.</p>
+
+<a name="Notification.Pipeline"></a>
+<h2>Notification Pipeline</h2>
+
+<p>Airbnb sends millions of transactional emails, push notifications, and SMS messages per day — booking confirmations, host inquiries, review reminders, payment receipts. Each of these needs to be delivered reliably with retry logic.</p>
+
+<div class="mermaid">
+flowchart TB;
+
+%% Nodes
+K[Kafka Topics<br/>booking confirmed<br/>booking cancelled<br/>message received<br/>review requested];
+NC[Notification Consumer];
+NR[Notification Router<br/>select channel];
+
+EM[Email Service<br/>SendGrid SES];
+PN[Push Notification Service<br/>APNs FCM];
+SM[SMS Service<br/>Twilio];
+
+DT[Delivery Tracking<br/>open click bounce];
+RP[Retry Queue<br/>exponential backoff];
+
+%% Flow
+K &#8211;> NC;
+NC &#8211;> NR;
+
+NR &#8211;> EM;
+NR &#8211;> PN;
+NR &#8211;> SM;
+
+EM &#8211;> DT;
+PN &#8211;> DT;
+SM &#8211;> DT;
+
+DT &#8211;> RP;
+
+</div>
+
+
+<p>The notification router applies user preferences and channel priority. If a user has push notifications enabled and their device is known to be active, prefer push. If they haven&rsquo;t opened the app recently, also send an email. For booking confirmations specifically, always send email regardless of other channels — it&rsquo;s the paper trail the guest needs.</p>
+
+<p>The retry queue handles transient failures. If SendGrid is temporarily unavailable, the notification is re-queued with exponential backoff (retry after 1 min, then 5 min, then 30 min, then give up and alert the on-call team).</p>
+
+<a name="Recommendation.System"></a>
+<h2>Recommendation System</h2>
+
+<p>When a guest opens the Airbnb app without a specific search in mind — just browsing — the recommendation system kicks in. The goal is to surface listings the guest is likely to love before they&rsquo;ve told you what they want.</p>
+
+<p>The recommendation pipeline conceptually works in three stages:</p>
+
+<p><strong>Candidate Generation:</strong> Based on the user&rsquo;s location (from device GPS or last search), pull a large candidate set of nearby listings. Also incorporate any &ldquo;Wishlist&rdquo; items the user has saved — clear signals of intent.</p>
+
+<p><strong>Feature Engineering:</strong> For each candidate listing, compute features: distance from user, price relative to user&rsquo;s historical bookings, property type match (if user always books entire apartments, downrank shared rooms), review sentiment score, photo quality score.</p>
+
+<p><strong>Ranking:</strong> A trained ranking model (typically a two-tower neural network that learns user embeddings and listing embeddings separately, then scores them by dot product) orders the candidates. Users who tend to book similar properties are grouped in embedding space, so implicit collaborative filtering emerges from the model.</p>
+
+<p><strong>Trending Destinations:</strong> Airbnb surfaces trending destinations (cities or neighborhoods with recently spiking search volume) using real-time aggregation of search events in Kafka. A Spark Streaming job computes trending destinations every few minutes and writes them to a cache served on the home screen.</p>
+
+<a name="Scaling.Airbnb"></a>
+<h2>Scaling Airbnb</h2>
+
+<a name="Horizontal.Scaling"></a>
+<h3>Horizontal Scaling</h3>
+
+<p>Every microservice runs as multiple replicas behind a load balancer. Stateless services (search, listing, pricing) scale trivially — add more replicas and distribute traffic. Stateful services (WebSocket servers, session stores) require session affinity or external state stores (Redis) so any replica can serve any request.</p>
+
+<a name="Event-Driven.Architecture"></a>
+<h3>Event-Driven Architecture</h3>
+
+<p>Kafka is the backbone of Airbnb&rsquo;s asynchronous processing. By publishing events rather than making synchronous service calls, the booking service doesn&rsquo;t need to know or care that the notification service, the pricing service, and the search indexer all need to react to a confirmed booking. Each listens independently. If the notification service is temporarily down, events accumulate in Kafka and are processed when it recovers — no data is lost.</p>
+
+<p>This matters enormously during traffic spikes. On New Year&rsquo;s Eve or during major events, booking volume can spike 10x over normal. An event-driven architecture absorbs this naturally — Kafka buffers the spike, and downstream consumers process at their own pace.</p>
+
+<a name="Cache.Strategy"></a>
+<h3>Cache Strategy</h3>
+
+<pre><code>Cache hierarchy:
+1. CDN (edge cache) — static assets, ~90% cache hit rate
+2. Redis (app cache) — search results, listing data, pricing, ~70% hit rate
+3. PostgreSQL read replicas — for cache misses, offloads from primary
+4. PostgreSQL primary — writes only
+</code></pre>
+
+<p>For listing data, a tiered cache works well. The listing detail page caches a fully assembled response (listing metadata + first photo + host info + current price) in Redis with a 5-minute TTL. For frequently viewed listings (popular cities, high-ranked results), this hit rate is very high. The miss rate is low enough that the database read replicas handle it comfortably.</p>
+
+<a name="Database.Bottlenecks.and.Hotspots"></a>
+<h3>Database Bottlenecks and Hotspots</h3>
+
+<p>Popular listings — say, a treehouse in the Smoky Mountains with 5,000 reviews and a perpetual waitlist — can become read hotspots. Every search for that region returns that listing; every view of the listing hits the cache. The cache solves the read problem.</p>
+
+<p>Write hotspots are harder. If 500 guests all try to book a listing the moment it becomes available (because the host just posted a cancellation), the booking service handles a storm of concurrent write attempts. The distributed lock serializes these writes — only one booking succeeds, and 499 guests get a &ldquo;no longer available&rdquo; response. This is by design. The lock is the correct solution. The only mitigation is ensuring the lock is implemented efficiently (Redis SET NX is sub-millisecond) and the sad-path response to guests is fast and helpful.</p>
+
+<a name="Trust..Safety..and.Fraud.Detection"></a>
+<h2>Trust, Safety, and Fraud Detection</h2>
+
+<p>Trust is the product Airbnb is actually selling. A guest hands a stranger the keys to their home. That only works if both sides trust the platform to curate, verify, and protect them.</p>
+
+<a name="Identity.Verification"></a>
+<h3>Identity Verification</h3>
+
+<p>Airbnb requires government ID verification for hosts in many markets. The ID verification pipeline works as:</p>
+
+<ol>
+<li>User uploads a photo of their ID and a selfie</li>
+<li>An OCR service extracts name, date of birth, and document number</li>
+<li>A face matching model compares the selfie to the ID photo</li>
+<li>Document authenticity checks run against known templates (fonts, security features, layout)</li>
+<li>A risk score is generated and a human review queue catches borderline cases</li>
+</ol>
+
+
+<a name="Fraud.Detection"></a>
+<h3>Fraud Detection</h3>
+
+<p>Every payment transaction runs through a fraud scoring model that evaluates:
+- Is this IP address associated with prior fraud?
+- Is the billing address consistent with the user&rsquo;s typical location?
+- Is this a newly created account booking an unusually expensive property?
+- Is the device fingerprint linked to prior fraudulent accounts?</p>
+
+<p>High-risk transactions are held for additional verification. Very-high-risk transactions are declined and the account is flagged for review.</p>
+
+<a name="Review.Integrity"></a>
+<h3>Review Integrity</h3>
+
+<p>Reviews are only possible after a completed booking — preventing hosts or guests from reviewing without a real stay. Review bombing (coordinated negative reviews) is detected using graph analysis: if a cluster of accounts all review the same listing negatively within a short window, and those accounts have no prior review history, that pattern triggers an investigation.</p>
+
+<a name="Anomaly.Detection"></a>
+<h3>Anomaly Detection</h3>
+
+<p>A real-time anomaly detection system monitors key metrics — bookings per minute by region, payment failures per merchant, new listing creation rate — and alerts when values deviate significantly from historical baselines. This catches both technical incidents (a spike in payment failures suggests a payment gateway issue) and abuse patterns (a sudden spike in new listings in a city could indicate a fake listing campaign).</p>
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<a name="Multi-Region.Deployments"></a>
+<h3>Multi-Region Deployments</h3>
+
+<p>Airbnb runs in multiple AWS regions. Traffic is globally load-balanced (using Route 53 latency-based routing or similar) so guests in Europe primarily hit EU infrastructure and guests in Asia primarily hit APAC infrastructure. Each region is independently deployable and can serve traffic for the primary use case even if another region goes down.</p>
+
+<p>The exception is financial data. Payment processing and booking records are replicated across regions, but writes go to a primary region and are replicated asynchronously. The RPO (recovery point objective) for financial data is near zero — Airbnb cannot afford to lose booking or payment records.</p>
+
+<a name="Observability.Stack"></a>
+<h3>Observability Stack</h3>
+
+<p>Without visibility into what&rsquo;s happening across hundreds of microservices, you&rsquo;re flying blind. Airbnb&rsquo;s observability stack includes:</p>
+
+<p><strong>Metrics:</strong> Every service emits latency histograms, error rates, and throughput metrics. Dashboards show real-time health. Alerts fire when error rates exceed thresholds or latency degrades.</p>
+
+<p><strong>Distributed Tracing:</strong> Using a system like Jaeger or OpenTelemetry, every request gets a trace ID that propagates through all downstream service calls. When a booking request takes 3 seconds instead of 300ms, the trace shows exactly which service call ate the time.</p>
+
+<p><strong>Log Aggregation:</strong> Structured logs from all services flow into a central system (Elasticsearch + Kibana, or similar). Engineers can search across all service logs for a specific booking ID to reconstruct exactly what happened during an incident.</p>
+
+<p><strong>Canary Deployments:</strong> New versions of services are deployed to a small percentage of traffic (say, 1%) and promoted to full rollout only if error rates remain stable. A bad deployment is caught and rolled back before it affects most users.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Good system design isn&rsquo;t about picking the &ldquo;right&rdquo; answer — it&rsquo;s about understanding the tradeoffs and making informed choices.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Decision</th>
+        <th>Airbnb&#8217;s Approach</th>
+        <th>Alternative</th>
+        <th>Tradeoff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Monolith vs Microservices</td>
+        <td>Microservices</td>
+        <td>Monolith</td>
+        <td>Independent scaling and deploys, but operational complexity increases</td>
+      </tr>
+      <tr>
+        <td>SQL vs NoSQL for bookings</td>
+        <td>PostgreSQL (SQL)</td>
+        <td>Cassandra</td>
+        <td>ACID guarantees for financial data, but harder to scale horizontally</td>
+      </tr>
+      <tr>
+        <td>Real-time vs eventual consistency</td>
+        <td>Eventual for search, strong for bookings</td>
+        <td>All real-time</td>
+        <td>Lower latency and cost for search; correctness where it matters</td>
+      </tr>
+      <tr>
+        <td>Cache TTL</td>
+        <td>Short (60-300s)</td>
+        <td>Longer TTL</td>
+        <td>Freshness vs cache efficiency</td>
+      </tr>
+      <tr>
+        <td>Optimistic vs pessimistic locking</td>
+        <td>Both, layered</td>
+        <td>One or the other</td>
+        <td>Redis lock (pessimistic) for speed, DB constraint (last-resort) for safety</td>
+      </tr>
+      <tr>
+        <td>Sync vs async notifications</td>
+        <td>Async (Kafka)</td>
+        <td>Synchronous RPC</td>
+        <td>Resilience and decoupling, but introduces delivery lag</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The most important tradeoff at Airbnb is the consistency spectrum. The search system tolerates eventual consistency — showing a listing that was booked 30 seconds ago as still available — because the cost of being slightly stale is low (the guest just sees &ldquo;no longer available&rdquo; at booking time). The booking system tolerates zero eventual consistency — it uses strong transactional guarantees — because the cost of a double booking is catastrophic. Designing each subsystem at the appropriate point on the consistency spectrum is what separates a thoughtful architecture from a one-size-fits-all one.</p>
+
+<a name="Technology.Stack"></a>
+<h2>Technology Stack</h2>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Technology</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Web Frontend</td>
+        <td>React</td>
+        <td>Component model scales well for complex UIs; large ecosystem</td>
+      </tr>
+      <tr>
+        <td>Mobile</td>
+        <td>React Native / Swift / Kotlin</td>
+        <td>Cross-platform code sharing where possible; native where performance demands</td>
+      </tr>
+      <tr>
+        <td>Backend Services</td>
+        <td>Java, Kotlin, Ruby (legacy)</td>
+        <td>Java/Kotlin for high-throughput services; type safety and JVM performance</td>
+      </tr>
+      <tr>
+        <td>API Gateway</td>
+        <td>Nginx / Envoy</td>
+        <td>Proven, configurable, battle-tested at massive scale</td>
+      </tr>
+      <tr>
+        <td>Search</td>
+        <td>Elasticsearch</td>
+        <td>Native geo queries, full-text search, aggregations, horizontal scaling</td>
+      </tr>
+      <tr>
+        <td>Primary Database</td>
+        <td>PostgreSQL</td>
+        <td>ACID guarantees, mature ecosystem, excellent for relational + transactional data</td>
+      </tr>
+      <tr>
+        <td>Messaging DB</td>
+        <td>Apache Cassandra</td>
+        <td>Append-only access pattern, horizontal scaling, partition-friendly</td>
+      </tr>
+      <tr>
+        <td>Cache</td>
+        <td>Redis</td>
+        <td>Sub-millisecond reads, distributed locks, pub/sub, sorted sets for leaderboards</td>
+      </tr>
+      <tr>
+        <td>Event Streaming</td>
+        <td>Apache Kafka</td>
+        <td>High-throughput, durable event log; decouples producers from consumers</td>
+      </tr>
+      <tr>
+        <td>Object Storage</td>
+        <td>Amazon S3</td>
+        <td>Globally durable, infinitely scalable photo and media storage</td>
+      </tr>
+      <tr>
+        <td>Container Orchestration</td>
+        <td>Kubernetes</td>
+        <td>Automates deployment, scaling, and self-healing of microservices</td>
+      </tr>
+      <tr>
+        <td>Cloud Infrastructure</td>
+        <td>AWS</td>
+        <td>Global footprint, managed services reduce operational overhead</td>
+      </tr>
+      <tr>
+        <td>Observability</td>
+        <td>Datadog / OpenTelemetry</td>
+        <td>Metrics, traces, and logs unified across services</td>
+      </tr>
+      <tr>
+        <td>ML Platform</td>
+        <td>Spark + custom serving</td>
+        <td>Batch training at scale; low-latency model serving for ranking and fraud</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>A word on the choice of Kafka: it&rsquo;s heavy infrastructure to run and operate. For a team of 5, Kafka is overkill. For a platform at Airbnb&rsquo;s scale with dozens of services that need to react to the same events, Kafka&rsquo;s durability and consumer group model make it the right choice. You can replay events if a consumer has a bug, which is invaluable during incidents.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>If you&rsquo;re preparing for a system design interview and Airbnb (or a similar short-term rental marketplace) comes up, here is how to approach it well.</p>
+
+<a name="What.interviewers.are.testing"></a>
+<h3>What interviewers are testing</h3>
+
+<ul>
+<li>Can you scope the problem correctly? (Don&rsquo;t design Twitter when asked to design Airbnb)</li>
+<li>Do you understand geo-spatial search challenges?</li>
+<li>Can you reason about the booking concurrency problem?</li>
+<li>Do you know when to use which database?</li>
+<li>Can you identify the consistency requirements for different parts of the system?</li>
+</ul>
+
+
+<a name="Strong.answers.include"></a>
+<h3>Strong answers include</h3>
+
+<p><strong>For search:</strong> &ldquo;I&rsquo;d use Elasticsearch with geo-point indexing for the spatial component, with a two-phase approach — GeoHash to find candidate cells, then distance calculation for ranking. Availability data is synced asynchronously from the booking system with a Kafka consumer, so search results might be 30-60 seconds stale, but the booking step is the real consistency gate.&rdquo;</p>
+
+<p><strong>For bookings:</strong> &ldquo;Double booking prevention uses a layered approach. First, a distributed Redis lock on (listing_id, date_range) serializes concurrent booking attempts. Second, a unique database constraint on (listing_id, date, BOOKED) provides a last-resort guard. Payment is authorized before the booking is committed, using the two-phase authorize-then-capture pattern.&rdquo;</p>
+
+<p><strong>For scaling:</strong> &ldquo;Search and listing reads scale horizontally — stateless services plus Redis caching handle most traffic. The booking write path is harder to scale because of the locking requirement, but because locks are narrow (per listing per date range) rather than global, you can have thousands of concurrent bookings happening in parallel as long as they&rsquo;re for different listings.&rdquo;</p>
+
+<a name="Common.mistakes.to.avoid"></a>
+<h3>Common mistakes to avoid</h3>
+
+<ul>
+<li>Designing a monolithic database. Putting search, bookings, payments, and messaging all in one PostgreSQL database will bottleneck your design. Explain why different storage systems serve different access patterns.</li>
+<li>Ignoring the concurrency problem. An answer that says &ldquo;check availability then book&rdquo; without addressing the race condition shows incomplete thinking.</li>
+<li>Over-engineering upfront. In an interview, explain that the system would start simpler (a single database, no Kafka) and describe when and why you&rsquo;d introduce complexity as you scale.</li>
+<li>Treating all data with the same consistency requirement. The hallmark of a strong answer is knowing where eventual consistency is acceptable and where it isn&rsquo;t.</li>
+</ul>
+
+
+<a name="Interview.flow.recommendation"></a>
+<h3>Interview flow recommendation</h3>
+
+<ol>
+<li>Spend 5 minutes clarifying scope: which features matter most? (Focus on search and booking — they&rsquo;re the core)</li>
+<li>Estimate scale: how many listings, searches/sec, bookings/day?</li>
+<li>Design the API layer: what are the core REST endpoints?</li>
+<li>Sketch the high-level architecture: clients → gateway → services → storage</li>
+<li>Deep-dive search: geo-spatial indexing, filtering, ranking</li>
+<li>Deep-dive booking: the locking strategy, the payment flow, the saga pattern</li>
+<li>Discuss scaling: where are the bottlenecks? How do you address them?</li>
+<li>Close with tradeoffs: what did you choose not to do, and why?</li>
+</ol>
+
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Airbnb is a masterclass in building a system where correctness, performance, and user trust are all non-negotiable simultaneously. The search system has to be fast because slow search means guests leave. The booking system has to be correct because a single double-booking is a disaster. The payment system has to be reliable because every failed transaction is lost revenue and lost trust. And all of this has to work across the globe, in dozens of currencies, for millions of properties.</p>
+
+<p>What makes Airbnb&rsquo;s architecture interesting isn&rsquo;t that it uses exotic technology — almost everything here is industry standard (PostgreSQL, Elasticsearch, Kafka, Redis). What makes it interesting is the careful reasoning about which consistency model applies where, how to handle concurrency at the transaction level, how to make geo-spatial search fast without sacrificing result quality, and how to build a trust layer for a business model that literally requires strangers to trust each other.</p>
+
+<p>Understanding the <em>why</em> behind each architectural choice — not just the <em>what</em> — is what separates an engineer who can talk about system design from one who can actually do it.</p>
+
+<hr />
+
+<p><em>Enjoyed this deep dive? The best way to internalize these concepts is to start designing systems yourself — pick a product you use every day and try to sketch its architecture from first principles. Then look at what engineers at that company have actually written about how they built it. The gap between your design and theirs is where the most learning happens.</em></p>
 ]]></content>
     </entry>
     
