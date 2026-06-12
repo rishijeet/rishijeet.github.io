@@ -1,0 +1,819 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+    <title><![CDATA[Category: wallet | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
+    <link href="https://rishijeet.github.io/blog/categories/wallet/atom.xml" rel="self"/>
+    <link href="https://rishijeet.github.io/"/>
+    <updated>2026-06-12T09:52:22+05:30</updated>
+    <id>https://rishijeet.github.io/</id>
+    <author>
+        <name><![CDATA[Rishijeet Mishra]]></name>
+        <email><![CDATA[rishijeet@gmail.com]]></email>
+      </author>
+    <generator uri="http://octopress.org/">Octopress</generator>
+
+    
+    <entry>
+        <title type="html"><![CDATA[How CashKaro Works]]></title>
+        <link href="https://rishijeet.github.io/blog/how-cashkaro-works/"/>
+        <updated>2026-06-12T09:43:24+05:30</updated>
+        <id>https://rishijeet.github.io/blog/how-cashkaro-works</id>
+        <content type="html"><![CDATA[<blockquote><p><em>If you have ever used a cashback platform and wondered how the money actually flows from a merchant back to your wallet, you are not alone. Most users think of it as a simple discount. You click a link, buy something, and money appears in your account a few weeks later. But beneath that simple experience is a surprisingly intricate distributed system that touches affiliate networks, fraud detection, financial ledgers, event pipelines, and real-time attribution engines.</em></p></blockquote>
+
+<p><img src="/images/system_design/cashkaro-banner.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>CashKaro is one of India&rsquo;s largest cashback and rewards platforms. It operates as a bridge between users who want to save money and merchants who want to acquire customers. Every time a user makes a purchase through CashKaro, a chain of events fires across multiple systems, involving third-party affiliate networks, internal computation engines, wallet services, and eventually a payment processor. Building and scaling that chain reliably is a serious engineering challenge.</p>
+
+<p>This blog walks through the complete system design of a platform like CashKaro. We will go from first principles all the way to distributed systems concerns, and we will stop at every layer to explain not just what the system does but why it is built that way.</p>
+
+<a name="Why.Cashback.Platforms.Are.More.Complex.Than.They.Look"></a>
+<h2>Why Cashback Platforms Are More Complex Than They Look</h2>
+
+<p>Cashback is fundamentally different from a discount. A discount reduces the price at the point of sale. Cashback is a post-purchase reward paid from the merchant&rsquo;s commission budget, routed through an affiliate network, validated against a return window, and then credited to a user&rsquo;s wallet after a delay of days or even weeks.</p>
+
+<!--more-->
+
+
+<p>This delay exists for a real business reason. If CashKaro credited cashback the moment someone clicked and bought something, a fraudulent user could make a purchase, collect the cashback, and then return the product. The merchant would refund the buyer while CashKaro would have already paid out. To protect against this, cashback is held in a pending state until the merchant&rsquo;s return window closes, typically fourteen to sixty days depending on the category.</p>
+
+<p>This creates a temporal gap between the user&rsquo;s action and the reward, and that gap introduces a whole class of engineering problems around state management, event durability, reconciliation, and fraud prevention. None of these problems exist in a simple discount system.</p>
+
+<p>There is also the affiliate ecosystem to consider. CashKaro does not have a direct financial relationship with every merchant on its platform. Instead, most merchants participate through affiliate networks like Commission Junction, Admitad, or Rakuten. These networks act as intermediaries that track sales attributed to CashKaro and report commission earnings. This means CashKaro is dependent on third-party systems for attribution data, and those systems have their own reporting delays, data formats, and reliability characteristics.</p>
+
+<p>The result is that building a cashback platform means simultaneously building a marketplace, a fintech product, a real-time tracking system, and a batch reconciliation engine. Each of these has different latency, consistency, and reliability requirements, and they all have to work together coherently.</p>
+
+<a name="Core.Features.of.CashKaro"></a>
+<h2>Core Features of CashKaro</h2>
+
+<p>Before diving into architecture, it helps to enumerate what the platform actually does from a product perspective.</p>
+
+<p>Users browse a catalog of merchant offers with associated cashback rates. They click through to a merchant&rsquo;s website using a tracked affiliate link. They make a purchase on the merchant&rsquo;s platform. CashKaro receives a notification from the affiliate network that a sale has occurred and attributes it to the user who clicked. After a validation period, the cashback moves from pending to confirmed and becomes available for withdrawal. Users can redeem their confirmed cashback via bank transfer or as gift cards.</p>
+
+<p>In addition to this core loop, the platform supports a referral program where existing users earn rewards for bringing in new users, promotional cashback boosts tied to specific campaigns, offer discovery features like search and category browsing, and a notification system that keeps users informed about their reward status.</p>
+
+<p>Each of these features has non-trivial engineering requirements. The referral program alone has abuse prevention challenges, and the notification system has to operate at scale with proper prioritization and delivery guarantees.</p>
+
+<a name="High-Level.Architecture"></a>
+<h2>High-Level Architecture</h2>
+
+<p>At the top level, CashKaro&rsquo;s architecture can be broken into a client layer, a set of backend microservices, a data layer, and an event streaming layer. Let us look at each.</p>
+
+<div class="mermaid">
+flowchart TD
+    subgraph Clients
+        A[Mobile App]
+        B[Web App]
+    end
+
+    subgraph Gateway
+        C[API Gateway]
+    end
+
+    subgraph CoreServices
+        D[Offer Service]
+        E[Affiliate Tracking Service]
+        F[Attribution Engine]
+        G[Cashback Engine]
+        H[Wallet Service]
+        I[Redemption Service]
+        J[Fraud Detection Service]
+        K[Notification Service]
+        L[Referral Service]
+        M[Merchant Catalog Service]
+    end
+
+    subgraph EventLayer
+        N[Event Bus - Kafka]
+    end
+
+    subgraph Storage
+        O[PostgreSQL]
+        P[Redis Cache]
+        Q[Elasticsearch]
+        R[Object Store]
+    end
+
+    A &#8211;> C
+    B &#8211;> C
+    C &#8211;> D
+    C &#8211;> E
+    C &#8211;> H
+    C &#8211;> I
+    D &#8211;> M
+    E &#8211;> F
+    F &#8211;> G
+    G &#8211;> H
+    H &#8211;> I
+    F &#8211;> N
+    G &#8211;> N
+    H &#8211;> N
+    N &#8211;> J
+    N &#8211;> K
+    N &#8211;> L
+    D &#8211;> P
+    M &#8211;> P
+    H &#8211;> O
+    F &#8211;> O
+    G &#8211;> O
+    J &#8211;> Q
+
+    classDef client fill:#4A90D9,color:#fff
+    classDef gateway fill:#E67E22,color:#fff
+    classDef service fill:#27AE60,color:#fff
+    classDef event fill:#8E44AD,color:#fff
+    classDef storage fill:#2C3E50,color:#fff
+
+    class A,B client
+    class C gateway
+    class D,E,F,G,H,I,J,K,L,M service
+    class N event
+    class O,P,Q,R storage
+</div>
+
+
+<p>The API Gateway is the single entry point for all client requests. It handles authentication, rate limiting, and request routing. Behind it, a collection of microservices each own a specific domain. The Offer Service manages the merchant catalog and cashback rates. The Affiliate Tracking Service handles click events and link generation. The Attribution Engine matches purchases to users. The Cashback Engine computes reward amounts. The Wallet Service maintains user balances. The Redemption Service manages payouts. The Fraud Detection Service operates as a cross-cutting concern that observes events across all these services.</p>
+
+<p>Event streaming, typically via a system like Apache Kafka, connects everything asynchronously. When a click happens, it becomes an event. When a purchase is attributed, that becomes an event. When cashback is computed, credited, or redeemed, those are all events. This event-driven design is not just an architectural preference; it is a requirement imposed by the nature of the domain, as we will see in detail later.</p>
+
+<a name="Merchant.Integration.Architecture"></a>
+<h2>Merchant Integration Architecture</h2>
+
+<p>One of the most underappreciated complexities in a cashback platform is merchant integration. CashKaro works with hundreds of merchants simultaneously, and no two integrations are exactly alike.</p>
+
+<p>There are two broad categories of merchant integration. The first and most common is through affiliate networks. Networks like Admitad aggregate thousands of merchants and provide a standardized API for generating tracking links, receiving postback notifications when sales occur, and querying commission reports. CashKaro integrates with multiple such networks, each with its own authentication protocol, data schema, and reporting schedule.</p>
+
+<p>The second category is direct merchant integration. Larger merchants like Flipkart or MakeMyTrip may have their own affiliate programs with custom APIs. These are often more reliable and provide richer data, but they require custom engineering for each merchant.</p>
+
+<div class="mermaid">
+flowchart LR
+    subgraph CashKaro
+        A[Merchant Sync Service]
+        B[Tracking Link Generator]
+        C[Postback Handler]
+        D[Reconciliation Engine]
+    end
+
+    subgraph Networks
+        E[Admitad]
+        F[Commission Junction]
+        G[Rakuten]
+    end
+
+    subgraph DirectMerchants
+        H[Flipkart API]
+        I[MakeMyTrip API]
+    end
+
+    A &#8211;>|Pull offer data| E
+    A &#8211;>|Pull offer data| F
+    A &#8211;>|Pull offer data| G
+    A &#8211;>|Pull offer data| H
+    A &#8211;>|Pull offer data| I
+    E &#8211;>|Sale postback| C
+    F &#8211;>|Sale postback| C
+    G &#8211;>|Sale postback| C
+    H &#8211;>|Order event| C
+    I &#8211;>|Order event| C
+    B &#8211;> E
+    B &#8211;> F
+    C &#8211;> D
+
+    classDef internal fill:#27AE60,color:#fff
+    classDef network fill:#E67E22,color:#fff
+    classDef direct fill:#4A90D9,color:#fff
+
+    class A,B,C,D internal
+    class E,F,G network
+    class H,I direct
+</div>
+
+
+<p>The Merchant Sync Service runs periodic jobs to pull updated offer data from affiliate networks. Merchant cashback rates change frequently, offers expire, and new promotions are added. This sync process has to be idempotent, meaning running it twice should not create duplicate offers, and it has to handle partial failures gracefully, since an affiliate network API might return data for some merchants but fail on others.</p>
+
+<p>Tracking link generation is worth examining closely. When CashKaro creates a link for a merchant offer, it does not just return the merchant&rsquo;s URL. It constructs a URL through the relevant affiliate network that encodes CashKaro&rsquo;s affiliate ID, a campaign identifier, and a sub-ID that it will use to identify the specific user later. The format varies by network, but the principle is the same across all of them.</p>
+
+<p>Postback handling is the flip side. When a sale occurs, the affiliate network sends an HTTP callback to CashKaro&rsquo;s postback URL, carrying the order ID, sale amount, commission amount, and the sub-ID that was included in the original tracking link. This is the moment when CashKaro learns that a purchase has happened and can begin the attribution and cashback computation process.</p>
+
+<p>The reconciliation challenge is significant. Affiliate networks batch their reporting, often with a delay of twenty-four to forty-eight hours. So CashKaro might receive a postback in near-real-time for some networks, but for others it has to poll a reporting API daily to discover sales. These two modes of learning about purchases require different processing pipelines but ultimately feed into the same attribution engine.</p>
+
+<a name="Affiliate.Tracking.System"></a>
+<h2>Affiliate Tracking System</h2>
+
+<p>The affiliate tracking system is the most technically nuanced part of the platform. Its job is to answer a deceptively simple question: when a user makes a purchase on Amazon or Myntra, how do we know they came from CashKaro?</p>
+
+<p>The answer involves tracking URLs, affiliate identifiers, cookies, and postback parameters working together.</p>
+
+<p>When a user clicks on an offer in the CashKaro app, the client sends a request to the CashKaro tracking endpoint rather than going directly to the merchant. The tracking endpoint performs several operations atomically: it logs the click event with a timestamp and user ID, it generates a tracking URL for the appropriate affiliate network, and it returns a redirect to that tracking URL.</p>
+
+<p>The affiliate network&rsquo;s tracking URL contains CashKaro&rsquo;s affiliate ID and a sub-ID. The sub-ID is a string that CashKaro controls and uses to carry user context. A typical sub-ID might encode the user&rsquo;s internal ID, the offer ID, and the click&rsquo;s timestamp. The affiliate network stores this sub-ID and associates it with the session.</p>
+
+<p>When the user completes a purchase on the merchant&rsquo;s site, the merchant fires a tracking pixel or makes a server-to-server call to the affiliate network, reporting the order details. The affiliate network then sends a postback to CashKaro&rsquo;s postback handler URL, including the sub-ID it stored at click time. This is how the purchase gets attributed back to the original user.</p>
+
+<div class="mermaid">
+flowchart TD
+    A[User clicks offer in app]
+    B[CashKaro Tracking Endpoint]
+    C[Log click event]
+    D[Generate affiliate tracking URL with sub-ID]
+    E[Redirect user to affiliate network URL]
+    F[Affiliate network sets cookie and redirects to merchant]
+    G[User browses and purchases on merchant site]
+    H[Merchant fires conversion pixel to affiliate network]
+    I[Affiliate network sends postback to CashKaro]
+    J[CashKaro Postback Handler receives order data plus sub-ID]
+    K[Attribution Engine resolves user from sub-ID]
+    L[Cashback Computation Engine calculates reward]
+    M[Wallet Service credits pending cashback]
+
+    A &#8211;> B
+    B &#8211;> C
+    B &#8211;> D
+    D &#8211;> E
+    E &#8211;> F
+    F &#8211;> G
+    G &#8211;> H
+    H &#8211;> I
+    I &#8211;> J
+    J &#8211;> K
+    K &#8211;> L
+    L &#8211;> M
+
+    classDef user fill:#4A90D9,color:#fff
+    classDef cashkaro fill:#27AE60,color:#fff
+    classDef external fill:#E67E22,color:#fff
+    classDef wallet fill:#8E44AD,color:#fff
+
+    class A user
+    class B,C,D,J,K,L cashkaro
+    class E,F,G,H,I external
+    class M wallet
+</div>
+
+
+<p>There are important failure modes in this flow. If the user clears their browser cookies between clicking and purchasing, attribution can break for web flows. If the user switches devices, the attribution may fail entirely unless the affiliate network supports fingerprinting or the user is logged into both the merchant and CashKaro. Mobile app tracking is generally more reliable because it uses device-level identifiers rather than browser cookies, but it comes with its own challenges around in-app browser sessions.</p>
+
+<p>The sub-ID approach is also the source of a subtle timing risk. CashKaro uses the click&rsquo;s timestamp in the sub-ID to enforce attribution windows. If a postback arrives more than thirty days after the original click, the attribution engine will reject it as outside the window. This is a deliberate business decision: it prevents situations where a user clicked an offer months ago, forgot about it, and then happened to buy from the same merchant through a different path. Without attribution windows, the system would overcredit and the fraud surface area would expand significantly.</p>
+
+<a name="Click.Redirection.Workflow.in.Detail"></a>
+<h2>Click Redirection Workflow in Detail</h2>
+
+<p>The click redirection flow looks simple from the outside but has meaningful latency and reliability implications at scale.</p>
+
+<p>When a user taps an offer, the app sends a request to the CashKaro API. The tracking endpoint receives this request and needs to do several things quickly: authenticate the user, validate the offer is still active, log the click, generate the affiliate URL with the correct sub-ID encoding, and return the redirect URL. All of this should complete in under two hundred milliseconds to avoid noticeable user experience degradation.</p>
+
+<p>The click logging step is where the first engineering tradeoff appears. A synchronous write to the main database on every click is not viable at scale. During a Diwali flash sale, CashKaro might see hundreds of thousands of clicks per hour. Writing each one synchronously to PostgreSQL would create a bottleneck that slows down the entire redirect flow.</p>
+
+<p>The standard solution is to write click events asynchronously. The tracking endpoint publishes the click event to Kafka and immediately generates the redirect URL without waiting for the database write to complete. A consumer service picks up the event from Kafka and persists it to the database. This decouples the user-facing latency from the storage operation.</p>
+
+<p>The tradeoff is that in the window between the click and the Kafka consumer writing to the database, the click is not yet durable. If the Kafka message is lost (which should not happen with proper replication settings but is theoretically possible), the attribution context for that click is gone. This is an acceptable risk for most click events because the attribution window is long and a small number of lost clicks does not significantly affect revenue. The more critical events, like confirmed purchases, get stricter durability guarantees.</p>
+
+<p>Affiliate URL generation also needs to be fast. If the offer catalog data for URL generation is in a hot cache in Redis, this operation is microseconds. If it requires a database round-trip to fetch the merchant&rsquo;s affiliate program configuration, it is milliseconds. At high scale, even a few milliseconds per request adds up, so merchant configurations are aggressively cached.</p>
+
+<a name="Transaction.Attribution.Engine"></a>
+<h2>Transaction Attribution Engine</h2>
+
+<p>Once a postback arrives from an affiliate network, the attribution engine has to answer several questions. Which user does this purchase belong to? Is this purchase new or have we seen it before? Is it within the attribution window? Is the purchase amount valid?</p>
+
+<p>The sub-ID decoding is the first step. The attribution engine parses the sub-ID from the postback, extracts the encoded user ID, offer ID, and click timestamp, and queries the click log to verify that a matching click event exists. This cross-referencing is important because CashKaro&rsquo;s sub-IDs could theoretically be forged by a sophisticated attacker trying to steal cashback. Verifying against the click log ensures the attribution chain is intact.</p>
+
+<p>Duplicate detection is the next concern. Affiliate networks sometimes send the same postback multiple times due to their own retry logic or network issues. The postback handler must be idempotent: receiving the same order ID twice must not result in double cashback crediting. This is implemented with a unique constraint on the order ID and network combination in the transactions table, combined with an upsert operation rather than a blind insert.</p>
+
+<p>Cancellations and returns are handled through a separate update flow. When a user returns a product, the merchant notifies the affiliate network, which sends an updated postback with a negative or zero commission amount. The attribution engine processes this update by marking the original transaction as cancelled and reversing the pending cashback credit from the wallet. If the cashback had already moved from pending to confirmed, the reversal is more complicated and may involve a debit from the user&rsquo;s confirmed balance.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Transaction State</th>
+        <th>Trigger</th>
+        <th>Cashback State</th>
+        <th>Action Required</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Order Placed</td>
+        <td>Postback received from affiliate network</td>
+        <td>Pending</td>
+        <td>Credit pending balance, schedule validation</td>
+      </tr>
+      <tr>
+        <td>Return Window Active</td>
+        <td>Time elapsed since order</td>
+        <td>Pending</td>
+        <td>No action, monitor for cancellation signal</td>
+      </tr>
+      <tr>
+        <td>Return Window Closed</td>
+        <td>Merchant confirmation or timer expiry</td>
+        <td>Confirmed</td>
+        <td>Move balance from pending to confirmed</td>
+      </tr>
+      <tr>
+        <td>Order Cancelled</td>
+        <td>Cancellation postback received</td>
+        <td>Reversed</td>
+        <td>Remove pending credit, log reversal</td>
+      </tr>
+      <tr>
+        <td>Order Returned</td>
+        <td>Return postback after confirmation</td>
+        <td>Clawed Back</td>
+        <td>Debit confirmed balance, trigger audit</td>
+      </tr>
+      <tr>
+        <td>Partial Refund</td>
+        <td>Partial return postback</td>
+        <td>Adjusted</td>
+        <td>Recalculate cashback on adjusted order value</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Cashback.Computation.Engine"></a>
+<h2>Cashback Computation Engine</h2>
+
+<p>Once a transaction is attributed, the cashback computation engine calculates how much cashback the user earns. This is more nuanced than it first appears.</p>
+
+<p>Cashback rates are not always a simple percentage of the order total. They vary by category, by product, by time, and by promotional campaign. A merchant might offer five percent cashback on electronics but two percent on grocery. A campaign might boost cashback to ten percent for the first twenty-four hours of a flash sale. Certain products might be excluded entirely from cashback eligibility, which is common for products with thin margins like smartphones or prepaid recharges.</p>
+
+<p>The computation engine therefore needs access to the offer configuration at the time of the purchase, not just the current offer configuration. This is a subtle but important distinction. If the cashback rate was boosted to ten percent during a flash sale and a user bought during that window, they are entitled to the ten percent rate even if the rate has since reverted to five percent. This means the system cannot just look up the current offer when computing cashback; it needs to look up the offer as it existed at the time of the click or the purchase.</p>
+
+<p>One way to handle this is to snapshot the relevant offer data at click time and store it as part of the click event record. When the postback arrives, the computation engine retrieves the click record and uses the snapshotted rate rather than the current one. This is a straightforward solution that avoids complex temporal queries.</p>
+
+<p>The commission structure from the affiliate network also affects the cashback amount. CashKaro earns a commission from the merchant, and it passes a portion of that commission back to the user as cashback. The split between CashKaro&rsquo;s margin and the user&rsquo;s cashback is part of the offer configuration and varies by merchant relationship. The computation engine needs to know both the gross commission and the user&rsquo;s share.</p>
+
+<p>Category-based exclusions are implemented as a rule set evaluated against the product category codes reported in the postback. If the merchant reports that an order contained multiple items across different categories, the engine may apply different rates to different line items, or it may apply the lowest applicable rate to the entire order, depending on the merchant&rsquo;s contract terms.</p>
+
+<a name="Pending.vs.Confirmed.Cashback"></a>
+<h2>Pending vs Confirmed Cashback</h2>
+
+<p>The lifecycle of a cashback credit is central to how the platform manages financial risk.</p>
+
+<p>When a postback first arrives, the cashback is created in a pending state. The user can see it in their wallet and track it, but they cannot redeem it. The pending state represents a conditional reward: we have seen a purchase, but we are not yet certain it will stick.</p>
+
+<p>The transition from pending to confirmed happens through one of two mechanisms. The first is explicit merchant confirmation, where the affiliate network sends a confirmation signal indicating that the order is past the return window and the commission has been approved. The second is a timer-based confirmation, where CashKaro&rsquo;s internal confirmation scheduler moves cashback to confirmed after a fixed period based on the merchant&rsquo;s return policy, in the absence of a cancellation signal.</p>
+
+<p>The timer-based approach is less accurate but more practical. Most affiliate networks do not send reliable confirmation signals; they send postbacks for new sales and cancellations but do not explicitly confirm non-cancelled orders. So CashKaro has to infer confirmation by waiting long enough that cancellations are unlikely.</p>
+
+<p>This creates an interesting systems design problem. CashKaro needs to schedule a future state transition for every pending cashback record. The naive approach of polling the database for pending records older than the confirmation threshold and updating them is functional but does not scale well. A better approach is to schedule a delayed event at cashback creation time, using a system like a delayed message queue or a scheduled job service. When the event fires, it triggers the confirmation check. This is more efficient because it targets specific records rather than scanning the entire pending set.</p>
+
+<a name="Wallet.Architecture"></a>
+<h2>Wallet Architecture</h2>
+
+<p>The user wallet is the financial core of the platform. Getting its design right is critical because mistakes here directly impact users&#8217; money.</p>
+
+<p>A wallet has multiple balance buckets that represent different states of money:</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Balance Type</th>
+        <th>Description</th>
+        <th>User Action Allowed</th>
+        <th>Example Source</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Pending Balance</td>
+        <td>Cashback earned but not yet confirmed</td>
+        <td>View only</td>
+        <td>Recent purchase postback</td>
+      </tr>
+      <tr>
+        <td>Confirmed Balance</td>
+        <td>Validated cashback available for redemption</td>
+        <td>Redeem or withdraw</td>
+        <td>Pending balance after confirmation window</td>
+      </tr>
+      <tr>
+        <td>Redeemed Balance</td>
+        <td>Amount submitted for payout</td>
+        <td>Track payout status</td>
+        <td>User-initiated withdrawal request</td>
+      </tr>
+      <tr>
+        <td>Referral Bonus</td>
+        <td>Rewards from referrals, may have separate rules</td>
+        <td>Redeem after conditions met</td>
+        <td>Referred user&#8217;s first purchase</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The wallet is implemented as a ledger, not as a single balance field. This is the fundamental design decision that makes wallet systems reliable. Instead of updating a balance number directly, every financial event is recorded as a ledger entry: credit or debit, amount, source transaction ID, timestamp, and resulting balance. The current balance is derived from summing all ledger entries, or more practically, from a cached sum that is updated incrementally.</p>
+
+<p>This ledger approach provides an immutable audit trail. If a user disputes their balance, the system can replay every credit and debit and arrive at the exact current state. It also prevents a class of consistency bugs that would arise from concurrent balance updates, because the system can use optimistic locking on the balance version and retry on conflict rather than risking a lost update.</p>
+
+<div class="mermaid">
+flowchart TD
+    subgraph Wallet
+        A[Pending Balance]
+        B[Confirmed Balance]
+        C[Redeemed Balance]
+        D[Ledger Store]
+    end
+
+    E[Attribution Engine] &#8211;>|Credit pending| A
+    A &#8211;>|Confirmation event| B
+    A &#8211;>|Cancellation event| F[Reversal - remove pending]
+    B &#8211;>|Redemption request| C
+    B &#8211;>|Clawback event| G[Debit confirmed]
+    E &#8211;> D
+    A &#8211;> D
+    B &#8211;> D
+    C &#8211;> D
+
+    classDef balance fill:#27AE60,color:#fff
+    classDef event fill:#4A90D9,color:#fff
+    classDef action fill:#E67E22,color:#fff
+    classDef storage fill:#2C3E50,color:#fff
+
+    class A,B,C balance
+    class E event
+    class F,G action
+    class D storage
+</div>
+
+
+<p>One important design consideration is that the wallet service should be a separate microservice with its own database, rather than tables in a shared database accessed by multiple services. This isolation ensures that only the wallet service can write to wallet data, which simplifies reasoning about consistency and makes auditing straightforward. Other services request wallet operations via API rather than writing directly.</p>
+
+<a name="Cashback.Redemption.System"></a>
+<h2>Cashback Redemption System</h2>
+
+<p>When a user decides to redeem their confirmed cashback, the redemption service takes over. Redemption can go to a bank account via NEFT or IMPS, or it can be converted to gift cards from partner retailers.</p>
+
+<p>The redemption flow has several validation gates. The minimum redemption threshold must be met, usually somewhere between fifty and one hundred rupees. The user&rsquo;s KYC status must be valid for bank transfers above a regulatory threshold. The bank account details must be on file and verified.</p>
+
+<p>Once these checks pass, the redemption service creates a payout record, debits the confirmed balance in the wallet (via the ledger), and submits the payout request to the payment processor. The payment processor is typically a banking API partner or a payout aggregator that handles the actual transfer.</p>
+
+<p>Payout processing is asynchronous. The payment processor accepts the request and returns a transaction reference, then processes the actual transfer in the background. The redemption service uses a webhook from the payment processor to update the payout status from initiated to processing to completed or failed.</p>
+
+<p>Failures require careful handling. If the payout fails due to an incorrect bank account number, the system needs to credit the amount back to the user&rsquo;s confirmed balance, notify the user, and give them an opportunity to correct the bank details. If the payout fails due to a payment processor issue, the system should retry automatically after a backoff interval rather than immediately crediting back and leaving the user confused.</p>
+
+<p>Reconciliation is a background process that runs daily to verify that the sum of all initiated payouts matches the amounts recorded by the payment processor. Discrepancies trigger alerts and manual review. This is not just good practice; for a platform handling real money, reconciliation is a regulatory requirement in many jurisdictions.</p>
+
+<a name="Fraud.Detection.Systems"></a>
+<h2>Fraud Detection Systems</h2>
+
+<p>Fraud in a cashback platform takes several forms, and each requires a different detection strategy.</p>
+
+<p>Self-referral fraud is one of the most common patterns. A user creates multiple accounts, uses one to refer the other, and then makes a purchase through both to collect referral bonuses and cashback multiple times. Detection relies on matching signals like device fingerprints, IP addresses, payment instrument hashes, and behavioral patterns. If two accounts that refer each other share the same device fingerprint, the referral is flagged for manual review.</p>
+
+<p>Transaction fraud involves making purchases with the intent to return after collecting cashback. The attribution system&rsquo;s return window handling is the primary defense here, but sophisticated fraudsters may attempt to game this by making non-returnable purchases like digital goods or gift cards, which is why many cashback platforms explicitly exclude these categories.</p>
+
+<p>Affiliate fraud is a more sophisticated attack where someone manipulates tracking parameters to steal attribution for purchases that would have happened anyway, either through cookie stuffing or by injecting CashKaro&rsquo;s affiliate IDs into links shared outside the platform. Cookie stuffing specifically involves loading a hidden iframe that fires the tracking pixel without the user taking any intentional action, which inflates click counts and may attribute organic purchases to CashKaro.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Fraud Type</th>
+        <th>Detection Signal</th>
+        <th>Mitigation Strategy</th>
+        <th>Risk Level</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Self-referral</td>
+        <td>Device fingerprint overlap, same IP, shared payment method</td>
+        <td>Device graph matching, multi-account detection</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>Return abuse</td>
+        <td>High return rate per user, short hold periods</td>
+        <td>Extended pending windows, return rate scoring</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>Cookie stuffing</td>
+        <td>Very high click-to-purchase ratio, no session depth</td>
+        <td>Click quality scoring, affiliate audit</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>Fake transactions</td>
+        <td>Mismatched order amounts, unusual category patterns</td>
+        <td>Merchant cross-referencing, order validation API</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>Account takeover</td>
+        <td>Unusual login location, rapid redemption after login</td>
+        <td>Device change alerts, redemption cooling-off period</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>Automated click bots</td>
+        <td>Inhuman click timing, non-standard user agents</td>
+        <td>Rate limiting, CAPTCHA on suspicious sessions</td>
+        <td>Medium</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The fraud detection service consumes events from Kafka and applies both rule-based checks and machine learning models. Rule-based checks handle known patterns, like flagging any account that makes more than five referrals in a single day. ML models handle emergent patterns by scoring users and transactions against a baseline of normal behavior. High-risk scores trigger holds on payouts and alerts for human review, rather than automatic account suspension, because false positives are expensive in terms of user trust.</p>
+
+<a name="Referral.Program.Architecture"></a>
+<h2>Referral Program Architecture</h2>
+
+<p>The referral program is conceptually simple but operationally complex. A user shares a referral code. A new user signs up using that code. The new user makes their first qualifying purchase. Both the referrer and the referee receive a reward.</p>
+
+<p>The challenge is the &ldquo;qualifying purchase&rdquo; condition, which typically means the purchase has to be real and confirmed. So the referral reward cannot be credited immediately on signup; it has to wait for the new user&rsquo;s first purchase to be attributed and confirmed. This means the referral service has to maintain state across two separate events that may be separated by days or weeks.</p>
+
+<p>This is implemented using a state machine. When a user signs up with a referral code, the referral service creates a referral record in a pending state, linked to both the referrer and the referee. When the referee&rsquo;s first qualifying cashback is confirmed, an event is published to Kafka. The referral service consumes this event, transitions the referral record to fulfilled, and credits the referral rewards to both parties.</p>
+
+<p>Abuse prevention here overlaps with the general fraud detection system. The same device fingerprinting and multi-account detection logic that catches self-referral fraud also protects the referral program. Additional protections include a maximum number of referral bonuses per user per month and a minimum account age before a user can redeem referral rewards.</p>
+
+<a name="Offer.Management.System"></a>
+<h2>Offer Management System</h2>
+
+<p>The offer catalog is the user-facing surface that drives engagement. Managing it at scale involves a combination of automated synchronization and manual curation.</p>
+
+<p>Merchant sync jobs run on schedules appropriate to each affiliate network&rsquo;s update frequency. Some networks provide real-time feeds; others batch updates daily. The sync service pulls new offers, updates changed cashback rates, and marks expired offers as inactive. Offers that are no longer available on the affiliate network are deactivated rather than deleted, to preserve attribution history.</p>
+
+<p>Promotional campaigns layer on top of the base offer catalog. A campaign might boost cashback rates for a specific merchant, apply to a category, or be targeted to a user segment based on purchase history. Campaigns have scheduling rules: start time, end time, and optionally a budget cap that deactivates the campaign when a certain total cashback has been awarded.</p>
+
+<p>Offer prioritization is an interesting product and engineering problem. When a user searches for deals on electronics, the platform wants to surface the offers most likely to result in a purchase and earn CashKaro a commission. This combines several signals: cashback rate attractiveness, merchant brand strength, recent conversion rates, and personalization based on the user&rsquo;s browsing history. The ranking logic runs server-side at query time, using precomputed signals stored in Redis and Elasticsearch.</p>
+
+<a name="Notification.Infrastructure"></a>
+<h2>Notification Infrastructure</h2>
+
+<p>Notifications are how CashKaro keeps users engaged and informed. There are several categories with different urgency and personalization requirements.</p>
+
+<p>Transactional notifications are high-priority: cashback earned, cashback confirmed, payout initiated, payout completed. These are triggered by specific events and should reach the user promptly. They are published as events on Kafka and consumed by the notification service, which fans out to push notification, email, and SMS channels based on the user&rsquo;s preferences.</p>
+
+<p>Promotional notifications are lower-priority and higher-volume: flash sale alerts, personalized offer recommendations, cashback boost announcements. These are scheduled in batches and need to respect quiet hours and per-user notification frequency caps to avoid annoying users. Sending too many promotional notifications is a fast path to app uninstalls.</p>
+
+<p>The notification service uses a priority queue to separate transactional from promotional messages. Transactional messages get immediate processing. Promotional messages are batched and sent during appropriate windows based on the user&rsquo;s timezone and engagement patterns.</p>
+
+<p>Delivery tracking matters for transactional notifications. If a user does not open a push notification about a cashback credit within a few hours, the system may follow up with an email. This escalation logic is state-based and requires the notification service to track delivery and open events per user.</p>
+
+<a name="Event-Driven.Architecture.Deep.Dive"></a>
+<h2>Event-Driven Architecture Deep Dive</h2>
+
+<p>By now it is clear that events are the connective tissue of the entire platform. Let us be explicit about why this architecture was chosen and what it implies.</p>
+
+<p>The key insight is that the cashback lifecycle spans multiple time scales. A click happens in milliseconds. Attribution happens in hours. Cashback confirmation happens in weeks. Payout processing happens in days. No single synchronous request can span these time scales. Event-driven architecture is not just a stylistic preference; it is the correct solution to the temporal structure of the domain.</p>
+
+<div class="mermaid">
+flowchart LR
+    subgraph Producers
+        A[Tracking Service]
+        B[Attribution Engine]
+        C[Cashback Engine]
+        D[Wallet Service]
+        E[Redemption Service]
+    end
+
+    subgraph Kafka
+        F[click-events]
+        G[attribution-events]
+        H[cashback-events]
+        I[wallet-events]
+        J[payout-events]
+    end
+
+    subgraph Consumers
+        K[Analytics Service]
+        L[Fraud Detection]
+        M[Notification Service]
+        N[Referral Service]
+        O[Reconciliation Service]
+    end
+
+    A &#8211;> F
+    B &#8211;> G
+    C &#8211;> H
+    D &#8211;> I
+    E &#8211;> J
+    F &#8211;> K
+    F &#8211;> L
+    G &#8211;> K
+    G &#8211;> L
+    G &#8211;> N
+    H &#8211;> M
+    H &#8211;> K
+    I &#8211;> M
+    I &#8211;> O
+    J &#8211;> M
+    J &#8211;> O
+
+    classDef producer fill:#27AE60,color:#fff
+    classDef topic fill:#8E44AD,color:#fff
+    classDef consumer fill:#4A90D9,color:#fff
+
+    class A,B,C,D,E producer
+    class F,G,H,I,J topic
+    class K,L,M,N,O consumer
+</div>
+
+
+<p>Kafka is the standard choice for this event bus role. It provides durable, ordered, replayable event streams. The durability is critical: if the fraud detection service is temporarily down, it does not lose events. It resumes consuming from where it left off when it comes back online. This is the exactly-once or at-least-once delivery guarantee that makes the system reliable.</p>
+
+<p>Consumer groups allow multiple services to independently consume the same events. The analytics service and the fraud detection service both consume click events but do entirely different things with them. They maintain separate offsets in Kafka and neither is aware of the other.</p>
+
+<p>Event schema evolution is a practical concern in long-running systems. As the platform evolves, event payloads may need new fields. Using a schema registry like Confluent Schema Registry with Avro or Protobuf allows producers to add new fields without breaking consumers, as long as backward compatibility rules are followed.</p>
+
+<p>Retries and dead letter queues are essential. If the notification service fails to send a push notification due to a transient error, the message should be retried with exponential backoff. After a configured number of retries, the message goes to a dead letter queue where it can be inspected and reprocessed manually. Without this, failed messages are silently dropped, which is unacceptable for transactional notifications.</p>
+
+<a name="Database.Design"></a>
+<h2>Database Design</h2>
+
+<p>The data model underpins everything. Here are the key entities and their relationships.</p>
+
+<p>The users table stores authentication credentials, profile data, device information, and KYC status. It is indexed on email, phone number, and referral code.</p>
+
+<p>The merchants table stores merchant metadata, affiliate program details, cashback rate configurations, and integration type. It is read-heavy and aggressively cached.</p>
+
+<p>The offers table stores specific cashback offers from merchants, including rate, category rules, exclusions, start and end dates, and campaign associations. Partitioned by status (active or expired) to keep query performance high as the table grows.</p>
+
+<p>The clicks table stores every click event: user ID, offer ID, sub-ID generated, affiliate network, timestamp, and the tracking URL generated. Partitioned by timestamp because queries against this table are almost always time-bounded. Old partitions can be archived to cheap object storage.</p>
+
+<p>The transactions table stores attribution records: order ID, network, user ID, offer ID at click time, order amount, commission amount, cashback amount, status, and timestamps for each state transition. The composite unique index on (order_id, network) enforces idempotent postback processing.</p>
+
+<p>The wallet_ledger table is the most important financial table. Every credit and debit is a row: user ID, transaction type, amount, source type (cashback, referral, promotional), source transaction ID, balance after, and timestamp. This table is append-only. Balances are never updated; they are computed from the ledger.</p>
+
+<p>The redemptions table tracks payout requests: user ID, amount, destination type (bank or gift card), destination details (encrypted), payout processor reference, status, and timestamps.</p>
+
+<p>The referrals table tracks the referral graph: referrer user ID, referee user ID, status, referral code used, and the qualifying transaction ID that triggered fulfillment.</p>
+
+<p>Indexing strategy is important at scale. The wallet_ledger table benefits from an index on (user_id, created_at DESC) for balance lookups. The transactions table needs an index on (user_id, status, created_at) for user-facing transaction history queries. The clicks table needs an index on (sub_id) for the attribution resolution lookup during postback processing.</p>
+
+<a name="Caching.Systems"></a>
+<h2>Caching Systems</h2>
+
+<p>Caching is not optional in a platform at this scale; it is a core architectural component.</p>
+
+<p>The offer catalog is the highest-traffic data. A user browsing the app might trigger dozens of offer lookups in a single session. Fetching each from PostgreSQL would be impossibly slow. The offer catalog is therefore maintained in Redis as a hash keyed by offer ID, with TTL-based expiration and explicit invalidation when a sync job updates offer data.</p>
+
+<p>Merchant configurations are cached similarly. The affiliate URL generation code needs the merchant&rsquo;s network configuration on every click. This data changes infrequently (when CashKaro renegotiates terms with a merchant) but is read millions of times per day. An LRU cache in Redis with a generous TTL is the right tradeoff.</p>
+
+<p>User wallet balances are another hot read path. Users check their balance frequently, especially during promotional events. Rather than aggregating the ledger on every read, a materialized balance is maintained in Redis and updated transactionally with every ledger write. The ledger is the source of truth; the Redis balance is a precomputed view. Periodic consistency checks verify that the materialized balances match the ledger aggregates.</p>
+
+<p>Session data for the click tracking system is also cached. When a postback arrives and the attribution engine needs to look up the click record matching a sub-ID, this lookup should be fast. Sub-IDs that have not yet received a postback are kept in a fast lookup structure in Redis, and removed after the attribution window expires.</p>
+
+<p>Cache invalidation is the hardest part. When a merchant&rsquo;s cashback rate changes, all cached offer data for that merchant needs to be invalidated. The sync service knows which offers changed and can issue targeted invalidations rather than flushing the entire cache. This targeted approach is more complex to implement but avoids the thundering herd problem, where flushing a large cache causes a sudden spike in database load as every request misses and rebuilds.</p>
+
+<a name="Scalability.Deep.Dive"></a>
+<h2>Scalability Deep Dive</h2>
+
+<p>Cashback platforms have sharp traffic spikes during major shopping events. Diwali, Big Billion Day, Great Indian Festival, and End of Season sales produce traffic volumes that can be ten to twenty times normal levels. The system must handle these spikes without degrading the user experience or losing attribution events.</p>
+
+<p>Click tracking is the first bottleneck. The tracking endpoint is hit on every single click, so it needs to scale horizontally. Stateless service design enables this: because the tracking endpoint only reads from cache and writes to Kafka (not to the database synchronously), any number of instances can run in parallel behind a load balancer without coordination. Kubernetes autoscaling based on CPU and request rate can spin up additional instances within minutes in response to a traffic spike.</p>
+
+<p>Attribution processing is a batch concern during spikes. Affiliate networks do not usually send real-time postbacks for every single sale during a mega-sale event; they batch and delay. So the attribution engine may face a surge in postbacks hours after the sale peak, not during it. This is actually helpful because it smooths out the load. The Kafka consumer group for the postback handler can be scaled independently to process a large postback backlog quickly.</p>
+
+<p>Wallet writes are the most consistency-sensitive bottleneck. Every cashback credit requires a ledger write that must be durable and correctly ordered. PostgreSQL with row-level locking handles concurrent writes to different user wallets without contention, because no two users share ledger rows. The main risk is write throughput. For very high volumes, the wallet service can use connection pooling (PgBouncer) to avoid connection exhaustion, and can batch ledger writes for the same user within a short window to reduce I/O.</p>
+
+<p>Database read scaling uses read replicas. The transaction history, offer catalog, and user profile reads that dominate normal traffic can be served from replicas, leaving the primary database for writes. Read replicas introduce a small amount of replication lag, typically a few hundred milliseconds, which is acceptable for non-financial reads but not for balance checks before a redemption. Those must go to the primary.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Bottleneck</th>
+        <th>Scaling Approach</th>
+        <th>Tradeoff</th>
+        <th>Priority</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Click tracking throughput</td>
+        <td>Stateless horizontal scaling, async Kafka writes</td>
+        <td>Potential for small click event loss on broker failure</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>Offer catalog reads</td>
+        <td>Redis cache with targeted invalidation</td>
+        <td>Cache staleness during high update frequency</td>
+        <td>High</td>
+      </tr>
+      <tr>
+        <td>Wallet ledger writes</td>
+        <td>Connection pooling, user-sharded tables at extreme scale</td>
+        <td>Sharding adds query complexity</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>Attribution postback processing</td>
+        <td>Kafka consumer group scaling, idempotent processing</td>
+        <td>Increased lag during postback surges</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>Fraud detection</td>
+        <td>Async Kafka consumer, async rule evaluation</td>
+        <td>Detection happens after the fact, not inline</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>Notification fanout</td>
+        <td>Separate queues per channel, priority separation</td>
+        <td>Eventual delivery, not real-time guarantee</td>
+        <td>Low</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Reliability.and.Availability"></a>
+<h2>Reliability and Availability</h2>
+
+<p>A platform that handles users&#8217; money has a higher bar for reliability than a typical web application. A bug that results in incorrect cashback amounts or a service outage during a major sale directly impacts user trust and company revenue.</p>
+
+<p>Each microservice should be designed with graceful degradation in mind. If the fraud detection service is down, clicks and purchases should still be processed, but payouts should be held for manual review rather than released automatically. The system should fail safe rather than fail hard.</p>
+
+<p>Circuit breakers around affiliate network API calls are important. If an affiliate network&rsquo;s API is timing out, continuing to send requests will only make things worse. A circuit breaker detects the failure pattern and stops sending requests for a configurable period, returning cached data or a graceful error instead.</p>
+
+<p>Merchant outages are handled at the offer level. If a direct merchant integration goes down, their offers can be temporarily hidden from the catalog rather than showing users links that will fail. The sync service monitors integration health and toggles offer visibility accordingly.</p>
+
+<p>Monitoring and alerting should be organized around business metrics, not just technical metrics. CPU and memory usage are important, but what really matters to the business is click-to-attribution conversion rate, cashback confirmation rate, payout success rate, and error rates on each API endpoint. Alerts based on these business metrics catch problems that might not manifest as infrastructure alerts.</p>
+
+<a name="Security.Considerations"></a>
+<h2>Security Considerations</h2>
+
+<p>The wallet is the most security-sensitive component. Unauthorized access to a user&rsquo;s account followed by a redemption to an attacker-controlled bank account is a real threat vector.</p>
+
+<p>Account takeover prevention relies on anomaly detection around login patterns. A login from a new device or a new geographic location, followed by a redemption request, should trigger a step-up authentication challenge. New bank account details should require a cooling-off period before they can receive payouts, giving the legitimate account holder time to notice and respond.</p>
+
+<p>All payout destination data (bank account numbers) must be stored encrypted, not in plaintext. Decryption keys should be stored in a secrets management system, not hardcoded in application code.</p>
+
+<p>API endpoints that trigger financial operations should have additional authorization checks beyond session authentication. For example, a redemption endpoint might require re-entry of a PIN or OTP even for an authenticated user, as a second factor specific to financial transactions.</p>
+
+<p>The postback handler endpoint needs to validate that postbacks are genuinely from the affiliate networks it is integrated with. Networks typically sign postbacks with a shared secret, and the handler should verify this signature before processing. An unsigned or incorrectly signed postback should be rejected, not processed.</p>
+
+<a name="Engineering.Tradeoffs"></a>
+<h2>Engineering Tradeoffs</h2>
+
+<p>Real system design always involves making choices between competing concerns. These are the ones that come up most often in cashback platforms.</p>
+
+<p>Attribution accuracy versus redirect latency is the central tension. More data captured at click time improves attribution reliability. But capturing more data adds latency to the redirect. Most platforms settle on capturing user ID, offer ID, and timestamp at click time, and defer anything more expensive to async processing.</p>
+
+<p>Fraud prevention versus user experience is a constant negotiation. Aggressive fraud rules catch more fraud but also generate false positives that block legitimate users from receiving their cashback. The right balance depends on the fraud rate in the user base and the cost of a false positive in terms of user support load and churn. Starting with conservative rules and tightening them based on observed fraud patterns is better than starting strict and loosening after complaints.</p>
+
+<p>Ledger consistency versus write throughput is a database design tradeoff. A strict serializable isolation level guarantees no concurrency anomalies in the ledger but reduces throughput. For a wallet ledger where correctness is paramount, accepting lower throughput in exchange for strong consistency is the right call. Throughput concerns can be addressed at the infrastructure level (faster hardware, read replicas, connection pooling) without compromising the consistency model.</p>
+
+<p>Caching freshness versus cache simplicity is an ongoing operational concern. Serving slightly stale offer data to users is usually acceptable, especially when the TTL is short. But serving a stale cashback rate at click time, which then gets used for computation when the postback arrives, can result in paying out the wrong cashback amount. Snapshotting the rate at click time eliminates this risk at the cost of additional storage.</p>
+
+<a name="Real-World.Technology.Stack"></a>
+<h2>Real-World Technology Stack</h2>
+
+<p>The technology choices in a platform like CashKaro are driven by the specific characteristics of each component.</p>
+
+<p>Java and Spring Boot are common choices for core transactional services like the wallet service and redemption service. Java&rsquo;s mature ecosystem for database connection pooling, transaction management, and JVM-level performance tuning makes it well-suited for financial workloads. Spring Boot&rsquo;s opinionated structure makes it easy to build consistent, well-tested services.</p>
+
+<p>Go is increasingly used for high-throughput, latency-sensitive services like the click tracking endpoint. Go&rsquo;s lightweight goroutine model allows handling a large number of concurrent HTTP requests with low memory overhead. The click tracking service needs to handle a burst of requests with minimal latency, and Go is excellent at this.</p>
+
+<p>Python is used for data pipelines, reconciliation jobs, and machine learning model serving. The data science ecosystem in Python (pandas, scikit-learn, TensorFlow) makes it the natural choice for fraud detection model training and the analytics components that feed offer personalization.</p>
+
+<p>Redis serves multiple roles: as a session cache, an offer catalog cache, a materialized wallet balance store, and a distributed lock manager for preventing duplicate processing. Its in-memory nature and atomic operations make it versatile for these different use cases.</p>
+
+<p>Kafka is the event streaming backbone, as described throughout. Its durability, consumer group model, and partition-based parallelism make it the right tool for connecting services across different time scales.</p>
+
+<p>PostgreSQL is the primary relational database for the wallet ledger, transactions, and user data. Its strong consistency guarantees, mature replication, and excellent support for serializable transactions make it appropriate for financial data.</p>
+
+<p>Elasticsearch provides full-text search and analytics capabilities for the offer catalog. When a user searches for &ldquo;laptop cashback offers,&rdquo; this is served from Elasticsearch rather than a SQL database, because the ranking and relevance features that Elasticsearch provides are difficult to replicate in SQL.</p>
+
+<p>Kubernetes orchestrates all of these services. Container-based deployment with autoscaling policies keyed to traffic metrics allows the platform to scale individual services independently, so the click tracking service can scale to fifty instances during a flash sale while the redemption service stays at three instances because payout volume is not spiking.</p>
+
+<a name="System.Design.Interview.Perspective"></a>
+<h2>System Design Interview Perspective</h2>
+
+<p>When an interviewer asks you to design a cashback platform, they are testing several things simultaneously: your understanding of distributed systems, your ability to handle financial consistency requirements, your instinct for where the hard problems are, and your awareness of non-functional requirements like fraud prevention and scalability.</p>
+
+<p>Weak answers start with the database schema and spend most of the time on CRUD operations. Strong answers start with the business domain and identify the core engineering challenges before diving into implementation.</p>
+
+<p>The core challenges worth leading with are: click attribution across third-party systems and devices, the temporal gap between click and confirmation and how the system manages state across that gap, wallet consistency under concurrent operations, and fraud prevention without degrading legitimate user experience.</p>
+
+<p>A common mistake is to model the cashback system as a simple e-commerce platform with a loyalty points add-on. The affiliate network dependency, the external attribution system, and the post-purchase validation period make it fundamentally different from a self-contained loyalty program. Recognizing and articulating these differences signals real domain understanding.</p>
+
+<p>Another common mistake is to ignore the failure modes. An interviewer will probe: what happens if the affiliate network is down? What if the postback never arrives? What if the user returns the product after cashback is confirmed? Strong candidates have thought through these scenarios and can describe the system&rsquo;s behavior at each failure point.</p>
+
+<p>When discussing the wallet, bring up the ledger model explicitly. Saying &ldquo;I would maintain a balance field and update it on every credit and debit&rdquo; signals a lack of experience with financial systems. Explaining the append-only ledger, the materialized balance view, and the consistency guarantees it provides signals that you have thought carefully about money at scale.</p>
+
+<p>On scalability, avoid generic answers like &ldquo;add more servers.&rdquo; Instead, identify the specific bottlenecks (click tracking throughput, wallet write contention, postback processing lag) and explain the specific solutions for each. This demonstrates that you understand the system well enough to know where the load concentrates.</p>
+
+<p>The best interviews on this topic become conversations about tradeoffs rather than recitations of architecture. Be prepared to defend your choices and acknowledge what you are trading away. Choosing eventual consistency for the offer catalog is defensible because the cost of serving a slightly stale cashback rate is low. Choosing eventual consistency for the wallet ledger is not defensible because the cost of incorrect balances is high. Articulating this distinction is what separates a strong system design answer from a mediocre one.</p>
+
+<a name="Closing.Thoughts"></a>
+<h2>Closing Thoughts</h2>
+
+<p>Cashback platforms are a rich design space that touches almost every area of distributed systems: event streaming, financial ledgers, affiliate tracking, fraud detection, caching, and scalability. Spending time understanding how all of these fit together is time well spent for any engineer who wants to work in marketplace, fintech, or platform engineering.</p>
+]]></content>
+    </entry>
+    
+</feed>
