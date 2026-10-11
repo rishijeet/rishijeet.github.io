@@ -4,7 +4,7 @@
     <title><![CDATA[Category: pastebin | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/pastebin/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-08-01T20:35:05+05:30</updated>
+    <updated>2026-10-11T17:37:31+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -522,54 +522,54 @@ flowchart TD;
 
 <p>The metadata database needs to support fast reads by paste ID, efficient expiry queries, and user-specific paste listings. Here is a representative schema.</p>
 
-<p><div class="highlight"><pre><code class="language-sql" data-lang="sql"><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+<p>{% highlight sql %}</p>
 
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">pastes</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-  <span class="n">owner_id</span>      <span class="n">UUID</span><span class="p">,</span>
-  <span class="n">title</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
-  <span class="k">language</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">visibility</span>    <span class="nb">SMALLINT</span>      <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>  <span class="o">&amp;</span><span class="n">ndash</span><span class="p">;</span> <span class="mi">0</span><span class="o">=</span><span class="k">public</span><span class="p">,</span> <span class="mi">1</span><span class="o">=</span><span class="n">unlisted</span><span class="p">,</span> <span class="mi">2</span><span class="o">=</span><span class="n">private</span>
-  <span class="n">storage_path</span>  <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">512</span><span class="p">)</span>  <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">content_hash</span>  <span class="nb">CHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">byte_size</span>     <span class="nb">INT</span><span class="p">,</span>
-  <span class="n">view_count</span>    <span class="nb">BIGINT</span>        <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">expires_at</span>    <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
-  <span class="n">deleted_at</span>    <span class="n">TIMESTAMPTZ</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+<p>CREATE TABLE pastes (
+  id            VARCHAR(10)   PRIMARY KEY,
+  owner_id      UUID,
+  title         VARCHAR(255),
+  language      VARCHAR(64),
+  visibility    SMALLINT      DEFAULT 0,  &ndash; 0=public, 1=unlisted, 2=private
+  storage_path  VARCHAR(512)  NOT NULL,
+  content_hash  CHAR(64),
+  byte_size     INT,
+  view_count    BIGINT        DEFAULT 0,
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  expires_at    TIMESTAMPTZ,
+  deleted_at    TIMESTAMPTZ
+);</p>
 
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_owner</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">owner_id</span><span class="p">,</span> <span class="n">created_at</span> <span class="k">DESC</span><span class="p">);</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_expires</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">expires_at</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">expires_at</span> <span class="k">IS</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">;</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_hash</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">content_hash</span><span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+<p>CREATE INDEX idx_pastes_owner ON pastes(owner_id, created_at DESC);
+CREATE INDEX idx_pastes_expires ON pastes(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX idx_pastes_hash ON pastes(content_hash);</p>
 
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="n">UUID</span>          <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
-  <span class="n">username</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">email</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>  <span class="k">UNIQUE</span><span class="p">,</span>
-  <span class="n">password_hash</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">128</span><span class="p">),</span>
-  <span class="n">api_key</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span><span class="p">,</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">is_banned</span>     <span class="nb">BOOLEAN</span>       <span class="k">DEFAULT</span> <span class="k">false</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+<p>CREATE TABLE users (
+  id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  username      VARCHAR(64)   UNIQUE NOT NULL,
+  email         VARCHAR(255)  UNIQUE,
+  password_hash VARCHAR(128),
+  api_key       VARCHAR(64)   UNIQUE,
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  is_banned     BOOLEAN       DEFAULT false
+);</p>
 
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">paste_views</span> <span class="p">(</span>
-  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">viewed_at</span>     <span class="nb">DATE</span>          <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">view_count</span>    <span class="nb">INT</span>           <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>
-  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">paste_id</span><span class="p">,</span> <span class="n">viewed_at</span><span class="p">)</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+<p>CREATE TABLE paste_views (
+  paste_id      VARCHAR(10)   NOT NULL,
+  viewed_at     DATE          NOT NULL,
+  view_count    INT           NOT NULL DEFAULT 1,
+  PRIMARY KEY (paste_id, viewed_at)
+);</p>
 
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">reports</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="nb">SERIAL</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">reporter_id</span>   <span class="n">UUID</span><span class="p">,</span>
-  <span class="n">reason</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">resolved_at</span>   <span class="n">TIMESTAMPTZ</span>
-<span class="p">);</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+<p>CREATE TABLE reports (
+  id            SERIAL        PRIMARY KEY,
+  paste_id      VARCHAR(10)   NOT NULL,
+  reporter_id   UUID,
+  reason        VARCHAR(64),
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  resolved_at   TIMESTAMPTZ
+);</p>
 
-<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span></code></pre></div></p>
+<p>{% endhighlight %}</p>
 
 <p>The <code>expires_at</code> index is partial, covering only rows where the column is not null. This keeps the index small and fast for the cleanup job.</p>
 

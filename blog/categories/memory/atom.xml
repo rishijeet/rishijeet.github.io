@@ -4,7 +4,7 @@
     <title><![CDATA[Category: memory | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/memory/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-08-01T20:35:05+05:30</updated>
+    <updated>2026-10-11T17:37:31+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -31,149 +31,151 @@ which I liked,</p>
 <p>What is the size of int? A programmer with a C or C++ background will probably guess that the size of a machine-specific int is something like 32 bits, maybe 64; and that therefore it occupies at most 8 bytes. But is that so in Python?</p>
 
 <p>Let us first write a function that shows the sizes of objects (recursively if necessary):
-<figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">import</span> <span class="nn">sys</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">show_sizeof</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="k">print</span> <span class="s">&quot;</span><span class="se">\t</span><span class="s">&quot;</span> <span class="o">*</span> <span class="n">level</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">__class__</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">x</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;__iter__&#39;</span><span class="p">):</span>
-</span><span class='line'>    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s">&#39;items&#39;</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span class='line'>            <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">show_sizeof</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
-</span></code></pre></div></figure></p>
+{%codeblock lang:python %}
+import sys</p>
+
+<p>def show_sizeof(x, level=0):</p>
+
+<pre><code>print "\t" * level, x.__class__, sys.getsizeof(x), x
+
+if hasattr(x, '__iter__'):
+    if hasattr(x, 'items'):
+        for xx in x.items():
+            show_sizeof(xx, level + 1)
+    else:
+        for xx in x:
+            show_sizeof(xx, level + 1)
+</code></pre>
+
+<p>{%endcodeblock%}</p>
 
 <p>We can now use the function to inspect the sizes of the different basic data types:
-<figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">102947298469128649161972364837164</span><span class="p">)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span><span class="p">)</span>
-</span></code></pre></div></figure></p>
+{%codeblock lang:python %}
+show_sizeof(None)
+show_sizeof(3)
+show_sizeof(2**63)
+show_sizeof(102947298469128649161972364837164)
+show_sizeof(918659326943756134897561304875610348756384756193485761304875613948576297485698417)
+{%endcodeblock%}</p>
 
-<p><figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;If.you.have.a.32-bit.2.7x.Python..you...ll.see:&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">If</span> <span class="n">you</span> <span class="n">have</span> <span class="n">a</span> <span class="mi">32</span><span class="o">-</span><span class="n">bit</span> <span class="mf">2.7</span><span class="n">x</span> <span class="n">Python</span><span class="p">,</span> <span class="n">you</span><span class="err">’</span><span class="n">ll</span> <span class="n">see</span><span class="p">:</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">8</span> <span class="bp">None</span>
-</span><span class='line'><span class="mi">12</span> <span class="mi">3</span>
-</span><span class='line'><span class="mi">22</span> <span class="mi">9223372036854775808</span>
-</span><span class='line'><span class="mi">28</span> <span class="mi">102947298469128649161972364837164</span>
-</span><span class='line'><span class="mi">48</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;and.if.you.have.a.64-bit.2.7x.Python..you...ll.see:&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="ow">and</span> <span class="k">if</span> <span class="n">you</span> <span class="n">have</span> <span class="n">a</span> <span class="mi">64</span><span class="o">-</span><span class="n">bit</span> <span class="mf">2.7</span><span class="n">x</span> <span class="n">Python</span><span class="p">,</span> <span class="n">you</span><span class="err">’</span><span class="n">ll</span> <span class="n">see</span><span class="p">:</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">16</span> <span class="bp">None</span>
-</span><span class='line'><span class="mi">24</span> <span class="mi">3</span>
-</span><span class='line'><span class="mi">36</span> <span class="mi">9223372036854775808</span>
-</span><span class='line'><span class="mi">40</span> <span class="mi">102947298469128649161972364837164</span>
-</span><span class='line'><span class="mi">60</span> <span class="mi">918659326943756134897561304875610348756384756193485761304875613948576297485698417</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
-</span></code></pre></div></figure></p>
+<p>{%codeblock lang:python %}</p>
+
+<a name="If.you.have.a.32-bit.2.7x.Python..you...ll.see:"></a>
+<h1>If you have a 32-bit 2.7x Python, you’ll see:</h1>
+
+<p>8 None
+12 3
+22 9223372036854775808
+28 102947298469128649161972364837164
+48 918659326943756134897561304875610348756384756193485761304875613948576297485698417</p>
+
+<a name="and.if.you.have.a.64-bit.2.7x.Python..you...ll.see:"></a>
+<h1>and if you have a 64-bit 2.7x Python, you’ll see:</h1>
+
+<p>16 None
+24 3
+36 9223372036854775808
+40 102947298469128649161972364837164
+60 918659326943756134897561304875610348756384756193485761304875613948576297485698417</p>
+
+<p>{%endcodeblock%}</p>
 
 <p>Let us focus on the 64-bit version (mainly because that’s what we need the most often in our case). None takes 16 bytes. int takes 24 bytes, three times as much memory as a C int64_t, despite being some kind of “machine-friendly” integer. Long integers (unbounded precision), used to represent integers larger than 263-1, have a minimum size of 36 bytes. Then it grows linearly in the logarithm of the integer represented.</p>
 
 <p>Python’s floats are implementation-specific but seem to be C doubles. However, they do not eat up only 8 bytes:</p>
 
-<p><figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="mf">3.14159265358979323846264338327950288</span><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Output&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Output</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">16</span> <span class="mf">3.14159265359</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;on.a.32-bit.platform.and&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">on</span> <span class="n">a</span> <span class="mi">32</span><span class="o">-</span><span class="n">bit</span> <span class="n">platform</span> <span class="ow">and</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">24</span> <span class="mf">3.14159265359</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;on.a.64-bit.platform.&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">on</span> <span class="n">a</span> <span class="mi">64</span><span class="o">-</span><span class="n">bit</span> <span class="n">platform</span><span class="o">.&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
-</span></code></pre></div></figure>
+<p>{%codeblock lang:python %}
+show_sizeof(3.14159265358979323846264338327950288)</p>
+
+<a name="Output"></a>
+<h1>Output</h1>
+
+<p>16 3.14159265359</p>
+
+<a name="on.a.32-bit.platform.and"></a>
+<h1>on a 32-bit platform and</h1>
+
+<p>24 3.14159265359</p>
+
+<a name="on.a.64-bit.platform."></a>
+<h1>on a 64-bit platform.</h1>
+
+<p>{%endcodeblock%}
 That’s again, three times the size a C programmer would expect. Now, what about strings?</p>
 
-<p><figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;)</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;)</span>
-</span></code></pre></div></figure>
+<p>{%codeblock lang:python %}
+show_sizeof(&ldquo;&rdquo;)
+show_sizeof(&ldquo;My hovercraft is full of eels&rdquo;)
+{%endcodeblock%}
 outputs, on a 32 bit platform:
-<figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">21</span>
-</span><span class='line'><span class="mi">50</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
-</span></code></pre></div></figure>
+{%codeblock lang:python %}</p>
+
+<p>21
+50 My hovercraft is full of eels
+{%endcodeblock%}
 and</p>
 
-<p><figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="mi">37</span>
-</span><span class='line'><span class="mi">66</span> <span class="n">My</span> <span class="n">hovercraft</span> <span class="ow">is</span> <span class="n">full</span> <span class="n">of</span> <span class="n">eels</span>
-</span></code></pre></div></figure></p>
+<p>{%codeblock lang:python %}
+37
+66 My hovercraft is full of eels
+{%endcodeblock%}</p>
 
 <p>An empty string costs 37 bytes in a 64-bit environment! Memory used by string then linearly grows in the length of the (useful) string.</p>
 
 <p>Other structures commonly used, tuples, lists, and dictionaries are worthwhile to examine. Lists (which are implemented as array lists, not as linked lists, with everything it entails) are arrays of references to Python objects, allowing them to be heterogeneous. Let us look at our sizes:</p>
 
-<p><figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="n">show_sizeof</span><span class="p">([])</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">toaster</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="mf">230.1</span><span class="p">])</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;outputs&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">outputs</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">32</span> <span class="p">[]</span>
-</span><span class='line'><span class="mi">44</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">toaster</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="mf">230.1</span><span class="p">]</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;on.a.32-bit.platform.and&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">on</span> <span class="n">a</span> <span class="mi">32</span><span class="o">-</span><span class="n">bit</span> <span class="n">platform</span> <span class="ow">and</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">72</span> <span class="p">[]</span>
-</span><span class='line'><span class="mi">96</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">toaster</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="mf">230.1</span><span class="p">]</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;on.a.64-bit.platform.&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">on</span> <span class="n">a</span> <span class="mi">64</span><span class="o">-</span><span class="n">bit</span> <span class="n">platform</span><span class="o">.&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
-</span></code></pre></div></figure></p>
+<p>{%codeblock lang:python %}
+show_sizeof([])
+show_sizeof([4, &ldquo;toaster&rdquo;, 230.1])</p>
+
+<a name="outputs"></a>
+<h1>outputs</h1>
+
+<p>32 []
+44 [4, &lsquo;toaster&rsquo;, 230.1]</p>
+
+<a name="on.a.32-bit.platform.and"></a>
+<h1>on a 32-bit platform and</h1>
+
+<p>72 []
+96 [4, &lsquo;toaster&rsquo;, 230.1]</p>
+
+<a name="on.a.64-bit.platform."></a>
+<h1>on a 64-bit platform.</h1>
+
+<p>{%endcodeblock%}</p>
 
 <p>An empty list eats up 72 bytes. The size of an empty, 64-bit C++ std::list() is only 16 bytes,
  4-5 times less. What about tuples? (and dictionaries?):</p>
 
-<p><figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="n">show_sizeof</span><span class="p">({})</span>
-</span><span class='line'><span class="n">show_sizeof</span><span class="p">({</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">a</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span><span class="mi">213</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">b</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span><span class="mi">2131</span><span class="p">})</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
-</span></code></pre></div></figure></p>
+<p>{%codeblock lang:python %}
+show_sizeof({})
+show_sizeof({&lsquo;a&rsquo;:213, &lsquo;b&rsquo;:2131})</p>
+
+<p>{%endcodeblock%}</p>
 
 <p>outputs, on a 32-bit box
-<figure class='code'><div class="highlight"><pre><code class="python"><span class='line'><span class="mi">136</span> <span class="p">{}</span>
-</span><span class='line'> <span class="mi">136</span> <span class="p">{</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">a</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span> <span class="mi">213</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">b</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span> <span class="mi">2131</span><span class="p">}</span>
-</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">a</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="mi">213</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">22</span> <span class="n">a</span>
-</span><span class='line'>                <span class="mi">12</span> <span class="mi">213</span>
-</span><span class='line'>        <span class="mi">32</span> <span class="p">(</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">b</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="mi">2131</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">22</span> <span class="n">b</span>
-</span><span class='line'>                <span class="mi">12</span> <span class="mi">2131</span>
-</span><span class='line'><span class="ow">and</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="mi">280</span> <span class="p">{}</span>
-</span><span class='line'> <span class="mi">280</span> <span class="p">{</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">a</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span> <span class="mi">213</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">b</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span> <span class="mi">2131</span><span class="p">}</span>
-</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">a</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="mi">213</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">38</span> <span class="n">a</span>
-</span><span class='line'>                <span class="mi">24</span> <span class="mi">213</span>
-</span><span class='line'>        <span class="mi">72</span> <span class="p">(</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">b</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="mi">2131</span><span class="p">)</span>
-</span><span class='line'>                <span class="mi">38</span> <span class="n">b</span>
-</span><span class='line'>                <span class="mi">24</span> <span class="mi">2131</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
-</span></code></pre></div></figure>
+{%codeblock lang:python %}
+136 {}
+ 136 {&lsquo;a&rsquo;: 213, &lsquo;b&rsquo;: 2131}
+        32 (&lsquo;a&rsquo;, 213)
+                22 a
+                12 213
+        32 (&lsquo;b&rsquo;, 2131)
+                22 b
+                12 2131
+and</p>
+
+<p>280 {}
+ 280 {&lsquo;a&rsquo;: 213, &lsquo;b&rsquo;: 2131}
+        72 (&lsquo;a&rsquo;, 213)
+                38 a
+                24 213
+        72 (&lsquo;b&rsquo;, 2131)
+                38 b
+                24 2131</p>
+
+<p>{%endcodeblock%}
 for a 64-bit box.</p>
 
 <p>This last example is particularly interesting because it “doesn’t add up.” If we look at individual key/value pairs, they take 72 bytes (while their components take 38+24=62 bytes, leaving 10 bytes for the pair itself), but the dictionary takes 280 bytes (rather than a strict minimum of 144=72×2 bytes). The dictionary is supposed to be an efficient data structure for search and the two likely implementations will use more space that strictly necessary. If it’s some kind of tree, then we should pay the cost of internal nodes that contain a key and two pointers to children nodes; if it’s a hash table, then we must have some room with free entries to ensure good performance.</p>

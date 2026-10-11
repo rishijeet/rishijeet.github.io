@@ -4,7 +4,7 @@
     <title><![CDATA[Category: a2a | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/a2a/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-08-01T20:35:05+05:30</updated>
+    <updated>2026-10-11T17:37:31+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -345,112 +345,115 @@ retrieves documents from a vector store before prompting the model.</p>
 <p>Here&rsquo;s how to implement basic versions of each.</p>
 
 <p><strong>RAG Example (using LangChain)</strong>:
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">langchain_openai</span> <span class="kn">import</span> <span class="n">OpenAIEmbeddings</span><span class="p">,</span> <span class="n">ChatOpenAI</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_community.vectorstores</span> <span class="kn">import</span> <span class="n">Chroma</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.prompts</span> <span class="kn">import</span> <span class="n">PromptTemplate</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.runnables</span> <span class="kn">import</span> <span class="n">RunnablePassthrough</span>
-</span><span class='line'><span class="kn">from</span> <span class="nn">langchain_core.output_parsers</span> <span class="kn">import</span> <span class="n">StrOutputParser</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Sample.documents&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Sample</span> <span class="n">documents</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">docs</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Document</span> <span class="mi">1</span> <span class="n">content</span><span class="o">&amp;</span><span class="n">hellip</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Document</span> <span class="mi">2</span> <span class="n">content</span><span class="o">&amp;</span><span class="n">hellip</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;]</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Embed.and.store&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Embed</span> <span class="ow">and</span> <span class="n">store</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">embeddings</span> <span class="o">=</span> <span class="n">OpenAIEmbeddings</span><span class="p">()</span>
-</span><span class='line'><span class="n">vectorstore</span> <span class="o">=</span> <span class="n">Chroma</span><span class="o">.</span><span class="n">from_texts</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
-</span><span class='line'><span class="n">retriever</span> <span class="o">=</span> <span class="n">vectorstore</span><span class="o">.</span><span class="n">as_retriever</span><span class="p">()</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Prompt.template&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Prompt</span> <span class="n">template</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">template</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Use</span> <span class="n">the</span> <span class="n">following</span> <span class="n">context</span> <span class="n">to</span> <span class="n">answer</span> <span class="n">the</span> <span class="n">question</span><span class="p">:</span>
-</span><span class='line'><span class="p">{</span><span class="n">context</span><span class="p">}</span>
-</span><span class='line'><span class="n">Question</span><span class="p">:</span> <span class="p">{</span><span class="n">question</span><span class="p">}</span>
-</span><span class='line'><span class="n">Answer</span><span class="p">:</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
-</span><span class='line'><span class="n">prompt</span> <span class="o">=</span> <span class="n">PromptTemplate</span><span class="o">.</span><span class="n">from_template</span><span class="p">(</span><span class="n">template</span><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;LLM&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">LLM</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">llm</span> <span class="o">=</span> <span class="n">ChatOpenAI</span><span class="p">(</span><span class="n">model</span><span class="o">=&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">gpt</span><span class="o">-</span><span class="mi">4</span><span class="n">o</span><span class="o">-</span><span class="n">mini</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Chain&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Chain</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">chain</span> <span class="o">=</span> <span class="p">(</span>
-</span><span class='line'>    <span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">context</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="n">retriever</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">question</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="n">RunnablePassthrough</span><span class="p">()}</span>
-</span><span class='line'>    <span class="o">|</span> <span class="n">prompt</span>
-</span><span class='line'>    <span class="o">|</span> <span class="n">llm</span>
-</span><span class='line'>    <span class="o">|</span> <span class="n">StrOutputParser</span><span class="p">()</span>
-</span><span class='line'><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Usage&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Usage</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">response</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Your</span> <span class="n">question</span> <span class="n">here</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;)</span>
-</span><span class='line'><span class="k">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-</span></code></pre></div></figure>
+&#8220;`python
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.vectorstores import Chroma
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser</p>
+
+<a name="Sample.documents"></a>
+<h1>Sample documents</h1>
+
+<p>docs = [&ldquo;Document 1 content&hellip;&rdquo;, &ldquo;Document 2 content&hellip;&rdquo;]</p>
+
+<a name="Embed.and.store"></a>
+<h1>Embed and store</h1>
+
+<p>embeddings = OpenAIEmbeddings()
+vectorstore = Chroma.from_texts(docs, embeddings)
+retriever = vectorstore.as_retriever()</p>
+
+<a name="Prompt.template"></a>
+<h1>Prompt template</h1>
+
+<p>template = &ldquo;&rdquo;&ldquo;Use the following context to answer the question:
+{context}
+Question: {question}
+Answer:&rdquo;&ldquo;&rdquo;
+prompt = PromptTemplate.from_template(template)</p>
+
+<a name="LLM"></a>
+<h1>LLM</h1>
+
+<p>llm = ChatOpenAI(model=&ldquo;gpt-4o-mini&rdquo;)</p>
+
+<a name="Chain"></a>
+<h1>Chain</h1>
+
+<p>chain = (
+    {&ldquo;context&rdquo;: retriever, &ldquo;question&rdquo;: RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)</p>
+
+<a name="Usage"></a>
+<h1>Usage</h1>
+
+<p>response = chain.invoke(&ldquo;Your question here&rdquo;)
+print(response)
+&#8220;`
 This retrieves relevant docs, augments the prompt, and generates a response.</p>
 
 <p><strong>MCP Example (using FastMCP)</strong>:
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">fastmcp</span> <span class="kn">import</span> <span class="n">FastMCP</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Demo</span> <span class="n">Server</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nd">@mcp.tool</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">search_docs</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;)</span>
-</span><span class='line'><span class="n">async</span> <span class="k">def</span> <span class="nf">search_docs</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Search</span> <span class="k">for</span> <span class="n">documentation</span> <span class="n">related</span> <span class="n">to</span> <span class="n">the</span> <span class="n">query</span><span class="o">.&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">f</span><span class="s">&quot;Results for: {query}&quot;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nd">@mcp.prompt</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">code_review</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;)</span>
-</span><span class='line'><span class="n">async</span> <span class="k">def</span> <span class="nf">code_review</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Return</span> <span class="n">a</span> <span class="n">template</span> <span class="k">for</span> <span class="n">code</span> <span class="n">review</span><span class="o">.&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Review</span> <span class="n">the</span> <span class="n">following</span> <span class="n">code</span> <span class="k">for</span><span class="p">:</span>\<span class="n">n</span><span class="o">-</span> <span class="n">Bugs</span>\<span class="n">n</span><span class="o">-</span> <span class="n">Efficiency</span>\<span class="n">n</span><span class="o">-</span> <span class="n">Readability</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">if</span> <span class="o">&lt;</span><span class="n">strong</span><span class="o">&gt;</span><span class="n">name</span><span class="o">&lt;/</span><span class="n">strong</span><span class="o">&gt;</span> <span class="o">==</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&lt;</span><span class="n">strong</span><span class="o">&gt;</span><span class="n">main</span><span class="o">&lt;/</span><span class="n">strong</span><span class="o">&gt;&amp;</span><span class="n">rdquo</span><span class="p">;:</span>
-</span><span class='line'>    <span class="n">mcp</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span></code></pre></div></figure>
+&#8220;`python
+from fastmcp import FastMCP</p>
+
+<p>mcp = FastMCP(&ldquo;Demo Server&rdquo;)</p>
+
+<p>@mcp.tool(&ldquo;search_docs&rdquo;)
+async def search_docs(query: str) -> str:
+    &ldquo;&rdquo;&ldquo;Search for documentation related to the query.&rdquo;&ldquo;&rdquo;
+    return f&#8221;Results for: {query}&#8221;</p>
+
+<p>@mcp.prompt(&ldquo;code_review&rdquo;)
+async def code_review() -> str:
+    &ldquo;&rdquo;&ldquo;Return a template for code review.&rdquo;&ldquo;&rdquo;
+    return &ldquo;Review the following code for:\n- Bugs\n- Efficiency\n- Readability&rdquo;</p>
+
+<p>if <strong>name</strong> == &ldquo;<strong>main</strong>&rdquo;:
+    mcp.run()
+&#8220;`
 This sets up an MCP server with a tool and prompt, connectable via clients like Claude Desktop.</p>
 
 <p><strong>A2A Example (using Python A2A SDK)</strong>:
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="python"><span class='line'><span class="kn">from</span> <span class="nn">a2a</span> <span class="kn">import</span> <span class="n">AgentSkill</span><span class="p">,</span> <span class="n">AgentCard</span><span class="p">,</span> <span class="n">A2AServer</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Define.skill&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Define</span> <span class="n">skill</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">skill</span> <span class="o">=</span> <span class="n">AgentSkill</span><span class="p">(</span>
-</span><span class='line'>    <span class="nb">id</span><span class="o">=&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hello_world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span>
-</span><span class='line'>    <span class="n">name</span><span class="o">=&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">Returns</span> <span class="n">hello</span> <span class="n">world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span>
-</span><span class='line'>    <span class="n">description</span><span class="o">=&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">Just</span> <span class="n">returns</span> <span class="n">hello</span> <span class="n">world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span>
-</span><span class='line'>    <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hello</span> <span class="n">world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;],</span>
-</span><span class='line'>    <span class="n">examples</span><span class="o">=</span><span class="p">[</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hi</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hello</span> <span class="n">world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;]</span>
-</span><span class='line'><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Define.Agent.Card&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Define</span> <span class="n">Agent</span> <span class="n">Card</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">card</span> <span class="o">=</span> <span class="n">AgentCard</span><span class="p">(</span>
-</span><span class='line'>    <span class="n">name</span><span class="o">=&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">Hello</span> <span class="n">World</span> <span class="n">Agent</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span>
-</span><span class='line'>    <span class="n">description</span><span class="o">=&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">A</span> <span class="n">simple</span> <span class="n">hello</span> <span class="n">world</span> <span class="n">agent</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;,</span>
-</span><span class='line'>    <span class="n">skills</span><span class="o">=</span><span class="p">[</span><span class="n">skill</span><span class="p">],</span>
-</span><span class='line'>    <span class="n">service_url</span><span class="o">=&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="o">&lt;</span><span class="n">a</span> <span class="n">href</span><span class="o">=</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="o">&gt;</span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8000</span><span class="o">&lt;/</span><span class="n">a</span><span class="o">&gt;&amp;</span><span class="n">rsquo</span><span class="p">;</span>
-</span><span class='line'><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Agent.logic&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Agent</span> <span class="n">logic</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">hello_world_handler</span><span class="p">(</span><span class="n">task</span><span class="p">):</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Hello</span><span class="p">,</span> <span class="n">World</span><span class="err">!</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="s">&quot;Run.server&quot;</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
-</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Run</span> <span class="n">server</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">server</span> <span class="o">=</span> <span class="n">A2AServer</span><span class="p">(</span><span class="n">card</span><span class="p">,</span> <span class="p">{</span><span class="o">&amp;</span><span class="n">lsquo</span><span class="p">;</span><span class="n">hello_world</span><span class="o">&amp;</span><span class="n">rsquo</span><span class="p">;:</span> <span class="n">hello_world_handler</span><span class="p">})</span>
-</span><span class='line'><span class="n">server</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
-</span></code></pre></div></figure>
+&#8220;`python
+from a2a import AgentSkill, AgentCard, A2AServer</p>
+
+<a name="Define.skill"></a>
+<h1>Define skill</h1>
+
+<p>skill = AgentSkill(
+    id=&lsquo;hello_world&rsquo;,
+    name=&lsquo;Returns hello world&rsquo;,
+    description=&lsquo;Just returns hello world&rsquo;,
+    tags=[&lsquo;hello world&rsquo;],
+    examples=[&lsquo;hi&rsquo;, &lsquo;hello world&rsquo;]
+)</p>
+
+<a name="Define.Agent.Card"></a>
+<h1>Define Agent Card</h1>
+
+<p>card = AgentCard(
+    name=&lsquo;Hello World Agent&rsquo;,
+    description=&lsquo;A simple hello world agent&rsquo;,
+    skills=[skill],
+    service_url=&lsquo;<a href="http://localhost:8000">http://localhost:8000</a>&rsquo;
+)</p>
+
+<a name="Agent.logic"></a>
+<h1>Agent logic</h1>
+
+<p>def hello_world_handler(task):
+    return &ldquo;Hello, World!&rdquo;</p>
+
+<a name="Run.server"></a>
+<h1>Run server</h1>
+
+<p>server = A2AServer(card, {&lsquo;hello_world&rsquo;: hello_world_handler})
+server.run(port=8000)
+&#8220;`
 This creates an A2A server; other agents can discover it via the Agent Card and send tasks.</p>
 
 <hr />
