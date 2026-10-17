@@ -4,7 +4,7 @@
     <title><![CDATA[Category: apache-flink | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/apache-flink/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-10-11T17:37:31+05:30</updated>
+    <updated>2026-10-17T14:24:39+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -622,64 +622,65 @@ stream
 
 <p>Here&rsquo;s a simplified example (I have used Java as an example but works with other programming languages too ) of how you might implement this in Flink:</p>
 
-<p>{%codeblock lang:java %}</p>
-
-<p>// Define a data structure for fraud detection rules
-class FraudDetectionRule {
-    String ruleId;
-    String ruleDetails;
-    // Other relevant fields and methods
-}</p>
-
-<p>// Create the main transaction stream
-DataStream<Transaction> transactionStream = env.addSource(new TransactionSource());</p>
-
-<p>// Create the broadcast stream for fraud detection rules
-DataStream<FraudDetectionRule> ruleStream = env.addSource(new RuleSource());</p>
-
-<p>// Define the broadcast state descriptor
-MapStateDescriptor&lt;String, FraudDetectionRule> ruleStateDescriptor =
-    new MapStateDescriptor&lt;>(&ldquo;FraudRules&rdquo;, String.class, FraudDetectionRule.class);</p>
-
-<p>// Broadcast the rule stream
-BroadcastStream<FraudDetectionRule> broadcastRuleStream = ruleStream.broadcast(ruleStateDescriptor);</p>
-
-<p>// Process the streams with a BroadcastProcessFunction
-transactionStream
-    .connect(broadcastRuleStream)
-    .process(new BroadcastProcessFunction&lt;Transaction, FraudDetectionRule, Alert>() {</p>
-
-<pre><code>    private MapState&lt;String, FraudDetectionRule&gt; rulesState;
-
-    @Override
-    public void open(Configuration parameters) throws Exception {
-        rulesState = getRuntimeContext().getMapState(ruleStateDescriptor);
-    }
-
-    @Override
-    public void processElement(Transaction transaction, ReadOnlyContext ctx, Collector&lt;Alert&gt; out) throws Exception {
-        // Apply the current fraud detection rules
-        for (FraudDetectionRule rule : rulesState.values()) {
-            if (applyRule(transaction, rule)) {
-                out.collect(new Alert(transaction, rule));
-            }
-        }
-    }
-
-    @Override
-    public void processBroadcastElement(FraudDetectionRule rule, Context ctx, Collector&lt;Alert&gt; out) throws Exception {
-        // Update the broadcast state with new or modified rules
-        rulesState.put(rule.ruleId, rule);
-    }
-
-    private boolean applyRule(Transaction transaction, FraudDetectionRule rule) {
-        // Implement rule logic here
-        return false; // Example placeholder
-    }
-});
-</code></pre>
-
-<p>{%endcodeblock%}</p>
+<p><figure class='code'><div class="highlight"><pre><code class="java"><span class='line'><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Define a data structure for fraud detection rules</span>
+</span><span class='line'><span class="kd">class</span> <span class="nc">FraudDetectionRule</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">String</span> <span class="n">ruleId</span><span class="o">;</span>
+</span><span class='line'>    <span class="n">String</span> <span class="n">ruleDetails</span><span class="o">;</span>
+</span><span class='line'>    <span class="c1">// Other relevant fields and methods</span>
+</span><span class='line'><span class="o">}&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Create the main transaction stream</span>
+</span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">Transaction</span><span class="o">&gt;</span> <span class="n">transactionStream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">TransactionSource</span><span class="o">());&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Create the broadcast stream for fraud detection rules</span>
+</span><span class='line'><span class="n">DataStream</span><span class="o">&lt;</span><span class="n">FraudDetectionRule</span><span class="o">&gt;</span> <span class="n">ruleStream</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="na">addSource</span><span class="o">(</span><span class="k">new</span> <span class="nf">RuleSource</span><span class="o">());&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Define the broadcast state descriptor</span>
+</span><span class='line'><span class="n">MapStateDescriptor</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">String</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">&gt;</span> <span class="n">ruleStateDescriptor</span> <span class="o">=</span>
+</span><span class='line'>    <span class="k">new</span> <span class="n">MapStateDescriptor</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;&gt;(&amp;</span><span class="n">ldquo</span><span class="o">;</span><span class="n">FraudRules</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="o">;,</span> <span class="n">String</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">.</span><span class="na">class</span><span class="o">);&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Broadcast the rule stream</span>
+</span><span class='line'><span class="n">BroadcastStream</span><span class="o">&lt;</span><span class="n">FraudDetectionRule</span><span class="o">&gt;</span> <span class="n">broadcastRuleStream</span> <span class="o">=</span> <span class="n">ruleStream</span><span class="o">.</span><span class="na">broadcast</span><span class="o">(</span><span class="n">ruleStateDescriptor</span><span class="o">);&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="c1">// Process the streams with a BroadcastProcessFunction</span>
+</span><span class='line'><span class="n">transactionStream</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">connect</span><span class="o">(</span><span class="n">broadcastRuleStream</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">.</span><span class="na">process</span><span class="o">(</span><span class="k">new</span> <span class="n">BroadcastProcessFunction</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">Transaction</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">,</span> <span class="n">Alert</span><span class="o">&gt;()</span> <span class="o">{&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span>    <span class="kd">private</span> <span class="n">MapState</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">String</span><span class="o">,</span> <span class="n">FraudDetectionRule</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">rulesState</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Override</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">open</span><span class="o">(</span><span class="n">Configuration</span> <span class="n">parameters</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">rulesState</span> <span class="o">=</span> <span class="n">getRuntimeContext</span><span class="o">().</span><span class="na">getMapState</span><span class="o">(</span><span class="n">ruleStateDescriptor</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Override</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">processElement</span><span class="o">(</span><span class="n">Transaction</span> <span class="n">transaction</span><span class="o">,</span> <span class="n">ReadOnlyContext</span> <span class="n">ctx</span><span class="o">,</span> <span class="n">Collector</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">Alert</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">out</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// Apply the current fraud detection rules</span>
+</span><span class='line'>        <span class="k">for</span> <span class="o">(</span><span class="n">FraudDetectionRule</span> <span class="n">rule</span> <span class="o">:</span> <span class="n">rulesState</span><span class="o">.</span><span class="na">values</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>            <span class="k">if</span> <span class="o">(</span><span class="n">applyRule</span><span class="o">(</span><span class="n">transaction</span><span class="o">,</span> <span class="n">rule</span><span class="o">))</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">out</span><span class="o">.</span><span class="na">collect</span><span class="o">(</span><span class="k">new</span> <span class="nf">Alert</span><span class="o">(</span><span class="n">transaction</span><span class="o">,</span> <span class="n">rule</span><span class="o">));</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@Override</span>
+</span><span class='line'>    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">processBroadcastElement</span><span class="o">(</span><span class="n">FraudDetectionRule</span> <span class="n">rule</span><span class="o">,</span> <span class="n">Context</span> <span class="n">ctx</span><span class="o">,</span> <span class="n">Collector</span><span class="o">&amp;</span><span class="n">lt</span><span class="o">;</span><span class="n">Alert</span><span class="o">&amp;</span><span class="n">gt</span><span class="o">;</span> <span class="n">out</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// Update the broadcast state with new or modified rules</span>
+</span><span class='line'>        <span class="n">rulesState</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">rule</span><span class="o">.</span><span class="na">ruleId</span><span class="o">,</span> <span class="n">rule</span><span class="o">);</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">applyRule</span><span class="o">(</span><span class="n">Transaction</span> <span class="n">transaction</span><span class="o">,</span> <span class="n">FraudDetectionRule</span> <span class="n">rule</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// Implement rule logic here</span>
+</span><span class='line'>        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span> <span class="c1">// Example placeholder</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">});</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
+</span></code></pre></div></figure></p>
 
 <a name="Benefits.of.Using.Broadcast.State.Pattern"></a>
 <h2>Benefits of Using Broadcast State Pattern</h2>

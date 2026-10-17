@@ -4,7 +4,7 @@
   <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
   <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
   <link href="https://rishijeet.github.io/"/>
-  <updated>2026-08-01T20:35:05+05:30</updated>
+  <updated>2026-10-17T14:24:39+05:30</updated>
   <id>https://rishijeet.github.io/</id>
   <author>
     <name><![CDATA[Rishijeet Mishra]]></name>
@@ -15661,7 +15661,7 @@ KS &#8211;>|Write Results| SK;
     <id>https://rishijeet.github.io/blog/how-pastebin-works</id>
     <content type="html"><![CDATA[<blockquote><p><em>There is something deceptively simple about Pastebin. You paste some text, click a button, and get a short URL back. You share that URL with someone else, they open it, and they see your text. That is the entire product in one sentence. And yet, building Pastebin at the scale of tens of millions of daily users, billions of stored pastes, and a global audience requires you to make dozens of careful engineering decisions that would fill a whiteboard wall from top to bottom.</em></p></blockquote>
 
-<p>The reason Pastebin is a classic system design interview question is not because it is hard to understand — it is because it forces you to think through the full lifecycle of a piece of data in a distributed system: write it, store it, serve it to millions of readers, expire it gracefully, cache it intelligently, and make sure no one abuses it to host malware or leak credentials. Each of those steps has gotchas.</p>
+<p>The reason Pastebin is a classic system design interview question is not because it is hard to understand,  it is because it forces you to think through the full lifecycle of a piece of data in a distributed system: write it, store it, serve it to millions of readers, expire it gracefully, cache it intelligently, and make sure no one abuses it to host malware or leak credentials. Each of those steps has gotchas.</p>
 
 <p><img src="https://rishijeet.github.io/images/system_design/pastebin.jpeg" height="300" width="900" alt="Alt text" /></p>
 
@@ -16163,50 +16163,50 @@ flowchart TD;
 
 <p>The metadata database needs to support fast reads by paste ID, efficient expiry queries, and user-specific paste listings. Here is a representative schema.</p>
 
-<div class="highlight"><pre><code class="language-sql" data-lang="sql"><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">pastes</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-  <span class="n">owner_id</span>      <span class="n">UUID</span><span class="p">,</span>
-  <span class="n">title</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
-  <span class="k">language</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">visibility</span>    <span class="nb">SMALLINT</span>      <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>  <span class="c1">-- 0=public, 1=unlisted, 2=private</span>
-  <span class="n">storage_path</span>  <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">512</span><span class="p">)</span>  <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">content_hash</span>  <span class="nb">CHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">byte_size</span>     <span class="nb">INT</span><span class="p">,</span>
-  <span class="n">view_count</span>    <span class="nb">BIGINT</span>        <span class="k">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">expires_at</span>    <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
-  <span class="n">deleted_at</span>    <span class="n">TIMESTAMPTZ</span>
-<span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_owner</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">owner_id</span><span class="p">,</span> <span class="n">created_at</span> <span class="k">DESC</span><span class="p">);</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_expires</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">expires_at</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">expires_at</span> <span class="k">IS</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">;</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_pastes_hash</span> <span class="k">ON</span> <span class="n">pastes</span><span class="p">(</span><span class="n">content_hash</span><span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="n">UUID</span>          <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
-  <span class="n">username</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">email</span>         <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>  <span class="k">UNIQUE</span><span class="p">,</span>
-  <span class="n">password_hash</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">128</span><span class="p">),</span>
-  <span class="n">api_key</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>   <span class="k">UNIQUE</span><span class="p">,</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">is_banned</span>     <span class="nb">BOOLEAN</span>       <span class="k">DEFAULT</span> <span class="k">false</span>
-<span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">paste_views</span> <span class="p">(</span>
-  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">viewed_at</span>     <span class="nb">DATE</span>          <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">view_count</span>    <span class="nb">INT</span>           <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>
-  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">paste_id</span><span class="p">,</span> <span class="n">viewed_at</span><span class="p">)</span>
-<span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">reports</span> <span class="p">(</span>
-  <span class="n">id</span>            <span class="nb">SERIAL</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-  <span class="n">paste_id</span>      <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-  <span class="n">reporter_id</span>   <span class="n">UUID</span><span class="p">,</span>
-  <span class="n">reason</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
-  <span class="n">resolved_at</span>   <span class="n">TIMESTAMPTZ</span>
-<span class="p">);</span></code></pre></div>
+<figure class='code'><div class="highlight"><pre><code class=""><span class='line'>CREATE TABLE pastes (
+</span><span class='line'>  id            VARCHAR(10)   PRIMARY KEY,
+</span><span class='line'>  owner_id      UUID,
+</span><span class='line'>  title         VARCHAR(255),
+</span><span class='line'>  language      VARCHAR(64),
+</span><span class='line'>  visibility    SMALLINT      DEFAULT 0,  -- 0=public, 1=unlisted, 2=private
+</span><span class='line'>  storage_path  VARCHAR(512)  NOT NULL,
+</span><span class='line'>  content_hash  CHAR(64),
+</span><span class='line'>  byte_size     INT,
+</span><span class='line'>  view_count    BIGINT        DEFAULT 0,
+</span><span class='line'>  created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+</span><span class='line'>  expires_at    TIMESTAMPTZ,
+</span><span class='line'>  deleted_at    TIMESTAMPTZ
+</span><span class='line'>);
+</span><span class='line'>
+</span><span class='line'>CREATE INDEX idx_pastes_owner ON pastes(owner_id, created_at DESC);
+</span><span class='line'>CREATE INDEX idx_pastes_expires ON pastes(expires_at) WHERE expires_at IS NOT NULL;
+</span><span class='line'>CREATE INDEX idx_pastes_hash ON pastes(content_hash);
+</span><span class='line'>
+</span><span class='line'>CREATE TABLE users (
+</span><span class='line'>  id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+</span><span class='line'>  username      VARCHAR(64)   UNIQUE NOT NULL,
+</span><span class='line'>  email         VARCHAR(255)  UNIQUE,
+</span><span class='line'>  password_hash VARCHAR(128),
+</span><span class='line'>  api_key       VARCHAR(64)   UNIQUE,
+</span><span class='line'>  created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+</span><span class='line'>  is_banned     BOOLEAN       DEFAULT false
+</span><span class='line'>);
+</span><span class='line'>
+</span><span class='line'>CREATE TABLE paste_views (
+</span><span class='line'>  paste_id      VARCHAR(10)   NOT NULL,
+</span><span class='line'>  viewed_at     DATE          NOT NULL,
+</span><span class='line'>  view_count    INT           NOT NULL DEFAULT 1,
+</span><span class='line'>  PRIMARY KEY (paste_id, viewed_at)
+</span><span class='line'>);
+</span><span class='line'>
+</span><span class='line'>CREATE TABLE reports (
+</span><span class='line'>  id            SERIAL        PRIMARY KEY,
+</span><span class='line'>  paste_id      VARCHAR(10)   NOT NULL,
+</span><span class='line'>  reporter_id   UUID,
+</span><span class='line'>  reason        VARCHAR(64),
+</span><span class='line'>  created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+</span><span class='line'>  resolved_at   TIMESTAMPTZ
+</span><span class='line'>);</span></code></pre></div></figure>
 
 
 <p>The <code>expires_at</code> index is partial, covering only rows where the column is not null. This keeps the index small and fast for the cleanup job.</p>

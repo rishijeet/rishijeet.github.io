@@ -4,7 +4,7 @@
     <title><![CDATA[Category: go | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/go/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-10-11T17:37:31+05:30</updated>
+    <updated>2026-10-17T14:24:39+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -27,115 +27,119 @@
 
 <p>The routes can be declared as mentioned below</p>
 
-<p>{%codeblock lang:go %}
-func main() {
-    r := mux.NewRouter()
-    r.HandleFunc(&ldquo;/&rdquo;, HomeHandler)
-    r.HandleFunc(&ldquo;/users&rdquo;, UsersHandler)
-    r.HandleFunc(&ldquo;/blogs&rdquo;, BlogHandler)
-    http.Handle(&ldquo;/&rdquo;, r)
-}</p>
-
-<p>{%endcodeblock%}</p>
+<p><figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">r</span> <span class="o">:=</span> <span class="nx">mux</span><span class="p">.</span><span class="nx">NewRouter</span><span class="p">()</span>
+</span><span class='line'>    <span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="o">/&amp;</span><span class="nx">rdquo</span><span class="p">;,</span> <span class="nx">HomeHandler</span><span class="p">)</span>
+</span><span class='line'>    <span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="o">/</span><span class="nx">users</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;,</span> <span class="nx">UsersHandler</span><span class="p">)</span>
+</span><span class='line'>    <span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="o">/</span><span class="nx">blogs</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;,</span> <span class="nx">BlogHandler</span><span class="p">)</span>
+</span><span class='line'>    <span class="nx">http</span><span class="p">.</span><span class="nx">Handle</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="o">/&amp;</span><span class="nx">rdquo</span><span class="p">;,</span> <span class="nx">r</span><span class="p">)</span>
+</span><span class='line'><span class="p">}&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span>
+</span></code></pre></div></figure></p>
 
 <p>The basic http server code</p>
 
-<p>{%codeblock lang:go %}</p>
-
-<p>// Author: Rishijeet Mishra
-package main</p>
-
-<p>import (
-    &ldquo;net/http&rdquo;
-    &ldquo;encoding/json&rdquo;
-    &ldquo;log&rdquo;
-    &ldquo;github.com/gorilla/mux&rdquo;
-)</p>
-
-<p>func main() {
-    router := mux.NewRouter()
-    // Routes consist of a path and a handler function.
-    router.HandleFunc(&ldquo;/myhandler&rdquo;, MyHandler)</p>
-
-<pre><code>// Bind to a port and pass our router in
-log.Fatal(http.ListenAndServe(":5000", router))
-</code></pre>
-
-<p>}</p>
-
-<p>func MyHandler(w http.ResponseWriter, r *http.Request){
-    //w.Write([]byte(&ldquo;The page to be rendered&rdquo;))
-    w.Header().Set(&ldquo;Content-Type&rdquo;, &ldquo;application/json&rdquo;)
-    json.NewEncoder(w).Encode(struct
-    {
-        key string
-    }
-    {
-        &ldquo;value&rdquo;
-    } )</p>
-
-<p>}</p>
-
-<p>{%endcodeblock%}</p>
+<p><figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="p">&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="c1">// Author: Rishijeet Mishra</span>
+</span><span class='line'><span class="kn">package</span> <span class="nx">main</span><span class="p">&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="kn">import</span> <span class="p">(</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">net</span><span class="o">/</span><span class="nx">http</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">encoding</span><span class="o">/</span><span class="nx">json</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">log</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">github</span><span class="p">.</span><span class="nx">com</span><span class="o">/</span><span class="nx">gorilla</span><span class="o">/</span><span class="nx">mux</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;</span>
+</span><span class='line'><span class="p">)&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">router</span> <span class="o">:=</span> <span class="nx">mux</span><span class="p">.</span><span class="nx">NewRouter</span><span class="p">()</span>
+</span><span class='line'>    <span class="c1">// Routes consist of a path and a handler function.</span>
+</span><span class='line'>    <span class="nx">router</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="o">/</span><span class="nx">myhandler</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;,</span> <span class="nx">MyHandler</span><span class="p">)&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">pre</span><span class="p">&gt;&lt;</span><span class="nx">code</span><span class="p">&gt;</span><span class="c1">// Bind to a port and pass our router in</span>
+</span><span class='line'><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">ListenAndServe</span><span class="p">(</span><span class="s">&quot;:5000&quot;</span><span class="p">,</span> <span class="nx">router</span><span class="p">))</span>
+</span><span class='line'><span class="p">&lt;</span><span class="o">/</span><span class="nx">code</span><span class="p">&gt;&lt;</span><span class="o">/</span><span class="nx">pre</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;}&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="kd">func</span> <span class="nx">MyHandler</span><span class="p">(</span><span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">r</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">){</span>
+</span><span class='line'>    <span class="c1">//w.Write([]byte(&amp;ldquo;The page to be rendered&amp;rdquo;))</span>
+</span><span class='line'>    <span class="nx">w</span><span class="p">.</span><span class="nx">Header</span><span class="p">().</span><span class="nx">Set</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">Content</span><span class="o">-</span><span class="nx">Type</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">application</span><span class="o">/</span><span class="nx">json</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;)</span>
+</span><span class='line'>    <span class="nx">json</span><span class="p">.</span><span class="nx">NewEncoder</span><span class="p">(</span><span class="nx">w</span><span class="p">).</span><span class="nx">Encode</span><span class="p">(</span><span class="kd">struct</span>
+</span><span class='line'>    <span class="p">{</span>
+</span><span class='line'>        <span class="nx">key</span> <span class="kt">string</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="p">{</span>
+</span><span class='line'>        <span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">value</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span> <span class="p">)&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;}&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span>
+</span></code></pre></div></figure></p>
 
 <p>Let&rsquo;s add the POST method</p>
 
-<p>{%codeblock lang:go %}</p>
-
-<p>// Add the route</p>
-
-<p>r.HandleFunc(&ldquo;/add/{item}&rdquo;, addItem).Methods(&ldquo;POST&rdquo;)</p>
-
-<p>//Add the func</p>
-
-<p>func addItem(w http.ResponseWriter, r *http.Request){
-    itemholder  := mux.Vars&reg;[&lsquo;item&rsquo;]
-    data = append( data, itemholder)
-    json.NewEncoder(w).Encode(data)</p>
-
-<p>}</p>
-
-<p>{%endcodeblock%}</p>
+<p><figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="p">&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="c1">// Add the route&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="nx">r</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="o">/</span><span class="nx">add</span><span class="o">/</span><span class="p">{</span><span class="nx">item</span><span class="p">}</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;,</span> <span class="nx">addItem</span><span class="p">).</span><span class="nx">Methods</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ldquo</span><span class="p">;</span><span class="nx">POST</span><span class="o">&amp;</span><span class="nx">rdquo</span><span class="p">;)&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="c1">//Add the func&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="kd">func</span> <span class="nx">addItem</span><span class="p">(</span><span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">r</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">){</span>
+</span><span class='line'>    <span class="nx">itemholder</span>  <span class="o">:=</span> <span class="nx">mux</span><span class="p">.</span><span class="nx">Vars</span><span class="o">&amp;</span><span class="nx">reg</span><span class="p">;[</span><span class="o">&amp;</span><span class="nx">lsquo</span><span class="p">;</span><span class="nx">item</span><span class="o">&amp;</span><span class="nx">rsquo</span><span class="p">;]</span>
+</span><span class='line'>    <span class="nx">data</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">itemholder</span><span class="p">)</span>
+</span><span class='line'>    <span class="nx">json</span><span class="p">.</span><span class="nx">NewEncoder</span><span class="p">(</span><span class="nx">w</span><span class="p">).</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">data</span><span class="p">)&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;}&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span>
+</span></code></pre></div></figure></p>
 
 <p>Let&rsquo;s add the GET</p>
 
-<p>{%codeblock lang:go %}</p>
-
-<p>// The struct for grouping
-type Item struct {
-    Data string
-}</p>
-
-<p>var data []Item = []Item{}</p>
-
-<p>func addItem(w http.ResponseWriter, r *http.Request){</p>
-
-<pre><code>var latestItem Item
-json.NewDecoder(r.Body).Decode(&amp;latestItem)
-
-data = append( data, latestItem)
-
-// output the json
-w.Header().Set("Content-Type", "application/json")
-json.NewEncoder(w).Encode(data) 
-</code></pre>
-
-<p>}</p>
-
-<p>{%endcodeblock%}</p>
+<p><figure class='code'><div class="highlight"><pre><code class="go"><span class='line'><span class="p">&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="c1">// The struct for grouping</span>
+</span><span class='line'><span class="kd">type</span> <span class="nx">Item</span> <span class="kd">struct</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">Data</span> <span class="kt">string</span>
+</span><span class='line'><span class="p">}&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="kd">var</span> <span class="nx">data</span> <span class="p">[]</span><span class="nx">Item</span> <span class="p">=</span> <span class="p">[]</span><span class="nx">Item</span><span class="p">{}&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span><span class="kd">func</span> <span class="nx">addItem</span><span class="p">(</span><span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">r</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">){&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">pre</span><span class="p">&gt;&lt;</span><span class="nx">code</span><span class="p">&gt;</span><span class="kd">var</span> <span class="nx">latestItem</span> <span class="nx">Item</span>
+</span><span class='line'><span class="nx">json</span><span class="p">.</span><span class="nx">NewDecoder</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Body</span><span class="p">).</span><span class="nx">Decode</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">amp</span><span class="p">;</span><span class="nx">latestItem</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="nx">data</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">latestItem</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// output the json</span>
+</span><span class='line'><span class="nx">w</span><span class="p">.</span><span class="nx">Header</span><span class="p">().</span><span class="nx">Set</span><span class="p">(</span><span class="s">&quot;Content-Type&quot;</span><span class="p">,</span> <span class="s">&quot;application/json&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="nx">json</span><span class="p">.</span><span class="nx">NewEncoder</span><span class="p">(</span><span class="nx">w</span><span class="p">).</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span>
+</span><span class='line'><span class="p">&lt;</span><span class="o">/</span><span class="nx">code</span><span class="p">&gt;&lt;</span><span class="o">/</span><span class="nx">pre</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;}&lt;</span><span class="o">/</span><span class="nx">p</span><span class="p">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="nx">p</span><span class="p">&gt;</span>
+</span></code></pre></div></figure></p>
 
 <p>Mux supports the addition of middlewares to a Router, which are executed in the order they are added if a match is found, including its subrouters. Middlewares are (typically) small pieces of code which take one request, do something with it, and pass it down to another middleware or the final handler.</p>
 
-<p>{%codeblock lang:batch %}</p>
-
-<p>type MiddlewareFunc func(http.Handler) http.Handler</p>
-
-<p>//Add the middleware to the route
-r := mux.NewRouter()
-r.HandleFunc(&ldquo;/&rdquo;, handler)
-r.Use(loggingMiddleware)</p>
-
-<p>{%endcodeblock%}</p>
+<p><figure class='code'><div class="highlight"><pre><code class="batch"><span class='line'>&lt;<span class="n">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="n">p</span><span class="p">&gt;</span><span class="n">type</span> MiddlewareFunc func(http.Handler) http.Handler&lt;<span class="n">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="n">p</span>&gt;<span class="n">//Add</span> the middleware to the route
+</span><span class='line'>r :<span class="o">=</span> mux.NewRouter()
+</span><span class='line'>r.HandleFunc(&amp;ldquo;<span class="n">/&amp;rdquo;,</span> handler)
+</span><span class='line'>r.Use(loggingMiddleware)&lt;<span class="n">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">&lt;</span><span class="n">p</span>&gt;
+</span></code></pre></div></figure></p>
 
 <p>Click for more details on the <a href="https://github.com/gorilla/mux">gorilla/mux</a></p>
 ]]></content>
