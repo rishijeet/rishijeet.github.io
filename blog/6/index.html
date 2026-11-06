@@ -86,6 +86,84 @@
             <header class="article__header">
     
         <h1 class="h2 article__title">
+            <a href="/blog/how-tinder-works/">How Tinder Works</a>
+        </h1>
+    
+
+    
+        <div class="article__meta clearfix">
+            
+
+
+
+
+
+
+    <time class="article__date pull-left" datetime="2026-05-16T15:04:27+05:30" pubdate><i class="fa fa-calendar"></i> May 16th, 2026</time>
+
+
+
+
+            
+
+    <div class="article__tags pull-left">
+        <i class="fa fa-tags"></i>
+        <ul class="unstyled">
+        
+            
+                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
+            
+                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
+            
+                <li><a class='category' href='/blog/categories/tinder/'>tinder</a></li>
+            
+                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
+            
+                <li><a class='category' href='/blog/categories/chat/'>chat</a></li>
+            
+                <li><a class='category' href='/blog/categories/social-media/'>social_media</a></li>
+            
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+    
+</header>
+
+
+
+
+    <div class="article__content clearfix">
+        <blockquote><p><em>There is a moment every Tinder engineer has probably thought about: a user swipes right, and within a second, both people get a match notification. That notification feels instant, almost magical. But behind that single interaction is an entire distributed system firing in coordination — a recommendation engine, a geo-spatial query, a mutual-match check, a real-time push notification, and a chat channel being provisioned, all happening faster than the human brain can process what just occurred.</em></p></blockquote>
+
+<p>Tinder is not a simple CRUD app with a swiping UI on top. It is one of the most sophisticated consumer-grade distributed systems ever built. On any given day, Tinder processes over 1.6 billion swipes globally, serves users across hundreds of countries, and must deliver personalized, geo-aware recommendation feeds to millions of concurrent users, all while keeping latency below perceptible thresholds.</p>
+
+<p><img src="/images/system_design/tinder.jpg" height="300" width="900" alt="Alt text" /></p>
+
+<p>The engineering challenges here are real and genuinely hard. You are dealing with write-heavy workloads from swipe events, read-heavy workloads from feed generation, real-time geo queries at planetary scale, ML-based ranking pipelines that need to be both fast and personalized, and a messaging layer that must guarantee delivery even when mobile connections are flaky. Understanding how Tinder solves these problems teaches you almost everything you need to know about modern distributed systems engineering.</p>
+
+<p>This blog is going to walk through the entire architecture, piece by piece, from how a swipe is processed to how the recommendation engine decides whose profile appears next on your screen. We will cover the tradeoffs, the bottlenecks, and the engineering reasoning behind each decision. By the end, you should feel like you genuinely understand how this system works at production scale.</p>
+
+<a name="Core.Features.of.Tinder"></a>
+<h2>Core Features of Tinder</h2>
+
+<p>Before diving into the architecture, it helps to understand exactly what the system needs to do. Tinder&rsquo;s feature set is wider than most people realize.</p>
+
+
+        <a class="btn pull-right" href="/blog/how-tinder-works/">Read on &rarr;</a>
+    </div>
+
+        </article>
+        <hr>
+    
+        
+        <article class="article article--index">
+            <header class="article__header">
+    
+        <h1 class="h2 article__title">
             <a href="/blog/how-nginx-works/">How NGINX Works?</a>
         </h1>
     
@@ -361,75 +439,6 @@
 
 
         <a class="btn pull-right" href="/blog/how-chatgpt-works/">Read on &rarr;</a>
-    </div>
-
-        </article>
-        <hr>
-    
-        
-        <article class="article article--index">
-            <header class="article__header">
-    
-        <h1 class="h2 article__title">
-            <a href="/blog/how-youtube-works/">How YouTube Works?</a>
-        </h1>
-    
-
-    
-        <div class="article__meta clearfix">
-            
-
-
-
-
-
-
-    <time class="article__date pull-left" datetime="2026-05-13T16:08:56+05:30" pubdate><i class="fa fa-calendar"></i> May 13th, 2026</time>
-
-
-
-
-            
-
-    <div class="article__tags pull-left">
-        <i class="fa fa-tags"></i>
-        <ul class="unstyled">
-        
-            
-                <li><a class='category' href='/blog/categories/system-design/'>system_design</a></li>
-            
-                <li><a class='category' href='/blog/categories/architecture/'>architecture</a></li>
-            
-                <li><a class='category' href='/blog/categories/google/'>google</a></li>
-            
-                <li><a class='category' href='/blog/categories/youtube/'>youtube</a></li>
-            
-                <li><a class='category' href='/blog/categories/technology/'>technology</a></li>
-            
-            
-        </ul>
-    </div>
-
-
-            
-        </div>
-    
-</header>
-
-
-
-
-    <div class="article__content clearfix">
-        <blockquote><p><em>There is a moment every engineer has when they first truly think about what YouTube does. Not the product, but the machine. Someone in rural Indonesia uploads a phone video of a street cat doing something peculiar. Within minutes, that video is available in crisp 1080p to a user in São Paulo, another in Stockholm, and a third on a slow connection in rural Kenya who gets a smooth 360p stream without a single rebuffering event. The recommendation engine is already deciding who else should see it. The ad system has already matched it to relevant advertisers. The copyright scanner has already checked it against a database of millions of audio and video fingerprints.</em></p></blockquote>
-
-<p><img src="/images/system_design/youtube.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>That is not magic. That is engineering, done at a scale that very few systems in the world have ever had to achieve.</p>
-
-<p>YouTube serves over 2 billion logged-in users every month. More than 500 hours of video are uploaded to the platform every single minute. The platform delivers over a billion hours of video playback per day. When you build a system at that scale, you cannot afford to think about problems the way you would in a startup. Every architectural decision has second and third order consequences. A naive caching strategy does not just waste a few dollars — it can collapse under load during a major event. A poorly designed upload pipeline does not just frustrate one creator — it fails millions simultaneously.</p>
-
-
-        <a class="btn pull-right" href="/blog/how-youtube-works/">Read on &rarr;</a>
     </div>
 
         </article>
