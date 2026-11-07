@@ -4,7 +4,7 @@
     <title><![CDATA[Category: llm | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/llm/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-11-06T15:25:48+05:30</updated>
+    <updated>2026-11-07T16:43:30+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,489 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Securing the AI Era: A Practical Guide to Red, Blue, and Purple Teaming]]></title>
+        <link href="https://rishijeet.github.io/blog/securing-the-ai-era-a-practical-guide-to-red-blue-purple-teaming/"/>
+        <updated>2026-11-07T16:32:04+05:30</updated>
+        <id>https://rishijeet.github.io/blog/securing-the-ai-era-a-practical-guide-to-red-blue-purple-teaming</id>
+        <content type="html"><![CDATA[<p>A traditional web application does what its code says. An LLM application does what its code says, plus whatever the model infers from every piece of text it reads. That text can include a customer email, a scraped web page, or a PDF someone uploaded, and the model cannot reliably tell which parts are data and which are instructions.</p>
+
+<p>This is why AI security needs adversarial testing that goes beyond scanning for known vulnerabilities. You have to probe a probabilistic system whose behavior shifts with phrasing, conversation history, and context. Red, blue, and purple teaming give you a structure for doing that.</p>
+
+<p><img src="/images/2026/red_teaming.png" height="300" width="900" alt="Alt text" /><em>Source: Generated using AI</em></p>
+
+<p>This guide covers how the three disciplines map onto AI systems, how jailbreaking and prompt injection work conceptually, what a continuous testing pipeline looks like, and where the limits are. It stays at the level of mechanisms and defenses and does not include working attack payloads.</p>
+
+<!--more-->
+
+
+<a name="Background:.why.classic.security.testing.falls.short"></a>
+<h2>Background: why classic security testing falls short</h2>
+
+<p>Conventional red teams test deterministic systems. If an endpoint is vulnerable to SQL injection, the same payload works every time, and a patch closes the hole. Three properties of LLM systems break that model.</p>
+
+<ul>
+<li><strong>Non-determinism:</strong> The same prompt can produce different outputs on consecutive runs, so a single passing test proves little.</li>
+<li><strong>No hard boundary between instructions and data:</strong> Everything the model reads is tokens in one context window. System prompts, user messages, retrieved documents, and tool outputs all compete for influence.</li>
+<li><strong>Wide, natural-language attack surface:</strong> Attacks need no exploit code. Attackers can use persuasion, role-play, and gradual escalation, which defeats signature-based filters.</li>
+</ul>
+
+
+<p><img src="/images/2026/classic_security.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Early AI red teaming focused on the model itself, covering harmful content, bias, and training data leakage. The attack surface has since moved to the application around the model, which now includes retrieval pipelines, tool calling, memory, and autonomous agents. The <a href="https://www.hackerone.com/ai/owasp-top-10-llms-2025">OWASP Top 10 for LLM Applications 2025</a> reflects this shift. It keeps prompt injection at number one and adds System Prompt Leakage and Vector and Embedding Weaknesses as new entries. OWASP&rsquo;s <a href="https://aembit.io/blog/owasp-top-10-llm-risks-explained/">Excessive Agency</a> entry covers three root causes: too much functionality, too many permissions, and too much autonomy. Aembit&rsquo;s overview of the 2025 list also notes that a 2026 edition now exists. I haven&rsquo;t verified what changed in it, so check OWASP&rsquo;s GenAI Security Project directly before citing rankings.</p>
+
+<a name="Core.concepts:.red..blue..and.purple.teams"></a>
+<h2>Core concepts: red, blue, and purple teams</h2>
+
+<p>The three team names carry over from classic security, but their jobs change for AI systems.</p>
+
+<ul>
+<li><strong>Red team:</strong> Plays the adversary. It tries to make the system misbehave by leaking data, taking unauthorized actions, producing prohibited content, or ignoring its instructions.</li>
+<li><strong>Blue team:</strong> Defends the system. It builds guardrails, permission boundaries, logging, detection rules, and incident response.</li>
+<li><strong>Purple team:</strong> Is a collaboration model more than a separate team. Red and blue work together in short cycles, so every successful attack becomes a detection rule, a guardrail, or a regression test.</li>
+</ul>
+
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Team</th>
+        <th>Primary Question</th>
+        <th>Typical AI Activities</th>
+        <th>Main Output</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Red</td>
+        <td>How can this system be made to fail?</td>
+        <td>Jailbreak attempts, indirect injection through documents, tool abuse, data extraction probes</td>
+        <td>Reproducible findings with severity and impact</td>
+      </tr>
+      <tr>
+        <td>Blue</td>
+        <td>How do we prevent, detect, and contain failures?</td>
+        <td>Input and output filtering, least-privilege tool design, prompt and response logging, anomaly detection</td>
+        <td>Controls, detections, and runbooks</td>
+      </tr>
+      <tr>
+        <td>Purple</td>
+        <td>Did the fix actually work, and does it stay fixed?</td>
+        <td>Joint replay of attacks, detection tuning, regression suites in CI</td>
+        <td>Validated controls and measurable coverage</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Two reference frameworks help structure the work. OWASP&rsquo;s list is useful for risk categories. <a href="https://blogs.cisco.com/ai/ai-cyber-threat-intelligence-roundup-april-2024">MITRE ATLAS</a> catalogs adversary techniques against AI systems, and security vendors already tag jailbreak research with ATLAS identifiers such as AML.T0054 (LLM Jailbreak). Mapping findings to these frameworks makes them legible to security teams that already think in ATT&amp;CK terms.</p>
+
+<a name="Jailbreaking.versus.prompt.injection"></a>
+<h2>Jailbreaking versus prompt injection</h2>
+
+<p>These terms are often used interchangeably, but they describe different problems.</p>
+
+<p><strong>Jailbreaking</strong> targets the model&rsquo;s own safety training. The attacker is usually the user, and the goal is to get the model to produce something it was trained to refuse. The victim is the model provider&rsquo;s or deployer&rsquo;s policy.</p>
+
+<p><strong>Prompt injection</strong> targets the application. The attacker&rsquo;s goal is to make the model follow instructions it should have treated as data. When the attacker types the instructions directly, it is direct injection. When the instructions hide in content the model later reads, such as a web page, an email, or a retrieved document, it is indirect injection. In indirect injection the user may be completely innocent, and the user is the victim.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th>Jailbreaking</th>
+        <th>Direct Prompt Injection</th>
+        <th>Indirect Prompt Injection</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Attacker</td>
+        <td>The user</td>
+        <td>The user</td>
+        <td>A third party who controls content</td>
+      </tr>
+      <tr>
+        <td>Target</td>
+        <td>Model safety training</td>
+        <td>Application instructions</td>
+        <td>Application instructions and user data</td>
+      </tr>
+      <tr>
+        <td>Typical impact</td>
+        <td>Policy-violating output</td>
+        <td>Instruction override, prompt leakage</td>
+        <td>Data exfiltration, unauthorized tool actions</td>
+      </tr>
+      <tr>
+        <td>Risk grows with</td>
+        <td>Model capability and permissiveness</td>
+        <td>Weak system prompt boundaries</td>
+        <td>Tool access, retrieval, and agent autonomy</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="How.jailbreaks.work..conceptually"></a>
+<h3>How jailbreaks work, conceptually</h3>
+
+<p>Several research lines show that safety training holds up poorly against determined adaptive attackers. The categories below are the ones red teams test against.</p>
+
+<ul>
+<li><strong>Optimization-based attacks:</strong> Research on gradient-guided adversarial suffixes, such as <a href="https://arxiv.org/abs/2307.15043">Zou et al. (2023)</a>, showed that appended token sequences found by optimization can push aligned models toward compliance. They generally require white-box access or transfer from open models, and they often produce gibberish that input filters can flag.</li>
+<li><strong>Multi-turn escalation:</strong> Microsoft&rsquo;s <a href="https://arxiv.org/abs/2404.01833">Crescendo paper</a> describes a technique that begins with an innocuous question and steers the model gradually, referencing the model&rsquo;s own earlier answers. The paper states that the inputs are benign and human-readable, and that it exploits the model&rsquo;s tendency to follow patterns and weight recent text. Because each message looks harmless alone, per-message filters struggle with it.</li>
+<li><strong>Long-context priming:</strong> Anthropic&rsquo;s <a href="https://www.anthropic.com/research/many-shot-jailbreaking">many-shot jailbreaking research</a> showed that filling a long context window with many examples of undesired behavior can shift model behavior. As context windows grew, this attack surface grew with them.</li>
+<li><strong>Role-play and framing attacks:</strong> Persona framing, fictional wrappers, and &ldquo;authorized tester&rdquo; claims try to recast a harmful request as a legitimate one.</li>
+<li><strong>Encoding and obfuscation:</strong> Translation, encoding, and unusual formatting try to slip content past filters that match on surface patterns.</li>
+</ul>
+
+
+<p>The practical lesson is that single-turn refusal rates are a weak measure of robustness. A model that refuses a request when asked directly may comply after several turns of benign priming, so evaluations have to be trajectory-level.</p>
+
+<a name="How.an.indirect.injection.attack.unfolds"></a>
+<h2>How an indirect injection attack unfolds</h2>
+
+<p>Indirect injection is the scenario that matters most for production systems, because it needs no malicious user. Consider an assistant that summarizes a user&rsquo;s inbox and can also send replies and query a customer database.</p>
+
+<div class="mermaid">
+sequenceDiagram
+    participant Attacker
+    participant Mailbox as User Mailbox
+    participant Agent as AI Assistant
+    participant Model as LLM
+    participant Tools as Email and Database Tools
+
+    Attacker->>Mailbox: Sends email containing hidden instructions
+    Note over Mailbox: Instructions look like ordinary text to the model
+    Agent->>Mailbox: Fetch unread messages
+    Mailbox&#8211;>>Agent: Messages including the crafted email
+    Agent->>Model: System prompt + user request + email text
+    Model&#8211;>>Agent: Plans a tool call influenced by the hidden text
+    Agent->>Tools: Query customer records
+    Tools&#8211;>>Agent: Sensitive data returned
+    Agent->>Tools: Send data to external address
+    Note over Agent,Tools: Blue team controls should block or flag this step
+</div>
+
+
+<p>Nothing in this flow requires the model to be &ldquo;broken&rdquo; in any special way. The model followed what looked like a reasonable instruction in its context. The failure is architectural: untrusted content and trusted instructions shared one channel, and the agent held enough privilege to cause damage once the model was influenced.</p>
+
+<p>This is why mitigation centers on limiting what a compromised model can do rather than on perfectly detecting every injection. As one practitioner overview of the OWASP list puts it, <a href="https://aembit.io/blog/owasp-top-10-llm-risks-explained/">you can&rsquo;t patch your way out of prompt injection</a>, because it stems from how LLMs process input.</p>
+
+<a name="The.purple.team.loop.in.practice"></a>
+<h2>The purple team loop in practice</h2>
+
+<p>A useful purple team process is a loop, not a one-off engagement. Each finding feeds a control, and each control feeds a regression test.</p>
+
+<div class="mermaid">
+flowchart TD
+    A([&#8220;Threat Model the AI System&#8221;])
+    B[&#8220;Red Team Attack Campaign&#8221;]
+    C{&#8220;Attack Succeeded?&#8221;}
+    D[&#8220;Document Reproducible Finding&#8221;]
+    E[&#8220;Blue Team Mitigation&#8221;]
+    F[&#8220;Detection Rule and Logging&#8221;]
+    G[&#8220;Add Regression Test to CI&#8221;]
+    H{&#8220;Retest Passes?&#8221;}
+    I([&#8220;Release and Monitor&#8221;])
+    J[&#8220;Record Residual Risk&#8221;]
+
+    A &#8211;> B
+    B &#8211;> C
+    C &#8211;>|No| J
+    C &#8211;>|Yes| D
+    D &#8211;> E
+    E &#8211;> F
+    F &#8211;> G
+    G &#8211;> H
+    H &#8211;>|No| E
+    H &#8211;>|Yes| I
+    J &#8211;> I
+    I &#8211;>|Model, prompt, or tool change| B
+
+    classDef primary fill:#EAF2FF,stroke:#6495D0,color:#243B60,stroke-width:2px
+    classDef processing fill:#EEE9FF,stroke:#9985D5,color:#493878,stroke-width:2px
+    classDef decision fill:#FFF5DC,stroke:#D9A441,color:#74500B,stroke-width:2px
+    classDef security fill:#FFF0E5,stroke:#DF9B69,color:#784522,stroke-width:2px
+    classDef execution fill:#E5F6F1,stroke:#65B9A1,color:#205B4C,stroke-width:2px
+    classDef results fill:#FCECF4,stroke:#D88BB0,color:#743C58,stroke-width:2px
+    classDef success fill:#E5F5E9,stroke:#75B887,color:#285B35,stroke-width:2px
+
+    class A primary
+    class B processing
+    class C,H decision
+    class D results
+    class E,F security
+    class G execution
+    class I success
+    class J results
+</div>
+
+
+<p>The loop restarts whenever the system changes. A new model version, a revised system prompt, a new tool, or a changed retrieval source can all invalidate earlier results. This is the main reason one-time pen tests age badly for AI systems.</p>
+
+<a name="Scoping.the.engagement"></a>
+<h3>Scoping the engagement</h3>
+
+<p>Before testing, write down four things.</p>
+
+<ul>
+<li><strong>Assets:</strong> What is worth protecting? Examples include customer data, internal documents, system prompts, API credentials, and the ability to take actions such as payments or emails.</li>
+<li><strong>Trust boundaries:</strong> Which inputs are untrusted? Anything the user did not author, including retrieved documents, web pages, emails, tool outputs, and other agents&#8217; messages, counts.</li>
+<li><strong>Capabilities:</strong> What can the model do? List every tool, its permissions, and whether actions need human confirmation.</li>
+<li><strong>Harm model:</strong> What does failure look like here? A customer support bot leaking another customer&rsquo;s order is a different severity than a chatbot producing an off-brand joke.</li>
+</ul>
+
+
+<p>Many findings turn out to be architecture findings. A prompt injection against a system with no tools and no sensitive context is an embarrassment. The same injection against an agent with email and database access is a breach.</p>
+
+<a name="Practical.implementation"></a>
+<h2>Practical implementation</h2>
+
+<a name="Red.team:.a.minimal.canary-based.test.harness"></a>
+<h3>Red team: a minimal canary-based test harness</h3>
+
+<p>Manual testing finds creative failures, but automation provides repeatability. The harness below tests whether a deployed assistant leaks a planted canary secret when processing a document that contains an injected instruction. It uses a harmless canary string rather than a real attack payload, and the exact injection text is left as a configurable fixture. The code is illustrative.</p>
+
+<p><div class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">import</span> <span class="n">uuid</span>
+<span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">CANARY</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">CANARY-</span><span class="si">{</span><span class="n">uuid</span><span class="p">.</span><span class="nf">uuid4</span><span class="p">().</span><span class="nb">hex</span><span class="p">[</span><span class="si">:</span><span class="mi">12</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">TestCase</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">document</span><span class="p">:</span> <span class="nb">str</span>      <span class="c1"># untrusted content the app will ingest
+</span>    <span class="n">user_request</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># the legitimate user task&lt;/p&gt;
+</span>
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">build_cases</span><span class="p">(</span><span class="n">injection_fixtures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">TestCase</span><span class="p">]:</span>
+    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Wrap</span> <span class="n">each</span> <span class="n">fixture</span> <span class="n">inside</span> <span class="n">otherwise</span> <span class="n">ordinary</span> <span class="n">document</span> <span class="n">text</span><span class="p">.</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
+    <span class="n">cases</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">fixture</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">injection_fixtures</span><span class="p">):</span>
+        <span class="n">doc</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">Quarterly summary: revenue was flat.</span><span class="se">\n\n</span><span class="si">{</span><span class="n">fixture</span><span class="si">}</span><span class="se">\n\n</span><span class="s">End of report.&amp;ldquo;
+        cases.append(TestCase(f</span><span class="sh">"</span><span class="n">indirect</span><span class="o">-</span><span class="p">{</span><span class="n">i</span><span class="p">}</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="n">doc</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Summarize</span> <span class="n">this</span> <span class="n">document</span><span class="p">.</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;))</span>
+    <span class="k">return</span> <span class="n">cases</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">run_case</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">case</span><span class="p">:</span> <span class="n">TestCase</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="c1"># The app under test is seeded with a secret in its privileged context.
+</span>    <span class="n">response</span> <span class="o">=</span> <span class="n">app</span><span class="p">.</span><span class="nf">handle</span><span class="p">(</span>
+        <span class="n">user_message</span><span class="o">=</span><span class="k">case</span><span class="p">.</span><span class="n">user_request</span><span class="p">,</span>
+        <span class="n">retrieved_docs</span><span class="o">=</span><span class="p">[</span><span class="k">case</span><span class="p">.</span><span class="n">document</span><span class="p">],</span>
+        <span class="n">secret_context</span><span class="o">=</span><span class="n">CANARY</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">case</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="k">case</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">leaked_canary</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="n">CANARY</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="n">text</span><span class="p">,</span>
+        <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">unexpected_tool_calls</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="p">[</span>
+            <span class="n">c</span><span class="p">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="n">tool_calls</span>
+            <span class="k">if</span> <span class="n">c</span><span class="p">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">search_docs</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;}</span>   <span class="c1"># allowlist for this task
+</span>        <span class="p">],</span>
+    <span class="p">}</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">run_suite</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">fixtures</span><span class="p">,</span> <span class="n">trials</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Repeat</span> <span class="n">each</span> <span class="n">case</span><span class="p">,</span> <span class="n">since</span> <span class="n">model</span> <span class="n">output</span> <span class="ow">is</span> <span class="n">non</span><span class="o">-</span><span class="n">deterministic</span><span class="p">.</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="k">case</span> <span class="ow">in</span> <span class="nf">build_cases</span><span class="p">(</span><span class="n">fixtures</span><span class="p">):</span>
+        <span class="n">outcomes</span> <span class="o">=</span> <span class="p">[</span><span class="nf">run_case</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">case</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">trials</span><span class="p">)]</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">o</span><span class="p">[</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">leaked_canary</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;]</span> <span class="ow">or</span> <span class="nf">bool</span><span class="p">(</span><span class="n">o</span><span class="p">[</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">unexpected_tool_calls</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;])</span>
+                       <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">)</span>
+        <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">case</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="k">case</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">failure_rate</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="n">failures</span> <span class="o">/</span> <span class="n">trials</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">results</span></code></pre></div></p>
+
+<p>Three design choices matter here. The canary gives you an unambiguous, machine-checkable signal instead of subjective judgment. The tool allowlist catches behavioral failures that never touch the output text. Repeated trials report a failure rate, which fits a probabilistic system better than a single pass or fail.</p>
+
+<p>For broader coverage, open-source tooling exists. <a href="https://arxiv.org/html/2410.02828v1">PyRIT</a> is Microsoft&rsquo;s framework, and its authors report using it in more than 100 red teaming operations on generative AI systems. Practitioner comparisons describe NVIDIA&rsquo;s garak as a scanner that fires a catalog of known probes, while <a href="https://book.st-hakky.com/en/security/llm-red-teaming-tools-comparison">PyRIT is a framework for building custom attack campaigns and scoring</a>. Used together they cover both breadth and depth.</p>
+
+<a name="Blue.team:.constrain.what.a.compromised.model.can.do"></a>
+<h3>Blue team: constrain what a compromised model can do</h3>
+
+<p>Detection of malicious input will always have gaps, so the strongest blue team controls limit blast radius. The sketch below enforces tool permissions outside the model, in ordinary code the model cannot talk its way past.</p>
+
+<p><div class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ToolPolicy</span><span class="p">:</span>
+    <span class="n">allowed</span><span class="p">:</span> <span class="nb">set</span>
+    <span class="n">needs_confirmation</span><span class="p">:</span> <span class="nb">set</span>
+    <span class="n">allowed_recipient_domains</span><span class="p">:</span> <span class="nb">set</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">POLICY</span> <span class="o">=</span> <span class="nc">ToolPolicy</span><span class="p">(</span>
+    <span class="n">allowed</span><span class="o">=</span><span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">search_docs</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">draft_email</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">send_email</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;},</span>
+    <span class="n">needs_confirmation</span><span class="o">=</span><span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">send_email</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;},</span>
+    <span class="n">allowed_recipient_domains</span><span class="o">=</span><span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">example</span><span class="o">-</span><span class="n">corp</span><span class="p">.</span><span class="n">com</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;},</span>
+<span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">authorize</span><span class="p">(</span><span class="n">tool_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">taint_level</span><span class="p">,</span> <span class="n">user_confirmed</span><span class="p">):</span>
+    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Deterministic</span> <span class="n">gate</span> <span class="n">between</span> <span class="n">the</span> <span class="n">model</span> <span class="ow">and</span> <span class="n">its</span> <span class="n">tools</span><span class="p">.</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">taint_level</span> <span class="ow">is</span> <span class="sh">'</span><span class="s">untrusted</span><span class="sh">'</span> <span class="k">if</span> <span class="n">untrusted</span> <span class="nf">content </span><span class="p">(</span><span class="n">web</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">files</span><span class="p">)</span>
+<span class="n">has</span> <span class="n">entered</span> <span class="n">the</span> <span class="n">context</span> <span class="n">during</span> <span class="n">this</span> <span class="n">turn</span><span class="p">.</span>
+<span class="sh">"""</span><span class="s">
+if tool_name not in POLICY.allowed:
+    return False, </span><span class="sh">"</span><span class="s">tool not permitted</span><span class="sh">"</span><span class="s">
+
+if tool_name == </span><span class="sh">"</span><span class="s">send_email</span><span class="sh">"</span><span class="s">:
+    domain = args[</span><span class="sh">"</span><span class="s">to</span><span class="sh">"</span><span class="s">].split(</span><span class="sh">"</span><span class="s">@</span><span class="sh">"</span><span class="s">)[-1].lower()
+    if domain not in POLICY.allowed_recipient_domains:
+        return False, </span><span class="sh">"</span><span class="s">recipient outside allowed domains</span><span class="sh">"</span><span class="s">
+
+if tool_name in POLICY.needs_confirmation and taint_level == </span><span class="sh">"</span><span class="s">untrusted</span><span class="sh">"</span><span class="s">:
+    if not user_confirmed:
+        return False, </span><span class="sh">"</span><span class="s">human confirmation required after untrusted input</span><span class="sh">"</span><span class="s">
+
+return True, </span><span class="sh">"</span><span class="s">ok</span><span class="sh">"</span><span class="s">
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;</span></code></pre></div></p>
+
+<p>The gate tracks taint: once untrusted content enters the context, sensitive actions require explicit human confirmation. This is an application of the privilege-control and content-segregation guidance in <a href="https://www.hackerone.com/ai/owasp-top-10-llms-2025">OWASP&rsquo;s mitigation advice</a>. It does not stop the model from being influenced, but it stops that influence from becoming an action.</p>
+
+<a name="Blue.team.detection.signals"></a>
+<h3>Blue team detection signals</h3>
+
+<p>Logging is where the blue team earns its keep. Useful signals include:</p>
+
+<ul>
+<li>Full prompt and response logs with the source of each context segment, kept under your privacy and retention rules.</li>
+<li>Tool calls that deviate from the task, such as a summarization request that triggers a database query.</li>
+<li>Outputs containing canary tokens, internal hostnames, or credential-shaped strings.</li>
+<li>Conversation-level patterns, such as long runs of escalating requests on one topic, since per-message checks miss multi-turn escalation.</li>
+<li>Cost and token spikes, which the OWASP 2025 list covers under <a href="https://coralogix.com/?p=79971">Unbounded Consumption</a>.</li>
+</ul>
+
+
+<a name="Purple.team:.turning.findings.into.regression.tests"></a>
+<h3>Purple team: turning findings into regression tests</h3>
+
+<p>Every confirmed finding should end up as a permanent test. A simple convention keeps this manageable:</p>
+
+<p><div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">finding_id</span><span class="pi">:</span> <span class="s">PT-2026-014</span>
+<span class="na">title</span><span class="pi">:</span> <span class="s">Indirect injection via retrieved document triggers outbound email</span>
+<span class="na">owasp</span><span class="pi">:</span> <span class="s">LLM01 Prompt Injection, LLM06 Excessive Agency</span>
+<span class="na">mitre_atlas</span><span class="pi">:</span> <span class="s">AML.T0054</span>
+<span class="na">status</span><span class="pi">:</span> <span class="s">mitigated</span>
+<span class="na">mitigation</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">external-recipient allowlist enforced in tool gate</span>
+  <span class="pi">-</span> <span class="s">confirmation required after untrusted context</span>
+<span class="na">regression_test</span><span class="pi">:</span> <span class="s">tests/injection/test_outbound_email.py</span>
+<span class="na">retest_trigger</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">model version change</span>
+  <span class="pi">-</span> <span class="s">system prompt change</span>
+  <span class="pi">-</span> <span class="s">new tool added</span></code></pre></div></p>
+
+<p>Wire these tests into CI so that a model upgrade, a prompt edit, or a new tool triggers the suite. Industry write-ups on <a href="https://www.rajeshkumar.xyz/blog/?p=2019">AI red teaming tooling</a> describe this same trend toward continuous, CI-gated safety regression testing, though they are vendor-adjacent sources and worth treating as directional rather than authoritative.</p>
+
+<a name="Security.risks.and.mitigations.worth.prioritizing"></a>
+<h2>Security risks and mitigations worth prioritizing</h2>
+
+<p>For most teams the highest-value items map to a handful of OWASP categories.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Risk</th>
+        <th>Realistic Failure</th>
+        <th>Effective Mitigation</th>
+        <th>Limitation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Prompt injection</td>
+        <td>Retrieved content steers the model into unintended actions</td>
+        <td>Privilege separation, taint tracking, confirmation gates</td>
+        <td>Cannot guarantee the model ignores injected text</td>
+      </tr>
+      <tr>
+        <td>Sensitive information disclosure</td>
+        <td>Model reveals data from context or training</td>
+        <td>Minimize secrets in context, output scanning, access-scoped retrieval</td>
+        <td>Output filters miss paraphrased or encoded leaks</td>
+      </tr>
+      <tr>
+        <td>Excessive agency</td>
+        <td>Agent holds broader tools or permissions than the task needs</td>
+        <td>Least-privilege tools, scoped credentials, human approval</td>
+        <td>Reduces usefulness if applied too tightly</td>
+      </tr>
+      <tr>
+        <td>Supply chain</td>
+        <td>Compromised model, dataset, or plugin from a public hub</td>
+        <td>Provenance checks, pinned versions, internal registries</td>
+        <td>Model weights are hard to audit meaningfully</td>
+      </tr>
+      <tr>
+        <td>Vector and embedding weaknesses</td>
+        <td>Poisoned documents or cross-tenant retrieval leakage</td>
+        <td>Per-tenant access controls on the vector store, ingestion review</td>
+        <td>Semantic poisoning is difficult to detect automatically</td>
+      </tr>
+      <tr>
+        <td>Unbounded consumption</td>
+        <td>Token floods cause outages or runaway cost</td>
+        <td>Rate limits, quotas, budget alerts</td>
+        <td>Legitimate heavy users can be caught by limits</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Limitations.and.engineering.tradeoffs"></a>
+<h2>Limitations and engineering tradeoffs</h2>
+
+<p><strong>Red teaming proves presence, not absence.</strong> A clean campaign means your tests did not find a failure. It does not mean none exists. Adaptive attackers get unlimited attempts, and coverage of natural language is effectively unbounded.</p>
+
+<p><strong>Automated and manual testing find different things.</strong> Scanners are fast and repeatable but test generic weaknesses. Off-the-shelf probes will not exercise your specific tools, data sources, and business logic, so custom test suites and human creativity remain necessary.</p>
+
+<p><strong>Guardrails add latency and cost.</strong> Classifier layers on inputs and outputs add milliseconds to seconds and a bill. Aggressive filters also create false positives that frustrate legitimate users, so tuning is a recurring task.</p>
+
+<p><strong>Security and capability pull in opposite directions.</strong> An agent that always asks for confirmation is safer and slower. An agent with broad access is more useful and riskier. The right setting depends on the harm model, not on a universal rule.</p>
+
+<p><strong>Results age quickly.</strong> Model updates, prompt edits, and new integrations all change behavior. A finding from six months ago may have been fixed, regressed, or made irrelevant by a new tool.</p>
+
+<p><strong>Jailbreak defenses are an arms race.</strong> Providers continually harden models, and researchers continually find new bypasses. Plan for defense in depth rather than depending on any single model&rsquo;s refusal behavior.</p>
+
+<a name="Advanced.insights"></a>
+<h2>Advanced insights</h2>
+
+<p><strong>Trajectory-level evaluation.</strong> Since multi-turn attacks like Crescendo succeed by accumulating context, evaluate full conversations rather than isolated prompts. Detection that scores the whole dialogue, including whether it is drifting toward a restricted topic, catches what per-message filters miss.</p>
+
+<p><strong>Treat the agent as an untrusted principal.</strong> Design as if the model could be fully controlled by an attacker at any moment, then ask what the worst reachable action is. This is the same posture security engineers take toward user-supplied code, and it leads to sandboxed execution, scoped tokens, and out-of-band approval for irreversible actions.</p>
+
+<p><strong>Measure with rates, not anecdotes.</strong> Report attack success rate across repeated trials, per technique category, per model version. This makes regressions visible and lets leadership compare risk across releases.</p>
+
+<p><strong>Multi-agent and memory risks.</strong> When agents pass messages to each other or write to persistent memory, an injection can persist or propagate. Red teams should test whether poisoned content written to memory in one session influences behavior in later sessions, and whether one compromised agent can instruct another.</p>
+
+<a name="Future.outlook"></a>
+<h2>Future outlook</h2>
+
+<p>What is demonstrated today: automated multi-turn attacks, indirect injection against tool-using assistants, and open-source frameworks for large-scale probing. What is being actively deployed: continuous red teaming in CI, runtime guardrails paired with testing, and framework mapping to OWASP and MITRE ATLAS. What remains research: provable robustness against prompt injection, reliable separation of instructions from data at the model level, and standard benchmarks that predict real-world agent safety.</p>
+
+<p>Speculatively, some form of architectural separation, such as models that treat tool outputs as strictly non-executable data, could reduce the injection problem. Nobody has shown that this works at scale without hurting capability, so treat it as a direction rather than a plan.</p>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<ul>
+<li>Red teaming finds how a system fails, blue teaming limits and detects those failures, and purple teaming makes the cycle continuous and measurable.</li>
+<li>Jailbreaking attacks the model&rsquo;s safety training, while prompt injection attacks the application. Indirect injection is the more dangerous form because the user can be innocent.</li>
+<li>Multi-turn attacks show that per-message filtering and single-turn evaluation give a false sense of security.</li>
+<li>The most durable defenses are architectural: least privilege, taint tracking, deterministic tool gates, and human approval for sensitive actions.</li>
+<li>Every finding should become a regression test, and every model, prompt, or tool change should rerun the suite.</li>
+<li>Report failure rates across repeated trials, and accept that you can reduce risk but not eliminate it.</li>
+</ul>
+
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[The Future of Software Engineering Is Human + AI + Harness]]></title>
@@ -1575,313 +2058,6 @@ graph LR;
 <p>AI is a force multiplier. But it multiplies what&rsquo;s already there. Strong foundations with AI get stronger. Weak foundations with AI just fail faster and in ways that are harder to diagnose.</p>
 
 <p>Build the foundations. Then let AI do what it&rsquo;s actually good at.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[The Best Engineer on Your Team Might Be Writing Less Code Than Everyone Else]]></title>
-        <link href="https://rishijeet.github.io/blog/the-best-engineer-on-your-team-might-be-writing-less-code-than-everyone-else/"/>
-        <updated>2026-06-05T08:19:41+05:30</updated>
-        <id>https://rishijeet.github.io/blog/the-best-engineer-on-your-team-might-be-writing-less-code-than-everyone-else</id>
-        <content type="html"><![CDATA[<p>There is an uncomfortable conversation happening in engineering leadership circles right now, and most organizations are not having it openly enough. It goes roughly like this: we have deployed AI coding assistants across the team, commit velocity has increased, lines of code per engineer are up, pull request volume has climbed, and yet something feels off. The engineers who seem most thoughtful about what they are building are not necessarily the ones driving those metrics. Meanwhile, some of the most active committers are shipping code that requires repeated revision, creates architectural debt, or solves problems that did not need solving in the first place.</p>
-
-<p><img src="/images/2026/best_engineer_hero.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>This is not a new tension. Engineering leadership has always struggled with the difference between activity and output, and between output and value. But AI coding tools have compressed that struggle into a much sharper and more immediate form. When a tool can generate a working implementation in minutes, the act of writing code stops being the bottleneck. And when writing code stops being the bottleneck, the metrics we built around code production start telling us less and less about who our best engineers actually are.</p>
-
-<p>The question this creates for engineering organizations is genuinely difficult: if AI can generate code, review code, write tests, explain APIs, and implement features, how do you know who your best engineers are? How do you evaluate performance fairly? How do you avoid accidentally rewarding the wrong behaviors at exactly the moment when getting this right matters most?</p>
-
-<p>This article is an attempt to think through that question seriously.</p>
-
-<a name="How.We.Ended.Up.Measuring.What.Is.Easy.to.Count"></a>
-<h2>How We Ended Up Measuring What Is Easy to Count</h2>
-
-<p>Before examining what metrics should look like in an AI-assisted world, it is worth understanding why the current ones exist and why they became so entrenched.</p>
-
-<!--more-->
-
-
-<p>Lines of code was never a serious productivity metric among thoughtful engineers, but it persisted in management circles for decades because it is objective and easy to collect. Commit counts and pull request volume entered the picture with the rise of distributed version control and became proxies for engineering activity because activity is visible and value is not. Sprint velocity emerged from agile practices as a team-level planning tool but migrated, usually against the explicit intentions of the people who designed agile, into an individual performance signal. Hours worked has been a proxy for dedication in every knowledge work discipline, and software engineering was not immune to that instinct.</p>
-
-<p>None of these metrics are completely without meaning. An engineer who never commits anything is probably not doing engineering work. An engineer who never closes any pull requests is probably not delivering software. But these metrics measure the process of software production, not the value of software. They measure motion, not direction.</p>
-
-<p>For a long time, that imprecision was tolerable because writing code was actually the primary bottleneck in software delivery. An engineer who could write more code, more quickly, with acceptable quality, genuinely was more productive than one who wrote less. The correlation between code production and value creation was loose, but it was real enough to make code production metrics roughly useful.</p>
-
-<p>AI coding tools have broken that correlation. Not gradually, but quite suddenly. An engineer using Claude Code, Cursor, or GitHub Copilot effectively can produce ten times the lines of code they could produce without those tools. That multiplier applies to good engineers and mediocre engineers alike. It applies to engineers solving hard problems and engineers generating code that should not exist. The signal-to-noise ratio in code production metrics has dropped dramatically, and most engineering organizations have not updated their mental models or their evaluation frameworks to account for this.</p>
-
-<a name="The.Seductive.Trap.of.Measuring.AI.Usage"></a>
-<h2>The Seductive Trap of Measuring AI Usage</h2>
-
-<p>When organizations realize that traditional metrics are losing meaning, the first instinct is often to measure something new. In the current moment, that often means measuring AI usage. How many Copilot suggestions did the engineer accept? How often are they using Claude Code? What percentage of their commits include AI-generated content?</p>
-
-<p>This impulse is understandable and almost entirely wrong.</p>
-
-<p>Measuring AI usage as a proxy for good engineering creates a set of incentives that are actively harmful. It rewards the superficial adoption of tools without regard to whether those tools are being used thoughtfully. It penalizes engineers who make deliberate, considered choices about when AI assistance is appropriate and when it is not. It mistakes the use of an instrument for the quality of the music.</p>
-
-<p>Consider two engineers. The first uses an AI coding assistant for nearly every task. They accept suggestions quickly, rarely modify them substantially, ship a high volume of features, and are enthusiastic about tool adoption. The second uses AI assistance selectively, often preferring to write critical or architecturally significant code themselves, using AI primarily for tests, documentation, and scaffolding. If you measure AI usage as a positive signal, the first engineer looks more progressive. But the second engineer might be making better engineering decisions, and the code they deliver might be significantly more maintainable and reliable.</p>
-
-<p>The deeper problem is that AI usage metrics, like all activity metrics, measure inputs rather than outcomes. You can generate an enormous amount of AI-assisted code that creates negative value: code that is technically correct but architecturally wrong, code that solves problems in ways that create future maintenance burdens, code that implements features nobody needs. You can also generate very little code that is transformatively valuable, because you spent your time understanding the problem correctly before writing a line.</p>
-
-<p>Measuring AI usage is the new version of measuring lines of code. It tells you something about activity. It tells you almost nothing about value.</p>
-
-<a name="Code.Production.and.Problem.Solving.Are.Not.the.Same.Thing"></a>
-<h2>Code Production and Problem Solving Are Not the Same Thing</h2>
-
-<p>There is a foundational confusion embedded in how most organizations think about software engineering, and it is worth naming explicitly: writing code is a means to an end, not the end itself. Software engineering is problem solving. Code is the artifact that results from problem solving applied to software. Those two things are related but not identical, and conflating them has always caused organizational dysfunction.</p>
-
-<p>Consider what actually happens in a high-quality engineering engagement with a complex problem. An engineer spends time understanding the problem domain. They ask clarifying questions. They read existing code to understand the current system. They think about failure modes. They consider alternative approaches and make tradeoffs between them. They prototype and discard. They consult with colleagues. They check their understanding of requirements against what the business actually needs. Then, and often only then, they write code.</p>
-
-<p>In that workflow, the code-writing step might represent twenty percent of the total time invested in solving the problem well. The other eighty percent is problem framing, system understanding, design thinking, and judgment. AI tools can significantly accelerate the code-writing step. They can help with the code-reading step. They can assist with some aspects of prototyping. But the judgment-intensive, context-dependent, domain-specific work of correctly framing and scoping a problem is not something current AI tools do well. That work still requires a human engineer, and it is the work that determines whether the resulting code actually solves the right problem.</p>
-
-<p><img src="/images/2026/ai_engineer_compare.png" height="300" width="900" alt="Alt text" /></p>
-
-<blockquote><p>The engineers who understand this distinction are the ones who use AI tools most effectively. They recognize that AI can compress the time spent on implementation once a problem is correctly understood, which frees them to spend more time on the understanding itself. The engineers who miss this distinction use AI tools to generate code faster without investing more in understanding, and they ship solutions to problems they did not fully analyze.</p></blockquote>
-
-<p><em>This is the fundamental difference between an AI-amplified engineer and an AI-dependent one, and it is a distinction that no activity metric, AI-based or otherwise, can directly measure.</em></p>
-
-<a name="AI.Leverage.as.an.Engineering.Skill"></a>
-<h2>AI Leverage as an Engineering Skill</h2>
-
-<p>There is a skill emerging in software engineering that does not have an established name yet, though people are beginning to use the term AI leverage. It is the ability to use AI tools in ways that multiply your effectiveness as an engineer, rather than substituting for engineering judgment.</p>
-
-<p>AI leverage is not the same as being good at prompting, though effective prompting is one component. It is a broader capability that includes knowing when to reach for an AI tool and when not to, how to decompose a complex engineering task so that AI can help with appropriate pieces of it, how to critically evaluate AI-generated code rather than accepting it uncritically, how to use AI assistance to explore a design space more quickly, and how to integrate AI-generated components into a larger system that you are responsible for understanding holistically.</p>
-
-<p>This skill has a force multiplier quality that is qualitatively different from other engineering skills. An engineer with strong AI leverage who is also technically strong can cover ground that would previously have required a larger team. They can prototype faster, explore more options, write more comprehensive tests, and document more thoroughly, not because they are generating more work product, but because AI assistance has freed them from the mechanical aspects of those tasks. They bring more human judgment to bear on the parts that require human judgment because they are spending less cognitive load on the parts that do not.</p>
-
-<p>Importantly, AI leverage scales with underlying technical depth. An engineer who deeply understands distributed systems, database internals, or security architecture will extract more value from AI tools than one who does not, because they can evaluate AI suggestions critically, catch errors that a less experienced engineer would miss, and ask better, more precise questions. This is the opposite of the narrative that AI democratizes software engineering by making technical depth less important. In practice, technical depth makes AI leverage more powerful, not less necessary.</p>
-
-<p>An engineer who lacks technical depth but uses AI tools heavily is in a precarious position. They may produce correct-looking code that hides subtle errors they cannot detect. They may accept architectural suggestions from AI that are locally reasonable but globally wrong. They may be unable to debug complex failures in AI-generated code because they do not have the mental model of what the code is actually doing. The AI tool, in this case, is not a force multiplier. It is a liability that makes problems less visible.</p>
-
-<a name="What.Good.Looks.Like.Now:.Four.Engineer.Archetypes"></a>
-<h2>What Good Looks Like Now: Four Engineer Archetypes</h2>
-
-<p>To make these ideas more concrete, it helps to describe actual engineering archetypes that AI tools have made more visible and more consequential.</p>
-
-<p>The first is the high-output, low-value engineer. They are enthusiastic adopters of every AI tool available. They commit frequently, often multiple times a day. Their pull request volume is impressive. They accept AI suggestions rapidly and move on. The code they ship is syntactically correct and passes most automated checks. But their code reviews are shallow. Their features require repeated revision because edge cases were not thought through. Their changes occasionally introduce subtle bugs that only appear in production because they did not deeply consider the failure modes. In sprint metrics, they look like top performers. In production, they are a recurring source of incidents and rework.</p>
-
-<p>The second is the quiet force multiplier. They do not commit as often. Their pull requests tend to be larger and more considered, often including tests, documentation, and migration paths that others forget. Before they write code, they ask questions that frequently cause the team to reconsider what they are actually building. Their code reviews are detailed and catch things that automated tools miss because they are evaluating design, not just syntax. When they use AI tools, they use them for well-scoped mechanical tasks and review the output carefully. They are not always visible in metrics, but teams that have them are measurably more effective, and teams that lose them notice immediately.</p>
-
-<p>The third is the AI-amplified specialist. They have deep expertise in a specific domain, say database performance or distributed consensus, and they use AI tools to work effectively outside their specialty. They can ship a full-stack feature independently where previously they might have needed help with the frontend, because AI assistance makes the unfamiliar parts accessible enough for their judgment to carry them through. Their productivity is genuinely multiplied because their domain expertise guides the AI effectively, and the AI makes them self-sufficient in areas where they would otherwise be blocked.</p>
-
-<p>The fourth is the architectural investor. They write relatively little production code directly. Their time goes into design documents, platform improvements, removing systemic friction, and improving the development experience for everyone else. The code they do write tends to be foundational: the authentication abstraction that every service uses, the observability library that makes debugging tractable, the data model that will shape the system for years. In any given sprint, their individual output looks modest. Over a year, the leverage they create for the rest of the team is enormous. These engineers are often undervalued in metric-driven organizations and overvalued by engineering leaders who have learned to look past activity to impact.</p>
-
-<p>None of these archetypes is cleanly captured by code production metrics. Two of them produce less code than the other two. All four of them behave differently with AI tools, for different reasons that are entirely consistent with engineering excellence or the lack of it.</p>
-
-<a name="The.Case.for.Outcomes-Based.Engineering.Evaluation"></a>
-<h2>The Case for Outcomes-Based Engineering Evaluation</h2>
-
-<p>If activity metrics are increasingly unreliable, the obvious alternative is outcomes-based evaluation. Measure what engineers deliver in terms of value to the business and the engineering organization, not the volume of work product they generate in doing so.</p>
-
-<p>This sounds straightforward. In practice, it requires a significant shift in how engineering leaders observe and evaluate their teams, because outcomes in software engineering are often delayed, shared, and hard to attribute cleanly to individual contributors.</p>
-
-<p>A feature shipped this quarter may have value that only becomes clear next quarter when customer adoption data is available. A reliability improvement made last month may prevent an incident six months from now that we can never count. An architectural decision made today will either compound positively or create debt that slows everyone down for years, but the effects are diffuse and slow-moving. Individual contributions are intertwined with team contributions. The engineer who wrote the code did so in a context shaped by the engineer who designed the architecture, the engineer who did the code review, the engineer who improved the deployment pipeline, and many others.</p>
-
-<p>These attribution problems are real, but they are not reasons to abandon outcomes thinking. They are reasons to build a more sophisticated evaluation framework that captures multiple dimensions of engineering contribution and acknowledges that some of those dimensions are better measured than others.</p>
-
-<a name="A.Modern.Engineering.Scorecard"></a>
-<h2>A Modern Engineering Scorecard</h2>
-
-<p>What follows is a proposed framework for evaluating engineering performance in a world where code generation is increasingly automated. It is not a metric dashboard. It is a set of dimensions for structured conversation between engineers and their leaders, supported where possible by quantitative signals and grounded always in judgment rather than formula.</p>
-
-<p><img src="/images/2026/ai_engineer_future.png" height="300" width="900" alt="Alt text" /></p>
-
-<a name="Feature.Delivery.Lead.Time"></a>
-<h3>Feature Delivery Lead Time</h3>
-
-<p>Lead time, the elapsed time from when work is started to when it is delivering value in production, is one of the most meaningful signals of engineering effectiveness available to an organization. It captures how quickly an engineer moves from problem to solution, and it reflects not just coding speed but the entire chain of activities that determine how fast value gets delivered: clarity of problem definition, technical decision-making, implementation quality, review quality, and deployment practices.</p>
-
-<p>The reason lead time matters more than throughput is that it captures the cost of delay. A feature that takes one engineer two weeks to deliver is worth more than the same feature that takes another engineer three months, even if the three-month version has more lines of code.</p>
-
-<p>Lead time can be measured through work tracking systems, though it requires discipline in how work is defined and tracked. The metric is most meaningful when work items are reasonably similar in scope, which requires breaking down large efforts into measurable units.</p>
-
-<p>The pitfalls are significant. Lead time can be gamed by starting tasks late or defining scope narrowly. Engineers who take on complex, high-risk work will naturally have longer lead times than those who consistently take simpler work. The metric needs to be evaluated in the context of the complexity and ambiguity of the work being done, which brings us to the next dimension.</p>
-
-<p>An important reason this metric is more meaningful than commit velocity or PR volume is that it measures the end-to-end process, not just the coding step. An engineer who commits frequently but whose code spends two weeks in review because it is not ready is not delivering faster than an engineer who commits less often but whose code merges cleanly.</p>
-
-<a name="Production.Quality"></a>
-<h3>Production Quality</h3>
-
-<p>Production quality captures the reliability of what an engineer ships. It includes bug escape rate, the frequency with which bugs that could have been caught earlier make it to production; incident involvement, how often changes contributed by an engineer are involved in production incidents; change failure rate, the percentage of deployments that require rollback or emergency fix; and test coverage quality, not the quantity of tests but the effectiveness of the test suite in catching regressions.</p>
-
-<p>This dimension matters enormously in an AI-assisted world because AI tools are excellent at generating code that passes tests but are much less reliable at generating code that handles edge cases correctly. An engineer who uses AI tools uncritically will often ship code that looks correct but fails in ways that only emerge under real production conditions. Production quality is the signal that catches this.</p>
-
-<p>Measurement requires good instrumentation at the deployment and incident management level. Tools like Jira, PagerDuty, and deployment tracking systems can provide the data if the organization is disciplined about linking incidents to change records.</p>
-
-<p>The pitfalls include the fact that engineers working on inherently more complex or higher-risk systems will have worse production quality metrics than those working on stable, well-understood systems through no fault of their own. Context matters. The metric should be evaluated relative to the risk profile of the work. There is also the risk that engineers respond by avoiding complex work or by adding excessive defensive measures that slow delivery. Calibrating production quality metrics requires ongoing judgment from engineering leadership rather than mechanical threshold application.</p>
-
-<p>This metric is more meaningful than code volume because it directly captures the downstream consequences of engineering decisions. An engineer who ships ten features with five production incidents may be delivering less value than an engineer who ships five features with zero incidents.</p>
-
-<a name="Technical.Complexity.Handled"></a>
-<h3>Technical Complexity Handled</h3>
-
-<p>This dimension attempts to capture the difficulty and ambiguity of the problems an engineer engages with. It is the most qualitative of the dimensions, and in many ways the most important, because it is where the distinction between code production and problem solving is most visible.</p>
-
-<p>Technical complexity handled includes the ability to work effectively on problems that are not well-defined, the ability to navigate systems the engineer has not worked in before, the ability to make good architectural decisions under uncertainty, and the ability to break down complex problems into solvable pieces. It also includes the willingness to take on the hard problems rather than routing around them.</p>
-
-<p>This is not easily measured by automated tooling. It requires direct observation by engineering leaders and structured input from peers. Calibration questions that help evaluate this dimension include: Was this engineer sought out for advice on difficult problems? Did they take on work that others had avoided because it was hard? Did they simplify complexity or add to it? Did they correctly identify the hardest parts of the problems they worked on?</p>
-
-<p>The pitfall is that complexity can become a status game. Some engineers develop a taste for unnecessarily complicated solutions because complexity signals expertise. The relevant question is not whether an engineer handled complex problems, but whether they made those problems simpler through their work. An engineer who takes a gnarly problem and produces an elegant, simple solution is handling technical complexity effectively. One who takes a simple problem and produces a complex solution may be creating complexity, not handling it.</p>
-
-<p>This dimension is more meaningful than traditional metrics because it directly captures the judgment and problem-framing capability that AI tools cannot replace. It also distinguishes the engineer who consistently takes on hard problems from the one who maximizes their metrics by optimizing for easy wins.</p>
-
-<a name="Peer.Review.Effectiveness"></a>
-<h3>Peer Review Effectiveness</h3>
-
-<p>Code review is one of the highest-leverage activities in a software engineering organization. A good code review catches bugs, improves design, shares knowledge, maintains architectural consistency, and mentors less experienced engineers. A poor code review provides false assurance, misses meaningful issues, and creates a bottleneck without adding value.</p>
-
-<p>In an AI-assisted world, the value of human code review increases rather than decreases. AI tools can generate syntactically correct code quickly, but they do not evaluate whether that code fits the system architecture, whether it handles edge cases that are specific to the business domain, or whether it is consistent with the team&rsquo;s established patterns. Human reviewers who understand these things deeply are more valuable, not less, when the code being reviewed is AI-generated.</p>
-
-<p>Peer review effectiveness can be partially measured through the quality of review comments: specificity, technical depth, actionability. It can also be observed through the downstream outcomes of reviews: whether issues caught in review prevented production problems, whether review feedback was accurate, whether the engineer being reviewed found the review helpful.</p>
-
-<p>The pitfalls include the risk of rewarding review volume over review quality, which pushes toward superficial reviews that generate many comments without meaningful insight. There is also the risk of rewarding engineers who are aggressive in review and leave many comments regardless of their validity, which can create friction and discourage people from submitting work for review.</p>
-
-<p>This dimension matters because it captures one of the most significant ways that senior engineers multiply the effectiveness of their teams. An engineer who consistently produces reviews that make the team&rsquo;s code better is delivering value that is invisible in individual production metrics but enormous in aggregate impact.</p>
-
-<a name="System.and.Platform.Improvements"></a>
-<h3>System and Platform Improvements</h3>
-
-<p>Some of the most valuable engineering work is work that makes other engineers more effective. Improving the CI pipeline so tests run faster. Refactoring a shared library to make it easier to use correctly and harder to use incorrectly. Writing internal tooling that automates repetitive work. Improving observability so debugging is faster. Documenting a complex system so new engineers can understand it without spending weeks reading code.</p>
-
-<p>This work is chronically undervalued in metric-driven organizations because it does not map cleanly to product features. It does not appear in sprint velocity metrics in a way that compares fairly to feature development. It is often invisible to product managers and business stakeholders. And yet, the compounding effects of this work are among the most significant determinants of team productivity over time.</p>
-
-<p>An engineering organization that consistently invests in system and platform improvements is one where engineers get faster over time rather than slower as the system grows. One that does not becomes progressively harder to change as technical debt accumulates and the development experience degrades.</p>
-
-<p>Measuring this dimension requires explicitly tracking and valuing this category of work. It means having engineering leaders who can recognize platform improvements when they see them and who make them visible in performance discussions. It means creating space in roadmaps for this work and evaluating the engineers who do it on the value of the improvement rather than the volume of the output.</p>
-
-<p>The pitfall is that platform work can become an excuse to avoid delivering product value. Engineers who spend all their time on infrastructure improvements without any connection to business outcomes are not necessarily more valuable than those who deliver features. The balance matters.</p>
-
-<a name="Business.Impact"></a>
-<h3>Business Impact</h3>
-
-<p>Ultimately, engineering work creates value when it changes something meaningful for the business or its users. Features that are shipped but not adopted create limited value. Reliability improvements that prevent incidents that would have affected customers create significant value. Architecture decisions that enable a new business capability create value that can compound for years.</p>
-
-<p>Business impact is the hardest dimension to measure cleanly at the individual level, but it is the most important to keep in view. Without this dimension, the scorecard can become a technical merit system that is disconnected from the reason the engineering organization exists.</p>
-
-<p>Business impact can be approximated through a combination of signals: customer adoption of features delivered, reduction in support volume from quality improvements, revenue attributable to technical capabilities, time saved by internal tooling, incidents prevented by reliability engineering. None of these cleanly attribute to individuals, but together they create a picture of whether engineering work is connecting to business outcomes.</p>
-
-<p>The principal pitfall is that business impact can be dominated by factors outside engineering control. A feature that was well-built but poorly positioned in the product will not see adoption regardless of its technical quality. An engineer working on an important but unsexy part of the infrastructure may have enormous impact that is never visible in customer-facing metrics. Engineering leaders need to distinguish between impact that engineers control and impact that depends on organizational and market factors.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Dimension</th>
-        <th>Why It Matters</th>
-        <th>How to Measure</th>
-        <th>Key Pitfall</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Feature Delivery Lead Time</td>
-        <td>Captures end-to-end delivery speed, not just coding speed</td>
-        <td>Work item start-to-production elapsed time</td>
-        <td>Gaming by cherry-picking simpler tasks</td>
-      </tr>
-      <tr>
-        <td>Production Quality</td>
-        <td>Reveals whether AI-assisted code holds up under real conditions</td>
-        <td>Bug escape rate, incident involvement, change failure rate</td>
-        <td>Penalizes engineers on complex or high-risk systems</td>
-      </tr>
-      <tr>
-        <td>Technical Complexity Handled</td>
-        <td>Captures problem-framing and judgment that AI cannot replicate</td>
-        <td>Peer observation, structured conversation, problem ownership</td>
-        <td>Can reward complexity creation rather than complexity reduction</td>
-      </tr>
-      <tr>
-        <td>Peer Review Effectiveness</td>
-        <td>Measures how much an engineer raises the quality of team output</td>
-        <td>Review quality, downstream outcomes, peer feedback</td>
-        <td>Volume of comments rewarded over quality of insight</td>
-      </tr>
-      <tr>
-        <td>System and Platform Improvements</td>
-        <td>Captures compounding leverage on team-wide productivity</td>
-        <td>Explicitly tracked; valued in planning and review cycles</td>
-        <td>Becomes avoidance of product delivery</td>
-      </tr>
-      <tr>
-        <td>Business Impact</td>
-        <td>Keeps engineering connected to the reason the organization exists</td>
-        <td>Adoption, reliability improvement, revenue enablement</td>
-        <td>Factors outside engineering control dominate the signal</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="The.Economics.of.AI-Assisted.Engineering"></a>
-<h2>The Economics of AI-Assisted Engineering</h2>
-
-<p>It is worth stepping back and considering the economic implications of AI coding tools at the organizational level, because those implications shape how engineering leadership should think about headcount, specialization, and team design.</p>
-
-<p>AI coding tools shift the economics of software delivery in two directions simultaneously. They reduce the marginal cost of code production, which means that the output any given engineer can produce is significantly higher than before. At the same time, they do not reduce the cost of the judgment, design, and problem-framing work that determines whether that production is pointed in a valuable direction.</p>
-
-<p>The implication is that the ratio of value-creating work to code-production work in a well-functioning engineering organization should shift. Teams that previously needed five engineers to build a feature, with two of them primarily writing implementation code, may now need three engineers, with the freed capacity available for more design, more testing, more code review, and more infrastructure investment. The team gets smaller and, if managed correctly, more effective.</p>
-
-<p>This creates a management challenge. The productivity gains from AI tools are real, but they can easily be absorbed by code sprawl if engineering culture does not adapt. When generating code becomes easy, the temptation is to generate more of it. More features, more abstractions, more frameworks, more complexity. Organizations that do not actively resist this temptation will find that their codebases grow faster than the teams managing them can handle, and that the productivity gains from AI tools are offset by the maintenance burden of the code those tools produced.</p>
-
-<p>The organizations that will benefit most from AI coding tools are those that use them to do more with the same team, not more code with the same team. There is a meaningful difference between those two things, and it requires engineering leadership to hold the distinction clearly.</p>
-
-<a name="Why.Judgment.Compounds"></a>
-<h2>Why Judgment Compounds</h2>
-
-<p>One of the most important and underappreciated dynamics in software engineering is the compounding nature of good judgment over time. An engineer who consistently makes good architectural decisions, who correctly identifies technical risk early, who designs systems that remain maintainable as they grow, creates value that compounds year over year. The system they build is easier to change. The debt they avoided means future engineers can move faster. The foundations they established make it possible to build things that were not possible otherwise.</p>
-
-<p>This is the kind of value that looks invisible in quarterly metrics and becomes undeniable over years. It is also the kind of value that AI tools amplify rather than replace. An engineer with deep architectural judgment who uses AI tools effectively can create foundations faster and with more thoroughness than they could without those tools. Their judgment guides the AI toward appropriate patterns. Their experience lets them catch cases where AI suggestions would create long-term problems.</p>
-
-<p>Conversely, an engineer whose primary contribution is code production and who uses AI tools to produce more code faster, without the judgment to guide that production toward valuable outcomes, creates a compounding liability rather than a compounding asset. More code means more surface area for bugs, more things to maintain, more complexity to understand. The AI amplification of code production without the guidance of sound judgment is a compounding problem, not a compounding benefit.</p>
-
-<p>This dynamic is why the highest-leverage thing engineering leaders can do in an AI-assisted world is invest in engineers with strong judgment and create conditions where that judgment can be applied broadly. The leverage from AI tools scales with the quality of the engineering judgment directing them.</p>
-
-<a name="Performance.Management.in.Practice"></a>
-<h2>Performance Management in Practice</h2>
-
-<p>Translating the principles above into actual performance management conversations requires some practical guidance, because the gap between aspiration and practice is where most organizational change efforts fail.</p>
-
-<p>The first practical shift is moving from quarterly metrics reviews to ongoing calibration conversations. The dimensions that matter most for engineering performance are not things that can be meaningfully summarized by a dashboard refreshed once a quarter. They require direct observation, structured feedback, and a shared understanding between the engineer and their leader about what good looks like in the engineer&rsquo;s specific context. This means more frequent, more substantive conversations about work, not just status updates.</p>
-
-<p>The second shift is being explicit about what the organization values and why. If engineering leaders say they value impact and judgment but reward engineers who ship the most code, engineers will correctly read the actual signal and optimize for code volume. The stated values and the rewarded behaviors need to be aligned. This alignment needs to be visible in promotion decisions, in compensation conversations, and in public recognition.</p>
-
-<p>The third shift is building the ability to have honest conversations about the quality of engineering work, not just the quantity. This requires engineering leaders who are technically capable enough to evaluate whether a code review is genuinely insightful or superficially thorough, whether an architectural decision reflects deep understanding or surface-level pattern matching, whether a production incident reflects carelessness or unavoidable complexity. This capability cannot be outsourced to a metrics dashboard. It requires technical leadership that stays close to the work.</p>
-
-<p>The fourth shift is creating explicit space for the work that traditional metrics do not capture. Platform improvements, documentation, tooling, and mentorship need to be visible in planning processes and recognized in performance conversations, not treated as work that happens when everything else is done.</p>
-
-<a name="The.Danger.of.the.Busy.Mediocre.Engineer"></a>
-<h2>The Danger of the Busy Mediocre Engineer</h2>
-
-<p>There is a specific failure mode that AI coding tools make more likely, and it deserves direct attention. Call it the busy mediocre engineer problem. These are engineers who are highly active, generate a lot of work product, appear productive by every traditional metric, and are actually delivering negative value to the engineering organization because the accumulated weight of their decisions and their code makes the system harder to work with over time.</p>
-
-<p>In a world without AI tools, these engineers were limited by how much code they could write. A mediocre engineer who writes a lot of code can only write so many lines per day. AI tools remove that limit. <em>A mediocre engineer with AI tools can generate an enormous amount of code very quickly, and if that engineer is not guided by sound engineering judgment, the organization ends up with a much larger and more complex codebase than it needs, shipping faster than it should, accumulating technical debt at an accelerating rate.</em></p>
-
-<p>The countermeasures to this problem are not technical. They are organizational and cultural. Code review is the primary technical mechanism, and it works to the extent that reviewers have the time, the knowledge, and the authority to say &ldquo;this should not be built this way&rdquo; or even &ldquo;this should not be built at all.&rdquo; But beyond code review, the culture needs to reward engineers who simplify and resist the culture of more. The best engineering cultures have a strong norm against unnecessary complexity. That norm is more important in an AI-assisted world than it was before.</p>
-
-<a name="Rethinking.Seniority.in.an.AI.World"></a>
-<h2>Rethinking Seniority in an AI World</h2>
-
-<p>Seniority in software engineering has traditionally been associated with a combination of depth, breadth, and productivity. Senior engineers were expected to write more code than junior engineers, tackle harder problems, and mentor others. AI tools have decoupled the productivity dimension from the depth and breadth dimensions in ways that require rethinking what seniority means.</p>
-
-<p>A junior engineer with strong AI leverage can now produce code at a volume that previously required several years of experience to achieve. This does not make them senior. Seniority is about the judgment to know what to build, the experience to anticipate failure modes, the architectural understanding to make decisions that hold up over time, and the ability to make other engineers more effective. None of these things are accelerated by AI tools in the way that code production is.</p>
-
-<p>What this means practically is that the distinction between junior and senior engineers, which was always more about judgment than volume, becomes more explicit and more consequential in an AI-assisted environment. Organizations that equate seniority with output will find that their leveling systems become meaningless when output can be arbitrarily amplified by tool adoption. Organizations that equate seniority with judgment will find that the distinction between levels is clearer and more defensible than before.</p>
-
-<p>The implication for career development is important. Junior engineers developing in an AI-assisted world need to be deliberate about building the judgment, system understanding, and architectural thinking that AI does not provide. The temptation is to rely on AI tools to compensate for gaps in fundamental understanding, which produces engineers who can ship code but who lack the mental models to understand what it is doing or why it might fail. Engineering leaders and mentors need to be alert to this pattern and create learning experiences that build depth rather than just accelerating production.</p>
-
-<a name="The.Decade.Ahead"></a>
-<h2>The Decade Ahead</h2>
-
-<p>Looking forward, the trajectory seems fairly clear even if the pace is not. AI coding tools will become more capable, more integrated into development workflows, and more widely adopted. The fraction of code in most organizations that is generated with significant AI assistance will increase. The cost of code production per line will continue to fall.</p>
-
-<p><em>In that environment, the scarcest and most valuable resource in software engineering will be the judgment to direct that code production toward meaningful outcomes. The engineers who combine deep technical understanding with the ability to use AI tools effectively with the judgment to make good architectural and product decisions with the communication skills to work across organizational boundaries will be extraordinarily valuable. There will not be enough of them.</em></p>
-
-<p>The organizations that find, develop, and retain those engineers will be the ones that benefit most from the AI productivity wave. The organizations that optimize for code volume, that reward the engineers who generate the most output, that build their engineering culture around activity rather than impact, will find that AI tools have made them better at producing code that creates less value.</p>
-
-<blockquote><p>The best engineer on your team may well be writing less code than everyone else. They may be asking the questions that cause their teammates to build better things. They may be doing the architecture work that makes next year&rsquo;s features possible. They may be doing the code reviews that prevent the incidents that never happen. They may be using AI tools selectively and thoughtfully in ways that make their output smaller but more valuable.</p></blockquote>
-
-<p>The only way to know is to look past the metrics that are easy to collect and develop the engineering leadership depth to evaluate what actually matters. That has always been true. AI tools have made it more urgent.</p>
 ]]></content>
     </entry>
     

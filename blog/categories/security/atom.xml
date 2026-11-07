@@ -4,7 +4,7 @@
     <title><![CDATA[Category: security | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/security/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-11-06T15:25:48+05:30</updated>
+    <updated>2026-11-07T16:43:30+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,489 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[Securing the AI Era: A Practical Guide to Red, Blue, and Purple Teaming]]></title>
+        <link href="https://rishijeet.github.io/blog/securing-the-ai-era-a-practical-guide-to-red-blue-purple-teaming/"/>
+        <updated>2026-11-07T16:32:04+05:30</updated>
+        <id>https://rishijeet.github.io/blog/securing-the-ai-era-a-practical-guide-to-red-blue-purple-teaming</id>
+        <content type="html"><![CDATA[<p>A traditional web application does what its code says. An LLM application does what its code says, plus whatever the model infers from every piece of text it reads. That text can include a customer email, a scraped web page, or a PDF someone uploaded, and the model cannot reliably tell which parts are data and which are instructions.</p>
+
+<p>This is why AI security needs adversarial testing that goes beyond scanning for known vulnerabilities. You have to probe a probabilistic system whose behavior shifts with phrasing, conversation history, and context. Red, blue, and purple teaming give you a structure for doing that.</p>
+
+<p><img src="/images/2026/red_teaming.png" height="300" width="900" alt="Alt text" /><em>Source: Generated using AI</em></p>
+
+<p>This guide covers how the three disciplines map onto AI systems, how jailbreaking and prompt injection work conceptually, what a continuous testing pipeline looks like, and where the limits are. It stays at the level of mechanisms and defenses and does not include working attack payloads.</p>
+
+<!--more-->
+
+
+<a name="Background:.why.classic.security.testing.falls.short"></a>
+<h2>Background: why classic security testing falls short</h2>
+
+<p>Conventional red teams test deterministic systems. If an endpoint is vulnerable to SQL injection, the same payload works every time, and a patch closes the hole. Three properties of LLM systems break that model.</p>
+
+<ul>
+<li><strong>Non-determinism:</strong> The same prompt can produce different outputs on consecutive runs, so a single passing test proves little.</li>
+<li><strong>No hard boundary between instructions and data:</strong> Everything the model reads is tokens in one context window. System prompts, user messages, retrieved documents, and tool outputs all compete for influence.</li>
+<li><strong>Wide, natural-language attack surface:</strong> Attacks need no exploit code. Attackers can use persuasion, role-play, and gradual escalation, which defeats signature-based filters.</li>
+</ul>
+
+
+<p><img src="/images/2026/classic_security.png" height="300" width="900" alt="Alt text" /></p>
+
+<p>Early AI red teaming focused on the model itself, covering harmful content, bias, and training data leakage. The attack surface has since moved to the application around the model, which now includes retrieval pipelines, tool calling, memory, and autonomous agents. The <a href="https://www.hackerone.com/ai/owasp-top-10-llms-2025">OWASP Top 10 for LLM Applications 2025</a> reflects this shift. It keeps prompt injection at number one and adds System Prompt Leakage and Vector and Embedding Weaknesses as new entries. OWASP&rsquo;s <a href="https://aembit.io/blog/owasp-top-10-llm-risks-explained/">Excessive Agency</a> entry covers three root causes: too much functionality, too many permissions, and too much autonomy. Aembit&rsquo;s overview of the 2025 list also notes that a 2026 edition now exists. I haven&rsquo;t verified what changed in it, so check OWASP&rsquo;s GenAI Security Project directly before citing rankings.</p>
+
+<a name="Core.concepts:.red..blue..and.purple.teams"></a>
+<h2>Core concepts: red, blue, and purple teams</h2>
+
+<p>The three team names carry over from classic security, but their jobs change for AI systems.</p>
+
+<ul>
+<li><strong>Red team:</strong> Plays the adversary. It tries to make the system misbehave by leaking data, taking unauthorized actions, producing prohibited content, or ignoring its instructions.</li>
+<li><strong>Blue team:</strong> Defends the system. It builds guardrails, permission boundaries, logging, detection rules, and incident response.</li>
+<li><strong>Purple team:</strong> Is a collaboration model more than a separate team. Red and blue work together in short cycles, so every successful attack becomes a detection rule, a guardrail, or a regression test.</li>
+</ul>
+
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Team</th>
+        <th>Primary Question</th>
+        <th>Typical AI Activities</th>
+        <th>Main Output</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Red</td>
+        <td>How can this system be made to fail?</td>
+        <td>Jailbreak attempts, indirect injection through documents, tool abuse, data extraction probes</td>
+        <td>Reproducible findings with severity and impact</td>
+      </tr>
+      <tr>
+        <td>Blue</td>
+        <td>How do we prevent, detect, and contain failures?</td>
+        <td>Input and output filtering, least-privilege tool design, prompt and response logging, anomaly detection</td>
+        <td>Controls, detections, and runbooks</td>
+      </tr>
+      <tr>
+        <td>Purple</td>
+        <td>Did the fix actually work, and does it stay fixed?</td>
+        <td>Joint replay of attacks, detection tuning, regression suites in CI</td>
+        <td>Validated controls and measurable coverage</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Two reference frameworks help structure the work. OWASP&rsquo;s list is useful for risk categories. <a href="https://blogs.cisco.com/ai/ai-cyber-threat-intelligence-roundup-april-2024">MITRE ATLAS</a> catalogs adversary techniques against AI systems, and security vendors already tag jailbreak research with ATLAS identifiers such as AML.T0054 (LLM Jailbreak). Mapping findings to these frameworks makes them legible to security teams that already think in ATT&amp;CK terms.</p>
+
+<a name="Jailbreaking.versus.prompt.injection"></a>
+<h2>Jailbreaking versus prompt injection</h2>
+
+<p>These terms are often used interchangeably, but they describe different problems.</p>
+
+<p><strong>Jailbreaking</strong> targets the model&rsquo;s own safety training. The attacker is usually the user, and the goal is to get the model to produce something it was trained to refuse. The victim is the model provider&rsquo;s or deployer&rsquo;s policy.</p>
+
+<p><strong>Prompt injection</strong> targets the application. The attacker&rsquo;s goal is to make the model follow instructions it should have treated as data. When the attacker types the instructions directly, it is direct injection. When the instructions hide in content the model later reads, such as a web page, an email, or a retrieved document, it is indirect injection. In indirect injection the user may be completely innocent, and the user is the victim.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th>Jailbreaking</th>
+        <th>Direct Prompt Injection</th>
+        <th>Indirect Prompt Injection</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Attacker</td>
+        <td>The user</td>
+        <td>The user</td>
+        <td>A third party who controls content</td>
+      </tr>
+      <tr>
+        <td>Target</td>
+        <td>Model safety training</td>
+        <td>Application instructions</td>
+        <td>Application instructions and user data</td>
+      </tr>
+      <tr>
+        <td>Typical impact</td>
+        <td>Policy-violating output</td>
+        <td>Instruction override, prompt leakage</td>
+        <td>Data exfiltration, unauthorized tool actions</td>
+      </tr>
+      <tr>
+        <td>Risk grows with</td>
+        <td>Model capability and permissiveness</td>
+        <td>Weak system prompt boundaries</td>
+        <td>Tool access, retrieval, and agent autonomy</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="How.jailbreaks.work..conceptually"></a>
+<h3>How jailbreaks work, conceptually</h3>
+
+<p>Several research lines show that safety training holds up poorly against determined adaptive attackers. The categories below are the ones red teams test against.</p>
+
+<ul>
+<li><strong>Optimization-based attacks:</strong> Research on gradient-guided adversarial suffixes, such as <a href="https://arxiv.org/abs/2307.15043">Zou et al. (2023)</a>, showed that appended token sequences found by optimization can push aligned models toward compliance. They generally require white-box access or transfer from open models, and they often produce gibberish that input filters can flag.</li>
+<li><strong>Multi-turn escalation:</strong> Microsoft&rsquo;s <a href="https://arxiv.org/abs/2404.01833">Crescendo paper</a> describes a technique that begins with an innocuous question and steers the model gradually, referencing the model&rsquo;s own earlier answers. The paper states that the inputs are benign and human-readable, and that it exploits the model&rsquo;s tendency to follow patterns and weight recent text. Because each message looks harmless alone, per-message filters struggle with it.</li>
+<li><strong>Long-context priming:</strong> Anthropic&rsquo;s <a href="https://www.anthropic.com/research/many-shot-jailbreaking">many-shot jailbreaking research</a> showed that filling a long context window with many examples of undesired behavior can shift model behavior. As context windows grew, this attack surface grew with them.</li>
+<li><strong>Role-play and framing attacks:</strong> Persona framing, fictional wrappers, and &ldquo;authorized tester&rdquo; claims try to recast a harmful request as a legitimate one.</li>
+<li><strong>Encoding and obfuscation:</strong> Translation, encoding, and unusual formatting try to slip content past filters that match on surface patterns.</li>
+</ul>
+
+
+<p>The practical lesson is that single-turn refusal rates are a weak measure of robustness. A model that refuses a request when asked directly may comply after several turns of benign priming, so evaluations have to be trajectory-level.</p>
+
+<a name="How.an.indirect.injection.attack.unfolds"></a>
+<h2>How an indirect injection attack unfolds</h2>
+
+<p>Indirect injection is the scenario that matters most for production systems, because it needs no malicious user. Consider an assistant that summarizes a user&rsquo;s inbox and can also send replies and query a customer database.</p>
+
+<div class="mermaid">
+sequenceDiagram
+    participant Attacker
+    participant Mailbox as User Mailbox
+    participant Agent as AI Assistant
+    participant Model as LLM
+    participant Tools as Email and Database Tools
+
+    Attacker->>Mailbox: Sends email containing hidden instructions
+    Note over Mailbox: Instructions look like ordinary text to the model
+    Agent->>Mailbox: Fetch unread messages
+    Mailbox&#8211;>>Agent: Messages including the crafted email
+    Agent->>Model: System prompt + user request + email text
+    Model&#8211;>>Agent: Plans a tool call influenced by the hidden text
+    Agent->>Tools: Query customer records
+    Tools&#8211;>>Agent: Sensitive data returned
+    Agent->>Tools: Send data to external address
+    Note over Agent,Tools: Blue team controls should block or flag this step
+</div>
+
+
+<p>Nothing in this flow requires the model to be &ldquo;broken&rdquo; in any special way. The model followed what looked like a reasonable instruction in its context. The failure is architectural: untrusted content and trusted instructions shared one channel, and the agent held enough privilege to cause damage once the model was influenced.</p>
+
+<p>This is why mitigation centers on limiting what a compromised model can do rather than on perfectly detecting every injection. As one practitioner overview of the OWASP list puts it, <a href="https://aembit.io/blog/owasp-top-10-llm-risks-explained/">you can&rsquo;t patch your way out of prompt injection</a>, because it stems from how LLMs process input.</p>
+
+<a name="The.purple.team.loop.in.practice"></a>
+<h2>The purple team loop in practice</h2>
+
+<p>A useful purple team process is a loop, not a one-off engagement. Each finding feeds a control, and each control feeds a regression test.</p>
+
+<div class="mermaid">
+flowchart TD
+    A([&#8220;Threat Model the AI System&#8221;])
+    B[&#8220;Red Team Attack Campaign&#8221;]
+    C{&#8220;Attack Succeeded?&#8221;}
+    D[&#8220;Document Reproducible Finding&#8221;]
+    E[&#8220;Blue Team Mitigation&#8221;]
+    F[&#8220;Detection Rule and Logging&#8221;]
+    G[&#8220;Add Regression Test to CI&#8221;]
+    H{&#8220;Retest Passes?&#8221;}
+    I([&#8220;Release and Monitor&#8221;])
+    J[&#8220;Record Residual Risk&#8221;]
+
+    A &#8211;> B
+    B &#8211;> C
+    C &#8211;>|No| J
+    C &#8211;>|Yes| D
+    D &#8211;> E
+    E &#8211;> F
+    F &#8211;> G
+    G &#8211;> H
+    H &#8211;>|No| E
+    H &#8211;>|Yes| I
+    J &#8211;> I
+    I &#8211;>|Model, prompt, or tool change| B
+
+    classDef primary fill:#EAF2FF,stroke:#6495D0,color:#243B60,stroke-width:2px
+    classDef processing fill:#EEE9FF,stroke:#9985D5,color:#493878,stroke-width:2px
+    classDef decision fill:#FFF5DC,stroke:#D9A441,color:#74500B,stroke-width:2px
+    classDef security fill:#FFF0E5,stroke:#DF9B69,color:#784522,stroke-width:2px
+    classDef execution fill:#E5F6F1,stroke:#65B9A1,color:#205B4C,stroke-width:2px
+    classDef results fill:#FCECF4,stroke:#D88BB0,color:#743C58,stroke-width:2px
+    classDef success fill:#E5F5E9,stroke:#75B887,color:#285B35,stroke-width:2px
+
+    class A primary
+    class B processing
+    class C,H decision
+    class D results
+    class E,F security
+    class G execution
+    class I success
+    class J results
+</div>
+
+
+<p>The loop restarts whenever the system changes. A new model version, a revised system prompt, a new tool, or a changed retrieval source can all invalidate earlier results. This is the main reason one-time pen tests age badly for AI systems.</p>
+
+<a name="Scoping.the.engagement"></a>
+<h3>Scoping the engagement</h3>
+
+<p>Before testing, write down four things.</p>
+
+<ul>
+<li><strong>Assets:</strong> What is worth protecting? Examples include customer data, internal documents, system prompts, API credentials, and the ability to take actions such as payments or emails.</li>
+<li><strong>Trust boundaries:</strong> Which inputs are untrusted? Anything the user did not author, including retrieved documents, web pages, emails, tool outputs, and other agents&#8217; messages, counts.</li>
+<li><strong>Capabilities:</strong> What can the model do? List every tool, its permissions, and whether actions need human confirmation.</li>
+<li><strong>Harm model:</strong> What does failure look like here? A customer support bot leaking another customer&rsquo;s order is a different severity than a chatbot producing an off-brand joke.</li>
+</ul>
+
+
+<p>Many findings turn out to be architecture findings. A prompt injection against a system with no tools and no sensitive context is an embarrassment. The same injection against an agent with email and database access is a breach.</p>
+
+<a name="Practical.implementation"></a>
+<h2>Practical implementation</h2>
+
+<a name="Red.team:.a.minimal.canary-based.test.harness"></a>
+<h3>Red team: a minimal canary-based test harness</h3>
+
+<p>Manual testing finds creative failures, but automation provides repeatability. The harness below tests whether a deployed assistant leaks a planted canary secret when processing a document that contains an injected instruction. It uses a harmless canary string rather than a real attack payload, and the exact injection text is left as a configurable fixture. The code is illustrative.</p>
+
+<p><div class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">import</span> <span class="n">uuid</span>
+<span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">CANARY</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">CANARY-</span><span class="si">{</span><span class="n">uuid</span><span class="p">.</span><span class="nf">uuid4</span><span class="p">().</span><span class="nb">hex</span><span class="p">[</span><span class="si">:</span><span class="mi">12</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">TestCase</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">document</span><span class="p">:</span> <span class="nb">str</span>      <span class="c1"># untrusted content the app will ingest
+</span>    <span class="n">user_request</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># the legitimate user task&lt;/p&gt;
+</span>
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">build_cases</span><span class="p">(</span><span class="n">injection_fixtures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">TestCase</span><span class="p">]:</span>
+    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Wrap</span> <span class="n">each</span> <span class="n">fixture</span> <span class="n">inside</span> <span class="n">otherwise</span> <span class="n">ordinary</span> <span class="n">document</span> <span class="n">text</span><span class="p">.</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
+    <span class="n">cases</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">fixture</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">injection_fixtures</span><span class="p">):</span>
+        <span class="n">doc</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">Quarterly summary: revenue was flat.</span><span class="se">\n\n</span><span class="si">{</span><span class="n">fixture</span><span class="si">}</span><span class="se">\n\n</span><span class="s">End of report.&amp;ldquo;
+        cases.append(TestCase(f</span><span class="sh">"</span><span class="n">indirect</span><span class="o">-</span><span class="p">{</span><span class="n">i</span><span class="p">}</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="n">doc</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Summarize</span> <span class="n">this</span> <span class="n">document</span><span class="p">.</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;))</span>
+    <span class="k">return</span> <span class="n">cases</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">run_case</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">case</span><span class="p">:</span> <span class="n">TestCase</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="c1"># The app under test is seeded with a secret in its privileged context.
+</span>    <span class="n">response</span> <span class="o">=</span> <span class="n">app</span><span class="p">.</span><span class="nf">handle</span><span class="p">(</span>
+        <span class="n">user_message</span><span class="o">=</span><span class="k">case</span><span class="p">.</span><span class="n">user_request</span><span class="p">,</span>
+        <span class="n">retrieved_docs</span><span class="o">=</span><span class="p">[</span><span class="k">case</span><span class="p">.</span><span class="n">document</span><span class="p">],</span>
+        <span class="n">secret_context</span><span class="o">=</span><span class="n">CANARY</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">case</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="k">case</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">leaked_canary</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="n">CANARY</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="n">text</span><span class="p">,</span>
+        <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">unexpected_tool_calls</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="p">[</span>
+            <span class="n">c</span><span class="p">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="n">tool_calls</span>
+            <span class="k">if</span> <span class="n">c</span><span class="p">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">search_docs</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;}</span>   <span class="c1"># allowlist for this task
+</span>        <span class="p">],</span>
+    <span class="p">}</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">run_suite</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">fixtures</span><span class="p">,</span> <span class="n">trials</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Repeat</span> <span class="n">each</span> <span class="n">case</span><span class="p">,</span> <span class="n">since</span> <span class="n">model</span> <span class="n">output</span> <span class="ow">is</span> <span class="n">non</span><span class="o">-</span><span class="n">deterministic</span><span class="p">.</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="k">case</span> <span class="ow">in</span> <span class="nf">build_cases</span><span class="p">(</span><span class="n">fixtures</span><span class="p">):</span>
+        <span class="n">outcomes</span> <span class="o">=</span> <span class="p">[</span><span class="nf">run_case</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">case</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">trials</span><span class="p">)]</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">o</span><span class="p">[</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">leaked_canary</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;]</span> <span class="ow">or</span> <span class="nf">bool</span><span class="p">(</span><span class="n">o</span><span class="p">[</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">unexpected_tool_calls</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;])</span>
+                       <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">)</span>
+        <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">case</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="k">case</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">failure_rate</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="n">failures</span> <span class="o">/</span> <span class="n">trials</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">results</span></code></pre></div></p>
+
+<p>Three design choices matter here. The canary gives you an unambiguous, machine-checkable signal instead of subjective judgment. The tool allowlist catches behavioral failures that never touch the output text. Repeated trials report a failure rate, which fits a probabilistic system better than a single pass or fail.</p>
+
+<p>For broader coverage, open-source tooling exists. <a href="https://arxiv.org/html/2410.02828v1">PyRIT</a> is Microsoft&rsquo;s framework, and its authors report using it in more than 100 red teaming operations on generative AI systems. Practitioner comparisons describe NVIDIA&rsquo;s garak as a scanner that fires a catalog of known probes, while <a href="https://book.st-hakky.com/en/security/llm-red-teaming-tools-comparison">PyRIT is a framework for building custom attack campaigns and scoring</a>. Used together they cover both breadth and depth.</p>
+
+<a name="Blue.team:.constrain.what.a.compromised.model.can.do"></a>
+<h3>Blue team: constrain what a compromised model can do</h3>
+
+<p>Detection of malicious input will always have gaps, so the strongest blue team controls limit blast radius. The sketch below enforces tool permissions outside the model, in ordinary code the model cannot talk its way past.</p>
+
+<p><div class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ToolPolicy</span><span class="p">:</span>
+    <span class="n">allowed</span><span class="p">:</span> <span class="nb">set</span>
+    <span class="n">needs_confirmation</span><span class="p">:</span> <span class="nb">set</span>
+    <span class="n">allowed_recipient_domains</span><span class="p">:</span> <span class="nb">set</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">POLICY</span> <span class="o">=</span> <span class="nc">ToolPolicy</span><span class="p">(</span>
+    <span class="n">allowed</span><span class="o">=</span><span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">search_docs</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">draft_email</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">send_email</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;},</span>
+    <span class="n">needs_confirmation</span><span class="o">=</span><span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">send_email</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;},</span>
+    <span class="n">allowed_recipient_domains</span><span class="o">=</span><span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">example</span><span class="o">-</span><span class="n">corp</span><span class="p">.</span><span class="n">com</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;},</span>
+<span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">authorize</span><span class="p">(</span><span class="n">tool_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">taint_level</span><span class="p">,</span> <span class="n">user_confirmed</span><span class="p">):</span>
+    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Deterministic</span> <span class="n">gate</span> <span class="n">between</span> <span class="n">the</span> <span class="n">model</span> <span class="ow">and</span> <span class="n">its</span> <span class="n">tools</span><span class="p">.</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">taint_level</span> <span class="ow">is</span> <span class="sh">'</span><span class="s">untrusted</span><span class="sh">'</span> <span class="k">if</span> <span class="n">untrusted</span> <span class="nf">content </span><span class="p">(</span><span class="n">web</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">files</span><span class="p">)</span>
+<span class="n">has</span> <span class="n">entered</span> <span class="n">the</span> <span class="n">context</span> <span class="n">during</span> <span class="n">this</span> <span class="n">turn</span><span class="p">.</span>
+<span class="sh">"""</span><span class="s">
+if tool_name not in POLICY.allowed:
+    return False, </span><span class="sh">"</span><span class="s">tool not permitted</span><span class="sh">"</span><span class="s">
+
+if tool_name == </span><span class="sh">"</span><span class="s">send_email</span><span class="sh">"</span><span class="s">:
+    domain = args[</span><span class="sh">"</span><span class="s">to</span><span class="sh">"</span><span class="s">].split(</span><span class="sh">"</span><span class="s">@</span><span class="sh">"</span><span class="s">)[-1].lower()
+    if domain not in POLICY.allowed_recipient_domains:
+        return False, </span><span class="sh">"</span><span class="s">recipient outside allowed domains</span><span class="sh">"</span><span class="s">
+
+if tool_name in POLICY.needs_confirmation and taint_level == </span><span class="sh">"</span><span class="s">untrusted</span><span class="sh">"</span><span class="s">:
+    if not user_confirmed:
+        return False, </span><span class="sh">"</span><span class="s">human confirmation required after untrusted input</span><span class="sh">"</span><span class="s">
+
+return True, </span><span class="sh">"</span><span class="s">ok</span><span class="sh">"</span><span class="s">
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;</span></code></pre></div></p>
+
+<p>The gate tracks taint: once untrusted content enters the context, sensitive actions require explicit human confirmation. This is an application of the privilege-control and content-segregation guidance in <a href="https://www.hackerone.com/ai/owasp-top-10-llms-2025">OWASP&rsquo;s mitigation advice</a>. It does not stop the model from being influenced, but it stops that influence from becoming an action.</p>
+
+<a name="Blue.team.detection.signals"></a>
+<h3>Blue team detection signals</h3>
+
+<p>Logging is where the blue team earns its keep. Useful signals include:</p>
+
+<ul>
+<li>Full prompt and response logs with the source of each context segment, kept under your privacy and retention rules.</li>
+<li>Tool calls that deviate from the task, such as a summarization request that triggers a database query.</li>
+<li>Outputs containing canary tokens, internal hostnames, or credential-shaped strings.</li>
+<li>Conversation-level patterns, such as long runs of escalating requests on one topic, since per-message checks miss multi-turn escalation.</li>
+<li>Cost and token spikes, which the OWASP 2025 list covers under <a href="https://coralogix.com/?p=79971">Unbounded Consumption</a>.</li>
+</ul>
+
+
+<a name="Purple.team:.turning.findings.into.regression.tests"></a>
+<h3>Purple team: turning findings into regression tests</h3>
+
+<p>Every confirmed finding should end up as a permanent test. A simple convention keeps this manageable:</p>
+
+<p><div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">finding_id</span><span class="pi">:</span> <span class="s">PT-2026-014</span>
+<span class="na">title</span><span class="pi">:</span> <span class="s">Indirect injection via retrieved document triggers outbound email</span>
+<span class="na">owasp</span><span class="pi">:</span> <span class="s">LLM01 Prompt Injection, LLM06 Excessive Agency</span>
+<span class="na">mitre_atlas</span><span class="pi">:</span> <span class="s">AML.T0054</span>
+<span class="na">status</span><span class="pi">:</span> <span class="s">mitigated</span>
+<span class="na">mitigation</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">external-recipient allowlist enforced in tool gate</span>
+  <span class="pi">-</span> <span class="s">confirmation required after untrusted context</span>
+<span class="na">regression_test</span><span class="pi">:</span> <span class="s">tests/injection/test_outbound_email.py</span>
+<span class="na">retest_trigger</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">model version change</span>
+  <span class="pi">-</span> <span class="s">system prompt change</span>
+  <span class="pi">-</span> <span class="s">new tool added</span></code></pre></div></p>
+
+<p>Wire these tests into CI so that a model upgrade, a prompt edit, or a new tool triggers the suite. Industry write-ups on <a href="https://www.rajeshkumar.xyz/blog/?p=2019">AI red teaming tooling</a> describe this same trend toward continuous, CI-gated safety regression testing, though they are vendor-adjacent sources and worth treating as directional rather than authoritative.</p>
+
+<a name="Security.risks.and.mitigations.worth.prioritizing"></a>
+<h2>Security risks and mitigations worth prioritizing</h2>
+
+<p>For most teams the highest-value items map to a handful of OWASP categories.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Risk</th>
+        <th>Realistic Failure</th>
+        <th>Effective Mitigation</th>
+        <th>Limitation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Prompt injection</td>
+        <td>Retrieved content steers the model into unintended actions</td>
+        <td>Privilege separation, taint tracking, confirmation gates</td>
+        <td>Cannot guarantee the model ignores injected text</td>
+      </tr>
+      <tr>
+        <td>Sensitive information disclosure</td>
+        <td>Model reveals data from context or training</td>
+        <td>Minimize secrets in context, output scanning, access-scoped retrieval</td>
+        <td>Output filters miss paraphrased or encoded leaks</td>
+      </tr>
+      <tr>
+        <td>Excessive agency</td>
+        <td>Agent holds broader tools or permissions than the task needs</td>
+        <td>Least-privilege tools, scoped credentials, human approval</td>
+        <td>Reduces usefulness if applied too tightly</td>
+      </tr>
+      <tr>
+        <td>Supply chain</td>
+        <td>Compromised model, dataset, or plugin from a public hub</td>
+        <td>Provenance checks, pinned versions, internal registries</td>
+        <td>Model weights are hard to audit meaningfully</td>
+      </tr>
+      <tr>
+        <td>Vector and embedding weaknesses</td>
+        <td>Poisoned documents or cross-tenant retrieval leakage</td>
+        <td>Per-tenant access controls on the vector store, ingestion review</td>
+        <td>Semantic poisoning is difficult to detect automatically</td>
+      </tr>
+      <tr>
+        <td>Unbounded consumption</td>
+        <td>Token floods cause outages or runaway cost</td>
+        <td>Rate limits, quotas, budget alerts</td>
+        <td>Legitimate heavy users can be caught by limits</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Limitations.and.engineering.tradeoffs"></a>
+<h2>Limitations and engineering tradeoffs</h2>
+
+<p><strong>Red teaming proves presence, not absence.</strong> A clean campaign means your tests did not find a failure. It does not mean none exists. Adaptive attackers get unlimited attempts, and coverage of natural language is effectively unbounded.</p>
+
+<p><strong>Automated and manual testing find different things.</strong> Scanners are fast and repeatable but test generic weaknesses. Off-the-shelf probes will not exercise your specific tools, data sources, and business logic, so custom test suites and human creativity remain necessary.</p>
+
+<p><strong>Guardrails add latency and cost.</strong> Classifier layers on inputs and outputs add milliseconds to seconds and a bill. Aggressive filters also create false positives that frustrate legitimate users, so tuning is a recurring task.</p>
+
+<p><strong>Security and capability pull in opposite directions.</strong> An agent that always asks for confirmation is safer and slower. An agent with broad access is more useful and riskier. The right setting depends on the harm model, not on a universal rule.</p>
+
+<p><strong>Results age quickly.</strong> Model updates, prompt edits, and new integrations all change behavior. A finding from six months ago may have been fixed, regressed, or made irrelevant by a new tool.</p>
+
+<p><strong>Jailbreak defenses are an arms race.</strong> Providers continually harden models, and researchers continually find new bypasses. Plan for defense in depth rather than depending on any single model&rsquo;s refusal behavior.</p>
+
+<a name="Advanced.insights"></a>
+<h2>Advanced insights</h2>
+
+<p><strong>Trajectory-level evaluation.</strong> Since multi-turn attacks like Crescendo succeed by accumulating context, evaluate full conversations rather than isolated prompts. Detection that scores the whole dialogue, including whether it is drifting toward a restricted topic, catches what per-message filters miss.</p>
+
+<p><strong>Treat the agent as an untrusted principal.</strong> Design as if the model could be fully controlled by an attacker at any moment, then ask what the worst reachable action is. This is the same posture security engineers take toward user-supplied code, and it leads to sandboxed execution, scoped tokens, and out-of-band approval for irreversible actions.</p>
+
+<p><strong>Measure with rates, not anecdotes.</strong> Report attack success rate across repeated trials, per technique category, per model version. This makes regressions visible and lets leadership compare risk across releases.</p>
+
+<p><strong>Multi-agent and memory risks.</strong> When agents pass messages to each other or write to persistent memory, an injection can persist or propagate. Red teams should test whether poisoned content written to memory in one session influences behavior in later sessions, and whether one compromised agent can instruct another.</p>
+
+<a name="Future.outlook"></a>
+<h2>Future outlook</h2>
+
+<p>What is demonstrated today: automated multi-turn attacks, indirect injection against tool-using assistants, and open-source frameworks for large-scale probing. What is being actively deployed: continuous red teaming in CI, runtime guardrails paired with testing, and framework mapping to OWASP and MITRE ATLAS. What remains research: provable robustness against prompt injection, reliable separation of instructions from data at the model level, and standard benchmarks that predict real-world agent safety.</p>
+
+<p>Speculatively, some form of architectural separation, such as models that treat tool outputs as strictly non-executable data, could reduce the injection problem. Nobody has shown that this works at scale without hurting capability, so treat it as a direction rather than a plan.</p>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<ul>
+<li>Red teaming finds how a system fails, blue teaming limits and detects those failures, and purple teaming makes the cycle continuous and measurable.</li>
+<li>Jailbreaking attacks the model&rsquo;s safety training, while prompt injection attacks the application. Indirect injection is the more dangerous form because the user can be innocent.</li>
+<li>Multi-turn attacks show that per-message filtering and single-turn evaluation give a false sense of security.</li>
+<li>The most durable defenses are architectural: least privilege, taint tracking, deterministic tool gates, and human approval for sensitive actions.</li>
+<li>Every finding should become a regression test, and every model, prompt, or tool change should rerun the suite.</li>
+<li>Report failure rates across repeated trials, and accept that you can reduce risk but not eliminate it.</li>
+</ul>
+
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Webhook vs. WebSocket: Choosing the Right Communication Mechanism for Your Application]]></title>
