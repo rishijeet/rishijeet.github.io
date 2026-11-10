@@ -4,7 +4,7 @@
     <title><![CDATA[Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-11-07T16:43:30+05:30</updated>
+    <updated>2026-11-10T19:30:23+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,639 @@
     </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[The Falling Cost of Intelligence: How AI Is Becoming Exponentially Cheaper and What It Means for Enterprises]]></title>
+        <link href="https://rishijeet.github.io/blog/the-falling-cost-of-intelligence-how-ai-is-becoming-exponentially-cheaper-and-what-it-means-for-enterprises/"/>
+        <updated>2026-11-10T19:08:25+05:30</updated>
+        <id>https://rishijeet.github.io/blog/the-falling-cost-of-intelligence-how-ai-is-becoming-exponentially-cheaper-and-what-it-means-for-enterprises</id>
+        <content type="html"><![CDATA[<p>A model that performed at GPT-3.5 level cost about $20 per million tokens in November 2022. By October 2024, the same level of performance cost about $0.07. That is a drop of more than 280 times in under two years, according to the <a href="https://hai.stanford.edu/ai-index/2025-ai-index-report">Stanford AI Index 2025</a>.</p>
+
+<p><img src="https://rishijeet.github.io/images/2026/token_price_fall.png" height="300" width="900" alt="Alt text" /><em>Source: Generated using AI</em></p>
+
+<p>Yet many enterprise AI bills are growing, not shrinking. Both things are true at once, and understanding why is the difference between a sensible AI cost strategy and a surprising invoice.</p>
+
+<p>This article looks at how fast the cost of AI inference is falling, what is driving it, where the numbers can mislead you, and what engineering and finance teams should do about it. The title says &ldquo;exponentially&rdquo;. That word is fair for the price of a fixed level of capability, which falls in a roughly straight line on a log chart. It is not fair for every model or every price list, and the difference matters.</p>
+
+<!--more-->
+
+
+<a name="Three.different.things.people.call.the.cost.of.AI"></a>
+<h2>Three different things people call the cost of AI</h2>
+
+<p>Most confusion about AI pricing comes from mixing up three separate measurements.</p>
+
+<ul>
+<li><strong>Cost per token:</strong> what you pay to process or generate one token. This is the number on the pricing page.</li>
+<li><strong>Cost per task:</strong> what you pay to finish a piece of work, such as summarizing a contract or resolving a card dispute. It depends on how many tokens the task consumes and how often it has to be retried.</li>
+<li><strong>Cost per unit of intelligence:</strong> what you pay to reach a given quality bar, for example a score on a benchmark. This is the number that tells you whether AI itself is getting cheaper.</li>
+</ul>
+
+
+<p>The first has fallen sharply at every tier. The third has fallen even more dramatically. The second depends on your workload, and it is the one your CFO actually sees.</p>
+
+<a name="What.the.price.lists.show"></a>
+<h2>What the price lists show</h2>
+
+<p>OpenAI&rsquo;s history gives a clean timeline because the company has published list prices for every generation. The table uses standard rates in USD per million tokens, taken from OpenAI&rsquo;s <a href="https://developers.openai.com/api/docs/pricing">pricing page</a> and launch-time list prices.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Input per 1M tokens</th>
+        <th>Output per 1M tokens</th>
+        <th>Released</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPT-4</td>
+        <td>$30.00</td>
+        <td>$60.00</td>
+        <td>March 2023</td>
+      </tr>
+      <tr>
+        <td>GPT-4o</td>
+        <td>$5.00</td>
+        <td>$15.00</td>
+        <td>May 2024</td>
+      </tr>
+      <tr>
+        <td>GPT-4.1</td>
+        <td>$2.00</td>
+        <td>$8.00</td>
+        <td>April 2025 (<a href="https://openai.com/index/gpt-4-1/">announcement</a>)</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Astra</td>
+        <td>$10.00</td>
+        <td>$50.00</td>
+        <td>September 2026</td>
+      </tr>
+      <tr>
+        <td>GPT-6.1 Sol</td>
+        <td>$2.00</td>
+        <td>$10.00</td>
+        <td>September 2026</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Luna</td>
+        <td>$0.10</td>
+        <td>$0.50</td>
+        <td>September 2026</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Astra <a href="https://computingforgeeks.com/gpt-6-astra-released-features-benchmarks/">reached the API on September 3, 2026</a>. Sol and Luna followed in late September at <a href="https://www.yottalabs.ai/post/gpt-6-sol-luna-pricing-vs-astra-open-models-2026">half the price of their GPT-5.6 predecessors</a>, with OpenAI <a href="https://thenewstack.io/?p=22837761">attributing the cut to improvements in caching and inference</a>.</p>
+
+<p>The arithmetic is striking. GPT-4 to GPT-4o made input 6 times cheaper and output 4 times cheaper. GPT-4o to GPT-4.1 added another 2.5 times on input and about 1.9 times on output. GPT-4 to GPT-6 Luna is 300 times cheaper on input and 120 times cheaper on output at standard rates.</p>
+
+<p>Two warnings apply before anyone puts those numbers on a slide.</p>
+
+<p>First, these are different capability tiers, not the same model getting cheaper. GPT-6 Luna is not GPT-4 at a discount.</p>
+
+<p>Second, look at the top of the table. Astra&rsquo;s input price is 3 times lower than GPT-4&rsquo;s launch price, but its output price is only about 1.2 times lower. The frontier price has barely moved. What collapsed is the price of yesterday&rsquo;s capability. The newest and strongest model still costs real money, and it is priced in the same range as the top tiers from other labs. Anthropic&rsquo;s top tier sat at <a href="https://platform.claude.com/docs/en/about-claude/pricing">$10 and $50 for Claude Fable 5.1, then dropped to $8 and $40 for Fable 5.2</a>.</p>
+
+<p>[Suggested visual: log-scale chart of OpenAI list prices by model release date, with the frontier tier and the small tier plotted as separate lines]</p>
+
+<a name="The.same.pattern.appears.across.vendors"></a>
+<h3>The same pattern appears across vendors</h3>
+
+<p>Anthropic&rsquo;s published pricing shows the same shape when you compare tiers across generations.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Earlier generation (input / output per 1M)</th>
+        <th>Current generation (input / output per 1M)</th>
+        <th>Caveat</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Large</td>
+        <td>Claude Opus 4.1: $15 / $75</td>
+        <td>Claude Opus 5.5: $4 / $20</td>
+        <td>Different capability levels</td>
+      </tr>
+      <tr>
+        <td>Mid</td>
+        <td>Claude Sonnet 4.6: $3 / $15</td>
+        <td>Claude Sonnet 5.5: $2 / $10</td>
+        <td>Newer tokenizer produces about 30% more tokens for the same text</td>
+      </tr>
+      <tr>
+        <td>Small</td>
+        <td>Claude Haiku 4.5: $1 / $5</td>
+        <td>Claude Haiku 5.5: $0.10 / $0.50</td>
+        <td>Prompts over 100,000 tokens are priced at $0.50 / $2.50</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The figures come from Anthropic&rsquo;s <a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing documentation</a>. Google showed the earlier version of this behavior when it <a href="https://developers.googleblog.com/en/updated-gemini-models-reduced-15-pro-pricing-increased-rate-limits-and-more/">cut Gemini 1.5 Pro prices by 64% on input and 52% on output</a> for prompts under 128K tokens in October 2024.</p>
+
+<p>The tokenizer note in the table is easy to miss and worth remembering. Anthropic states that Claude 4.7 and later models <a href="https://platform.claude.com/docs/en/about-claude/pricing">produce roughly 30% more tokens for the same text</a> than earlier ones. A lower price per token does not automatically mean a lower price per document. Comparing vendors on price per million tokens is only a first approximation.</p>
+
+<a name="Intelligence.is.getting.cheaper..not.just.tokens"></a>
+<h2>Intelligence is getting cheaper, not just tokens</h2>
+
+<p>A price list compares different models. A better question is how much it costs to buy a fixed level of capability over time. Several independent efforts have tried to measure that.</p>
+
+<p>The Stanford AI Index 2025, using data from Epoch AI and Artificial Analysis, found that the cost of querying a model at roughly GPT-3.5 level on the MMLU benchmark fell from $20 to $0.07 per million tokens between November 2022 and October 2024. Stanford attributes the drop to <a href="https://hai.stanford.edu/ai-index/2025-ai-index-report">increasingly capable small models</a>. On a harder benchmark, GPQA, the cost of reaching above 50% fell from $15 per million tokens in May 2024 to $0.12 in December 2024, which is about 125 times in seven months.</p>
+
+<p>Epoch AI&rsquo;s <a href="https://epoch.ai/blog/llm-inference-price-trends">analysis of inference price trends</a> puts the rate of decline between 9 times and 900 times per year, depending on the performance threshold. For example, the price of matching GPT-4&rsquo;s score on PhD-level science questions fell by about 40 times per year.</p>
+
+<p>There are good reasons to hold these numbers loosely:</p>
+
+<ul>
+<li>The extreme end of the range rests on few data points. Epoch itself notes that the fastest declines happened recently and <a href="https://epoch.ai/data-insights/ai-inference-price-trends">it is less clear they will persist</a>.</li>
+<li>Benchmarks saturate. Once many models pass a test, the price of &ldquo;passing&rdquo; stops telling you much about harder work.</li>
+<li>Price per token is not cost per solved problem. An MIT FutureTech study, <a href="https://arxiv.org/html/2511.23455v1">The Price of Progress</a>, points out that reasoning models can have a lower per-token cost but a larger overall cost because they generate more tokens. It also cites separate work finding that the cost to solve benchmark problems fell much more slowly on harder tests, by about 24.5 times per year on MATH-500 but only about 3.2 times per year on AIME 2024.</li>
+</ul>
+
+
+<p>So the honest summary is this. At a fixed, well-defined capability level, cost is falling very fast. For the hardest tasks, where the frontier is the only option, it is falling much more slowly.</p>
+
+<a name="Why.the.cost.keeps.falling"></a>
+<h2>Why the cost keeps falling</h2>
+
+<p>No single breakthrough explains the trend. Several independent improvements stack, and competition pushes providers to pass some of the savings on.</p>
+
+<div class="mermaid">
+flowchart LR
+    subgraph SUPPLY[&#8220;Cost to produce a token&#8221;]
+        H[&#8220;Hardware generations&#8221;]
+        M[&#8220;Sparse architectures such as MoE&#8221;]
+        Q[&#8220;Quantization&#8221;]
+        S[&#8220;Batching and prompt caching&#8221;]
+    end
+    subgraph CAPABILITY[&#8220;Cost to reach a quality bar&#8221;]
+        D[&#8220;Distillation into smaller models&#8221;]
+        T[&#8220;Better training recipes and data&#8221;]
+    end
+    C[&#8220;Competition and open-weight models&#8221;]
+    P([&#8220;Lower price at fixed capability&#8221;])
+    E{&#8220;Does usage grow faster than price falls?&#8221;}
+    U[&#8220;Total AI spend rises&#8221;]
+    F[&#8220;Total AI spend falls&#8221;]
+    H &#8211;> P
+    M &#8211;> P
+    Q &#8211;> P
+    S &#8211;> P
+    D &#8211;> P
+    T &#8211;> P
+    C &#8211;> P
+    P &#8211;> E
+    E &#8211;>|Yes| U
+    E &#8211;>|No| F
+    classDef execution fill:#E5F6F1,stroke:#65B9A1,color:#205B4C,stroke-width:2px
+    classDef processing fill:#EEE9FF,stroke:#9985D5,color:#493878,stroke-width:2px
+    classDef primary fill:#EAF2FF,stroke:#6495D0,color:#243B60,stroke-width:2px
+    classDef decision fill:#FFF5DC,stroke:#D9A441,color:#74500B,stroke-width:2px
+    classDef results fill:#FCECF4,stroke:#D88BB0,color:#743C58,stroke-width:2px
+    classDef success fill:#E5F5E9,stroke:#75B887,color:#285B35,stroke-width:2px
+    class H,Q,S execution
+    class M,D,T processing
+    class C primary
+    class P success
+    class E decision
+    class U,F results
+    style SUPPLY fill:#FFFFFF,stroke:#79ACD6,stroke-width:2px
+    style CAPABILITY fill:#FFFFFF,stroke:#79ACD6,stroke-width:2px
+</div>
+
+
+
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Driver</th>
+        <th>What it changes</th>
+        <th>Evidence</th>
+        <th>Catch</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Hardware generations</td>
+        <td>More tokens per second per dollar and per watt</td>
+        <td>Stanford&#8217;s AI Index 2025 summarizes ML hardware costs falling about 30% per year and energy efficiency improving about 40% per year</td>
+        <td>Savings reach customers only if competition forces providers to pass them on</td>
+      </tr>
+      <tr>
+        <td>Sparse architectures (MoE)</td>
+        <td>Fewer active parameters per token</td>
+        <td>Widely used technique, though closed-model details are rarely published</td>
+        <td>All experts still need memory, so the serving footprint stays large</td>
+      </tr>
+      <tr>
+        <td>Quantization</td>
+        <td>Smaller weights and cache, higher throughput</td>
+        <td>Standard serving optimization</td>
+        <td>Quality can degrade on edge cases, so it needs evaluation</td>
+      </tr>
+      <tr>
+        <td>Caching and batching</td>
+        <td>Reuses prefix work and keeps GPUs busy</td>
+        <td>OpenAI lists cached input for Astra at $1 versus $10 standard; Flex and Batch rates are half of standard</td>
+        <td>Needs stable prompt prefixes; batch work waits longer</td>
+      </tr>
+      <tr>
+        <td>Distillation</td>
+        <td>Small models imitate larger ones</td>
+        <td>Stanford links the GPT-3.5-level cost drop to capable small models</td>
+        <td>Students rarely match teachers on the hard tail of tasks</td>
+      </tr>
+      <tr>
+        <td>Competition</td>
+        <td>Pricing pressure across labs and open-weight models</td>
+        <td>The Gemini 1.5 Pro cut in 2024 and the 50% GPT-6 Sol and Luna cuts in 2026</td>
+        <td>Providers can also keep efficiency gains as margin</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Compute.per.token.and.bytes.per.token"></a>
+<h3>Compute per token and bytes per token</h3>
+
+<p>During generation, a large model spends much of its time moving weights and cached attention data through memory rather than doing arithmetic. That is why several of these techniques work.</p>
+
+<p>A mixture-of-experts model routes each token through a small subset of its parameters. Compute per token falls, though the whole model still has to sit in memory. Quantization stores weights, and sometimes the attention cache, in fewer bits. Less data to move means more tokens per second on the same chip. The price is a small but real risk of quality loss that only shows up when you test against your own tasks.</p>
+
+<a name="Batching.and.prompt.caching"></a>
+<h3>Batching and prompt caching</h3>
+
+<p>A GPU is cheapest to run when it is busy. Providers group many requests together so the hardware stays utilized. The tradeoff is latency, which is why speed is now a priced feature. OpenAI lists a Fast mode for Astra at $20 and $100, double the standard rate. Anthropic <a href="https://platform.claude.com/docs/en/about-claude/pricing">prices fast mode for Claude Opus 5.5 at twice standard</a> as well.</p>
+
+<p>Prompt caching works because transformer models compute intermediate attention state for every token they read. If the next request starts with the same long prefix, a provider can reuse that state instead of recomputing it. This describes the general mechanism, not any one vendor&rsquo;s implementation. The price effect is public: cached input for Astra is $1 per million tokens versus $10, and on Claude Sonnet 5.5 a cache read costs <a href="https://platform.claude.com/docs/en/about-claude/pricing">5% of the base input price</a>.</p>
+
+<a name="What.this.looks.like.in.real.money"></a>
+<h2>What this looks like in real money</h2>
+
+<p>Take a hypothetical application that processes 1 million input tokens and 250,000 output tokens. Input-heavy workloads are typical. Snowflake&rsquo;s AI research team has observed <a href="https://www.snowflake.com/en/artificial-intelligence/ai-engineering/ai-cost-optimization/">roughly 10 to 1 ratios between prompt and generated tokens</a> across many enterprise workloads.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Input (1M tokens)</th>
+        <th>Output (250K tokens)</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPT-4</td>
+        <td>$30.00</td>
+        <td>$15.00</td>
+        <td>$45.00</td>
+      </tr>
+      <tr>
+        <td>GPT-4o</td>
+        <td>$5.00</td>
+        <td>$3.75</td>
+        <td>$8.75</td>
+      </tr>
+      <tr>
+        <td>GPT-4.1</td>
+        <td>$2.00</td>
+        <td>$2.00</td>
+        <td>$4.00</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Astra</td>
+        <td>$10.00</td>
+        <td>$12.50</td>
+        <td>$22.50</td>
+      </tr>
+      <tr>
+        <td>GPT-6.1 Sol</td>
+        <td>$2.00</td>
+        <td>$2.50</td>
+        <td>$4.50</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Luna</td>
+        <td>$0.10</td>
+        <td>$0.125</td>
+        <td>$0.225</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Choosing the right tier matters as much as choosing the newest model. Astra costs 100 times more than Luna for the same token volume, and the model released today at the top of the range is not cheaper than GPT-4.1 from 2025.</p>
+
+<p>Now scale it up. Consider a bank that uses an LLM to process debit-card disputes. Assume 10 million claims a year, with 5,000 input tokens and 1,000 output tokens per claim. That is 50 billion input tokens and 10 billion output tokens annually. These are illustrative assumptions, not a forecast.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Cost per claim</th>
+        <th>Annual cost</th>
+        <th>Reading</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPT-4</td>
+        <td>$0.21</td>
+        <td>$2,100,000</td>
+        <td>Pricing from 2023</td>
+      </tr>
+      <tr>
+        <td>GPT-4o</td>
+        <td>$0.04</td>
+        <td>$400,000</td>
+        <td>Roughly 5 times cheaper than GPT-4</td>
+      </tr>
+      <tr>
+        <td>GPT-4.1</td>
+        <td>$0.018</td>
+        <td>$180,000</td>
+        <td>Roughly 12 times cheaper than GPT-4</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Astra</td>
+        <td>$0.10</td>
+        <td>$1,000,000</td>
+        <td>Frontier capability at frontier price</td>
+      </tr>
+      <tr>
+        <td>GPT-6.1 Sol</td>
+        <td>$0.02</td>
+        <td>$200,000</td>
+        <td>Mid-tier for demanding coding and agent work</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Luna</td>
+        <td>$0.001</td>
+        <td>$10,000</td>
+        <td>High-volume tier for focused tasks</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Standard rates are assumed throughout. Flex and Batch processing roughly halve every figure for work that can wait, so Astra drops to about $500,000 and Luna to about $5,000.</p>
+
+<p>Caching changes the picture further. Suppose 80% of each prompt is a stable policy manual and examples that hit the cache on Sol. Input cost falls from $100,000 to about $24,000 (10 billion uncached tokens at $2, plus 40 billion cached tokens at $0.10 per million). The total becomes about $124,000. Output, now $100,000, dominates the bill. Once input is cached, the length of the answer is the main cost lever.</p>
+
+<a name="Cheaper.tokens.do.not.always.mean.cheaper.outcomes"></a>
+<h2>Cheaper tokens do not always mean cheaper outcomes</h2>
+
+<p>A $0.001 claim sounds like a bargain until the cheap model gets the answer wrong.</p>
+
+<p>The metric that matters to a business is cost per successful outcome:</p>
+
+<div class="highlight"><pre><code class="language-text" data-lang="text">cost per successful outcome = total AI operating cost / successfully completed tasks
+
+total AI operating cost = token cost + retries + human review + rework + incident cost</code></pre></div>
+
+
+<p>Here is a worked example, with assumptions stated. A small model costs $0.001 per claim and resolves 70% of claims correctly. A frontier model costs $0.10 per claim and resolves 98%. Each failed claim needs a human to fix it, at an assumed $8.</p>
+
+<ul>
+<li>Small model: $0.001 + 0.30 × $8 = about $2.40 per claim.</li>
+<li>Frontier model: $0.10 + 0.02 × $8 = about $0.26 per claim.</li>
+</ul>
+
+
+<p>The frontier model costs 100 times more in tokens and is about 9 times cheaper per claim. Across 10 million claims that is roughly $24 million versus $2.6 million. The result flips if the cheap model&rsquo;s accuracy is close to the expensive model&rsquo;s, or if human review is cheap. The only way to know is to measure accuracy on your own tasks.</p>
+
+<a name="Where.the.arithmetic.gets.messy"></a>
+<h3>Where the arithmetic gets messy</h3>
+
+<ul>
+<li><strong>Reasoning tokens.</strong> Reasoning models produce hidden thinking tokens that are billed as output. A cheap per-token price can still produce an expensive answer, as the MIT study above notes.</li>
+<li><strong>Agent loops.</strong> An agent that makes 20 model calls, each re-sending 30,000 tokens of context, consumes about 600,000 input tokens for one task. At $2 per million that is $1.20 for the task, against a cent or two for a single claim. With 90% cache hits it falls to about $0.18, but it never reaches the cost of a single call.</li>
+<li><strong>Tokenizers.</strong> The same document can be a different number of tokens on different models, as the Claude tokenizer note showed.</li>
+<li><strong>Long context.</strong> Some price lists change above a prompt-length threshold. Claude Haiku 5.5 lists five times the standard rate above 100,000 tokens.</li>
+</ul>
+
+
+<p>The deeper point is Jevons-style. When a resource gets cheaper, people use more of it. Cheaper tokens encourage more agents, longer contexts and more automated workflows. Unit cost can fall 100 times while total spend rises, which is why many teams see bills grow during a period of falling prices.</p>
+
+<a name="Engineering.for.a.falling.cost.curve"></a>
+<h2>Engineering for a falling cost curve</h2>
+
+<p>If unit prices keep falling, the right architecture is one that can move work between tiers as prices and quality change. The practical pattern is a model cascade: try a cheaper model first, validate the result, and escalate only when needed.</p>
+
+<div class="mermaid">
+flowchart TD
+    A([&#8220;Incoming task&#8221;])
+    B[&#8220;Classifier for complexity and risk&#8221;]
+    C{&#8220;Complexity and risk level&#8221;}
+    D[&#8220;Small model&#8221;]
+    E[&#8220;Mid-tier model&#8221;]
+    F[&#8220;Frontier model&#8221;]
+    G{&#8220;Validator passes?&#8221;}
+    H{&#8220;Validator passes?&#8221;}
+    I{&#8220;Policy and confidence check&#8221;}
+    J[&#8220;Human review&#8221;]
+    K([&#8220;Accepted result&#8221;])
+    L[&#8220;Log cost, tokens and outcome&#8221;]
+    A &#8211;> B
+    B &#8211;> C
+    C &#8211;>|Low| D
+    C &#8211;>|Medium| E
+    C &#8211;>|High| F
+    D &#8211;> G
+    G &#8211;>|Pass| K
+    G &#8211;>|Fail| E
+    E &#8211;> H
+    H &#8211;>|Pass| K
+    H &#8211;>|Fail| F
+    F &#8211;> I
+    I &#8211;>|Pass| K
+    I &#8211;>|Fail| J
+    J &#8211;> K
+    K &#8211;> L
+    classDef primary fill:#EAF2FF,stroke:#6495D0,color:#243B60,stroke-width:2px
+    classDef context fill:#EDF7FF,stroke:#79ACD6,color:#244968,stroke-width:2px
+    classDef processing fill:#EEE9FF,stroke:#9985D5,color:#493878,stroke-width:2px
+    classDef decision fill:#FFF5DC,stroke:#D9A441,color:#74500B,stroke-width:2px
+    classDef review fill:#E7F5FC,stroke:#76B5D2,color:#24546C,stroke-width:2px
+    classDef success fill:#E5F5E9,stroke:#75B887,color:#285B35,stroke-width:2px
+    class A primary
+    class B,L context
+    class D,E,F processing
+    class C,G,H,I decision
+    class J review
+    class K success
+</div>
+
+
+<p>The cascade&rsquo;s expected cost is easy to model. The following Python sketch is illustrative, not production code. It assumes a validator that reliably detects failures and that each tier&rsquo;s success rate applies to the tasks it actually receives. In practice, tasks that escape a small model are usually harder than average, so measured success rates on escalated cases will be lower.</p>
+
+<div class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Tier</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">input_per_m</span><span class="p">:</span> <span class="nb">float</span>    <span class="c1"># USD per 1M input tokens
+</span>    <span class="n">output_per_m</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># USD per 1M output tokens
+</span>    <span class="n">success_rate</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># measured on your own evaluation set
+</span>
+<span class="k">def</span> <span class="nf">token_cost</span><span class="p">(</span><span class="n">tier</span><span class="p">:</span> <span class="n">Tier</span><span class="p">,</span> <span class="n">tokens_in</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tokens_out</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="nf">return </span><span class="p">(</span><span class="n">tokens_in</span> <span class="o">*</span> <span class="n">tier</span><span class="p">.</span><span class="n">input_per_m</span> <span class="o">+</span> <span class="n">tokens_out</span> <span class="o">*</span> <span class="n">tier</span><span class="p">.</span><span class="n">output_per_m</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1_000_000</span>
+
+<span class="k">def</span> <span class="nf">expected_cost</span><span class="p">(</span><span class="n">tiers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tier</span><span class="p">],</span> <span class="n">tokens_in</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tokens_out</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">human_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Expected cost per task when tiers are tried in order and failures escalate.</span><span class="sh">"""</span>
+    <span class="n">cost</span><span class="p">,</span> <span class="n">p_reach</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span>
+    <span class="k">for</span> <span class="n">tier</span> <span class="ow">in</span> <span class="n">tiers</span><span class="p">:</span>
+        <span class="n">cost</span> <span class="o">+=</span> <span class="n">p_reach</span> <span class="o">*</span> <span class="nf">token_cost</span><span class="p">(</span><span class="n">tier</span><span class="p">,</span> <span class="n">tokens_in</span><span class="p">,</span> <span class="n">tokens_out</span><span class="p">)</span>
+        <span class="n">p_reach</span> <span class="o">*=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">tier</span><span class="p">.</span><span class="n">success_rate</span>      <span class="c1"># share of tasks that fail this tier
+</span>    <span class="k">return</span> <span class="n">cost</span> <span class="o">+</span> <span class="n">p_reach</span> <span class="o">*</span> <span class="n">human_cost</span>         <span class="c1"># leftover failures go to a human
+</span>
+<span class="n">small</span> <span class="o">=</span> <span class="nc">Tier</span><span class="p">(</span><span class="sh">"</span><span class="s">small</span><span class="sh">"</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.70</span><span class="p">)</span>
+<span class="n">frontier</span> <span class="o">=</span> <span class="nc">Tier</span><span class="p">(</span><span class="sh">"</span><span class="s">frontier</span><span class="sh">"</span><span class="p">,</span> <span class="mf">10.00</span><span class="p">,</span> <span class="mf">50.00</span><span class="p">,</span> <span class="mf">0.98</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="nf">expected_cost</span><span class="p">([</span><span class="n">small</span><span class="p">],</span> <span class="mi">5_000</span><span class="p">,</span> <span class="mi">1_000</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">))</span>            <span class="c1"># about 2.40
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">expected_cost</span><span class="p">([</span><span class="n">frontier</span><span class="p">],</span> <span class="mi">5_000</span><span class="p">,</span> <span class="mi">1_000</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">))</span>         <span class="c1"># about 0.26
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">expected_cost</span><span class="p">([</span><span class="n">small</span><span class="p">,</span> <span class="n">frontier</span><span class="p">],</span> <span class="mi">5_000</span><span class="p">,</span> <span class="mi">1_000</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">))</span>  <span class="c1"># about 0.079</span></code></pre></div>
+
+
+<p>With the earlier assumptions, the cascade costs about $0.08 per claim. That beats both single-model options, but only because the validator is trustworthy. A weak validator turns a cost optimization into a quality problem.</p>
+
+<p>Caching deserves the same care. The stable part of the prompt must be identical from one request to the next, so the variable part goes last. This pseudocode shows the idea.</p>
+
+<div class="highlight"><pre><code class="language-python" data-lang="python"><span class="c1"># Pseudocode: keep the shared prefix byte-identical so it can be cached
+</span><span class="k">def</span> <span class="nf">build_prompt</span><span class="p">(</span><span class="n">claim</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">role</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">system</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">content</span><span class="sh">"</span><span class="p">:</span> <span class="n">POLICY_MANUAL</span> <span class="o">+</span> <span class="n">FEW_SHOT_EXAMPLES</span><span class="p">},</span>  <span class="c1"># same on every call
+</span>        <span class="p">{</span><span class="sh">"</span><span class="s">role</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">user</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">content</span><span class="sh">"</span><span class="p">:</span> <span class="nf">render</span><span class="p">(</span><span class="n">claim</span><span class="p">)},</span>                         <span class="c1"># changes on every call
+</span>    <span class="p">]</span></code></pre></div>
+
+
+<p>Providers differ in how they enable this. Anthropic documents a <a href="https://platform.claude.com/docs/en/about-claude/pricing"><code>cache_control</code> field</a>, and OpenAI&rsquo;s docs have a guide on keeping the prompt prefix unchanged. Check each vendor&rsquo;s current documentation for the exact behavior.</p>
+
+<a name="Which.tactics.fit.which.situation"></a>
+<h3>Which tactics fit which situation</h3>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Tactic</th>
+        <th>What it saves</th>
+        <th>What it risks</th>
+        <th>Best fit</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Smaller tier for routine work</td>
+        <td>Up to two orders of magnitude on token cost</td>
+        <td>Lower accuracy on ambiguous cases</td>
+        <td>Classification, extraction, routing</td>
+      </tr>
+      <tr>
+        <td>Cascade with validators</td>
+        <td>Frontier spend on only the hard cases</td>
+        <td>Weak validators, added latency and complexity</td>
+        <td>Mixed-difficulty, high-volume queues</td>
+      </tr>
+      <tr>
+        <td>Prompt caching</td>
+        <td>Up to 90% on repeated input</td>
+        <td>Savings vanish if prefixes change</td>
+        <td>Long shared instructions or documents</td>
+      </tr>
+      <tr>
+        <td>Batch or Flex processing</td>
+        <td>About 50% on list price</td>
+        <td>Results arrive later</td>
+        <td>Overnight reports, backfills, evaluations</td>
+      </tr>
+      <tr>
+        <td>Shorter prompts and retrieval</td>
+        <td>Input tokens and latency</td>
+        <td>Missed context if retrieval is poor</td>
+        <td>Large knowledge bases</td>
+      </tr>
+      <tr>
+        <td>Self-hosted open-weight models</td>
+        <td>Per-token fees at high, steady volume</td>
+        <td>Capacity planning, security and operations burden</td>
+        <td>Predictable load and strong platform teams</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Token efficiency is becoming an engineering metric in its own right. Useful numbers to track are tokens per task, cache hit rate, escalation rate, retries, and cost per successful outcome. Without them you cannot tell whether a price cut helped.</p>
+
+<a name="Risks.and.limits.of.the.cost.curve"></a>
+<h2>Risks and limits of the cost curve</h2>
+
+<p><strong>Prices are not fixed, and promotions end.</strong> OpenAI&rsquo;s page notes that GPT-5.6 Sol&rsquo;s promotional pricing runs only <a href="https://developers.openai.com/api/docs/pricing">until November 30, 2026</a>. Models are deprecated and replaced, and a forced migration is an engineering cost even when the new model is cheaper.</p>
+
+<p><strong>A cheaper model is a different model.</strong> Swapping tiers changes output style, failure modes and sometimes refusal behavior. Without a regression suite you will learn about the difference from customers. For regulated work such as banking, a cost-driven model change may need its own review.</p>
+
+<p><strong>Hidden multipliers.</strong> Regional processing for newer OpenAI models carries a <a href="https://developers.openai.com/api/docs/pricing">10% uplift</a>, and Anthropic applies a 1.1 times multiplier for US-only inference. Speed premiums double the rate. These adjustments can erase part of a headline discount.</p>
+
+<p><strong>Efficiency gains are not guaranteed to reach you.</strong> The savings from better hardware and serving can be passed on, kept as margin, or spent on larger models. Stanford&rsquo;s cost-per-capability data shows the net effect so far, but it does not guarantee the future.</p>
+
+<p><strong>Budget governance lags adoption.</strong> Because usage tends to grow faster than price falls, teams that budget by token price alone are surprised by total spend.</p>
+
+<a name="Where.the.curve.may.go.next"></a>
+<h2>Where the curve may go next</h2>
+
+<p>It helps to separate what is demonstrated from what is hoped for.</p>
+
+<ul>
+<li><strong>Demonstrated:</strong> Orders-of-magnitude declines in the price of fixed capability since 2022, as measured by Stanford and Epoch AI. Frontier-tier prices that stay roughly flat while older capability collapses.</li>
+<li><strong>Deployed:</strong> Prompt caching, batch discounts, small and mid-tier models for high-volume work, and routing patterns in production systems.</li>
+<li><strong>Research:</strong> Algorithmic efficiency gains, cheaper long-context handling, and better methods for making reasoning use fewer tokens. The Price of Progress study estimates how much of the decline comes from algorithms and how much from hardware and economics.</li>
+<li><strong>Speculative:</strong> That current rates of decline continue for many more years. Epoch&rsquo;s own caution applies. The fastest drops were recent, and rates tend to slow as a capability level ages.</li>
+</ul>
+
+
+<p>For the strongest claims to come true, hardware efficiency must keep improving, small models must keep closing the gap on hard tasks, and competition must stay intense enough that providers pass savings on. Any of those could weaken.</p>
+
+<a name="What.enterprises.should.do.differently"></a>
+<h2>What enterprises should do differently</h2>
+
+<p>The opportunity is bigger than saving money on today&rsquo;s workloads. As the cost of a capability falls, tasks that were uneconomic to automate become viable. Document review, claims triage and internal search might not have cleared a business case three years ago and might clear it now.</p>
+
+<p>A practical approach is to keep a short list of workflows that failed on cost and re-run the numbers every quarter. Build routing and evaluation first, so a cheaper model can be adopted in days rather than months. Negotiate contracts around capability and outcomes instead of fixed per-token rates that will look expensive within a year.</p>
+
+<a name="Key.takeaways"></a>
+<h2>Key takeaways</h2>
+
+<ul>
+<li>Token prices are falling, and the price of a fixed level of capability is falling much faster. Stanford documents a drop of more than 280 times for GPT-3.5-level performance in under two years, and Epoch AI reports declines of 9 to 900 times per year depending on the threshold.</li>
+<li>The frontier is not getting cheap at the same rate. The newest top-tier models still cost around $10 and $50 per million tokens.</li>
+<li>Cost per token, cost per task and cost per unit of intelligence are different measurements. Cost per successful outcome is the one that belongs in a business case.</li>
+<li>A model cascade with validators, prompt caching and batch processing turn falling prices into real savings. Without measurement they can also hide quality problems.</li>
+<li>Lower unit cost does not guarantee lower total spend. Cheaper tokens invite more usage, and total consumption can grow faster than prices fall.</li>
+</ul>
+
+
+<blockquote><p><em>The price of intelligence is dropping quickly, but the price of being wrong is not. The teams that benefit most will be the ones that can measure outcomes, switch models safely, and spend the savings on problems that were previously out of reach.</em></p></blockquote>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[Securing the AI Era: A Practical Guide to Red, Blue, and Purple Teaming]]></title>
@@ -12943,735 +13576,6 @@ style G fill:#ecfccb,stroke:#65a30d,stroke-width:2px,color:#365314;
 <p>The goal is not to arrive at the one correct architecture — there is no such thing — but to demonstrate that you understand why each component exists, what it costs, what breaks without it, and how you would adapt if the requirements changed.</p>
 
 <p>A URL shortener is a small system that contains large distributed systems problems inside it. When you genuinely understand how it works, you have touched database sharding, distributed caching, event streaming, edge computing, ID generation at scale, and asynchronous pipeline design. That is a lot of ground from a very small URL.</p>
-]]></content>
-    </entry>
-    
-    <entry>
-        <title type="html"><![CDATA[How Zomato Works?]]></title>
-        <link href="https://rishijeet.github.io/blog/how-zomato-works/"/>
-        <updated>2026-05-20T08:34:32+05:30</updated>
-        <id>https://rishijeet.github.io/blog/how-zomato-works</id>
-        <content type="html"><![CDATA[<blockquote><p><em>The moment you tap “Place Order” on Zomato, a massive chain of events begins instantly behind the scenes. Within seconds, the system identifies your location, finds the right restaurant, assigns a nearby delivery partner, processes your payment, and starts estimating delivery time — all before you even put your phone away. What feels simple on the surface is actually a real-time logistics system coordinating thousands of moving parts across an entire city.</em></p></blockquote>
-
-<p><img src="https://rishijeet.github.io/images/system_design/zomato-banner.png" height="300" width="900" alt="Alt text" /></p>
-
-<p>Food delivery sounds like a simple logistics problem until you actually try to build it. Then it reveals itself as one of the hardest classes of distributed systems work: real-time geo-spatial computation, dynamic resource allocation, live tracking at millions of concurrent sessions, recommendation engines that personalize without being creepy, and payment flows that must never lose money even when half the network is flaking. Zomato operates across hundreds of cities, millions of daily orders, and tens of thousands of restaurant partners. Let us walk through how a system like this actually works.</p>
-
-<a name="What.Zomato.Actually.Does"></a>
-<h2>What Zomato Actually Does</h2>
-
-<p>Most people know Zomato as an app where you order food. But from an engineering perspective, Zomato is really three distinct systems bolted together and made to feel seamless.</p>
-
-<p>The first is a restaurant discovery and search platform. This is the part that helps you find what to eat, browse menus, read reviews, and decide. It behaves like a specialized search engine with local context.</p>
-
-<p>The second is a transactional ordering and logistics system. This handles the actual purchase: taking your order, processing payment, routing it to the restaurant, orchestrating the delivery from pickup to dropoff.</p>
-
-<p>The third is a personalization and recommendations engine. This is the layer that learns your preferences, predicts what you will want to eat on a Tuesday night versus a Sunday brunch, and surfaces restaurant and dish suggestions that feel eerily relevant.</p>
-
-<p>These three systems share infrastructure but have very different performance and correctness requirements. The search system can tolerate slight staleness. The ordering system cannot afford to lose a transaction. The recommendation system can afford to be a little wrong as long as it is interesting. Understanding that these systems have different tradeoffs is the first thing a good engineer thinks about before designing anything.</p>
-
-<a name="Core.Features.at.a.Glance"></a>
-<h2>Core Features at a Glance</h2>
-
-<p>Before going deep, it helps to enumerate what Zomato actually provides so we can map features to systems:</p>
-
-<!--more-->
-
-
-<ul>
-<li>Restaurant discovery: search by location, cuisine, rating, price range, dietary filters</li>
-<li>Menu browsing: dish listings, photos, prices, customizations, availability</li>
-<li>Food ordering: cart management, address selection, order placement</li>
-<li>Payment processing: cards, wallets, UPI, cash on delivery, offers</li>
-<li>Delivery partner assignment: matching orders to nearby riders</li>
-<li>Real-time tracking: live GPS updates for in-progress deliveries</li>
-<li>ETA prediction: estimated preparation and delivery times</li>
-<li>Order status updates: notifications at each lifecycle stage</li>
-<li>Ratings and reviews: post-delivery feedback collection</li>
-<li>Recommendations: personalized restaurant and dish suggestions</li>
-<li>Restaurant partner tools: menu management, order acceptance, analytics</li>
-<li>Delivery partner app: navigation, earnings, order queue</li>
-</ul>
-
-
-<p>Each of these features, under production traffic, is a non-trivial engineering problem. We will go through the most architecturally interesting ones in detail.</p>
-
-<a name="High-Level.Architecture"></a>
-<h2>High-Level Architecture</h2>
-
-<p>At the highest level, Zomato&rsquo;s backend is a collection of microservices organized around business domains. The client apps — iOS, Android, and web — communicate through an API Gateway that handles authentication, rate limiting, request routing, and protocol translation. Behind the gateway, services are organized roughly like this:</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Mobile App or Web Client];
-B[API Gateway];
-C[Auth Service];
-D[Restaurant Service];
-E[Search Service];
-F[Order Service];
-G[Payment Service];
-H[Delivery Service];
-I[Tracking Service];
-J[Notification Service];
-K[Recommendation Service];
-L[ETA Service];
-M[Analytics Service];
-N[Kafka Event Bus];
-O[Redis Cache Layer];
-P[PostgreSQL Cluster];
-Q[Cassandra Cluster];
-R[Elasticsearch Cluster];
-A &#8211;> B;
-B &#8211;> C;
-B &#8211;> D;
-B &#8211;> E;
-B &#8211;> F;
-B &#8211;> G;
-B &#8211;> H;
-B &#8211;> I;
-B &#8211;> K;
-F &#8211;> N;
-H &#8211;> N;
-I &#8211;> N;
-N &#8211;> J;
-N &#8211;> M;
-D &#8211;> O;
-E &#8211;> R;
-F &#8211;> P;
-I &#8211;> Q;
-H &#8211;> L;
-</div>
-
-
-<p>The API Gateway is not just a reverse proxy. It does meaningful work: JWT validation, request deduplication, circuit breaking on downstream services, response caching for idempotent reads, and traffic shaping during surge events. Treating the gateway as just a traffic forwarder is a common architectural mistake.</p>
-
-<p>The event bus — think Kafka — is what ties the asynchronous parts of the system together. When an order is placed, the Order Service emits an event. The Notification Service, Analytics Service, Delivery Service, and several others all react to that event independently. This decoupling is what lets the system scale different concerns at different rates without tightly coupling the services.</p>
-
-<a name="Restaurant.Discovery.System"></a>
-<h2>Restaurant Discovery System</h2>
-
-<p>When you open Zomato and see a list of restaurants near you, something surprisingly sophisticated just happened. The system needed to answer a query that sounds simple — &ldquo;give me restaurants within 5 kilometers of this GPS coordinate, ranked by relevance&rdquo; — but at scale, this is a hard problem.</p>
-
-<p>The naive solution is a database query like <code>SELECT * FROM restaurants WHERE distance(lat, lng, user_lat, user_lng) &lt; 5000</code>. This does not scale. Computing Euclidean or Haversine distance for every restaurant in the database on every request is O(n) and collapses under load.</p>
-
-<p>The production solution uses geo-spatial indexing. Zomato-like systems typically use one of two approaches: GeoHash-based bucketing or spatial trees like R-trees. Elasticsearch and OpenSearch both support geo-distance queries natively and use these techniques under the hood.</p>
-
-<p>GeoHash works by encoding latitude/longitude into a short alphanumeric string. The key insight is that nearby coordinates share a common prefix. For example, a restaurant at GeoHash <code>ttnf</code> and another at <code>ttnm</code> are close to each other. By indexing restaurants on their GeoHash prefix, you can find nearby restaurants with a prefix scan rather than a full table scan. The cost drops from O(n) to O(log n) plus the size of the result set.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[User GPS Location];
-B[Compute GeoHash for User];
-C[Query Nearby GeoHash Cells];
-D[Elasticsearch Geo Query];
-E[Fetch Restaurant Documents];
-F[Apply Business Filters];
-G[Rank by Relevance Score];
-H[Return Restaurant List];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-</div>
-
-
-<p>The ranking step is where it gets interesting. Raw distance is only one signal. Zomato&rsquo;s ranking model for restaurant discovery likely weighs:</p>
-
-<ul>
-<li>Distance from user</li>
-<li>Restaurant rating and review volume</li>
-<li>Estimated delivery time</li>
-<li>Current kitchen load and open/closed status</li>
-<li>Cuisine match to user preference history</li>
-<li>Promotional boost from restaurant partners</li>
-<li>Time of day relevance (breakfast spots rank higher in the morning)</li>
-<li>Order completion rate (restaurants that cancel orders frequently get penalized)</li>
-</ul>
-
-
-<p>This is a learning-to-rank problem, and in production, it is usually solved with a gradient boosted tree model or a small neural ranker that can score candidate restaurants quickly. The candidate retrieval (geo query) is fast; the re-ranking happens over a bounded set of 50 to 200 candidates and is also fast.</p>
-
-<p>One important detail: restaurant metadata like rating, cuisine tags, and menu availability is heavily cached. Redis sits in front of the restaurant service. Most restaurant profile reads never touch the primary database. Cache invalidation happens on a write-through basis when restaurant partners update their listings.</p>
-
-<a name="Food.Ordering.Pipeline"></a>
-<h2>Food Ordering Pipeline</h2>
-
-<p>The ordering pipeline is where correctness requirements are strictest. Money changes hands, inventory changes state, and multiple parties need to be coordinated — all within a few seconds.</p>
-
-<p>Here is the high-level flow:</p>
-
-<div class="mermaid">
-flowchart TD;
-A[User Submits Order];
-B[Validate Cart and Prices];
-C[Reserve Payment];
-D[Create Order Record];
-E[Notify Restaurant];
-F[Restaurant Accepts or Rejects];
-G[Assign Delivery Partner];
-H[Track Preparation];
-I[Pickup and Deliver];
-J[Mark Order Complete];
-K[Capture Payment];
-L[Release Payment on Failure];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;>|Accepted| G;
-F &#8211;>|Rejected| L;
-G &#8211;> H;
-H &#8211;> I;
-I &#8211;> J;
-J &#8211;> K;
-</div>
-
-
-<p>The trickiest part here is the distributed transaction problem. Placing an order requires: validating item prices, deducting from the user&rsquo;s wallet or pre-authorizing a card, writing an order record, and notifying the restaurant. These operations span multiple services and databases. If any one of them fails mid-flow, you need to roll back cleanly.</p>
-
-<p>The common pattern for handling this is the Saga pattern. Rather than a distributed two-phase commit (which is slow and fragile), you design each step to be reversible. If payment succeeds but the restaurant rejects the order, you issue a compensating transaction to refund the payment. Each service owns its own data and publishes events; failure handlers subscribe to those events and trigger compensating actions.</p>
-
-<p>Idempotency is critical here. Network retries are a fact of life. If the user&rsquo;s app retries the &ldquo;place order&rdquo; request because it timed out, you do not want to create two orders and charge them twice. Every order creation request carries a client-generated idempotency key. The Order Service stores this key and returns the cached result if the same key is seen again.</p>
-
-<a name="Delivery.Assignment.System"></a>
-<h2>Delivery Assignment System</h2>
-
-<p>Once the restaurant accepts an order, the delivery assignment system takes over. This is a real-time matching problem: you have an order at a specific location, and you need to find the best available delivery partner nearby.</p>
-
-<p>The naive solution — broadcast the order to all nearby riders and see who accepts first — creates a race condition and a poor experience for riders. Production systems use a more deliberate assignment strategy.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Order Accepted by Restaurant];
-B[Geo Query for Nearby Riders];
-C[Filter Available Riders];
-D[Score Riders by ETA and Load];
-E[Assign to Best Rider];
-F[Rider Accepts];
-G[Rider Declines or No Response];
-H[Re-assign to Next Rider];
-I[Monitor Assignment SLA];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-E &#8211;> G;
-G &#8211;> H;
-H &#8211;> D;
-F &#8211;> I;
-</div>
-
-
-<p>The scoring function for rider selection considers:</p>
-
-<ul>
-<li>Current distance from the restaurant</li>
-<li>Current road conditions and estimated travel time</li>
-<li>Rider&rsquo;s current status (idle, heading to pickup, returning from delivery)</li>
-<li>Rider&rsquo;s acceptance rate history (low-acceptance riders get deprioritized)</li>
-<li>Predicted kitchen preparation time (no point sending a rider who arrives in 3 minutes when food takes 20)</li>
-</ul>
-
-
-<p>This last point is subtle but important. If a rider arrives at the restaurant before the food is ready, they idle at the restaurant, which wastes time and reduces their earnings. The assignment system tries to time the assignment so the rider arrives just as the food is being packaged.</p>
-
-<p>Rider location data is stored in Redis using a Sorted Set with GeoHash scores, or using Redis&rsquo;s native GEO commands. Redis GEO commands like <code>GEORADIUS</code> let you query for all riders within a radius in microseconds. This is one of the most performance-critical reads in the entire system and must respond in under 10 milliseconds.</p>
-
-<p>One real challenge is handling simultaneous order surges. During a dinner rush, hundreds of new orders might hit the assignment system within seconds. If the system processes assignments sequentially, some orders will wait much longer than others. Production systems use a priority queue and process assignments concurrently, with distributed locking to prevent two orders from claiming the same rider simultaneously.</p>
-
-<a name="Real-Time.Delivery.Tracking"></a>
-<h2>Real-Time Delivery Tracking</h2>
-
-<p>The little moving dot on the tracking screen is the most visible piece of real-time infrastructure in the whole system. Users check it obsessively. It needs to be accurate, low-latency, and available at scale.</p>
-
-<p>Here is how it works end-to-end. The delivery partner&rsquo;s app sends location updates over a persistent WebSocket connection to the tracking service. The frequency is typically every 3 to 5 seconds when moving, with a backoff to 10 to 15 seconds when stationary. More frequent updates drain battery and saturate the connection; less frequent updates make the tracking appear jittery.</p>
-
-<p>On the server side, each location update goes through a pipeline:</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Rider App sends GPS Update];
-B[Tracking Service receives via WebSocket];
-C[Validate and Denoise Location];
-D[Write to Cassandra Time Series];
-E[Publish to Kafka Location Topic];
-F[ETA Service consumes event];
-G[Push updated location to Customer WebSocket];
-H[Update Redis with latest position];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-C &#8211;> E;
-E &#8211;> F;
-E &#8211;> G;
-C &#8211;> H;
-</div>
-
-
-<p>Cassandra is the right storage choice here. Location updates are pure append workloads — you never update a historical location, you only write new ones. Cassandra&rsquo;s LSM-tree storage engine is optimized for exactly this access pattern. Reads for the customer tracking screen only need the latest position, which lives in Redis. Historical location data sits in Cassandra and is used for analytics and ETA model training.</p>
-
-<p>The customer-facing tracking WebSocket is maintained by a separate service from the rider-facing one. This separation matters because the load profiles are completely different. You might have 100,000 concurrent customer tracking sessions but only 20,000 active rider sessions at the same time. Scaling them independently makes operational sense.</p>
-
-<p>One underappreciated challenge is GPS noise. A rider standing still in a dense urban area might report positions that jump around by 20 to 50 meters due to signal multipath. Rendering these raw positions on a map looks terrible — the dot teleports. Production tracking systems apply a Kalman filter or similar smoothing algorithm to denoise the location stream before passing it to clients.</p>
-
-<a name="Recommendation.System.Deep.Dive"></a>
-<h2>Recommendation System Deep Dive</h2>
-
-<p>Zomato&rsquo;s recommendation system is responsible for the personalized restaurant and dish suggestions you see on the home screen. This is where the system shifts from reactive (serving what you asked for) to proactive (anticipating what you want).</p>
-
-<p>The fundamental problem is a classic two-tower retrieval problem. You have a large item space (tens of thousands of restaurants) and a user with a history of interactions. You want to find the subset of items that are most relevant to this user right now.</p>
-
-<p>User embeddings are learned from order history, search queries, browsed restaurants, time-of-day patterns, and review behavior. Restaurant embeddings are learned from their menu composition, cuisine tags, historical order patterns, and user interaction signals. At serving time, you compute the dot product between the user embedding and candidate restaurant embeddings, then rank by similarity.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[User opens Home Feed];
-B[Fetch User Embedding from Feature Store];
-C[Retrieve Candidate Restaurants via ANN Search];
-D[Apply Geo and Availability Filters];
-E[Re-rank with ML Ranker];
-F[Apply Business Rules and Diversity Constraints];
-G[Return Personalized Feed];
-H[Log Impression for Training];
-A &#8211;> B;
-B &#8211;> C;
-C &#8211;> D;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-G &#8211;> H;
-</div>
-
-
-<p>The candidate retrieval step uses Approximate Nearest Neighbor search — exact nearest neighbor over millions of embeddings is too slow. Libraries like FAISS or ScaNN can search hundreds of millions of vectors in milliseconds with configurable accuracy tradeoffs.</p>
-
-<p>Re-ranking is where business logic mixes with ML. A pure ML ranker might keep surfacing the same beloved restaurant every time, which is great for engagement but bad for discovery. Production systems add diversity constraints — you cannot show more than two restaurants from the same cuisine in the top six slots, for example. They also incorporate recency bias to promote new restaurant additions in the user&rsquo;s area.</p>
-
-<p>Cold start is a real problem. A new user has no order history, so there are no preference signals to embed. New users get a hybrid approach: city-level trending restaurants, cuisine preferences collected during onboarding, and time-of-day defaults (breakfast places in the morning, comfort food late at night).</p>
-
-<a name="ETA.Prediction.System"></a>
-<h2>ETA Prediction System</h2>
-
-<p>Of all the things Zomato shows you, the delivery ETA is probably the number you care most about. It is also, quietly, one of the hardest things to get right.</p>
-
-<p>Total delivery time = kitchen preparation time + rider-to-restaurant travel time + restaurant-to-customer travel time</p>
-
-<p>Each of these components is independently uncertain, and the errors compound. Kitchen prep time depends on the restaurant&rsquo;s current load, the complexity of the ordered items, the cook&rsquo;s speed, and whether the kitchen has all the ingredients in stock. Rider travel time depends on current traffic, the route taken, weather, and rider behavior. The combined uncertainty is significant.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Order Placed];
-B[Predict Kitchen Prep Time];
-C[Predict Rider to Restaurant Time];
-D[Predict Restaurant to Customer Time];
-E[Combine Components with Uncertainty Buffer];
-F[Show Initial ETA to User];
-G[Update ETA as Order Progresses];
-H[Rider Picks Up Food];
-I[Refine ETA with Live Rider Position];
-J[Show Updated ETA];
-A &#8211;> B;
-A &#8211;> C;
-A &#8211;> D;
-B &#8211;> E;
-C &#8211;> E;
-D &#8211;> E;
-E &#8211;> F;
-F &#8211;> G;
-H &#8211;> I;
-I &#8211;> J;
-</div>
-
-
-<p>Kitchen preparation time is predicted using a model trained on historical data per restaurant, per cuisine type, and per hour of day. A restaurant that consistently takes 25 minutes during the dinner rush will have that factored in. Some restaurants have real-time kitchen load signals — order queue length, average prep time in the last 30 minutes — which get fed to the model as features.</p>
-
-<p>Travel time prediction uses a combination of road network data, historical speed data by road segment and time of day, and real-time traffic feeds. This is where a mapping SDK like Google Maps, HERE, or an in-house routing engine comes in. The key insight is that you cannot just use the geometric distance between two points. You need road-aware routing, and that routing needs to be time-aware — driving from point A to point B at 8 AM Friday is completely different from doing it at 2 PM Sunday.</p>
-
-<p>Weather is a meaningful signal that many teams underweight. Rain slows down riders significantly, both because they ride more cautiously and because demand spikes and congestion worsens simultaneously. A well-trained ETA model includes weather features.</p>
-
-<p>The ETA is not static. It gets recalculated every few minutes as the order progresses and as the rider&rsquo;s actual movement is observed. If the rider is moving faster than expected, the ETA tightens. If they have been stationary for several minutes, the ETA grows. This continuous recalculation is important for maintaining user trust — an ETA that never changes and then suddenly jumps by 20 minutes destroys confidence.</p>
-
-<a name="Database.and.Storage.Design"></a>
-<h2>Database and Storage Design</h2>
-
-<p>Getting the storage layer right is foundational. A system that uses the wrong database for a workload will hit walls that no amount of horizontal scaling can fix.</p>
-
-<p>Here is a simplified schema for the core entities, expressed in a readable form:</p>
-
-<p><strong>Restaurants Table (PostgreSQL)</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">restaurants</span> <span class="p">(</span>
-</span><span class='line'>  <span class="n">id</span>            <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">name</span>          <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">city_id</span>       <span class="nb">INT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">lat</span>           <span class="n">DOUBLE</span> <span class="k">PRECISION</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">lng</span>           <span class="n">DOUBLE</span> <span class="k">PRECISION</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">geohash</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">12</span><span class="p">),</span>
-</span><span class='line'>  <span class="n">cuisine_tags</span>  <span class="nb">TEXT</span><span class="p">[],</span>
-</span><span class='line'>  <span class="n">rating</span>        <span class="nb">NUMERIC</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
-</span><span class='line'>  <span class="n">is_open</span>       <span class="nb">BOOLEAN</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">created_at</span>    <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">updated_at</span>    <span class="n">TIMESTAMPTZ</span>
-</span><span class='line'><span class="p">);</span>
-</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="k">ON</span> <span class="n">restaurants</span> <span class="p">(</span><span class="n">geohash</span><span class="p">);</span>
-</span><span class='line'><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="k">ON</span> <span class="n">restaurants</span> <span class="p">(</span><span class="n">city_id</span><span class="p">,</span> <span class="n">is_open</span><span class="p">);</span>
-</span></code></pre></div></figure>
-
-
-<p><strong>Orders Table (PostgreSQL with partitioning)</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
-</span><span class='line'>  <span class="n">id</span>              <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">user_id</span>         <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">restaurant_id</span>   <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">rider_id</span>        <span class="n">UUID</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">status</span>          <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">total_amount</span>    <span class="nb">NUMERIC</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
-</span><span class='line'>  <span class="n">placed_at</span>       <span class="n">TIMESTAMPTZ</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">delivered_at</span>    <span class="n">TIMESTAMPTZ</span>
-</span><span class='line'><span class="p">)</span> <span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">RANGE</span> <span class="p">(</span><span class="n">placed_at</span><span class="p">);</span>
-</span></code></pre></div></figure>
-
-
-<p>Partitioning orders by date is important. Without it, a table with hundreds of millions of rows becomes expensive to query. With monthly partitions, recent order queries (which are the hot path) only scan a small partition.</p>
-
-<p><strong>Location Events (Cassandra)</strong></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><pre><code class="sql"><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">rider_locations</span> <span class="p">(</span>
-</span><span class='line'>  <span class="n">rider_id</span>    <span class="n">UUID</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">recorded_at</span> <span class="k">TIMESTAMP</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">lat</span>         <span class="n">DOUBLE</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">lng</span>         <span class="n">DOUBLE</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">speed</span>       <span class="nb">FLOAT</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">heading</span>     <span class="nb">INT</span><span class="p">,</span>
-</span><span class='line'>  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">rider_id</span><span class="p">,</span> <span class="n">recorded_at</span><span class="p">)</span>
-</span><span class='line'><span class="p">)</span> <span class="k">WITH</span> <span class="n">CLUSTERING</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="p">(</span><span class="n">recorded_at</span> <span class="k">DESC</span><span class="p">);</span>
-</span></code></pre></div></figure>
-
-
-<p>This Cassandra schema gives you extremely fast writes (append only) and fast reads for the latest position per rider (first row in partition, thanks to DESC ordering).</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Data Type</th>
-        <th>Storage Choice</th>
-        <th>Reason</th>
-        <th>Key Concern</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Restaurant profiles</td>
-        <td>PostgreSQL + Redis</td>
-        <td>Relational, read-heavy, cacheable</td>
-        <td>Cache invalidation on updates</td>
-      </tr>
-      <tr>
-        <td>Orders</td>
-        <td>PostgreSQL (partitioned)</td>
-        <td>ACID compliance, relational joins needed</td>
-        <td>Partition growth, archival strategy</td>
-      </tr>
-      <tr>
-        <td>Rider locations</td>
-        <td>Cassandra</td>
-        <td>High-volume append-only time series</td>
-        <td>Compaction, TTL for old records</td>
-      </tr>
-      <tr>
-        <td>Search index</td>
-        <td>Elasticsearch</td>
-        <td>Full-text + geo queries</td>
-        <td>Index refresh latency, shard sizing</td>
-      </tr>
-      <tr>
-        <td>Session data</td>
-        <td>Redis</td>
-        <td>Millisecond reads, short TTL</td>
-        <td>Memory pressure, eviction policy</td>
-      </tr>
-      <tr>
-        <td>User preferences</td>
-        <td>Redis + Cassandra</td>
-        <td>Fast reads, large historical volume</td>
-        <td>Consistency between layers</td>
-      </tr>
-      <tr>
-        <td>Analytics events</td>
-        <td>Kafka + data warehouse</td>
-        <td>Streaming ingestion, batch processing</td>
-        <td>Schema evolution, backpressure</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="Caching.System.Deep.Dive"></a>
-<h2>Caching System Deep Dive</h2>
-
-<p>Caching is not just about performance. At Zomato&rsquo;s scale, it is the difference between a system that works and one that falls over during a dinner rush.</p>
-
-<p>The most aggressively cached data is restaurant metadata. A restaurant&rsquo;s name, cuisine tags, rating, delivery fee, and approximate prep time are read millions of times per day and change infrequently. This data is an ideal candidate for a read-through cache with a TTL of several minutes. The cache hit rate for this data in a well-tuned system should be above 95%.</p>
-
-<p>Menu data is slightly trickier. Prices change, items go out of stock, and new dishes get added. You want to cache menus aggressively but also need to propagate changes quickly. The typical approach is a shorter TTL (30 to 60 seconds) combined with an event-driven invalidation path: when a restaurant updates their menu through the partner app, a cache invalidation event is published to Kafka, and a consumer deletes the affected cache keys.</p>
-
-<p>Search results for popular queries (cuisine type + city + sort by rating) are also cacheable. A city-level cache that stores the top 50 restaurants per cuisine per city, refreshed every few minutes, can absorb a large fraction of home screen traffic without hitting Elasticsearch at all.</p>
-
-<p>Hotspot management is an often-overlooked caching problem. During a major event or extreme weather, everyone in a city might simultaneously search for the same popular restaurant. Even with caching, if that restaurant&rsquo;s cache key expires and a thundering herd of concurrent requests tries to regenerate it, you blow through your database connection pool. The solution is probabilistic cache refresh (refresh slightly before TTL expires, randomly, to spread the load) and mutex-based cache filling (only one thread regenerates the cache while others wait on the result).</p>
-
-<a name="Event-Driven.Architecture"></a>
-<h2>Event-Driven Architecture</h2>
-
-<p>The event bus is what makes all the asynchronous parts of Zomato work without coupling services together. Think of Kafka as a durable, ordered, replayable log of everything that happened.</p>
-
-<p>Every meaningful state transition in an order&rsquo;s lifecycle produces an event:</p>
-
-<ul>
-<li><code>order.placed</code></li>
-<li><code>order.restaurant_confirmed</code></li>
-<li><code>order.rider_assigned</code></li>
-<li><code>order.picked_up</code></li>
-<li><code>order.delivered</code></li>
-<li><code>order.cancelled</code></li>
-</ul>
-
-
-<p>Multiple services consume these events independently. The Notification Service sends push notifications. The Analytics Service updates real-time dashboards. The Fraud Detection Service evaluates the order for anomalies. The Recommendation Service records the interaction for future model training. None of these consumers know about each other, and none of them are in the critical path of the order being placed.</p>
-
-<p>This is the key scalability benefit of event-driven design. If the Notification Service is slow or temporarily unavailable, the order still completes. Events queue up in Kafka (which can hold them for days) and are processed when the service recovers. Contrast this with a synchronous architecture where the order service calls the notification service directly — an outage in the notification service takes down order placement with it.</p>
-
-<div class="mermaid">
-flowchart TD;
-A[Order Service];
-B[Kafka Topic - order-events];
-C[Notification Service];
-D[Analytics Service];
-E[Fraud Detection Service];
-F[Recommendation Service];
-G[Delivery Assignment Service];
-A &#8211;> B;
-B &#8211;> C;
-B &#8211;> D;
-B &#8211;> E;
-B &#8211;> F;
-B &#8211;> G;
-</div>
-
-
-<p>Event ordering matters in some cases. If you receive a <code>order.delivered</code> event before <code>order.picked_up</code>, something went wrong. Kafka guarantees ordering within a partition, so if you partition by order ID, all events for a given order arrive in sequence to the same consumer. Cross-partition ordering is not guaranteed, which is fine because order events from different orders are independent.</p>
-
-<a name="Scalability.Deep.Dive"></a>
-<h2>Scalability Deep Dive</h2>
-
-<p>When traffic doubles, which parts of the system break first? This is the most important question for any engineer working on a platform like this.</p>
-
-<p>The restaurant discovery and search path is probably the most read-heavy. A single user session might trigger five to ten search queries before placing an order. Elasticsearch clusters need to be sized generously and should sit behind aggressive caching. The geo queries are fast per-query but expensive in aggregate. Shard routing in Elasticsearch by city or geographic region keeps individual shard sizes manageable and query fan-out bounded.</p>
-
-<p>The delivery assignment system is the most write-heavy real-time workload. During peak dinner hour, you might be processing thousands of assignment decisions per minute, each requiring a geo query against the live rider positions in Redis. Redis handles this well as a single-threaded in-memory store, but it needs to be sharded if rider counts grow large. Consistent hashing across Redis shards keeps the rider geo data partitioned without requiring cross-shard queries for nearby-rider lookups.</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>System Component</th>
-        <th>Scaling Bottleneck</th>
-        <th>Scaling Strategy</th>
-        <th>Known Limitation</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Restaurant Search</td>
-        <td>Elasticsearch query load</td>
-        <td>Caching, read replicas, geo-partitioned shards</td>
-        <td>Cache invalidation lag during updates</td>
-      </tr>
-      <tr>
-        <td>Delivery Assignment</td>
-        <td>Redis geo query throughput</td>
-        <td>Redis cluster with geo-sharding</td>
-        <td>Cross-shard radius queries at shard boundaries</td>
-      </tr>
-      <tr>
-        <td>Live Tracking</td>
-        <td>WebSocket connection count</td>
-        <td>Stateless WS gateway with shared Redis pub/sub</td>
-        <td>Redis pub/sub fan-out at very high scale</td>
-      </tr>
-      <tr>
-        <td>ETA Prediction</td>
-        <td>ML model inference latency</td>
-        <td>Model serving with horizontal replicas</td>
-        <td>Feature freshness vs compute cost tradeoff</td>
-      </tr>
-      <tr>
-        <td>Order Processing</td>
-        <td>Database write throughput</td>
-        <td>Partitioned tables, connection pooling</td>
-        <td>Cross-partition analytics queries are slow</td>
-      </tr>
-      <tr>
-        <td>Notifications</td>
-        <td>Push gateway rate limits</td>
-        <td>Priority queues, provider batching</td>
-        <td>APNs and FCM have their own reliability SLAs</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<p>Multi-city deployments introduce geo-partition considerations. Running a single global cluster for all cities is wasteful and introduces unnecessary latency — a user in Mumbai does not need their request processed in a data center that also serves Delhi. In practice, Zomato likely runs regionally isolated clusters per metro area or cluster of cities, with shared global services for things like authentication and payments that need a single source of truth.</p>
-
-<a name="Reliability.and.Availability"></a>
-<h2>Reliability and Availability</h2>
-
-<p>A food delivery platform being down during dinner time is extremely bad. Users get frustrated, restaurants lose revenue, riders lose earnings. The reliability requirements here are more like financial services than like a casual social app.</p>
-
-<p>The most important failure modes to design for are:</p>
-
-<p><strong>Payment outages.</strong> If the payment gateway is slow or unavailable, orders cannot be placed. The solution is multi-provider redundancy: if the primary payment provider fails, route to a backup. For pre-authorized card payments, implement retry logic with exponential backoff. For wallet payments, the local service handles more of the logic and is less dependent on external APIs.</p>
-
-<p><strong>Delivery partner unavailability.</strong> If no riders are available in an area, orders stack up and prep-time windows are violated. This is both a business problem and a UX problem. The system should detect low rider availability early and either surface a longer ETA estimate upfront or offer a &ldquo;scheduled delivery&rdquo; option. It should not accept orders and then fail to fulfill them silently.</p>
-
-<p><strong>Database leader failover.</strong> PostgreSQL and Cassandra both support synchronous replication to standbys. During a primary failure, automated failover promotes a standby to leader in 20 to 60 seconds. The key is that the application layer needs to retry connection establishment during this window rather than failing immediately. Connection pool libraries handle this if configured correctly.</p>
-
-<p>Monitoring is not optional. Every service should emit the four golden signals: latency percentiles, error rate, request throughput, and saturation (CPU, memory, queue depth). Alerting on p99 latency degradation often catches problems before they become outages. Distributed tracing (something like Jaeger or Zipkin) is essential for understanding where latency is coming from in a multi-service request chain.</p>
-
-<a name="Pricing.and.Surge.Systems"></a>
-<h2>Pricing and Surge Systems</h2>
-
-<p>Surge pricing in food delivery is controversial but economically rational. When rider supply is low relative to demand — rainy evenings, major events, holiday periods — raising delivery fees incentivizes more riders to come online and moderates order demand to a level the available supply can handle.</p>
-
-<p>The surge pricing system is essentially a real-time supply-demand balancer per geographic micro-zone. The system computes a demand signal (orders per minute in the zone) and a supply signal (available riders in the zone) and derives a surge multiplier. The multiplier feeds into the delivery fee shown to the user before they place an order.</p>
-
-<p>Getting this system wrong in either direction is bad. Surge too aggressively and users leave. Surge too little and riders go offline because earnings are not worth the difficulty of peak-hour delivery, which makes fulfillment worse for everyone. The balance point is found through continuous A/B testing and feedback loops from both user conversion data and rider acceptance rate data.</p>
-
-<a name="Security.and.Fraud.Prevention"></a>
-<h2>Security and Fraud Prevention</h2>
-
-<p>Food delivery platforms are targets for several categories of fraud. Fake orders placed with stolen payment credentials, fake delivery completions where riders mark orders as delivered without actually delivering them, review manipulation, and coupon abuse are all real problems at scale.</p>
-
-<p>Payment fraud is handled by the payment gateway&rsquo;s risk scoring combined with Zomato&rsquo;s own order-level fraud signals: new account placing a high-value order, unusual address, device fingerprint mismatch, velocity signals. High-risk orders can be routed to a manual review queue or declined automatically.</p>
-
-<p>Delivery fraud — where riders mark orders as delivered prematurely — is detected by comparing the rider&rsquo;s GPS position at the time of the delivery completion event against the delivery address coordinates. If the rider is more than 200 meters away from the address when marking delivered, it triggers an investigation workflow.</p>
-
-<p>OTP confirmation on delivery (where the customer receives a code they read to the rider) is a common mitigation for this type of fraud, though it adds friction to the delivery experience.</p>
-
-<a name="Engineering.Tradeoffs.Worth.Discussing"></a>
-<h2>Engineering Tradeoffs Worth Discussing</h2>
-
-<p>Real engineering is about choosing between imperfect options. Here are some of the most interesting tradeoffs in a food delivery system:</p>
-
-<p><strong>Real-time tracking vs battery life.</strong> Sending GPS updates every second gives perfect tracking but kills a rider&rsquo;s phone battery within hours. Every 3 to 5 seconds is the practical sweet spot. For stationary riders, you back off to every 15 seconds. The tradeoff is acceptable because users do not actually benefit from sub-second position updates on a map.</p>
-
-<p><strong>ETA accuracy vs compute cost.</strong> Running a full ML inference with 50 features every time an ETA is requested is expensive. Running a simpler lookup model is fast but less accurate. Most systems use a cheap model for the initial ETA estimate at order placement and reserve the more expensive model for in-transit updates when accuracy matters more.</p>
-
-<p><strong>Delivery batching vs speed.</strong> Giving a single rider two orders to deliver simultaneously improves efficiency and reduces cost but increases average delivery time. Users who ordered first experience higher delivery time so that the economics work for the second order. How much batching is acceptable is a business decision, but the system design needs to support configurable batching windows and scoring functions.</p>
-
-<p><strong>Consistency vs availability in order status.</strong> During a network partition, should a user be able to see their order status even if the data might be slightly stale? For read operations, yes — showing a 5-second-old status is better than showing an error page. For write operations (cancel an order, change address), you need stronger consistency guarantees because incorrect state transitions are hard to undo.</p>
-
-<a name="Technology.Stack"></a>
-<h2>Technology Stack</h2>
-
-<p>The realistic stack for a Zomato-scale system looks something like this:</p>
-
-<div class="scrollable-table-container">
-  <table class="scrollable-table">
-    <thead>
-      <tr>
-        <th>Technology</th>
-        <th>Use Case</th>
-        <th>Why It Fits</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Go</td>
-        <td>High-throughput services (tracking, assignment)</td>
-        <td>Low latency, excellent concurrency model, small memory footprint</td>
-      </tr>
-      <tr>
-        <td>Java or Kotlin</td>
-        <td>Order service, payment service</td>
-        <td>Strong type system, mature ecosystem, good for complex business logic</td>
-      </tr>
-      <tr>
-        <td>Node.js</td>
-        <td>API Gateway, notification service</td>
-        <td>Event loop fits I/O-bound gateway workloads well</td>
-      </tr>
-      <tr>
-        <td>PostgreSQL</td>
-        <td>Orders, restaurants, users</td>
-        <td>ACID transactions, excellent partitioning, mature geo extensions</td>
-      </tr>
-      <tr>
-        <td>Cassandra</td>
-        <td>Location events, order history analytics</td>
-        <td>Optimized for append-heavy time series, horizontally scalable</td>
-      </tr>
-      <tr>
-        <td>Redis</td>
-        <td>Caching, rider geo index, session storage</td>
-        <td>Sub-millisecond reads, native geo commands, pub/sub for tracking</td>
-      </tr>
-      <tr>
-        <td>Elasticsearch</td>
-        <td>Restaurant search, dish search</td>
-        <td>Native geo queries, full-text search, flexible ranking</td>
-      </tr>
-      <tr>
-        <td>Kafka</td>
-        <td>Event streaming, async communication</td>
-        <td>Durable, ordered, replayable, high-throughput</td>
-      </tr>
-      <tr>
-        <td>Kubernetes</td>
-        <td>Container orchestration</td>
-        <td>Horizontal pod autoscaling, rolling deployments, service mesh</td>
-      </tr>
-      <tr>
-        <td>TensorFlow or PyTorch</td>
-        <td>ETA models, recommendation models</td>
-        <td>GPU training support, model serving integration</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-
-<a name="System.Design.Interview.Perspective"></a>
-<h2>System Design Interview Perspective</h2>
-
-<p>Zomato-style questions show up frequently in system design interviews. Interviewers usually frame it as &ldquo;Design a food delivery app&rdquo; or &ldquo;Design Zomato&rsquo;s delivery assignment system&rdquo; or &ldquo;Design the real-time tracking system.&rdquo; Here is how to approach each.</p>
-
-<p>When asked to design the full system, do not try to cover everything at equal depth. Start with a brief requirements clarification — how many daily active users, how many orders per day, what latency targets. Then sketch the high-level architecture. Then dive deep on two or three components: the interviewer cares more about your depth on key areas than surface-level coverage of everything.</p>
-
-<p>The strongest candidates walk through the ordering pipeline end-to-end and discuss distributed transaction handling unprompted. They bring up idempotency before the interviewer asks. They proactively discuss the failure scenarios — what happens when the restaurant rejects the order after payment is captured, what happens when the rider goes offline mid-delivery.</p>
-
-<p>For the delivery assignment question specifically, strong candidates go beyond &ldquo;find nearby riders and assign&rdquo; and discuss: how you time the assignment relative to kitchen prep, how you handle simultaneous surge, how you prevent double-assignment, and how you handle the reassignment workflow when a rider declines.</p>
-
-<p>Common weak spots in interviews on this topic: candidates often undersell the complexity of ETA prediction, treat the notification system as a footnote rather than a reliability challenge, and forget to discuss geo-spatial indexing specifics when discussing restaurant discovery. Bringing up GeoHash, Redis GEO commands, or Elasticsearch geo-distance queries signals production-level familiarity.</p>
-
-<p>One framing that works well in interviews: explain what data you are reading and writing at each step, what the latency budget is, and whether the operation needs to be strongly consistent. This forces you to think concretely about storage choices and quickly reveals whether a proposed design will actually work under load.</p>
-
-<a name="Closing.Thoughts"></a>
-<h2>Closing Thoughts</h2>
-
-<p>Food delivery is a domain where the physical and digital worlds are tightly coupled. Every system design decision ultimately affects whether a real person gets their dinner on time, whether a delivery partner earns a fair living, and whether a restaurant can run a predictable operation. That coupling is what makes the engineering interesting.</p>
-
-<p>The principles at work here — geo-spatial indexing, event-driven decoupling, distributed transactions with compensating actions, real-time stream processing, personalization through embeddings — are not Zomato-specific. They appear in ride-sharing, logistics, e-commerce, and financial systems. Understanding them through the lens of something as concrete and relatable as food delivery is a useful way to internalize patterns that transfer broadly.</p>
-
-<p>The next time you watch that little bike icon move across a map toward your door, you will know at least a little of what it took to make that dot move.</p>
 ]]></content>
     </entry>
     

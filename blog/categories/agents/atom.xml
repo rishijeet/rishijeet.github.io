@@ -4,7 +4,7 @@
     <title><![CDATA[Category: agents | Rishijeet Mishra | Technologist | Tech Trends & Development Blog]]></title>
     <link href="https://rishijeet.github.io/blog/categories/agents/atom.xml" rel="self"/>
     <link href="https://rishijeet.github.io/"/>
-    <updated>2026-11-07T16:43:30+05:30</updated>
+    <updated>2026-11-10T19:30:23+05:30</updated>
     <id>https://rishijeet.github.io/</id>
     <author>
         <name><![CDATA[Rishijeet Mishra]]></name>
@@ -12,6 +12,640 @@
       </author>
     <generator uri="http://octopress.org/">Octopress</generator>
 
+    
+    <entry>
+        <title type="html"><![CDATA[The Falling Cost of Intelligence: How AI Is Becoming Exponentially Cheaper and What It Means for Enterprises]]></title>
+        <link href="https://rishijeet.github.io/blog/the-falling-cost-of-intelligence-how-ai-is-becoming-exponentially-cheaper-and-what-it-means-for-enterprises/"/>
+        <updated>2026-11-10T19:08:25+05:30</updated>
+        <id>https://rishijeet.github.io/blog/the-falling-cost-of-intelligence-how-ai-is-becoming-exponentially-cheaper-and-what-it-means-for-enterprises</id>
+        <content type="html"><![CDATA[<p>A model that performed at GPT-3.5 level cost about $20 per million tokens in November 2022. By October 2024, the same level of performance cost about $0.07. That is a drop of more than 280 times in under two years, according to the <a href="https://hai.stanford.edu/ai-index/2025-ai-index-report">Stanford AI Index 2025</a>.</p>
+
+<p><img src="/images/2026/token_price_fall.png" height="300" width="900" alt="Alt text" /><em>Source: Generated using AI</em></p>
+
+<p>Yet many enterprise AI bills are growing, not shrinking. Both things are true at once, and understanding why is the difference between a sensible AI cost strategy and a surprising invoice.</p>
+
+<p>This article looks at how fast the cost of AI inference is falling, what is driving it, where the numbers can mislead you, and what engineering and finance teams should do about it. The title says &ldquo;exponentially&rdquo;. That word is fair for the price of a fixed level of capability, which falls in a roughly straight line on a log chart. It is not fair for every model or every price list, and the difference matters.</p>
+
+<!--more-->
+
+
+<a name="Three.different.things.people.call.the.cost.of.AI"></a>
+<h2>Three different things people call the cost of AI</h2>
+
+<p>Most confusion about AI pricing comes from mixing up three separate measurements.</p>
+
+<ul>
+<li><strong>Cost per token:</strong> what you pay to process or generate one token. This is the number on the pricing page.</li>
+<li><strong>Cost per task:</strong> what you pay to finish a piece of work, such as summarizing a contract or resolving a card dispute. It depends on how many tokens the task consumes and how often it has to be retried.</li>
+<li><strong>Cost per unit of intelligence:</strong> what you pay to reach a given quality bar, for example a score on a benchmark. This is the number that tells you whether AI itself is getting cheaper.</li>
+</ul>
+
+
+<p>The first has fallen sharply at every tier. The third has fallen even more dramatically. The second depends on your workload, and it is the one your CFO actually sees.</p>
+
+<a name="What.the.price.lists.show"></a>
+<h2>What the price lists show</h2>
+
+<p>OpenAI&rsquo;s history gives a clean timeline because the company has published list prices for every generation. The table uses standard rates in USD per million tokens, taken from OpenAI&rsquo;s <a href="https://developers.openai.com/api/docs/pricing">pricing page</a> and launch-time list prices.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Input per 1M tokens</th>
+        <th>Output per 1M tokens</th>
+        <th>Released</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPT-4</td>
+        <td>$30.00</td>
+        <td>$60.00</td>
+        <td>March 2023</td>
+      </tr>
+      <tr>
+        <td>GPT-4o</td>
+        <td>$5.00</td>
+        <td>$15.00</td>
+        <td>May 2024</td>
+      </tr>
+      <tr>
+        <td>GPT-4.1</td>
+        <td>$2.00</td>
+        <td>$8.00</td>
+        <td>April 2025 (<a href="https://openai.com/index/gpt-4-1/">announcement</a>)</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Astra</td>
+        <td>$10.00</td>
+        <td>$50.00</td>
+        <td>September 2026</td>
+      </tr>
+      <tr>
+        <td>GPT-6.1 Sol</td>
+        <td>$2.00</td>
+        <td>$10.00</td>
+        <td>September 2026</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Luna</td>
+        <td>$0.10</td>
+        <td>$0.50</td>
+        <td>September 2026</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Astra <a href="https://computingforgeeks.com/gpt-6-astra-released-features-benchmarks/">reached the API on September 3, 2026</a>. Sol and Luna followed in late September at <a href="https://www.yottalabs.ai/post/gpt-6-sol-luna-pricing-vs-astra-open-models-2026">half the price of their GPT-5.6 predecessors</a>, with OpenAI <a href="https://thenewstack.io/?p=22837761">attributing the cut to improvements in caching and inference</a>.</p>
+
+<p>The arithmetic is striking. GPT-4 to GPT-4o made input 6 times cheaper and output 4 times cheaper. GPT-4o to GPT-4.1 added another 2.5 times on input and about 1.9 times on output. GPT-4 to GPT-6 Luna is 300 times cheaper on input and 120 times cheaper on output at standard rates.</p>
+
+<p>Two warnings apply before anyone puts those numbers on a slide.</p>
+
+<p>First, these are different capability tiers, not the same model getting cheaper. GPT-6 Luna is not GPT-4 at a discount.</p>
+
+<p>Second, look at the top of the table. Astra&rsquo;s input price is 3 times lower than GPT-4&rsquo;s launch price, but its output price is only about 1.2 times lower. The frontier price has barely moved. What collapsed is the price of yesterday&rsquo;s capability. The newest and strongest model still costs real money, and it is priced in the same range as the top tiers from other labs. Anthropic&rsquo;s top tier sat at <a href="https://platform.claude.com/docs/en/about-claude/pricing">$10 and $50 for Claude Fable 5.1, then dropped to $8 and $40 for Fable 5.2</a>.</p>
+
+<p>[Suggested visual: log-scale chart of OpenAI list prices by model release date, with the frontier tier and the small tier plotted as separate lines]</p>
+
+<a name="The.same.pattern.appears.across.vendors"></a>
+<h3>The same pattern appears across vendors</h3>
+
+<p>Anthropic&rsquo;s published pricing shows the same shape when you compare tiers across generations.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Earlier generation (input / output per 1M)</th>
+        <th>Current generation (input / output per 1M)</th>
+        <th>Caveat</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Large</td>
+        <td>Claude Opus 4.1: $15 / $75</td>
+        <td>Claude Opus 5.5: $4 / $20</td>
+        <td>Different capability levels</td>
+      </tr>
+      <tr>
+        <td>Mid</td>
+        <td>Claude Sonnet 4.6: $3 / $15</td>
+        <td>Claude Sonnet 5.5: $2 / $10</td>
+        <td>Newer tokenizer produces about 30% more tokens for the same text</td>
+      </tr>
+      <tr>
+        <td>Small</td>
+        <td>Claude Haiku 4.5: $1 / $5</td>
+        <td>Claude Haiku 5.5: $0.10 / $0.50</td>
+        <td>Prompts over 100,000 tokens are priced at $0.50 / $2.50</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>The figures come from Anthropic&rsquo;s <a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing documentation</a>. Google showed the earlier version of this behavior when it <a href="https://developers.googleblog.com/en/updated-gemini-models-reduced-15-pro-pricing-increased-rate-limits-and-more/">cut Gemini 1.5 Pro prices by 64% on input and 52% on output</a> for prompts under 128K tokens in October 2024.</p>
+
+<p>The tokenizer note in the table is easy to miss and worth remembering. Anthropic states that Claude 4.7 and later models <a href="https://platform.claude.com/docs/en/about-claude/pricing">produce roughly 30% more tokens for the same text</a> than earlier ones. A lower price per token does not automatically mean a lower price per document. Comparing vendors on price per million tokens is only a first approximation.</p>
+
+<a name="Intelligence.is.getting.cheaper..not.just.tokens"></a>
+<h2>Intelligence is getting cheaper, not just tokens</h2>
+
+<p>A price list compares different models. A better question is how much it costs to buy a fixed level of capability over time. Several independent efforts have tried to measure that.</p>
+
+<p>The Stanford AI Index 2025, using data from Epoch AI and Artificial Analysis, found that the cost of querying a model at roughly GPT-3.5 level on the MMLU benchmark fell from $20 to $0.07 per million tokens between November 2022 and October 2024. Stanford attributes the drop to <a href="https://hai.stanford.edu/ai-index/2025-ai-index-report">increasingly capable small models</a>. On a harder benchmark, GPQA, the cost of reaching above 50% fell from $15 per million tokens in May 2024 to $0.12 in December 2024, which is about 125 times in seven months.</p>
+
+<p>Epoch AI&rsquo;s <a href="https://epoch.ai/blog/llm-inference-price-trends">analysis of inference price trends</a> puts the rate of decline between 9 times and 900 times per year, depending on the performance threshold. For example, the price of matching GPT-4&rsquo;s score on PhD-level science questions fell by about 40 times per year.</p>
+
+<p>There are good reasons to hold these numbers loosely:</p>
+
+<ul>
+<li>The extreme end of the range rests on few data points. Epoch itself notes that the fastest declines happened recently and <a href="https://epoch.ai/data-insights/ai-inference-price-trends">it is less clear they will persist</a>.</li>
+<li>Benchmarks saturate. Once many models pass a test, the price of &ldquo;passing&rdquo; stops telling you much about harder work.</li>
+<li>Price per token is not cost per solved problem. An MIT FutureTech study, <a href="https://arxiv.org/html/2511.23455v1">The Price of Progress</a>, points out that reasoning models can have a lower per-token cost but a larger overall cost because they generate more tokens. It also cites separate work finding that the cost to solve benchmark problems fell much more slowly on harder tests, by about 24.5 times per year on MATH-500 but only about 3.2 times per year on AIME 2024.</li>
+</ul>
+
+
+<p>So the honest summary is this. At a fixed, well-defined capability level, cost is falling very fast. For the hardest tasks, where the frontier is the only option, it is falling much more slowly.</p>
+
+<a name="Why.the.cost.keeps.falling"></a>
+<h2>Why the cost keeps falling</h2>
+
+<p>No single breakthrough explains the trend. Several independent improvements stack, and competition pushes providers to pass some of the savings on.</p>
+
+<div class="mermaid">
+flowchart LR
+    subgraph SUPPLY[&#8220;Cost to produce a token&#8221;]
+        H[&#8220;Hardware generations&#8221;]
+        M[&#8220;Sparse architectures such as MoE&#8221;]
+        Q[&#8220;Quantization&#8221;]
+        S[&#8220;Batching and prompt caching&#8221;]
+    end
+    subgraph CAPABILITY[&#8220;Cost to reach a quality bar&#8221;]
+        D[&#8220;Distillation into smaller models&#8221;]
+        T[&#8220;Better training recipes and data&#8221;]
+    end
+    C[&#8220;Competition and open-weight models&#8221;]
+    P([&#8220;Lower price at fixed capability&#8221;])
+    E{&#8220;Does usage grow faster than price falls?&#8221;}
+    U[&#8220;Total AI spend rises&#8221;]
+    F[&#8220;Total AI spend falls&#8221;]
+    H &#8211;> P
+    M &#8211;> P
+    Q &#8211;> P
+    S &#8211;> P
+    D &#8211;> P
+    T &#8211;> P
+    C &#8211;> P
+    P &#8211;> E
+    E &#8211;>|Yes| U
+    E &#8211;>|No| F
+    classDef execution fill:#E5F6F1,stroke:#65B9A1,color:#205B4C,stroke-width:2px
+    classDef processing fill:#EEE9FF,stroke:#9985D5,color:#493878,stroke-width:2px
+    classDef primary fill:#EAF2FF,stroke:#6495D0,color:#243B60,stroke-width:2px
+    classDef decision fill:#FFF5DC,stroke:#D9A441,color:#74500B,stroke-width:2px
+    classDef results fill:#FCECF4,stroke:#D88BB0,color:#743C58,stroke-width:2px
+    classDef success fill:#E5F5E9,stroke:#75B887,color:#285B35,stroke-width:2px
+    class H,Q,S execution
+    class M,D,T processing
+    class C primary
+    class P success
+    class E decision
+    class U,F results
+    style SUPPLY fill:#FFFFFF,stroke:#79ACD6,stroke-width:2px
+    style CAPABILITY fill:#FFFFFF,stroke:#79ACD6,stroke-width:2px
+</div>
+
+
+
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Driver</th>
+        <th>What it changes</th>
+        <th>Evidence</th>
+        <th>Catch</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Hardware generations</td>
+        <td>More tokens per second per dollar and per watt</td>
+        <td>Stanford&#8217;s AI Index 2025 summarizes ML hardware costs falling about 30% per year and energy efficiency improving about 40% per year</td>
+        <td>Savings reach customers only if competition forces providers to pass them on</td>
+      </tr>
+      <tr>
+        <td>Sparse architectures (MoE)</td>
+        <td>Fewer active parameters per token</td>
+        <td>Widely used technique, though closed-model details are rarely published</td>
+        <td>All experts still need memory, so the serving footprint stays large</td>
+      </tr>
+      <tr>
+        <td>Quantization</td>
+        <td>Smaller weights and cache, higher throughput</td>
+        <td>Standard serving optimization</td>
+        <td>Quality can degrade on edge cases, so it needs evaluation</td>
+      </tr>
+      <tr>
+        <td>Caching and batching</td>
+        <td>Reuses prefix work and keeps GPUs busy</td>
+        <td>OpenAI lists cached input for Astra at $1 versus $10 standard; Flex and Batch rates are half of standard</td>
+        <td>Needs stable prompt prefixes; batch work waits longer</td>
+      </tr>
+      <tr>
+        <td>Distillation</td>
+        <td>Small models imitate larger ones</td>
+        <td>Stanford links the GPT-3.5-level cost drop to capable small models</td>
+        <td>Students rarely match teachers on the hard tail of tasks</td>
+      </tr>
+      <tr>
+        <td>Competition</td>
+        <td>Pricing pressure across labs and open-weight models</td>
+        <td>The Gemini 1.5 Pro cut in 2024 and the 50% GPT-6 Sol and Luna cuts in 2026</td>
+        <td>Providers can also keep efficiency gains as margin</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<a name="Compute.per.token.and.bytes.per.token"></a>
+<h3>Compute per token and bytes per token</h3>
+
+<p>During generation, a large model spends much of its time moving weights and cached attention data through memory rather than doing arithmetic. That is why several of these techniques work.</p>
+
+<p>A mixture-of-experts model routes each token through a small subset of its parameters. Compute per token falls, though the whole model still has to sit in memory. Quantization stores weights, and sometimes the attention cache, in fewer bits. Less data to move means more tokens per second on the same chip. The price is a small but real risk of quality loss that only shows up when you test against your own tasks.</p>
+
+<a name="Batching.and.prompt.caching"></a>
+<h3>Batching and prompt caching</h3>
+
+<p>A GPU is cheapest to run when it is busy. Providers group many requests together so the hardware stays utilized. The tradeoff is latency, which is why speed is now a priced feature. OpenAI lists a Fast mode for Astra at $20 and $100, double the standard rate. Anthropic <a href="https://platform.claude.com/docs/en/about-claude/pricing">prices fast mode for Claude Opus 5.5 at twice standard</a> as well.</p>
+
+<p>Prompt caching works because transformer models compute intermediate attention state for every token they read. If the next request starts with the same long prefix, a provider can reuse that state instead of recomputing it. This describes the general mechanism, not any one vendor&rsquo;s implementation. The price effect is public: cached input for Astra is $1 per million tokens versus $10, and on Claude Sonnet 5.5 a cache read costs <a href="https://platform.claude.com/docs/en/about-claude/pricing">5% of the base input price</a>.</p>
+
+<a name="What.this.looks.like.in.real.money"></a>
+<h2>What this looks like in real money</h2>
+
+<p>Take a hypothetical application that processes 1 million input tokens and 250,000 output tokens. Input-heavy workloads are typical. Snowflake&rsquo;s AI research team has observed <a href="https://www.snowflake.com/en/artificial-intelligence/ai-engineering/ai-cost-optimization/">roughly 10 to 1 ratios between prompt and generated tokens</a> across many enterprise workloads.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Input (1M tokens)</th>
+        <th>Output (250K tokens)</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPT-4</td>
+        <td>$30.00</td>
+        <td>$15.00</td>
+        <td>$45.00</td>
+      </tr>
+      <tr>
+        <td>GPT-4o</td>
+        <td>$5.00</td>
+        <td>$3.75</td>
+        <td>$8.75</td>
+      </tr>
+      <tr>
+        <td>GPT-4.1</td>
+        <td>$2.00</td>
+        <td>$2.00</td>
+        <td>$4.00</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Astra</td>
+        <td>$10.00</td>
+        <td>$12.50</td>
+        <td>$22.50</td>
+      </tr>
+      <tr>
+        <td>GPT-6.1 Sol</td>
+        <td>$2.00</td>
+        <td>$2.50</td>
+        <td>$4.50</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Luna</td>
+        <td>$0.10</td>
+        <td>$0.125</td>
+        <td>$0.225</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Choosing the right tier matters as much as choosing the newest model. Astra costs 100 times more than Luna for the same token volume, and the model released today at the top of the range is not cheaper than GPT-4.1 from 2025.</p>
+
+<p>Now scale it up. Consider a bank that uses an LLM to process debit-card disputes. Assume 10 million claims a year, with 5,000 input tokens and 1,000 output tokens per claim. That is 50 billion input tokens and 10 billion output tokens annually. These are illustrative assumptions, not a forecast.</p>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Cost per claim</th>
+        <th>Annual cost</th>
+        <th>Reading</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GPT-4</td>
+        <td>$0.21</td>
+        <td>$2,100,000</td>
+        <td>Pricing from 2023</td>
+      </tr>
+      <tr>
+        <td>GPT-4o</td>
+        <td>$0.04</td>
+        <td>$400,000</td>
+        <td>Roughly 5 times cheaper than GPT-4</td>
+      </tr>
+      <tr>
+        <td>GPT-4.1</td>
+        <td>$0.018</td>
+        <td>$180,000</td>
+        <td>Roughly 12 times cheaper than GPT-4</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Astra</td>
+        <td>$0.10</td>
+        <td>$1,000,000</td>
+        <td>Frontier capability at frontier price</td>
+      </tr>
+      <tr>
+        <td>GPT-6.1 Sol</td>
+        <td>$0.02</td>
+        <td>$200,000</td>
+        <td>Mid-tier for demanding coding and agent work</td>
+      </tr>
+      <tr>
+        <td>GPT-6 Luna</td>
+        <td>$0.001</td>
+        <td>$10,000</td>
+        <td>High-volume tier for focused tasks</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Standard rates are assumed throughout. Flex and Batch processing roughly halve every figure for work that can wait, so Astra drops to about $500,000 and Luna to about $5,000.</p>
+
+<p>Caching changes the picture further. Suppose 80% of each prompt is a stable policy manual and examples that hit the cache on Sol. Input cost falls from $100,000 to about $24,000 (10 billion uncached tokens at $2, plus 40 billion cached tokens at $0.10 per million). The total becomes about $124,000. Output, now $100,000, dominates the bill. Once input is cached, the length of the answer is the main cost lever.</p>
+
+<a name="Cheaper.tokens.do.not.always.mean.cheaper.outcomes"></a>
+<h2>Cheaper tokens do not always mean cheaper outcomes</h2>
+
+<p>A $0.001 claim sounds like a bargain until the cheap model gets the answer wrong.</p>
+
+<p>The metric that matters to a business is cost per successful outcome:</p>
+
+<p><div class="highlight"><pre><code class="language-text" data-lang="text">cost per successful outcome = total AI operating cost / successfully completed tasks&lt;/p&gt;
+
+&lt;p&gt;total AI operating cost = token cost + retries + human review + rework + incident cost</code></pre></div></p>
+
+<p>Here is a worked example, with assumptions stated. A small model costs $0.001 per claim and resolves 70% of claims correctly. A frontier model costs $0.10 per claim and resolves 98%. Each failed claim needs a human to fix it, at an assumed $8.</p>
+
+<ul>
+<li>Small model: $0.001 + 0.30 × $8 = about $2.40 per claim.</li>
+<li>Frontier model: $0.10 + 0.02 × $8 = about $0.26 per claim.</li>
+</ul>
+
+
+<p>The frontier model costs 100 times more in tokens and is about 9 times cheaper per claim. Across 10 million claims that is roughly $24 million versus $2.6 million. The result flips if the cheap model&rsquo;s accuracy is close to the expensive model&rsquo;s, or if human review is cheap. The only way to know is to measure accuracy on your own tasks.</p>
+
+<a name="Where.the.arithmetic.gets.messy"></a>
+<h3>Where the arithmetic gets messy</h3>
+
+<ul>
+<li><strong>Reasoning tokens.</strong> Reasoning models produce hidden thinking tokens that are billed as output. A cheap per-token price can still produce an expensive answer, as the MIT study above notes.</li>
+<li><strong>Agent loops.</strong> An agent that makes 20 model calls, each re-sending 30,000 tokens of context, consumes about 600,000 input tokens for one task. At $2 per million that is $1.20 for the task, against a cent or two for a single claim. With 90% cache hits it falls to about $0.18, but it never reaches the cost of a single call.</li>
+<li><strong>Tokenizers.</strong> The same document can be a different number of tokens on different models, as the Claude tokenizer note showed.</li>
+<li><strong>Long context.</strong> Some price lists change above a prompt-length threshold. Claude Haiku 5.5 lists five times the standard rate above 100,000 tokens.</li>
+</ul>
+
+
+<p>The deeper point is Jevons-style. When a resource gets cheaper, people use more of it. Cheaper tokens encourage more agents, longer contexts and more automated workflows. Unit cost can fall 100 times while total spend rises, which is why many teams see bills grow during a period of falling prices.</p>
+
+<a name="Engineering.for.a.falling.cost.curve"></a>
+<h2>Engineering for a falling cost curve</h2>
+
+<p>If unit prices keep falling, the right architecture is one that can move work between tiers as prices and quality change. The practical pattern is a model cascade: try a cheaper model first, validate the result, and escalate only when needed.</p>
+
+<div class="mermaid">
+flowchart TD
+    A([&#8220;Incoming task&#8221;])
+    B[&#8220;Classifier for complexity and risk&#8221;]
+    C{&#8220;Complexity and risk level&#8221;}
+    D[&#8220;Small model&#8221;]
+    E[&#8220;Mid-tier model&#8221;]
+    F[&#8220;Frontier model&#8221;]
+    G{&#8220;Validator passes?&#8221;}
+    H{&#8220;Validator passes?&#8221;}
+    I{&#8220;Policy and confidence check&#8221;}
+    J[&#8220;Human review&#8221;]
+    K([&#8220;Accepted result&#8221;])
+    L[&#8220;Log cost, tokens and outcome&#8221;]
+    A &#8211;> B
+    B &#8211;> C
+    C &#8211;>|Low| D
+    C &#8211;>|Medium| E
+    C &#8211;>|High| F
+    D &#8211;> G
+    G &#8211;>|Pass| K
+    G &#8211;>|Fail| E
+    E &#8211;> H
+    H &#8211;>|Pass| K
+    H &#8211;>|Fail| F
+    F &#8211;> I
+    I &#8211;>|Pass| K
+    I &#8211;>|Fail| J
+    J &#8211;> K
+    K &#8211;> L
+    classDef primary fill:#EAF2FF,stroke:#6495D0,color:#243B60,stroke-width:2px
+    classDef context fill:#EDF7FF,stroke:#79ACD6,color:#244968,stroke-width:2px
+    classDef processing fill:#EEE9FF,stroke:#9985D5,color:#493878,stroke-width:2px
+    classDef decision fill:#FFF5DC,stroke:#D9A441,color:#74500B,stroke-width:2px
+    classDef review fill:#E7F5FC,stroke:#76B5D2,color:#24546C,stroke-width:2px
+    classDef success fill:#E5F5E9,stroke:#75B887,color:#285B35,stroke-width:2px
+    class A primary
+    class B,L context
+    class D,E,F processing
+    class C,G,H,I decision
+    class J review
+    class K success
+</div>
+
+
+<p>The cascade&rsquo;s expected cost is easy to model. The following Python sketch is illustrative, not production code. It assumes a validator that reliably detects failures and that each tier&rsquo;s success rate applies to the tasks it actually receives. In practice, tasks that escape a small model are usually harder than average, so measured success rates on escalated cases will be lower.</p>
+
+<p><div class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Tier</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">input_per_m</span><span class="p">:</span> <span class="nb">float</span>    <span class="c1"># USD per 1M input tokens
+</span>    <span class="n">output_per_m</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># USD per 1M output tokens
+</span>    <span class="n">success_rate</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># measured on your own evaluation set&lt;/p&gt;
+</span>
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">token_cost</span><span class="p">(</span><span class="n">tier</span><span class="p">:</span> <span class="n">Tier</span><span class="p">,</span> <span class="n">tokens_in</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tokens_out</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="nf">return </span><span class="p">(</span><span class="n">tokens_in</span> <span class="o">*</span> <span class="n">tier</span><span class="p">.</span><span class="n">input_per_m</span> <span class="o">+</span> <span class="n">tokens_out</span> <span class="o">*</span> <span class="n">tier</span><span class="p">.</span><span class="n">output_per_m</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1_000_000</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">expected_cost</span><span class="p">(</span><span class="n">tiers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tier</span><span class="p">],</span> <span class="n">tokens_in</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tokens_out</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">human_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">Expected</span> <span class="n">cost</span> <span class="n">per</span> <span class="n">task</span> <span class="n">when</span> <span class="n">tiers</span> <span class="n">are</span> <span class="n">tried</span> <span class="ow">in</span> <span class="n">order</span> <span class="ow">and</span> <span class="n">failures</span> <span class="n">escalate</span><span class="p">.</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span>
+    <span class="n">cost</span><span class="p">,</span> <span class="n">p_reach</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span>
+    <span class="k">for</span> <span class="n">tier</span> <span class="ow">in</span> <span class="n">tiers</span><span class="p">:</span>
+        <span class="n">cost</span> <span class="o">+=</span> <span class="n">p_reach</span> <span class="o">*</span> <span class="nf">token_cost</span><span class="p">(</span><span class="n">tier</span><span class="p">,</span> <span class="n">tokens_in</span><span class="p">,</span> <span class="n">tokens_out</span><span class="p">)</span>
+        <span class="n">p_reach</span> <span class="o">*=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">tier</span><span class="p">.</span><span class="n">success_rate</span>      <span class="c1"># share of tasks that fail this tier
+</span>    <span class="k">return</span> <span class="n">cost</span> <span class="o">+</span> <span class="n">p_reach</span> <span class="o">*</span> <span class="n">human_cost</span>         <span class="c1"># leftover failures go to a human&lt;/p&gt;
+</span>
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">small</span> <span class="o">=</span> <span class="nc">Tier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">small</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.70</span><span class="p">)</span>
+<span class="n">frontier</span> <span class="o">=</span> <span class="nc">Tier</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">frontier</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="mf">10.00</span><span class="p">,</span> <span class="mf">50.00</span><span class="p">,</span> <span class="mf">0.98</span><span class="p">)</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="nf">print</span><span class="p">(</span><span class="nf">expected_cost</span><span class="p">([</span><span class="n">small</span><span class="p">],</span> <span class="mi">5_000</span><span class="p">,</span> <span class="mi">1_000</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">))</span>            <span class="c1"># about 2.40
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">expected_cost</span><span class="p">([</span><span class="n">frontier</span><span class="p">],</span> <span class="mi">5_000</span><span class="p">,</span> <span class="mi">1_000</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">))</span>         <span class="c1"># about 0.26
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">expected_cost</span><span class="p">([</span><span class="n">small</span><span class="p">,</span> <span class="n">frontier</span><span class="p">],</span> <span class="mi">5_000</span><span class="p">,</span> <span class="mi">1_000</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">))</span>  <span class="c1"># about 0.079</span></code></pre></div></p>
+
+<p>With the earlier assumptions, the cascade costs about $0.08 per claim. That beats both single-model options, but only because the validator is trustworthy. A weak validator turns a cost optimization into a quality problem.</p>
+
+<p>Caching deserves the same care. The stable part of the prompt must be identical from one request to the next, so the variable part goes last. This pseudocode shows the idea.</p>
+
+<p><div class="highlight"><pre><code class="language-python" data-lang="python"><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">a</span> <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">Pseudocode:.keep.the.shared.prefix.byte-identical.so.it.can.be.cached</span><span class="sh">"</span><span class="o">&gt;&lt;/</span><span class="n">a</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">Pseudocode</span><span class="p">:</span> <span class="n">keep</span> <span class="n">the</span> <span class="n">shared</span> <span class="n">prefix</span> <span class="n">byte</span><span class="o">-</span><span class="n">identical</span> <span class="n">so</span> <span class="n">it</span> <span class="n">can</span> <span class="n">be</span> <span class="n">cached</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">build_prompt</span><span class="p">(</span><span class="n">claim</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">role</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">system</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">content</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="n">POLICY_MANUAL</span> <span class="o">+</span> <span class="n">FEW_SHOT_EXAMPLES</span><span class="p">},</span>  <span class="c1"># same on every call
+</span>        <span class="p">{</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">role</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">user</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;,</span> <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="n">content</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;:</span> <span class="nf">render</span><span class="p">(</span><span class="n">claim</span><span class="p">)},</span>                         <span class="c1"># changes on every call
+</span>    <span class="p">]</span></code></pre></div></p>
+
+<p>Providers differ in how they enable this. Anthropic documents a <a href="https://platform.claude.com/docs/en/about-claude/pricing"><code>cache_control</code> field</a>, and OpenAI&rsquo;s docs have a guide on keeping the prompt prefix unchanged. Check each vendor&rsquo;s current documentation for the exact behavior.</p>
+
+<a name="Which.tactics.fit.which.situation"></a>
+<h3>Which tactics fit which situation</h3>
+
+<div class="scrollable-table-container">
+  <table class="scrollable-table">
+    <thead>
+      <tr>
+        <th>Tactic</th>
+        <th>What it saves</th>
+        <th>What it risks</th>
+        <th>Best fit</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Smaller tier for routine work</td>
+        <td>Up to two orders of magnitude on token cost</td>
+        <td>Lower accuracy on ambiguous cases</td>
+        <td>Classification, extraction, routing</td>
+      </tr>
+      <tr>
+        <td>Cascade with validators</td>
+        <td>Frontier spend on only the hard cases</td>
+        <td>Weak validators, added latency and complexity</td>
+        <td>Mixed-difficulty, high-volume queues</td>
+      </tr>
+      <tr>
+        <td>Prompt caching</td>
+        <td>Up to 90% on repeated input</td>
+        <td>Savings vanish if prefixes change</td>
+        <td>Long shared instructions or documents</td>
+      </tr>
+      <tr>
+        <td>Batch or Flex processing</td>
+        <td>About 50% on list price</td>
+        <td>Results arrive later</td>
+        <td>Overnight reports, backfills, evaluations</td>
+      </tr>
+      <tr>
+        <td>Shorter prompts and retrieval</td>
+        <td>Input tokens and latency</td>
+        <td>Missed context if retrieval is poor</td>
+        <td>Large knowledge bases</td>
+      </tr>
+      <tr>
+        <td>Self-hosted open-weight models</td>
+        <td>Per-token fees at high, steady volume</td>
+        <td>Capacity planning, security and operations burden</td>
+        <td>Predictable load and strong platform teams</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<p>Token efficiency is becoming an engineering metric in its own right. Useful numbers to track are tokens per task, cache hit rate, escalation rate, retries, and cost per successful outcome. Without them you cannot tell whether a price cut helped.</p>
+
+<a name="Risks.and.limits.of.the.cost.curve"></a>
+<h2>Risks and limits of the cost curve</h2>
+
+<p><strong>Prices are not fixed, and promotions end.</strong> OpenAI&rsquo;s page notes that GPT-5.6 Sol&rsquo;s promotional pricing runs only <a href="https://developers.openai.com/api/docs/pricing">until November 30, 2026</a>. Models are deprecated and replaced, and a forced migration is an engineering cost even when the new model is cheaper.</p>
+
+<p><strong>A cheaper model is a different model.</strong> Swapping tiers changes output style, failure modes and sometimes refusal behavior. Without a regression suite you will learn about the difference from customers. For regulated work such as banking, a cost-driven model change may need its own review.</p>
+
+<p><strong>Hidden multipliers.</strong> Regional processing for newer OpenAI models carries a <a href="https://developers.openai.com/api/docs/pricing">10% uplift</a>, and Anthropic applies a 1.1 times multiplier for US-only inference. Speed premiums double the rate. These adjustments can erase part of a headline discount.</p>
+
+<p><strong>Efficiency gains are not guaranteed to reach you.</strong> The savings from better hardware and serving can be passed on, kept as margin, or spent on larger models. Stanford&rsquo;s cost-per-capability data shows the net effect so far, but it does not guarantee the future.</p>
+
+<p><strong>Budget governance lags adoption.</strong> Because usage tends to grow faster than price falls, teams that budget by token price alone are surprised by total spend.</p>
+
+<a name="Where.the.curve.may.go.next"></a>
+<h2>Where the curve may go next</h2>
+
+<p>It helps to separate what is demonstrated from what is hoped for.</p>
+
+<ul>
+<li><strong>Demonstrated:</strong> Orders-of-magnitude declines in the price of fixed capability since 2022, as measured by Stanford and Epoch AI. Frontier-tier prices that stay roughly flat while older capability collapses.</li>
+<li><strong>Deployed:</strong> Prompt caching, batch discounts, small and mid-tier models for high-volume work, and routing patterns in production systems.</li>
+<li><strong>Research:</strong> Algorithmic efficiency gains, cheaper long-context handling, and better methods for making reasoning use fewer tokens. The Price of Progress study estimates how much of the decline comes from algorithms and how much from hardware and economics.</li>
+<li><strong>Speculative:</strong> That current rates of decline continue for many more years. Epoch&rsquo;s own caution applies. The fastest drops were recent, and rates tend to slow as a capability level ages.</li>
+</ul>
+
+
+<p>For the strongest claims to come true, hardware efficiency must keep improving, small models must keep closing the gap on hard tasks, and competition must stay intense enough that providers pass savings on. Any of those could weaken.</p>
+
+<a name="What.enterprises.should.do.differently"></a>
+<h2>What enterprises should do differently</h2>
+
+<p>The opportunity is bigger than saving money on today&rsquo;s workloads. As the cost of a capability falls, tasks that were uneconomic to automate become viable. Document review, claims triage and internal search might not have cleared a business case three years ago and might clear it now.</p>
+
+<p>A practical approach is to keep a short list of workflows that failed on cost and re-run the numbers every quarter. Build routing and evaluation first, so a cheaper model can be adopted in days rather than months. Negotiate contracts around capability and outcomes instead of fixed per-token rates that will look expensive within a year.</p>
+
+<a name="Key.takeaways"></a>
+<h2>Key takeaways</h2>
+
+<ul>
+<li>Token prices are falling, and the price of a fixed level of capability is falling much faster. Stanford documents a drop of more than 280 times for GPT-3.5-level performance in under two years, and Epoch AI reports declines of 9 to 900 times per year depending on the threshold.</li>
+<li>The frontier is not getting cheap at the same rate. The newest top-tier models still cost around $10 and $50 per million tokens.</li>
+<li>Cost per token, cost per task and cost per unit of intelligence are different measurements. Cost per successful outcome is the one that belongs in a business case.</li>
+<li>A model cascade with validators, prompt caching and batch processing turn falling prices into real savings. Without measurement they can also hide quality problems.</li>
+<li>Lower unit cost does not guarantee lower total spend. Cheaper tokens invite more usage, and total consumption can grow faster than prices fall.</li>
+</ul>
+
+
+<blockquote><p><em>The price of intelligence is dropping quickly, but the price of being wrong is not. The teams that benefit most will be the ones that can measure outcomes, switch models safely, and spend the savings on problems that were previously out of reach.</em></p></blockquote>
+]]></content>
+    </entry>
     
     <entry>
         <title type="html"><![CDATA[The Future of Software Engineering Is Human + AI + Harness]]></title>
